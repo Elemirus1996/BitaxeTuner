@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Profiles\DeviceProfiles.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BitaxeTuner.Tests" />
+  </ItemGroup>
+
+</Project>

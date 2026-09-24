@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Product>BitaxeTuner</Product>
+    <Company>BitaxeTuner</Company>
+    <Copyright>Copyright © 2026 BitaxeTuner contributors</Copyright>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>

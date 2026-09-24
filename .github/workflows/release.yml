@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build, test, publish & create setup
+        shell: pwsh
+        run: ./build.ps1 -Version "${{ github.ref_name }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BitaxeTuner ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/BitaxeTuner-Setup-*.exe
+            artifacts/BitaxeTuner-*-portable-win-x64.zip
