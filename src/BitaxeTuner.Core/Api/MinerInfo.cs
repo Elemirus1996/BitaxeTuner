@@ -62,6 +62,9 @@ public sealed record MinerInfo
     public string? HardwareFault { get; init; }
     public bool? OverclockEnabled { get; init; }
 
+    /// <summary>Dieselbe Antwort als Roh-DTO (Pool, Wallet, Best Diff, WLAN …) für die Überwachungsansicht.</summary>
+    public SystemInfo? Details { get; init; }
+
     /// <summary>Höchste Chiptemperatur (bei Mehrchip-Geräten).</summary>
     public double? MaxChipTempC => ChipTemp2C is { } t2 && (ChipTempC is null || t2 > ChipTempC) ? t2 : ChipTempC;
 

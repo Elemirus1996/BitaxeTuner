@@ -2,35 +2,76 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Media;
 using BitaxeTuner.App.Services;
-using BitaxeTuner.Core.Api;
+using BitaxeTuner.App.Themes;
+using BitaxeTuner.App.Views;
+using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Discovery;
 using BitaxeTuner.Core.Profiles;
-using BitaxeTuner.Core.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 
 namespace BitaxeTuner.App.ViewModels;
 
-public sealed partial class MainViewModel : ObservableObject
+public enum NavKind
 {
-    private readonly AppSettings _settings;
-    private ProfileRegistry _registry;
-    private ResultStore _store;
+    Aggregate,
+    Device,
+    Network,
+    Tax,
+    Compare,
+}
 
-    public MainViewModel(AppSettings settings)
+/// <summary>Eintrag der Geräteliste links (wie in BitaxeMonitor: Gesamt, je Miner, Netzwerk, Steuer).</summary>
+public sealed partial class NavItem : ObservableObject
+{
+    public NavItem(NavKind kind, string title, string sub, DeviceViewModel? device = null)
     {
-        _settings = settings;
-        _registry = ProfileRegistry.Load(settings.EffectiveDataDirectory);
-        _store = new ResultStore(settings.EffectiveDataDirectory);
-        VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0");
+        Kind = kind;
+        _title = title;
+        _sub = sub;
+        Device = device;
     }
 
-    public ObservableCollection<DeviceViewModel> Devices { get; } = [];
+    public NavKind Kind { get; }
+    public DeviceViewModel? Device { get; }
+    public string? Host => Device?.Address;
 
-    [ObservableProperty] private DeviceViewModel? _selectedDevice;
+    [ObservableProperty] private string _title;
+    [ObservableProperty] private string _sub;
+    [ObservableProperty] private Brush _dot = Brushes.Gray;
+}
+
+public sealed partial class MainViewModel : ObservableObject
+{
+    private readonly AppHost _host;
+    private readonly Dictionary<string, DeviceViewModel> _devices = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly AutomationCoordinator _automation;
+
+    public MainViewModel(AppHost host)
+    {
+        _host = host;
+        _automation = new AutomationCoordinator(host);
+        VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0");
+        if (host.StartupNotes.Count > 0) StatusText = host.StartupNotes[^1];
+    }
+
+    public AppHost Host => _host;
+    public ComparisonViewModel Comparison => _comparison ??= new ComparisonViewModel(_host);
+    private ComparisonViewModel? _comparison;
+    public ObservableCollection<NavItem> NavItems { get; } = [];
+    public IEnumerable<DeviceViewModel> Devices => _devices.Values;
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(SelectedDevice))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveDeviceCommand))]
+    private NavItem? _selectedNav;
+
+    public DeviceViewModel? SelectedDevice => SelectedNav?.Device;
+
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(AddDeviceCommand))] private string _newAddress = "";
+    [ObservableProperty] private string _newName = "";
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ScanNetworkCommand))] private bool _isScanning;
     [ObservableProperty] private double _scanProgress;
     [ObservableProperty] private string _statusText = "Bereit";
@@ -38,75 +79,212 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _updateUrl;
 
     public string VersionText { get; }
-    public string DataDirectory => _settings.EffectiveDataDirectory;
-    public bool AnyRunning => Devices.Any(d => d.IsRunning);
+    public string DataDirectory => _host.DataDirectory;
+    public bool AnyRunning => _devices.Values.Any(d => d.IsRunning);
 
-    public async Task InitializeAsync()
+    /// <summary>Geräteliste aus config.json übernehmen (Start, Hinzufügen, Entfernen, Einstellungen gespeichert).</summary>
+    public void Rebuild()
     {
-        foreach (var address in _settings.DeviceAddresses.ToList())
-            await AddAsync(address, save: false);
-        SelectedDevice ??= Devices.FirstOrDefault();
+        _host.Polling.Sync(_host.Config.Devices);
+        _host.SyncLogAlerts();
+        var selectedKind = SelectedNav?.Kind ?? NavKind.Aggregate;
+        var selectedHost = SelectedNav?.Host;
 
-        if (_settings.CheckForUpdates)
+        foreach (var gone in _devices.Keys.Where(h => _host.Polling.State(h) is null).ToList())
         {
-            var update = await UpdateChecker.CheckAsync(VersionText);
-            if (update is not null)
+            _devices[gone].Dispose();
+            _devices.Remove(gone);
+        }
+
+        foreach (var state in _host.Polling.States)
+        {
+            if (_devices.ContainsKey(state.Config.Host)) continue;
+            var connection = _host.Polling.Connection(state.Config.Host)!;
+            var vm = new DeviceViewModel(connection, state.Config, _host);
+            vm.PropertyChanged += (_, e) =>
             {
-                UpdateText = $"Update verfügbar: {update.Value.Version}";
-                UpdateUrl = update.Value.Url;
+                if (e.PropertyName == nameof(DeviceViewModel.IsRunning))
+                {
+                    OnPropertyChanged(nameof(AnyRunning));
+                    StopAllCommand.NotifyCanExecuteChanged();
+                }
+            };
+            vm.Initialize();
+            _devices[state.Config.Host] = vm;
+        }
+
+        NavItems.Clear();
+        NavItems.Add(new NavItem(NavKind.Aggregate, "Gesamt", "alle Miner") { Dot = ThemeManager.Brush("IdleBrush") });
+        foreach (var state in _host.Polling.States)
+        {
+            var vm = _devices[state.Config.Host];
+            NavItems.Add(new NavItem(NavKind.Device, state.Config.Name, state.Config.Host, vm) { Dot = ThemeManager.Brush("IdleBrush") });
+        }
+        NavItems.Add(new NavItem(NavKind.Network, "Netzwerk", "Blöcke & Pool-Ranking") { Dot = ThemeManager.Brush("InfoBrush") });
+        NavItems.Add(new NavItem(NavKind.Compare, "Vergleich", "Miner nebeneinander") { Dot = ThemeManager.Brush("AccentBrush") });
+        NavItems.Add(new NavItem(NavKind.Tax, "Steuer", "Zuflüsse dokumentieren") { Dot = ThemeManager.Brush("WarnBrush") });
+
+        SelectedNav = NavItems.FirstOrDefault(n => n.Kind == selectedKind &&
+                                                   (selectedKind != NavKind.Device || string.Equals(n.Host, selectedHost, StringComparison.OrdinalIgnoreCase)))
+                      ?? NavItems[0];
+        OnPropertyChanged(nameof(Devices));
+    }
+
+    /// <summary>Nach jeder zentralen Abfragerunde: Live-Werte der Tuning-Ansichten aktualisieren.</summary>
+    public void OnPolled()
+    {
+        foreach (var state in _host.Polling.States)
+            if (_devices.TryGetValue(state.Config.Host, out var vm)) vm.OnPolled(state);
+        _automation.Tick(_devices.Values);
+    }
+
+    /// <summary>Kurztexte aus der Überwachung in die Geräteliste übernehmen.</summary>
+    public void ApplySummary(MonitorSummary summary)
+    {
+        foreach (var item in NavItems)
+        {
+            switch (item.Kind)
+            {
+                case NavKind.Aggregate:
+                    item.Sub = summary.AggregateSub;
+                    item.Dot = summary.AggregateDot;
+                    break;
+                case NavKind.Device when item.Host is { } host && summary.Devices.TryGetValue(host, out var d):
+                    item.Title = item.Device!.Title;
+                    item.Sub = d.Sub;
+                    item.Dot = d.Dot;
+                    break;
             }
+        }
+    }
+
+    // ---------- Updates (GitHub-Releases) ----------
+
+    private System.Windows.Threading.DispatcherTimer? _updateTimer;
+    private Core.Update.UpdateInfo? _pendingUpdate;
+
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))] private bool _isUpdating;
+
+    public static Version CurrentVersion =>
+        Assembly.GetEntryAssembly()?.GetName().Version is { } v ? new Version(v.Major, v.Minor, Math.Max(0, v.Build)) : new Version(0, 0, 0);
+
+    /// <summary>Beim Start und danach alle 6 h (wenn in den Einstellungen erlaubt).</summary>
+    public async Task CheckForUpdateAsync()
+    {
+        if (_updateTimer is null)
+        {
+            _updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromHours(6) };
+            _updateTimer.Tick += async (_, _) => await CheckForUpdateAsync();
+            _updateTimer.Start();
+        }
+        if (!_host.Config.CheckForUpdates) return;
+        await RunUpdateCheckAsync(manual: false);
+    }
+
+    [RelayCommand]
+    private Task CheckUpdatesNow() => RunUpdateCheckAsync(manual: true);
+
+    private async Task RunUpdateCheckAsync(bool manual)
+    {
+        var result = await _host.Updates.CheckAsync(CurrentVersion);
+        if (result.Status == Core.Update.UpdateCheckStatus.UpdateAvailable && result.Update is { } u)
+        {
+            _pendingUpdate = u;
+            UpdateText = $"Update {u.Tag} installieren";
+            UpdateUrl = u.ReleaseUrl;
+            InstallUpdateCommand.NotifyCanExecuteChanged();
+            if (_host.Config.NotifiedAppVersion != u.Tag && _host.Notify.Enabled && _host.Config.Notifications.OnMaintenance)
+            {
+                _host.Config.NotifiedAppVersion = u.Tag;
+                _host.Config.Save();
+                _host.SendAlert(new Core.Monitoring.Alert($"app-update:{u.Tag}", $"BitaxeTuner {u.Tag} verfügbar",
+                    $"Installiert ist {VersionText}. Installation per Klick in der App.", Core.Monitoring.NotifyPriority.Low, TimeSpan.FromDays(30)));
+            }
+        }
+        // Automatische Prüfung bleibt still (z. B. solange das Repository privat ist); nur bei "Jetzt prüfen" melden
+        if (manual || result.Status == Core.Update.UpdateCheckStatus.UpdateAvailable)
+            StatusText = result.Message;
+    }
+
+    private bool CanInstallUpdate() => _pendingUpdate is not null && !IsUpdating;
+
+    /// <summary>
+    /// Setup vom Release laden, Prüfsumme kontrollieren, laufende Benchmarks sauber beenden (Einstellungen werden
+    /// wiederhergestellt), still installieren. Das Setup startet die App danach neu.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
+    private async Task InstallUpdate()
+    {
+        if (_pendingUpdate is not { } u) return;
+        var notes = u.Notes.Length > 900 ? u.Notes[..900] + " …" : u.Notes;
+        var text = $"BitaxeTuner {u.Tag} installieren? (installiert: {VersionText})\n\n" +
+                   (notes.Length > 0 ? notes + "\n\n" : "") +
+                   $"Setup: {u.SetupName} ({u.SetupSize / 1024.0 / 1024.0:0.0} MB), Prüfsumme wird kontrolliert.\n" +
+                   (AnyRunning ? "Laufende Benchmarks werden gestoppt und die ursprünglichen Einstellungen wiederhergestellt.\n" : "") +
+                   "Die App wird beendet, aktualisiert und danach neu gestartet. Deine Daten bleiben unverändert.";
+        if (MessageBox.Show(text, "Update installieren", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+            return;
+
+        IsUpdating = true;
+        try
+        {
+            var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BitaxeTuner-Update");
+            var file = await _host.Updates.DownloadAsync(u, dir,
+                new Progress<double>(p => StatusText = $"Lade {u.SetupName} … {p:P0}"));
+            StatusText = "Prüfsumme in Ordnung – beende laufende Vorgänge …";
+            await StopAllAndWaitAsync();
+            _host.Config.Save();
+
+            Process.Start(new ProcessStartInfo(file, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            IsUpdating = false;
+            StatusText = "Update fehlgeschlagen: " + ex.Message;
+            MessageBox.Show(ex.Message, "Update", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
     private bool CanAdd() => !string.IsNullOrWhiteSpace(NewAddress);
 
     [RelayCommand(CanExecute = nameof(CanAdd))]
-    private async Task AddDevice()
+    private void AddDevice()
     {
-        var address = NewAddress.Trim();
-        NewAddress = "";
-        await AddAsync(address, save: true);
-    }
-
-    private async Task<DeviceViewModel?> AddAsync(string address, bool save)
-    {
-        var client = MinerClientFactory.Create(address, _registry);
-        if (Devices.Any(d => string.Equals(d.Address, client.Address, StringComparison.OrdinalIgnoreCase)))
+        var host = NewAddress.Trim();
+        if (_host.Config.Devices.Any(d => string.Equals(d.Host.Trim(), host, StringComparison.OrdinalIgnoreCase)))
         {
-            SelectedDevice = Devices.First(d => string.Equals(d.Address, client.Address, StringComparison.OrdinalIgnoreCase));
-            return SelectedDevice;
+            MessageBox.Show("Dieser Host ist bereits eingetragen.", "Gerät hinzufügen");
+            return;
         }
-
-        var vm = new DeviceViewModel(client, _registry, _store);
-        vm.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(DeviceViewModel.IsRunning))
-            {
-                OnPropertyChanged(nameof(AnyRunning));
-                StopAllCommand.NotifyCanExecuteChanged();
-            }
-        };
-        Devices.Add(vm);
-        SelectedDevice = vm;
-        if (save) SaveDeviceList();
-        await vm.InitializeAsync();
-        return vm;
+        var name = NewName.Trim();
+        _host.Config.Devices.Add(new DeviceConfig { Name = name.Length > 0 ? name : host, Host = host });
+        _host.Config.Save();
+        NewAddress = "";
+        NewName = "";
+        Rebuild();
+        SelectedNav = NavItems.FirstOrDefault(n => string.Equals(n.Host, host, StringComparison.OrdinalIgnoreCase)) ?? SelectedNav;
     }
 
-    [RelayCommand]
-    private void RemoveDevice(DeviceViewModel? device)
+    private bool CanRemove() => SelectedNav?.Kind == NavKind.Device;
+
+    [RelayCommand(CanExecute = nameof(CanRemove))]
+    private void RemoveDevice()
     {
-        device ??= SelectedDevice;
-        if (device is null) return;
+        if (SelectedDevice is not { } device) return;
         if (device.IsRunning)
         {
             MessageBox.Show("Bitte zuerst den laufenden Benchmark stoppen.", "Gerät entfernen", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        Devices.Remove(device);
-        device.Dispose();
-        SelectedDevice = Devices.FirstOrDefault();
-        SaveDeviceList();
+        if (MessageBox.Show($"\"{device.Title}\" entfernen?\n\nVerlauf in history.db und Steuerdaten bleiben erhalten.", "Gerät entfernen",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        _host.Config.Devices.RemoveAll(d => string.Equals(d.Host.Trim(), device.Address, StringComparison.OrdinalIgnoreCase));
+        _host.Config.Save();
+        SelectedNav = NavItems[0];
+        Rebuild();
     }
 
     private bool CanScan() => !IsScanning;
@@ -123,11 +301,15 @@ public sealed partial class MainViewModel : ObservableObject
             var added = 0;
             foreach (var miner in found)
             {
-                if (Devices.Any(d => d.Address == miner.Address)) continue;
-                await AddAsync(miner.Address, save: false);
+                if (_host.Config.Devices.Any(d => string.Equals(d.Host.Trim(), miner.Address, StringComparison.OrdinalIgnoreCase))) continue;
+                _host.Config.Devices.Add(new DeviceConfig { Name = miner.Info.Hostname ?? miner.Address, Host = miner.Address });
                 added++;
             }
-            SaveDeviceList();
+            if (added > 0)
+            {
+                _host.Config.Save();
+                Rebuild();
+            }
             StatusText = found.Count == 0
                 ? "Keine Miner gefunden. Tipp: IP-Adresse manuell eingeben."
                 : $"{found.Count} Miner gefunden, {added} neu hinzugefügt.";
@@ -146,38 +328,11 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task StopAll()
     {
         StatusText = "Stoppe alle Benchmarks und stelle Einstellungen wieder her …";
-        await Task.WhenAll(Devices.Select(d => d.StopAndWaitAsync()));
+        await Task.WhenAll(_devices.Values.Select(d => d.StopAndWaitAsync()));
         StatusText = "Alle Benchmarks gestoppt.";
     }
 
-    [RelayCommand]
-    private void ChooseDataDirectory()
-    {
-        if (AnyRunning)
-        {
-            MessageBox.Show("Bitte zuerst alle Benchmarks stoppen.", "Datenordner", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        var dlg = new OpenFolderDialog { Title = "Datenordner für Ergebnisse und Profile wählen", InitialDirectory = DataDirectory };
-        if (dlg.ShowDialog() != true) return;
-
-        _settings.DataDirectory = dlg.FolderName;
-        _settings.Save();
-        _registry = ProfileRegistry.Load(_settings.EffectiveDataDirectory);
-        _store = new ResultStore(_settings.EffectiveDataDirectory);
-        OnPropertyChanged(nameof(DataDirectory));
-        StatusText = $"Datenordner: {DataDirectory} – Geräte werden neu geladen.";
-        _ = ReloadDevicesAsync();
-    }
-
-    private async Task ReloadDevicesAsync()
-    {
-        var addresses = Devices.Select(d => d.Address).ToList();
-        foreach (var d in Devices) d.Dispose();
-        Devices.Clear();
-        foreach (var a in addresses) await AddAsync(a, save: false);
-        SelectedDevice = Devices.FirstOrDefault();
-    }
+    public Task StopAllAndWaitAsync() => Task.WhenAll(_devices.Values.Select(d => d.StopAndWaitAsync()));
 
     [RelayCommand]
     private void OpenDataDirectory()
@@ -189,9 +344,9 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void EditProfiles()
     {
-        var path = ProfileRegistry.WriteUserTemplate(DataDirectory);
+        var path = ProfileRegistry.WriteUserTemplate(DataPaths.TuningDirectory);
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        StatusText = "Profile bearbeiten und danach den Datenordner neu wählen oder das Programm neu starten.";
+        StatusText = "Profile bearbeiten, speichern und das Programm neu starten.";
     }
 
     [RelayCommand]
@@ -205,9 +360,5 @@ public sealed partial class MainViewModel : ObservableObject
     private void OpenProjectPage() =>
         Process.Start(new ProcessStartInfo(UpdateChecker.ProjectUrl) { UseShellExecute = true });
 
-    private void SaveDeviceList()
-    {
-        _settings.DeviceAddresses = Devices.Select(d => d.Address).ToList();
-        _settings.Save();
-    }
+    partial void OnSelectedNavChanged(NavItem? value) => RemoveDeviceCommand.NotifyCanExecuteChanged();
 }

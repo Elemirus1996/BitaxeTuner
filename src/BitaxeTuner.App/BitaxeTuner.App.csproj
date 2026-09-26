@@ -4,11 +4,24 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- Nur für das Tray-Icon (NotifyIcon), übernommen aus BitaxeMonitor -->
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>BitaxeTuner</AssemblyName>
     <RootNamespace>BitaxeTuner.App</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- SQLite bringt eine native DLL mit; für PublishSingleFile mit einpacken -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- WFAC010: DPI-Einstellung gehört bei WPF ins Manifest (WinForms wird nur für das Tray-Icon genutzt) -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
   </PropertyGroup>
+
+  <!-- WinForms-Namespaces nicht global importieren, sonst kollidieren
+       Application, MessageBox, Button, Color, Brush usw. mit WPF. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BitaxeTuner.Core\BitaxeTuner.Core.csproj" />
@@ -16,6 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.*" />
   </ItemGroup>
 
   <ItemGroup>

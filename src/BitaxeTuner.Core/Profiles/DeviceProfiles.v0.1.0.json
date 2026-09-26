@@ -1,0 +1,115 @@
+[
+  {
+    "Id": "bitaxe-max", "Name": "Bitaxe Max (BM1397)", "Family": "Bitaxe",
+    "AsicModel": "BM1397", "AsicCount": 1, "SmallCoresPerAsic": 672,
+    "DefaultFrequencyMhz": 425, "DefaultVoltageMv": 1400,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 600, "MinVoltageMv": 1300, "MaxVoltageMv": 1500,
+    "MaxChipTempC": 65, "MaxVrTempC": 85, "MaxPowerW": 20, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "Max" ], "BoardVersions": [ "2.2", "0." ]
+  },
+  {
+    "Id": "bitaxe-ultra", "Name": "Bitaxe Ultra (BM1366)", "Family": "Bitaxe",
+    "AsicModel": "BM1366", "AsicCount": 1, "SmallCoresPerAsic": 894,
+    "DefaultFrequencyMhz": 485, "DefaultVoltageMv": 1200,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 650, "MinVoltageMv": 1100, "MaxVoltageMv": 1350,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 25, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "Ultra" ], "BoardVersions": [ "20" ]
+  },
+  {
+    "Id": "bitaxe-supra", "Name": "Bitaxe Supra (BM1368)", "Family": "Bitaxe",
+    "AsicModel": "BM1368", "AsicCount": 1, "SmallCoresPerAsic": 1276,
+    "DefaultFrequencyMhz": 490, "DefaultVoltageMv": 1166,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 700, "MinVoltageMv": 1100, "MaxVoltageMv": 1350,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 30, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "Supra" ], "BoardVersions": [ "40" ]
+  },
+  {
+    "Id": "bitaxe-gamma", "Name": "Bitaxe Gamma (BM1370)", "Family": "Bitaxe",
+    "AsicModel": "BM1370", "AsicCount": 1, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 1000, "MinVoltageMv": 1000, "MaxVoltageMv": 1350,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 30, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "Gamma" ], "BoardVersions": [ "60" ]
+  },
+  {
+    "Id": "bitaxe-duo", "Name": "Bitaxe Gamma Duo (2× BM1370)", "Family": "Bitaxe",
+    "AsicModel": "BM1370", "AsicCount": 2, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 900, "MinVoltageMv": 1000, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 50,
+    "DeviceModelMatches": [ "Duo" ], "BoardVersions": [ "65" ],
+    "Notes": "Vorläufige Grenzen – bitte Netzteil-Leistung prüfen und ggf. anpassen."
+  },
+  {
+    "Id": "bitaxe-gt", "Name": "Bitaxe GT / Gamma Turbo (2× BM1370)", "Family": "Bitaxe",
+    "AsicModel": "BM1370", "AsicCount": 2, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 900, "MinVoltageMv": 1000, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 60, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "GammaTurbo", "Gamma Turbo", "GT" ], "BoardVersions": [ "80" ]
+  },
+  {
+    "Id": "bitaxe-hex", "Name": "Bitaxe Hex (6× BM1366)", "Family": "Bitaxe",
+    "AsicModel": "BM1366", "AsicCount": 6, "SmallCoresPerAsic": 894,
+    "DefaultFrequencyMhz": 485, "DefaultVoltageMv": 1200,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 600, "MinVoltageMv": 1100, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 90, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "Hex" ], "BoardVersions": [ "30" ]
+  },
+  {
+    "Id": "bitaxe-suprahex", "Name": "Bitaxe SupraHex (6× BM1368)", "Family": "Bitaxe",
+    "AsicModel": "BM1368", "AsicCount": 6, "SmallCoresPerAsic": 1276,
+    "DefaultFrequencyMhz": 490, "DefaultVoltageMv": 1166,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 650, "MinVoltageMv": 1100, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 110, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "SupraHex" ], "BoardVersions": [ "70" ]
+  },
+  {
+    "Id": "nerdaxe", "Name": "NerdAxe (BM1366)", "Family": "NerdAxe",
+    "AsicModel": "BM1366", "AsicCount": 1, "SmallCoresPerAsic": 894,
+    "DefaultFrequencyMhz": 485, "DefaultVoltageMv": 1200,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 650, "MinVoltageMv": 1100, "MaxVoltageMv": 1350,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 25, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "NerdAxe" ]
+  },
+  {
+    "Id": "nerdaxe-gamma", "Name": "NerdAxe Gamma (BM1370)", "Family": "NerdAxe",
+    "AsicModel": "BM1370", "AsicCount": 1, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 1000, "MinVoltageMv": 1000, "MaxVoltageMv": 1350,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 30, "MinInputVoltageMv": 4800, "MaxInputVoltageMv": 5500,
+    "DeviceModelMatches": [ "NerdAxeGamma", "NerdAxe Gamma", "NerdAxe-Gamma" ]
+  },
+  {
+    "Id": "nerdqaxe-plus", "Name": "NerdQAxe+ (4× BM1368)", "Family": "NerdAxe",
+    "AsicModel": "BM1368", "AsicCount": 4, "SmallCoresPerAsic": 1276,
+    "DefaultFrequencyMhz": 490, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 650, "MinVoltageMv": 1100, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 80, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "NerdQAxe+" ]
+  },
+  {
+    "Id": "nerdqaxe-plusplus", "Name": "NerdQAxe++ (4× BM1370)", "Family": "NerdAxe",
+    "AsicModel": "BM1370", "AsicCount": 4, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 600, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 900, "MinVoltageMv": 1000, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 100, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "NerdQAxe++" ]
+  },
+  {
+    "Id": "nerdoctaxe", "Name": "NerdOctaxe (8× BM1370)", "Family": "NerdAxe",
+    "AsicModel": "BM1370", "AsicCount": 8, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 600, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 850, "MinVoltageMv": 1000, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 200, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "Octaxe", "NerdOCTAXE" ]
+  },
+  {
+    "Id": "generic", "Name": "Generisch / unbekannt", "Family": "Andere",
+    "AsicModel": "", "AsicCount": 1, "SmallCoresPerAsic": 0,
+    "DefaultFrequencyMhz": 500, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 800, "MinVoltageMv": 1000, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 65, "MaxVrTempC": 85, "MaxPowerW": 25,
+    "Notes": "Konservative Grenzen. Bitte prüfen, bevor ein Benchmark gestartet wird."
+  }
+]

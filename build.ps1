@@ -71,3 +71,10 @@ if (-not $iscc) {
 & $iscc "/DMyAppVersion=$Version" (Join-Path $root 'installer\BitaxeTuner.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
 Write-Host "Setup: $(Join-Path $artifacts "BitaxeTuner-Setup-$Version.exe")" -ForegroundColor Green
+
+# SHA-256 checksums for the in-app updater (in addition to the GitHub asset digest)
+$sums = Get-ChildItem $artifacts -File | Where-Object { $_.Name -like "BitaxeTuner-*$Version*" } | ForEach-Object {
+    "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"
+}
+[IO.File]::WriteAllLines((Join-Path $artifacts 'SHA256SUMS.txt'), $sums)
+Write-Host "Checksums: $(Join-Path $artifacts 'SHA256SUMS.txt')" -ForegroundColor Green

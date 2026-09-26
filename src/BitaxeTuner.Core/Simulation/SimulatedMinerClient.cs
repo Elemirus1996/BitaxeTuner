@@ -119,7 +119,7 @@ public sealed class SimulatedMinerClient : IMinerClient
         DefaultVoltageMv = _profile.DefaultVoltageMv,
     });
 
-    public Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, CancellationToken ct = default)
+    public Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, TuningSource source = TuningSource.Manual, CancellationToken ct = default)
     {
         if (Offline) throw new MinerApiException($"{Address}: nicht erreichbar (simuliert)");
         lock (_lock)
@@ -149,5 +149,34 @@ public sealed class SimulatedMinerClient : IMinerClient
             _bootTime = DateTime.Now;
         }
         return Task.CompletedTask;
+    }
+
+    public async Task<string> GetRawInfoAsync(CancellationToken ct = default) =>
+        System.Text.Json.JsonSerializer.Serialize(SystemInfo.FromMinerInfo(await GetInfoAsync(ct)));
+
+    public Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            if (values.TryGetValue("frequency", out var f)) _frequency = Convert.ToInt32(f);
+            if (values.TryGetValue("coreVoltage", out var v)) _voltage = Convert.ToInt32(v);
+            if (values.TryGetValue("autofanspeed", out var a)) _autoFan = Convert.ToInt32(a);
+            if (values.TryGetValue("manualFanSpeed", out var m)) _fanPercent = Convert.ToInt32(m);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Kleiner Log-Puffer im AxeOS-Format (mit ANSI-Farbcodes) für den Demo-Modus.</summary>
+    public Task<string> GetLogBufferAsync(CancellationToken ct = default)
+    {
+        var up = (long)(DateTime.Now - _bootTime).TotalMilliseconds;
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < 20; i++)
+        {
+            var ms = Math.Max(0, up - (20 - i) * 1000);
+            sb.Append($"\u001b[0;32mI ({ms}) fan_controller: Temp: {55 + i % 3}.0°C, SetPoint: 60.0°C, Output: 40.0%\u001b[0m\n");
+        }
+        sb.Append($"\u001b[0;33mW ({up}) power_management: Simulation – kein echter Miner\u001b[0m\n");
+        return Task.FromResult(sb.ToString());
     }
 }

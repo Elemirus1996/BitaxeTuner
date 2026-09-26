@@ -1,0 +1,33 @@
+<!-- Helles Design (Farben aus BitaxeTuner). Gleiche Schlüssel wie Dark.xaml. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBrush" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="HeaderBrush" Color="#111827" />
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="FieldBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="HoverBrush" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="SelectedBrush" Color="#FEF3E2" />
+    <SolidColorBrush x:Key="ButtonBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="AltRowBrush" Color="#F9FAFB" />
+    <SolidColorBrush x:Key="TextBrush" Color="#111827" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7280" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#475569" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#F7931A" />
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#C96F00" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#FEF3E2" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="OkBrush" Color="#16A34A" />
+    <SolidColorBrush x:Key="WarnBrush" Color="#B7791F" />
+    <SolidColorBrush x:Key="InfoBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="IdleBrush" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="SaveBrush" Color="#16A34A" />
+    <SolidColorBrush x:Key="TempBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="MarkerBrush" Color="#C96F00" />
+
+    <!-- Diagrammfarben -->
+    <Color x:Key="ChartHashColor">#0F9F6E</Color>
+    <Color x:Key="ChartTempColor">#C98A00</Color>
+    <Color x:Key="ChartPowerColor">#2563EB</Color>
+    <Color x:Key="ChartEffColor">#8B3FD1</Color>
+</ResourceDictionary>

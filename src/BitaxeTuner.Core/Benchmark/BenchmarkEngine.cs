@@ -131,7 +131,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
 
         try
         {
-            await client.ApplySettingsAsync(freq, mv, ct).ConfigureAwait(false);
+            await client.ApplySettingsAsync(freq, mv, TuningSource.Benchmark, ct).ConfigureAwait(false);
             if (s.RestartAfterApply)
             {
                 Report(BenchmarkPhase.Restarting, session, freq, mv, 0);
@@ -283,7 +283,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         {
             try
             {
-                await client.ApplySettingsAsync(freq, mv, ct).ConfigureAwait(false);
+                await client.ApplySettingsAsync(freq, mv, TuningSource.Restore, ct).ConfigureAwait(false);
                 if (s.FanMode == FanModeDuringBenchmark.Full && original.AutoFanMode is { } fanMode)
                     await client.SetFanAsync(fanMode, original.FanPercent ?? 100, ct).ConfigureAwait(false);
                 if (s.RestartAfterApply)

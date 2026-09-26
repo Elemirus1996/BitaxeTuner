@@ -10,11 +10,22 @@ namespace BitaxeTuner.Core.Api;
 /// </summary>
 public sealed class AxeOsClient : IMinerClient, IDisposable
 {
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(8);
+    // Wie bisher im BitaxeMonitor: 5 s je Abfrage, damit ein hängender Miner das Polling nicht aufhält.
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>Optionen für das Roh-DTO <see cref="SystemInfo"/> (wie im BitaxeMonitor).</summary>
+    private static readonly JsonSerializerOptions SystemInfoOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+    };
 
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;
     private HashSet<string> _lastKeys = new(StringComparer.Ordinal);
+    private bool? _lastOverclockEnabled;
+    private AsicInfo? _asic;
+    private bool _asicLoaded;
 
     public AxeOsClient(string address, HttpClient? http = null)
     {
@@ -32,6 +43,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         using var doc = await GetJsonAsync("api/system/info", ct).ConfigureAwait(false);
         var info = Parse(doc.RootElement);
         _lastKeys = doc.RootElement.EnumerateObject().Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        _lastOverclockEnabled = info.OverclockEnabled;
         return info;
     }
 
@@ -41,7 +53,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         {
             using var doc = await GetJsonAsync("api/system/asic", ct).ConfigureAwait(false);
             var r = doc.RootElement;
-            return new AsicInfo
+            _asic = new AsicInfo
             {
                 AsicModel = Str(r, "ASICModel"),
                 DeviceModel = Str(r, "deviceModel"),
@@ -51,25 +63,67 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
                 FrequencyOptions = IntArray(r, "frequencyOptions"),
                 VoltageOptions = IntArray(r, "voltageOptions"),
             };
+            _asicLoaded = true;
+            return _asic;
         }
         catch (MinerApiException)
         {
             // Ältere AxeOS-Versionen und die NerdQAxe-Firmware kennen diesen Endpunkt nicht.
+            _asicLoaded = true;
             return null;
         }
     }
 
-    public Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, CancellationToken ct = default)
+    public async Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, TuningSource source = TuningSource.Manual, CancellationToken ct = default)
     {
         var body = new Dictionary<string, object>
         {
             ["frequency"] = frequencyMhz,
             ["coreVoltage"] = coreVoltageMv,
         };
-        // Neuere AxeOS-Versionen erlauben Werte außerhalb der Auswahlliste nur mit aktiviertem Overclocking.
-        if (_lastKeys.Contains("overclockEnabled"))
+        // AxeOS (geprüft gegen v2.15.3): Werte außerhalb von frequencyOptions/voltageOptions sind für
+        // "custom voltage/frequency" gedacht. overclockEnabled wird nur dann gesetzt – und nie ungefragt,
+        // der Bestätigungsdialog fragt vorher WillEnableOverclockAsync ab.
+        if (await WillEnableOverclockAsync(frequencyMhz, coreVoltageMv, ct).ConfigureAwait(false))
             body["overclockEnabled"] = 1;
-        return PatchAsync(body, ct);
+        await PatchAsync(body, ct).ConfigureAwait(false);
+    }
+
+    public async Task<string> GetRawInfoAsync(CancellationToken ct = default)
+    {
+        using var doc = await GetJsonAsync("api/system/info", ct).ConfigureAwait(false);
+        return doc.RootElement.GetRawText();
+    }
+
+    public Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default) =>
+        PatchAsync(values.ToDictionary(kv => kv.Key, kv => kv.Value), ct);
+
+    public async Task<string> GetLogBufferAsync(CancellationToken ct = default)
+    {
+        // Eigener Client mit längerem Timeout: der Puffer ist mehrere 100 KB groß (bei .182 ca. 550 KB)
+        using var http = new HttpClient { BaseAddress = _http.BaseAddress, Timeout = TimeSpan.FromSeconds(60) };
+        try
+        {
+            using var resp = await http.GetAsync("api/system/logs", ct).ConfigureAwait(false);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                throw new MinerApiException($"{Address}: Diese Firmware bietet keinen Log-Puffer (/api/system/logs)");
+            if (!resp.IsSuccessStatusCode)
+                throw new MinerApiException($"{Address}: GET /api/system/logs lieferte {(int)resp.StatusCode}");
+            var bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            return Encoding.UTF8.GetString(bytes);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new MinerApiException($"{Address}: Log-Puffer nicht abrufbar – {ex.Message}", ex);
+        }
+    }
+
+    public async Task<bool> WillEnableOverclockAsync(int frequencyMhz, int coreVoltageMv, CancellationToken ct = default)
+    {
+        if (!_lastKeys.Contains("overclockEnabled") || _lastOverclockEnabled == true) return false;
+        if (!_asicLoaded) await GetAsicInfoAsync(ct).ConfigureAwait(false);
+        if (_asic is null || _asic.FrequencyOptions.Count == 0 || _asic.VoltageOptions.Count == 0) return false;
+        return !_asic.FrequencyOptions.Contains(frequencyMhz) || !_asic.VoltageOptions.Contains(coreVoltageMv);
     }
 
     public Task SetFanAsync(int autoFanMode, int manualPercent, CancellationToken ct = default)
@@ -90,11 +144,24 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
     {
         try
         {
+            // AxeOS v2.15.3 antwortet "System will restart shortly." und startet nach 1 s neu.
             using var resp = await _http.PostAsync("api/system/restart", null, ct).ConfigureAwait(false);
-            // Manche Firmware-Versionen trennen die Verbindung sofort – das ist kein Fehler.
+            if (!resp.IsSuccessStatusCode)
+                throw new MinerApiException($"{Address}: Neustart abgelehnt ({(int)resp.StatusCode})");
         }
-        catch (HttpRequestException) { }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested) { }
+        catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException)
+        {
+            // Keine Verbindung aufgebaut → der Neustart wurde nicht ausgelöst.
+            throw new MinerApiException($"{Address}: Neustart nicht möglich – keine Verbindung", ex);
+        }
+        catch (HttpRequestException)
+        {
+            // Verbindung während der Antwort abgebrochen: manche Firmware startet sofort neu – kein Fehler.
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new MinerApiException($"{Address}: Neustart – Zeitüberschreitung", ex);
+        }
     }
 
     private async Task PatchAsync(Dictionary<string, object> body, CancellationToken ct)
@@ -187,7 +254,15 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             PowerFault = Str(r, "power_fault"),
             HardwareFault = Str(r, "hardware_fault"),
             OverclockEnabled = Int(r, "overclockEnabled") is { } oc ? oc != 0 : null,
+            Details = ParseDetails(r),
         };
+    }
+
+    /// <summary>Dieselbe Antwort als Roh-DTO für die Überwachungsansicht (aus BitaxeMonitor).</summary>
+    private static SystemInfo? ParseDetails(JsonElement r)
+    {
+        try { return r.Deserialize<SystemInfo>(SystemInfoOptions); }
+        catch (JsonException) { return null; }
     }
 
     public static FirmwareKind DetectFirmware(JsonElement r)

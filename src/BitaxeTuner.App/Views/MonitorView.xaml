@@ -1,0 +1,377 @@
+<UserControl x:Class="BitaxeTuner.App.Views.MonitorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tax="clr-namespace:BitaxeTuner.App.Tax.Views"
+             TextOptions.TextFormattingMode="Display" FontFamily="Segoe UI">
+
+    <!-- Überwachungsansicht aus BitaxeMonitor (vormals MainWindow). Farben kommen aus dem aktiven Design. -->
+    <UserControl.Resources>
+
+        <Style x:Key="TileLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="TileValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="TileSub" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="Tile" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer x:Name="Scroller" Margin="10" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid MinHeight="1000" Height="{Binding ViewportHeight, ElementName=Scroller}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Kopfzeile -->
+        <Border Grid.Row="0" Style="{StaticResource Tile}">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="ClearButton" Content="Verlauf löschen" Click="ClearButton_Click"/>
+                <Button x:Name="WalletButton" Content="Wallets prüfen" Margin="6,0,0,0" Click="WalletButton_Click"/>
+
+                <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="{DynamicResource IdleBrush}" Margin="20,0,6,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="StatusText" Text="startet…" Foreground="{DynamicResource MutedTextBrush}"
+                           FontSize="12" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <!-- Inhalt -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" x:Name="ViewTitle" Text="Gesamt" Foreground="{DynamicResource TextBrush}"
+                           FontSize="17" FontWeight="SemiBold" Margin="8,2,0,4"/>
+
+                <Grid Grid.Row="1">
+
+                    <!-- Miner-Ansicht -->
+                    <Grid x:Name="MinerPanel">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <UniformGrid Grid.Row="0" Columns="7" Rows="2">
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T1Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T1Value" Text="–" Style="{StaticResource TileValue}" Foreground="{DynamicResource OkBrush}"/>
+                                    <TextBlock x:Name="T1Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T2Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T2Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T2Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T3Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T3Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T3Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T4Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T4Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T4Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T5Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T5Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T5Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T6Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T6Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T6Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T7Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T7Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T7Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T8Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T8Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T8Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T9Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T9Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T9Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T10Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T10Value" Text="–" Style="{StaticResource TileValue}" Foreground="{DynamicResource WarnBrush}"/>
+                                    <TextBlock x:Name="T10Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T11Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T11Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T11Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T12Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T12Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T12Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T13Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T13Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T13Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="T14Label" Text="–" Style="{StaticResource TileLabel}"/>
+                                    <TextBlock x:Name="T14Value" Text="–" Style="{StaticResource TileValue}"/>
+                                    <TextBlock x:Name="T14Sub" Text="" Style="{StaticResource TileSub}"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Wallet -->
+                        <Border Grid.Row="1" Style="{StaticResource Tile}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Left" Width="270" Margin="0,0,12,0">
+                                    <TextBlock x:Name="WalletBoxLabel" Text="WALLET-ADRESSE (leer = aus Stratum-User)"
+                                               Style="{StaticResource TileLabel}"/>
+                                    <TextBox x:Name="WalletBox" FontSize="11" LostFocus="WalletBox_LostFocus"/>
+                                    <TextBlock x:Name="WalletStatus" Text="–" Style="{StaticResource TileSub}" Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <UniformGrid Columns="4">
+                                    <StackPanel Margin="8,0">
+                                        <TextBlock Text="GUTHABEN" Style="{StaticResource TileLabel}"/>
+                                        <TextBlock x:Name="BalanceValue" Text="–" Style="{StaticResource TileValue}" Foreground="{DynamicResource WarnBrush}"/>
+                                        <TextBlock x:Name="BalanceSub" Text="" Style="{StaticResource TileSub}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="8,0">
+                                        <TextBlock Text="LETZTE ZAHLUNG" Style="{StaticResource TileLabel}"/>
+                                        <TextBlock x:Name="PayoutValue" Text="–" Style="{StaticResource TileValue}"/>
+                                        <TextBlock x:Name="PayoutSub" Text="" Style="{StaticResource TileSub}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="8,0">
+                                        <TextBlock Text="TRANSAKTIONEN" Style="{StaticResource TileLabel}"/>
+                                        <TextBlock x:Name="TxCountValue" Text="–" Style="{StaticResource TileValue}"/>
+                                        <TextBlock x:Name="TxCountSub" Text="" Style="{StaticResource TileSub}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="8,0">
+                                        <TextBlock Text="BLÖCKE GEFUNDEN" Style="{StaticResource TileLabel}"/>
+                                        <TextBlock x:Name="BlockFoundValue" Text="–" Style="{StaticResource TileValue}"/>
+                                        <TextBlock x:Name="BlockFoundSub" Text="laut Miner" Style="{StaticResource TileSub}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Charts -->
+                        <Grid Grid.Row="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,2,0,0">
+                                <TextBlock Text="VERLAUF" Style="{StaticResource TileLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button Content="1 h" Tag="1h" Click="ChartRange_Click" Padding="8,2" FontSize="11"/>
+                                <Button Content="24 h" Tag="24h" Click="ChartRange_Click" Padding="8,2" FontSize="11" Margin="4,0,0,0"/>
+                                <Button Content="7 Tage" Tag="7d" Click="ChartRange_Click" Padding="8,2" FontSize="11" Margin="4,0,0,0"/>
+                                <Button Content="30 Tage" Tag="30d" Click="ChartRange_Click" Padding="8,2" FontSize="11" Margin="4,0,0,0"/>
+                                <TextBlock x:Name="ChartRangeText" Text="live" Style="{StaticResource TileSub}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock Text="· Linien = Tuning-Änderungen" Style="{StaticResource TileSub}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Row="1" Style="{StaticResource Tile}">
+                                <Canvas x:Name="HashChart" ClipToBounds="True"/>
+                            </Border>
+                            <Border Grid.Row="2" Style="{StaticResource Tile}">
+                                <Canvas x:Name="TempChart" ClipToBounds="True"/>
+                            </Border>
+                            <Border Grid.Row="3" Style="{StaticResource Tile}">
+                                <Canvas x:Name="PowerChart" ClipToBounds="True"/>
+                            </Border>
+                            <Border Grid.Row="4" Style="{StaticResource Tile}">
+                                <Canvas x:Name="EffChart" ClipToBounds="True"/>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="3" Style="{StaticResource Tile}">
+                            <StackPanel>
+                                <TextBlock x:Name="PoolStatusText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" Margin="0,0,0,3"/>
+                                <TextBlock x:Name="FooterText" Text="–" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Netzwerk-Ansicht -->
+                    <!-- Steuer-Dokumentation -->
+                    <tax:TaxPanel x:Name="TaxView" Visibility="Collapsed"/>
+
+                    <Grid x:Name="NetworkPanel" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Solo-Chancen -->
+                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource Tile}">
+                            <StackPanel>
+                                <TextBlock Text="SOLO-CHANCE BITCOIN (BTC)" Style="{StaticResource TileLabel}"/>
+                                <TextBlock x:Name="OddsBtcValue" Text="–" Style="{StaticResource TileValue}" Foreground="{DynamicResource WarnBrush}"/>
+                                <TextBlock x:Name="OddsBtcSub" Text="" Style="{StaticResource TileSub}"/>
+                                <TextBlock x:Name="OddsBtcSub2" Text="" Style="{StaticResource TileSub}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Tile}">
+                            <StackPanel>
+                                <TextBlock Text="SOLO-CHANCE BITCOIN CASH (BCH)" Style="{StaticResource TileLabel}"/>
+                                <TextBlock x:Name="OddsBchValue" Text="–" Style="{StaticResource TileValue}" Foreground="{DynamicResource OkBrush}"/>
+                                <TextBlock x:Name="OddsBchSub" Text="" Style="{StaticResource TileSub}"/>
+                                <TextBlock x:Name="OddsBchSub2" Text="" Style="{StaticResource TileSub}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Blockliste -->
+                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Tile}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="ZULETZT GEFUNDENE BLÖCKE" Style="{StaticResource TileLabel}"
+                                               VerticalAlignment="Center"/>
+                                    <Button Content="Aktualisieren" Click="RefreshNetwork_Click"
+                                            Padding="8,3" Margin="10,0,0,0" FontSize="11"/>
+                                </StackPanel>
+                                <TextBlock x:Name="BlocksStatus" DockPanel.Dock="Bottom" Text="–"
+                                           Style="{StaticResource TileSub}"/>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="BlockList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource FieldBrush}" CornerRadius="6" Padding="8,6" Margin="0,0,4,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="80"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Height}" FontSize="13"
+                                                                   FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding Pool}" FontSize="12" Foreground="{Binding PoolBrush}"/>
+                                                            <TextBlock Text="{Binding Details}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding Time}" FontSize="11"
+                                                                   Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Pool-Ranking -->
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="POOL-RANKING NACH GEFUNDENEN BLÖCKEN"
+                                           Style="{StaticResource TileLabel}"/>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,6,0,10">
+                                    <Button Content="24h" Tag="24h" Click="Period_Click" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button Content="1 Woche" Tag="1w" Click="Period_Click" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button Content="1 Monat" Tag="1m" Click="Period_Click" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button Content="1 Jahr" Tag="1y" Click="Period_Click" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button Content="Gesamt" Tag="all" Click="Period_Click" Padding="8,3" FontSize="11"/>
+                                </StackPanel>
+                                <TextBlock x:Name="PoolStatus" DockPanel.Dock="Bottom" Text="–"
+                                           Style="{StaticResource TileSub}"/>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="PoolList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,4,7">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="26"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Rank}" FontSize="11"
+                                                               Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                                                        <Rectangle Height="6" RadiusX="3" RadiusY="3" Margin="0,3,0,0"
+                                                                   HorizontalAlignment="Left"
+                                                                   Width="{Binding BarWidth}" Fill="{Binding BarBrush}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding Blocks}" FontSize="12" Foreground="{DynamicResource TextBrush}"
+                                                                   HorizontalAlignment="Right"/>
+                                                        <TextBlock Text="{Binding Share}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}"
+                                                                   HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+    </ScrollViewer>
+</UserControl>

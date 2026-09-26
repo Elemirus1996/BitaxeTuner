@@ -62,3 +62,18 @@ public sealed class NumberConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
+
+/// <summary>Farbe je Log-Stufe aus dem aktiven Design.</summary>
+public sealed class LogLevelToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
+    {
+        Core.Monitoring.LogLevel.Error => Themes.ThemeManager.Brush("DangerBrush"),
+        Core.Monitoring.LogLevel.Warning => Themes.ThemeManager.Brush("WarnBrush"),
+        Core.Monitoring.LogLevel.Debug or Core.Monitoring.LogLevel.Verbose => Themes.ThemeManager.Brush("MutedTextBrush"),
+        Core.Monitoring.LogLevel.App => Themes.ThemeManager.Brush("AccentBrush"),
+        _ => Themes.ThemeManager.Brush("TextBrush"),
+    };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}

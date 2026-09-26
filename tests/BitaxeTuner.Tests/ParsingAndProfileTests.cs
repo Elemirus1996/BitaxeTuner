@@ -70,6 +70,17 @@ public class ParsingAndProfileTests
     [InlineData("""{"deviceModel":"NerdAxe","asicCount":1,"jobInterval":1}""", "nerdaxe")]
     [InlineData("""{"deviceModel":"NerdOCTAXE-γ","asicCount":8,"jobInterval":1}""", "nerdoctaxe")]
     [InlineData("""{"ASICModel":"BM1370","asicCount":4,"asicTemps":[1]}""", "nerdqaxe-plusplus")]
+    // Neu aus der Firmware-Recherche (ESP-Miner device_config.h, NerdQAxePlus boards/*.cpp)
+    [InlineData("""{"ASICModel":"BM1370","boardVersion":"650","asicCount":2}""", "bitaxe-duo")]
+    [InlineData("""{"ASICModel":"BM1370","boardVersion":"1300","asicCount":6}""", "bitaxe-gammahex")]
+    [InlineData("""{"ASICModel":"BM1373","boardVersion":"1201","asicCount":2}""", "bitaxe-najaduo")]
+    [InlineData("""{"ASICModel":"BM1366","boardVersion":"0.11"}""", "bitaxe-ultra")]
+    [InlineData("""{"ASICModel":"BM1397","boardVersion":"102"}""", "bitaxe-max")]
+    [InlineData("""{"deviceModel":"NerdAxeGaia","asicCount":1,"jobInterval":1}""", "nerdaxe-gaia")]
+    [InlineData("""{"deviceModel":"NerdOCTAXE+","asicCount":8,"jobInterval":1}""", "nerdoctaxe-plus")]
+    [InlineData("""{"deviceModel":"NerdHaxe-γ","asicCount":6,"jobInterval":1}""", "nerdhaxe-gamma")]
+    [InlineData("""{"deviceModel":"NerdEKO","asicCount":12,"jobInterval":1}""", "nerdeko")]
+    [InlineData("""{"deviceModel":"NerdQX","asicCount":4,"jobInterval":1}""", "nerdqx")]
     public void Matches_profiles(string json, string expectedId)
     {
         var registry = new ProfileRegistry(ProfileRegistry.LoadBuiltIn());
@@ -85,6 +96,28 @@ public class ParsingAndProfileTests
         Assert.Equal(1500, p.SmallCoresPerAsic);
         Assert.Equal(3, p.AsicCount);
         Assert.Equal(700, p.DefaultFrequencyMhz);
+    }
+
+    [Theory]
+    [InlineData("GammaDuo", "bitaxe-duo")]       // enthält auch "Gamma" – längster Treffer muss gewinnen
+    [InlineData("GammaHex", "bitaxe-gammahex")]  // enthält "Gamma" und "Hex"
+    [InlineData("NajaDuo", "bitaxe-najaduo")]
+    [InlineData("GammaTurbo", "bitaxe-gt")]
+    [InlineData("Gamma", "bitaxe-gamma")]
+    public void Asic_endpoint_device_models_resolve_to_the_right_family(string deviceModel, string expected)
+    {
+        var registry = new ProfileRegistry(ProfileRegistry.LoadBuiltIn());
+        Assert.Equal(expected, registry.Match(Parse("""{"ASICModel":"BM1370"}"""), new AsicInfo { DeviceModel = deviceModel }).Id);
+    }
+
+    [Fact]
+    public void Device_reported_core_and_chip_count_win_over_table()
+    {
+        var registry = new ProfileRegistry(ProfileRegistry.LoadBuiltIn());
+        var p = registry.Match(Parse("""{"deviceModel":"NerdQX","asicCount":6,"smallCoreCount":2040,"jobInterval":1}"""));
+        Assert.Equal(("nerdqx", 6, 2040), (p.Id, p.AsicCount, p.SmallCoresPerAsic));
+        var gaia = registry.Match(Parse("""{"deviceModel":"NerdAxeGaia","asicCount":1,"smallCoreCount":6860,"jobInterval":1}"""));
+        Assert.Equal(6860, gaia.SmallCoresPerAsic);
     }
 
     [Fact]
@@ -104,5 +137,27 @@ public class ParsingAndProfileTests
             Assert.InRange(p.DefaultVoltageMv, p.MinVoltageMv, p.MaxVoltageMv);
             Assert.True(p.MaxPowerW > 0, p.Id);
         }
+    }
+}
+
+public class ProfileOverrideTests
+{
+    [Fact]
+    public void Unchanged_legacy_copy_does_not_override_but_real_edits_do()
+    {
+        using var dir = new TempDir();
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "BitaxeTuner.Core", "Profiles", "DeviceProfiles.v0.1.0.json")))!.AsArray();
+        // Gamma vom Nutzer geändert, Rest unveränderte Kopie der v0.1.0-Profile
+        var gamma = legacy.First(p => (string)p!["Id"]! == "bitaxe-gamma")!;
+        gamma["MaxChipTempC"] = 60;
+        File.WriteAllText(dir.File("profiles.json"), legacy.ToJsonString());
+
+        var registry = ProfileRegistry.Load(dir.Path);
+
+        Assert.Equal(40, registry.Profiles.First(p => p.Id == "bitaxe-duo").MaxPowerW);          // neue eingebaute Werte gelten
+        Assert.Equal(["2.2", "102"], registry.Profiles.First(p => p.Id == "bitaxe-max").BoardVersions);
+        Assert.Equal(60, registry.Profiles.First(p => p.Id == "bitaxe-gamma").MaxChipTempC);      // echte Änderung bleibt
+        Assert.Contains(registry.Profiles, p => p.Id == "nerdaxe-gaia");
     }
 }

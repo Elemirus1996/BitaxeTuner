@@ -39,8 +39,12 @@ public sealed class ProfileRegistry
             if (File.Exists(userFile))
             {
                 var user = JsonSerializer.Deserialize<List<DeviceProfile>>(File.ReadAllText(userFile), JsonOptions) ?? [];
+                var legacy = LoadLegacyBuiltIns();
                 foreach (var up in user)
                 {
+                    // Unveränderte Kopie eines früher eingebauten Profils (z. B. aus "Profile bearbeiten" in v0.1.0):
+                    // nicht übernehmen, sonst würden korrigierte eingebaute Werte wieder überdeckt.
+                    if (legacy.Any(l => SameContent(l, up))) continue;
                     var idx = profiles.FindIndex(p => string.Equals(p.Id, up.Id, StringComparison.OrdinalIgnoreCase));
                     if (idx >= 0) profiles[idx] = up; else profiles.Add(up);
                 }
@@ -48,6 +52,22 @@ public sealed class ProfileRegistry
         }
         return new ProfileRegistry(profiles);
     }
+
+    private static readonly string[] LegacyResources = ["BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json"];
+
+    private static List<DeviceProfile> LoadLegacyBuiltIns()
+    {
+        var list = new List<DeviceProfile>();
+        foreach (var name in LegacyResources)
+        {
+            using var stream = typeof(ProfileRegistry).Assembly.GetManifestResourceStream(name);
+            if (stream is not null) list.AddRange(JsonSerializer.Deserialize<List<DeviceProfile>>(stream, JsonOptions) ?? []);
+        }
+        return list;
+    }
+
+    private static bool SameContent(DeviceProfile a, DeviceProfile b) =>
+        JsonSerializer.Serialize(a) == JsonSerializer.Serialize(b);
 
     public static List<DeviceProfile> LoadBuiltIn()
     {
@@ -81,10 +101,13 @@ public sealed class ProfileRegistry
                 profile.DefaultVoltageMv = dv;
         }
 
-        if (profile.SmallCoresPerAsic <= 0 && info.SmallCoreCount is > 0)
+        // Angaben des Geräts haben Vorrang vor den Tabellenwerten (z. B. BM1373: ESP-Miner 6725, Gaia meldet 6860 Small-Cores)
+        if (info.SmallCoreCount is > 0)
             profile.SmallCoresPerAsic = info.SmallCoreCount.Value;
         if (asic?.AsicCount is > 0 && asic.AsicCount != profile.AsicCount)
             profile.AsicCount = asic.AsicCount.Value;
+        else if (asic?.AsicCount is null && info.AsicCount > 1 && info.AsicCount != profile.AsicCount)
+            profile.AsicCount = info.AsicCount; // NerdQAxe-Firmware: kein /api/system/asic, aber asicCount in info
         return profile;
     }
 

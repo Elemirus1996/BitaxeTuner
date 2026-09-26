@@ -1,6 +1,6 @@
 ﻿; Inno Setup script for BitaxeTuner – built by build.ps1 (locally) or .github/workflows/release.yml
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.0"
+  #define MyAppVersion "0.2.0"
 #endif
 #define MyAppName "BitaxeTuner"
 #define MyAppExe "BitaxeTuner.exe"
@@ -54,3 +54,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; Update aus der App (/SILENT): danach automatisch wieder starten
+Filename: "{app}\{#MyAppExe}"; Flags: nowait; Check: WizardSilent

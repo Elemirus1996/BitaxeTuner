@@ -1,0 +1,32 @@
+<UserControl x:Class="BitaxeTuner.App.Views.ComparisonView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource Card}" Margin="0">
+        <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                <Button DockPanel.Dock="Right" Content="Aktualisieren" Command="{Binding RefreshCommand}" Margin="0" />
+                <StackPanel>
+                    <TextBlock Text="Miner-Vergleich" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="24-h-Werte aus history.db (nur Online-Minuten), Verfügbarkeit über 7 Tage, Benchmark-Werte aus dem letzten Lauf je Miner. „Stabil bis“ = höchste Frequenz, die im Benchmark stabil lief – ein Maß für die Chip-Güte." />
+            <DataGrid ItemsSource="{Binding Rows}" IsReadOnly="True" RowHeight="28">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Miner" Binding="{Binding Name}" Width="110" FontWeight="SemiBold" />
+                    <DataGridTextColumn Header="Chip" Binding="{Binding Chip}" Width="130" />
+                    <DataGridTextColumn Header="Aktuell" Binding="{Binding Current}" Width="140" />
+                    <DataGridTextColumn Header="Ø Hash 24 h" Binding="{Binding Hash24Text}" Width="Auto" SortMemberPath="Hash24" />
+                    <DataGridTextColumn Header="Ø J/TH 24 h" Binding="{Binding Eff24Text}" Width="Auto" SortMemberPath="Eff24" />
+                    <DataGridTextColumn Header="Ø Temp 24 h" Binding="{Binding Temp24Text}" Width="Auto" SortMemberPath="Temp24" />
+                    <DataGridTextColumn Header="Verfügbar 7 T" Binding="{Binding AvailabilityText}" Width="Auto" SortMemberPath="Availability7" />
+                    <DataGridTextColumn Header="Stabil bis" Binding="{Binding MaxStableText}" Width="Auto" SortMemberPath="MaxStableFrequency" />
+                    <DataGridTextColumn Header="Beste Hashrate (Benchmark)" Binding="{Binding BestHash}" Width="270" />
+                    <DataGridTextColumn Header="Beste Effizienz (Benchmark)" Binding="{Binding BestEff}" Width="270" />
+                    <DataGridTextColumn Header="Benchmark" Binding="{Binding Benchmark}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </Border>
+</UserControl>

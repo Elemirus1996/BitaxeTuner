@@ -1,0 +1,95 @@
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using BitaxeTuner.Core.Update;
+
+namespace BitaxeTuner.Tests;
+
+public class UpdateTests
+{
+    private static readonly byte[] SetupBytes = Encoding.ASCII.GetBytes("fake setup exe");
+    private static readonly string SetupSha = Convert.ToHexString(SHA256.HashData(SetupBytes)).ToLowerInvariant();
+
+    private sealed class FakeGitHub(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(respond(request));
+    }
+
+    private static string Release(string tag, bool withDigest = true, bool prerelease = false, string? digest = null) => $$"""
+        { "tag_name": "{{tag}}", "name": "BitaxeTuner {{tag}}", "body": "Änderungen", "draft": false, "prerelease": {{(prerelease ? "true" : "false")}},
+          "html_url": "https://github.com/x/y/releases/tag/{{tag}}",
+          "assets": [
+            { "name": "BitaxeTuner-{{tag.TrimStart('v')}}-portable-win-x64.zip", "browser_download_url": "https://dl/zip", "size": 10 },
+            { "name": "BitaxeTuner-Setup-{{tag.TrimStart('v')}}.exe", "browser_download_url": "https://dl/setup", "size": {{SetupBytes.Length}}
+              {{(withDigest ? $", \"digest\": \"sha256:{digest ?? SetupSha}\"" : "")}} },
+            { "name": "SHA256SUMS.txt", "browser_download_url": "https://dl/sums", "size": 100 } ] }
+        """;
+
+    private static UpdateService Service(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
+        new(new HttpClient(new FakeGitHub(respond)), "x/y");
+
+    private static HttpResponseMessage Ok(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
+
+    [Fact]
+    public async Task Detects_newer_release_and_ignores_same_or_older()
+    {
+        var s = Service(_ => Ok(Release("v0.3.0")));
+        var r = await s.CheckAsync(new Version(0, 2, 0));
+        Assert.Equal(UpdateCheckStatus.UpdateAvailable, r.Status);
+        Assert.Equal("BitaxeTuner-Setup-0.3.0.exe", r.Update!.SetupName);
+        Assert.Equal(SetupSha, r.Update.Sha256);
+
+        Assert.Equal(UpdateCheckStatus.UpToDate, (await s.CheckAsync(new Version(0, 3, 0))).Status);
+        Assert.Equal(UpdateCheckStatus.UpToDate, (await s.CheckAsync(new Version(1, 0, 0))).Status);
+    }
+
+    [Fact]
+    public async Task Private_repo_or_no_release_is_reported_quietly()
+    {
+        var r = await Service(_ => new HttpResponseMessage(HttpStatusCode.NotFound)).CheckAsync(new Version(0, 2, 0));
+        Assert.Equal(UpdateCheckStatus.NoRelease, r.Status);
+        Assert.Null(r.Update);
+    }
+
+    [Fact]
+    public async Task Prerelease_is_not_offered()
+    {
+        var r = await Service(_ => Ok(Release("v0.9.0", prerelease: true))).CheckAsync(new Version(0, 2, 0));
+        Assert.Equal(UpdateCheckStatus.NoRelease, r.Status);
+    }
+
+    [Fact]
+    public async Task Falls_back_to_sha256sums_when_digest_missing()
+    {
+        var s = Service(req => req.RequestUri!.AbsoluteUri.Contains("sums")
+            ? Ok($"0000  andere.zip\n{SetupSha} *BitaxeTuner-Setup-0.3.0.exe\n")
+            : Ok(Release("v0.3.0", withDigest: false)));
+        var r = await s.CheckAsync(new Version(0, 2, 0));
+        Assert.Equal(SetupSha, r.Update!.Sha256);
+    }
+
+    [Fact]
+    public async Task Download_verifies_checksum_and_deletes_tampered_file()
+    {
+        using var dir = new TempDir();
+        var good = Service(req => req.RequestUri!.AbsoluteUri.Contains("setup") ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(SetupBytes) } : Ok(Release("v0.3.0")));
+        var update = (await good.CheckAsync(new Version(0, 2, 0))).Update!;
+        var file = await good.DownloadAsync(update, dir.Path);
+        Assert.Equal(SetupBytes, File.ReadAllBytes(file));
+
+        var bad = update with { Sha256 = new string('0', 64) };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => good.DownloadAsync(bad, dir.File("b")));
+        Assert.False(File.Exists(Path.Combine(dir.File("b"), bad.SetupName)));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => good.DownloadAsync(update with { Sha256 = null }, dir.File("c")));
+    }
+
+    [Theory]
+    [InlineData("v0.2.0", 0, 2, 0)]
+    [InlineData("0.10", 0, 10, 0)]
+    [InlineData("v1.2.3-beta", 1, 2, 3)]
+    public void Parses_tags(string tag, int a, int b, int c) =>
+        Assert.Equal(new Version(a, b, c), UpdateService.ParseVersion(tag));
+}

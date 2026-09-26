@@ -31,3 +31,4 @@ jobs:
           files: |
             artifacts/BitaxeTuner-Setup-*.exe
             artifacts/BitaxeTuner-*-portable-win-x64.zip
+            artifacts/SHA256SUMS.txt
