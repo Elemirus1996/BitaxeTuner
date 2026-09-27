@@ -163,7 +163,8 @@ Das E-Paper zeigt Seiten im Wechsel (Übersicht, Tagesbilanz, Verlauf 24 h, Daue
 Sonderanzeigen als Vollbild: **Blockfund** (bis Taste 1 oder 24 h), **Warnungen** (bis quittiert, neue Warnung zeigt
 wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellungen und Vorschau jeder Seite:
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
-gibt es als eigene Anleitung.
+stehen in der Bauanleitung
+[docs/pico-luefter](https://elemirus1996.github.io/BitaxeTuner/pico-luefter/) (Quelle: [`docs/pico-luefter/index.html`](docs/pico-luefter/index.html)).
 
 ### Home Assistant / MQTT
 

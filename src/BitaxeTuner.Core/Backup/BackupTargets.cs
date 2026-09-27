@@ -45,7 +45,9 @@ public sealed class FolderBackupTarget(string name, string path) : IBackupTarget
         await using (var src = File.OpenRead(localFile))
         await using (var dst = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.WriteThrough))
             await src.CopyToAsync(dst, ct);
-        if (!(await HashAsync(localFile, ct)).SequenceEqual(await HashAsync(tmp, ct)))
+        var original = await HashAsync(localFile, ct);
+        var copy = await HashAsync(tmp, ct);
+        if (!CryptographicOperations.FixedTimeEquals(original, copy))
         {
             File.Delete(tmp);
             throw new IOException("Kopie weicht vom Original ab (SHA-256).");

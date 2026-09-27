@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Bauanleitung: Raspberry Pi Pico als Lüftersteuerung, E-Paper-Anzeige, Taster und Temperaturfühler für den BitaxeTuner-Server.">
+<title>Pico-Lüftersteuerung</title>
+<style>
+  :root {
+    --bg: #F4F5F1; --surface: #FFFFFF; --ink: #1D2421; --muted: #5E6863; --rule: #D6DAD3;
+    --accent: #A8572A;
+    --pwm: #2563A8; --tach: #2F7D45; --v33: #C2621A; --v5: #9C7A00; --gnd: #1D2421;
+    --warn-bg: #FBF1E6; --warn-ink: #7A3F15;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131816; --surface: #1A201D; --ink: #E4E9E5; --muted: #97A29C; --rule: #2A322E;
+      --accent: #E08A55;
+      --pwm: #6FA8E8; --tach: #62C17D; --v33: #F09A55; --v5: #E6C24A; --gnd: #E4E9E5;
+      --warn-bg: #2B211A; --warn-ink: #F2C29E;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131816; --surface: #1A201D; --ink: #E4E9E5; --muted: #97A29C; --rule: #2A322E;
+    --accent: #E08A55;
+    --pwm: #6FA8E8; --tach: #62C17D; --v33: #F09A55; --v5: #E6C24A; --gnd: #E4E9E5;
+    --warn-bg: #2B211A; --warn-ink: #F2C29E;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.55 "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    padding-inline: 16px; padding-block: 32px 56px;
+  }
+  main { max-width: 960px; margin: 0 auto; display: grid; gap: 40px; }
+  h1, h2, h3 { font-family: "Archivo", "Arial Narrow", system-ui, sans-serif; font-stretch: 87%; text-wrap: balance; margin: 0; }
+  h1 { font-size: 40px; line-height: 1.05; font-weight: 700; }
+  h2 { font-size: 24px; font-weight: 700; display: flex; align-items: baseline; gap: 12px; }
+  h2 .tag { font: 600 12px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+  h3 { font-size: 17px; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  .lead { color: var(--muted); font-size: 18px; max-width: 62ch; }
+  section { display: grid; gap: 14px; }
+  header { display: grid; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+  .kicker { font: 600 12px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .88em; }
+
+  figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
+  .scroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; min-width: 620px; height: auto; color: var(--ink); }
+  figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+  svg text { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; fill: currentColor; }
+  svg .title { font-family: "Archivo", system-ui, sans-serif; font-size: 14px; font-weight: 700; }
+  svg .muted { fill: var(--muted); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font: 600 12px/1.3 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td .mono { white-space: nowrap; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+  .chip.opt { color: var(--muted); }
+  .chip.must { color: var(--accent); }
+
+  .note { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 12px 14px; max-width: 80ch; }
+  .note strong { color: inherit; }
+  ol.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; max-width: 72ch; }
+  ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+  .panel dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 15px; }
+  .panel dt { color: var(--muted); }
+  .panel dd { margin: 0; font-variant-numeric: tabular-nums; }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 520px) { h1 { font-size: 32px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker">BitaxeTuner-Server · Zubehör</div>
+    <h1>Pico-Lüftersteuerung</h1>
+    <p class="lead">Ein Raspberry Pi Pico 2 am USB-Port des Pi 3 regelt bis zu sechs 4-Pin-PWM-Lüfter: je einen für den Spannungsregler (VR) jedes Bitaxe und bis zu drei fürs Gehäuse. Dazu kommen ein 7,5-Zoll-E-Paper mit den wichtigsten Werten, vier Taster und ein Temperaturfühler im Gehäuse. Fällt irgendetwas aus, laufen die Lüfter mit voller Drehzahl.</p>
+    <p><a href="#image">Raspberry Pi einrichten: fertiges Image</a> · <a href="#steckbrett">Steckbrett</a> · <a href="#anzeige">Display, Taster, Fühler</a> · <a href="#einkauf">Einkauf</a></p>
+  </header>
+
+  <section id="image">
+    <h2><span class="tag">Pi 3</span>Fertiges Image: einmal schreiben, fertig</h2>
+    <p>Auf der Release-Seite liegt <span class="mono">BitaxeTuner-Server-&lt;Version&gt;-pi-arm64.img.xz</span>: das offizielle Raspberry Pi OS Lite (64-bit) mit vorinstalliertem BitaxeTuner-Server, Neustart-Funktion für Taste 4 und Hostname <span class="mono">bitaxetuner</span>. Deine Zugangsdaten und Miner-Daten kommen nicht ins Image, sondern werden danach von der Desktop-App auf die SD-Karte gelegt.</p>
+    <ol class="steps">
+      <li><b>Raspberry Pi Imager</b> öffnen → Gerät „Raspberry Pi 3“ → Betriebssystem „Eigenes Image“ → die <span class="mono">.img.xz</span>-Datei → SD-Karte (ab 16 GB) → schreiben. Einstellungen bietet der Imager bei eigenen Images nicht an – das übernimmt die App im nächsten Schritt.</li>
+      <li><b>SD-Karte neu einstecken.</b> In der BitaxeTuner-App (ab 0.3.1): <b>Betriebsart → Raspberry Pi vorbereiten</b> → Laufwerk „bootfs“ wählen, Admin-Passwort für den Server zweimal, Benutzer und Passwort für den Pi (SSH), WLAN-Name und -Passwort (Pi 3: nur 2,4 GHz; leer = nur LAN-Kabel), „Meine Daten mitgeben“ anhaken → „Einrichtungspaket schreiben“. Alle Passwörter landen nur als Hash auf der Karte. Die App merkt sich Adresse und Zugangs-Token.</li>
+      <li><b>Karte in den Pi, Pi einschalten.</b> Der erste Start dauert 3–5 Minuten (Dateisystem vergrößern, Benutzer anlegen, Paket übernehmen). Der Pi löscht Passwort-Hash und Datenkopie danach von der Karte.</li>
+      <li><b>In der App: „Verbindung testen“ → „Nur umschalten“.</b> Erst jetzt fragt der Pi die Miner ab und der PC hört damit auf. Die Oberfläche gibt es zusätzlich im Browser unter <span class="mono">http://bitaxetuner.local:8484/</span>.</li>
+    </ol>
+    <div class="note"><strong>Ohne Einrichtungspaket</strong> startet der Server leer; dann im Browser einrichten. Den Einrichtungs-Code zeigt <span class="mono">ssh &lt;benutzer&gt;@bitaxetuner.local</span> und <span class="mono">sudo cat /var/lib/bitaxetuner/SETUP-CODE.txt</span>. Findet der PC <span class="mono">bitaxetuner.local</span> nicht, die IP-Adresse des Pi aus dem Router eintragen. Protokoll der Ersteinrichtung: <span class="mono">/var/log/bitaxetuner-firstboot.log</span>.</div>
+    <div class="note"><strong>Sicherung auf USB-Stick (ab Version 0.4.0):</strong> Einen Stick (FAT32, exFAT oder ext4) in den Pi stecken und im Browser unter <b>Einstellungen → Sicherung</b> „USB-Stick am Pi verwenden“ wählen. Der Pi sichert dann täglich auf den Stick. Auf einem Pi, der schon vor 0.4.0 eingerichtet wurde, nach dem Server-Update einmal per SSH ausführen: <span class="mono">sudo sh /opt/bitaxetuner/current/install.sh --system</span>.</div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Überblick</span>Wer mit wem spricht</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 760 290" role="img" aria-label="Die Bitaxe melden ihre VR-Temperatur per WLAN an den Pi 3. Der Pi schickt Sollwerte per USB an den Pico, der über sechs Treiber die Lüfter K1 bis K6 steuert und ihre Drehzahl zurückmeldet. Die Lüfter bekommen ihren Strom von einem eigenen 5-Volt-Netzteil mit gemeinsamer Masse.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <!-- Bitaxe -->
+          <rect x="20" y="16" width="150" height="52" rx="6" fill="none" stroke="currentColor"/>
+          <text x="95" y="38" text-anchor="middle" class="title">3 × Bitaxe</text>
+          <text x="95" y="56" text-anchor="middle" class="muted">AxeOS · WLAN</text>
+          <line x1="95" y1="68" x2="95" y2="118" stroke="currentColor" marker-end="url(#ah)"/>
+          <text x="105" y="98" class="muted">VR-Temperatur</text>
+          <!-- Pi -->
+          <rect x="20" y="120" width="150" height="70" rx="6" fill="none" stroke="currentColor"/>
+          <text x="95" y="148" text-anchor="middle" class="title">Raspberry Pi 3</text>
+          <text x="95" y="168" text-anchor="middle" class="muted">BitaxeTuner-Server</text>
+          <!-- USB -->
+          <line x1="170" y1="146" x2="278" y2="146" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="278" y1="166" x2="170" y2="166" stroke="currentColor" marker-end="url(#ah)"/>
+          <text x="224" y="138" text-anchor="middle">Sollwerte</text>
+          <text x="224" y="184" text-anchor="middle">Drehzahl</text>
+          <text x="224" y="206" text-anchor="middle" class="muted">USB</text>
+          <!-- Pico -->
+          <rect x="280" y="120" width="130" height="70" rx="6" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text x="345" y="148" text-anchor="middle" class="title">Pico</text>
+          <text x="345" y="168" text-anchor="middle" class="muted">Watchdog 5 s</text>
+          <!-- Treiber -->
+          <line x1="410" y1="155" x2="468" y2="155" stroke="var(--pwm)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="439" y="146" text-anchor="middle">6 × PWM</text>
+          <rect x="470" y="20" width="100" height="270" rx="6" fill="none" stroke="currentColor"/>
+          <text x="520" y="150" text-anchor="middle" class="title">6 × Treiber</text>
+          <text x="520" y="170" text-anchor="middle" class="muted">BC547 + 2 R</text>
+          <!-- Lüfter -->
+          <g>
+            <rect x="620" y="22" width="130" height="30" rx="5" fill="none" stroke="currentColor"/><text x="632" y="42">K1 · VR Miner 1</text>
+            <rect x="620" y="66" width="130" height="30" rx="5" fill="none" stroke="currentColor"/><text x="632" y="86">K2 · VR Miner 2</text>
+            <rect x="620" y="110" width="130" height="30" rx="5" fill="none" stroke="currentColor"/><text x="632" y="130">K3 · VR Miner 3</text>
+            <rect x="620" y="154" width="130" height="30" rx="5" fill="none" stroke="currentColor"/><text x="632" y="174">K4 · Gehäuse</text>
+            <rect x="620" y="198" width="130" height="30" rx="5" fill="none" stroke="currentColor"/><text x="632" y="218">K5 · Gehäuse</text>
+            <rect x="620" y="242" width="130" height="30" rx="5" fill="none" stroke="currentColor" stroke-dasharray="4 3"/><text x="632" y="262" class="muted">K6 · Reserve</text>
+            <line x1="570" y1="37" x2="620" y2="37" stroke="currentColor"/>
+            <line x1="570" y1="81" x2="620" y2="81" stroke="currentColor"/>
+            <line x1="570" y1="125" x2="620" y2="125" stroke="currentColor"/>
+            <line x1="570" y1="169" x2="620" y2="169" stroke="currentColor"/>
+            <line x1="570" y1="213" x2="620" y2="213" stroke="currentColor"/>
+            <line x1="570" y1="257" x2="620" y2="257" stroke="currentColor" stroke-dasharray="4 3"/>
+          </g>
+          <!-- Netzteil -->
+          <rect x="280" y="232" width="130" height="46" rx="6" fill="none" stroke="var(--v5)" stroke-width="2"/>
+          <text x="345" y="252" text-anchor="middle" class="title">5-V-Netzteil</text>
+          <text x="345" y="269" text-anchor="middle" class="muted">2–3 A</text>
+          <line x1="410" y1="255" x2="468" y2="255" stroke="var(--v5)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="439" y="246" text-anchor="middle">+5 V</text>
+          <line x1="345" y1="232" x2="345" y2="192" stroke="currentColor" stroke-dasharray="3 3"/>
+          <text x="352" y="218" class="muted">GND gemeinsam</text>
+        </svg>
+      </div>
+      <figcaption>Die Temperatur kommt aus der normalen Miner-Abfrage des Servers; der Pico kennt nur Sollwerte in Prozent. Der Pi versorgt nur den Pico (USB), die Lüfter hängen am eigenen Netzteil. Beide Massen sind verbunden, sonst funktioniert das Steuersignal nicht.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2><span class="tag">Schaltung</span>Ein Kanal (sechsmal gleich aufbauen)</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 760 410" role="img" aria-label="Schaltung für Kanal K1: Pico GP0 über R1 1 Kilo-Ohm an die Basis des Transistors BC547B, R2 10 Kilo-Ohm von der Basis nach Masse, Emitter an Masse, Kollektor an Lüfter-Pin 4 PWM. Lüfter-Pin 3 Tacho an Pico GP16 mit R3 10 Kilo-Ohm als Pull-up nach 3,3 Volt. Lüfter-Pin 2 an plus 5 Volt vom Netzteil, Pin 1 an die gemeinsame Masse.">
+          <defs>
+            <marker id="em" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <!-- Pico -->
+          <rect x="20" y="16" width="160" height="384" rx="8" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text x="100" y="388" text-anchor="middle" class="title">Raspberry Pi Pico</text>
+          <text x="170" y="64" text-anchor="end">GP0 · Pin 1</text>
+          <text x="170" y="174" text-anchor="end">GND · Pin 38</text>
+          <text x="170" y="254" text-anchor="end">3V3(OUT) · Pin 36</text>
+          <text x="170" y="324" text-anchor="end">GP16 · Pin 21</text>
+
+          <!-- PWM-Zweig -->
+          <line x1="180" y1="60" x2="230" y2="60" stroke="var(--pwm)" stroke-width="2"/>
+          <rect x="230" y="54" width="50" height="12" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+          <text x="255" y="46" text-anchor="middle">R1 1 kΩ</text>
+          <line x1="280" y1="60" x2="358" y2="60" stroke="var(--pwm)" stroke-width="2"/>
+          <circle cx="310" cy="60" r="3.5" fill="currentColor"/>
+          <line x1="310" y1="60" x2="310" y2="90" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="304" y="90" width="12" height="44" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+          <text x="322" y="116">R2 10 kΩ</text>
+          <line x1="310" y1="134" x2="310" y2="170" stroke="currentColor" stroke-width="1.5"/>
+
+          <!-- Transistor Q1 (NPN) -->
+          <circle cx="372" cy="60" r="22" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="358" y1="46" x2="358" y2="74" stroke="currentColor" stroke-width="2.5"/>
+          <line x1="358" y1="54" x2="384" y2="40" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="358" y1="66" x2="382" y2="79" stroke="currentColor" stroke-width="1.5" marker-end="url(#em)"/>
+          <text x="410" y="66">Q1 BC547B</text>
+          <text x="410" y="82" class="muted">C · B · E</text>
+          <polyline points="384,40 384,30 600,30" fill="none" stroke="var(--pwm)" stroke-width="2"/>
+          <text x="492" y="24" text-anchor="middle" class="muted">PWM, 25 kHz</text>
+          <line x1="383" y1="80" x2="383" y2="170" stroke="currentColor" stroke-width="1.5"/>
+
+          <!-- Masse -->
+          <line x1="180" y1="170" x2="600" y2="170" stroke="var(--gnd)" stroke-width="3"/>
+          <circle cx="310" cy="170" r="3.5" fill="currentColor"/>
+          <circle cx="383" cy="170" r="3.5" fill="currentColor"/>
+          <text x="590" y="160" text-anchor="end" class="muted">GND · auch Netzteil −</text>
+
+          <!-- Tacho mit Pull-up -->
+          <line x1="180" y1="250" x2="470" y2="250" stroke="var(--v33)" stroke-width="2"/>
+          <line x1="470" y1="250" x2="470" y2="266" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="464" y="266" width="12" height="40" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+          <text x="482" y="290">R3 10 kΩ</text>
+          <line x1="470" y1="306" x2="470" y2="320" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="180" y1="320" x2="600" y2="320" stroke="var(--tach)" stroke-width="2"/>
+          <circle cx="470" cy="320" r="3.5" fill="currentColor"/>
+          <text x="300" y="312" text-anchor="middle" class="muted">Tacho, 2 Impulse/Umdrehung</text>
+
+          <!-- +5 V -->
+          <line x1="520" y1="370" x2="600" y2="370" stroke="var(--v5)" stroke-width="2.5"/>
+          <polygon points="512,362 520,370 512,378 440,378 440,362" fill="none" stroke="var(--v5)" stroke-width="1.5"/>
+          <text x="476" y="374" text-anchor="middle">+5 V</text>
+          <text x="432" y="374" text-anchor="end" class="muted">vom Netzteil</text>
+
+          <!-- Lüfter -->
+          <rect x="600" y="16" width="140" height="384" rx="8" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text x="670" y="392" text-anchor="middle" class="title">Lüfter K1</text>
+          <text x="612" y="34">4 · PWM</text>
+          <text x="612" y="174">1 · GND</text>
+          <text x="612" y="324">3 · Tacho</text>
+          <text x="612" y="374">2 · +5 V</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--pwm)"></i>PWM (Lüfterkabel blau)</span>
+        <span><i style="background:var(--tach)"></i>Tacho (grün)</span>
+        <span><i style="background:var(--v5)"></i>+5 V (gelb)</span>
+        <span><i style="background:var(--gnd)"></i>GND (schwarz)</span>
+        <span><i style="background:var(--v33)"></i>3,3 V vom Pico</span>
+      </div>
+      <figcaption>Der Transistor zieht die PWM-Leitung des Lüfters nach Masse. Liefert der Pico kein Signal (aus, abgestürzt, Kabel ab), hält R2 den Transistor gesperrt, und der Lüfter läuft über seinen eigenen Pull-up mit voller Drehzahl. Deshalb ist das Signal invertiert; die Software rechnet das um. R3 hebt die Tacho-Leitung auf 3,3 V, nie auf 5 V, weil die Pins des Pico nur 3,3 V vertragen. Beim Steckbrett-Aufbau entfällt R3; dort übernimmt der eingebaute Pull-up des Pico diese Aufgabe.</figcaption>
+    </figure>
+    <div class="note"><strong>Beinchen des BC547B:</strong> flache Seite zu dir, Beine nach unten: links C (Kollektor), Mitte B (Basis), rechts E (Emitter). Der ähnlich aussehende 2N3904 ist genau andersherum belegt (E · B · C), also nicht einfach tauschen.</div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Pinbelegung</span>Welcher Kanal an welchen Pin</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kanal</th><th>Vorschlag</th><th>PWM → R1</th><th>Tacho ← Lüfter-Pin 3</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">K1</td><td>VR-Lüfter Miner 1</td><td class="mono">GP0 · Pin 1</td><td class="mono">GP16 · Pin 21</td></tr>
+          <tr><td class="mono">K2</td><td>VR-Lüfter Miner 2</td><td class="mono">GP2 · Pin 4</td><td class="mono">GP17 · Pin 22</td></tr>
+          <tr><td class="mono">K3</td><td>VR-Lüfter Miner 3</td><td class="mono">GP4 · Pin 6</td><td class="mono">GP18 · Pin 24</td></tr>
+          <tr><td class="mono">K4</td><td>Gehäuselüfter 1</td><td class="mono">GP6 · Pin 9</td><td class="mono">GP19 · Pin 25</td></tr>
+          <tr><td class="mono">K5</td><td>Gehäuselüfter 2</td><td class="mono">GP8 · Pin 11</td><td class="mono">GP20 · Pin 26</td></tr>
+          <tr><td class="mono">K6</td><td>Reserve</td><td class="mono">GP10 · Pin 14</td><td class="mono">GP21 · Pin 27</td></tr>
+          <tr><td class="mono">—</td><td>3,3 V für alle R3 (nur gelötete Variante)</td><td class="mono" colspan="2">3V3(OUT) · Pin 36</td></tr>
+          <tr><td class="mono">—</td><td>Masse (mit Netzteil −)</td><td class="mono" colspan="2">GND · Pin 38 (oder 3, 8, 13, 18, 23, 28, 33)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Jeder PWM-Pin liegt auf einem eigenen PWM-Block des Pico, so bekommt jeder Kanal sauber 25 kHz. Welcher Kanal zu welchem Miner gehört, stellst du später in der Oberfläche ein; die Tabelle ist nur der Vorschlag für die Verkabelung. Bestückst du erst K1–K3, bleiben K4–K6 einfach leer.</p>
+  </section>
+
+  <section id="steckbrett">
+    <h2><span class="tag">Steckbrett</span>Aufbau ohne Löten</h2>
+    <p>Alles steckt auf einem Steckbrett mit 830 Kontakten (Spalten 1–63, Reihen a–j). Die Zeichnung zeigt Kanal K1 komplett verdrahtet, K2–K6 sind genauso aufgebaut, jeweils sechs Spalten weiter rechts. Auf dem Steckbrett entfällt R3: Die Software schaltet den eingebauten Pull-up des Pico für die Tacho-Leitung ein.</p>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 800 290" role="img" aria-label="Steckplan: Pico H in den Spalten 1 bis 20, USB links. Kanal K1 in den Spalten 22 bis 27: Lüfter-Stiftleiste in a22 bis a25, Transistor in g25 bis g27, R1 von h22 nach h26, R2 von i26 zur unteren Masse-Schiene. Obere Schienen plus 5 Volt und Masse vom USB-Lüfteradapter rechts, untere Masse-Schiene per Brücke verbunden.">
+          <defs>
+            <pattern id="hA" x="34.5" y="84.5" width="11" height="11" patternUnits="userSpaceOnUse"><circle cx="5.5" cy="5.5" r="1.8" fill="var(--muted)" opacity=".55"/></pattern>
+            <pattern id="hB" x="34.5" y="158.5" width="11" height="11" patternUnits="userSpaceOnUse"><circle cx="5.5" cy="5.5" r="1.8" fill="var(--muted)" opacity=".55"/></pattern>
+            <pattern id="hT" x="34.5" y="40.5" width="11" height="11" patternUnits="userSpaceOnUse"><circle cx="5.5" cy="5.5" r="1.8" fill="var(--muted)" opacity=".55"/></pattern>
+            <pattern id="hU" x="34.5" y="225.5" width="11" height="11" patternUnits="userSpaceOnUse"><circle cx="5.5" cy="5.5" r="1.8" fill="var(--muted)" opacity=".55"/></pattern>
+          </defs>
+          <!-- Brett -->
+          <rect x="16" y="30" width="714" height="226" rx="6" fill="var(--bg)" stroke="var(--rule)"/>
+          <rect x="34.5" y="40.5" width="693" height="22" fill="url(#hT)"/>
+          <rect x="34.5" y="84.5" width="693" height="55" fill="url(#hA)"/>
+          <rect x="34.5" y="158.5" width="693" height="55" fill="url(#hB)"/>
+          <rect x="34.5" y="225.5" width="693" height="22" fill="url(#hU)"/>
+          <line x1="36" y1="39" x2="726" y2="39" stroke="#C0392B" stroke-width="1.5"/>
+          <line x1="36" y1="64" x2="726" y2="64" stroke="#2F6FB0" stroke-width="1.5"/>
+          <line x1="36" y1="224" x2="726" y2="224" stroke="#C0392B" stroke-width="1.5" opacity=".4"/>
+          <line x1="36" y1="249" x2="726" y2="249" stroke="#2F6FB0" stroke-width="1.5"/>
+          <text x="31" y="50" text-anchor="end" font-size="10">+5V</text>
+          <text x="31" y="61" text-anchor="end" font-size="10">GND</text>
+          <text x="31" y="235" text-anchor="end" font-size="10" class="muted">frei</text>
+          <text x="31" y="246" text-anchor="end" font-size="10">GND</text>
+          <g font-size="10" class="muted" text-anchor="end">
+            <text x="31" y="94">a</text><text x="31" y="105">b</text><text x="31" y="116">c</text><text x="31" y="127">d</text><text x="31" y="138">e</text>
+            <text x="31" y="168">f</text><text x="31" y="179">g</text><text x="31" y="190">h</text><text x="31" y="201">i</text><text x="31" y="212">j</text>
+          </g>
+          <g font-size="10" class="muted" text-anchor="middle">
+            <text x="40" y="24">1</text><text x="84" y="24">5</text><text x="139" y="24">10</text><text x="194" y="24">15</text><text x="249" y="24">20</text>
+            <text x="304" y="24">25</text><text x="359" y="24">30</text><text x="414" y="24">35</text><text x="469" y="24">40</text><text x="524" y="24">45</text>
+            <text x="579" y="24">50</text><text x="634" y="24">55</text><text x="689" y="24">60</text>
+          </g>
+
+          <!-- Pico H: Pins 1-20 in Reihe h (Spalte = Pin), Pins 40-21 in Reihe c -->
+          <rect x="20" y="138" width="16" height="22" rx="2" fill="var(--surface)" stroke="currentColor"/>
+          <rect x="33" y="106" width="223" height="86" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+          <text x="145" y="146" text-anchor="middle" class="title">Pico H</text>
+          <text x="145" y="164" text-anchor="middle" class="muted">USB links · Pin 1 = h1</text>
+
+          <!-- andere Kanäle -->
+          <g fill="none" stroke="var(--muted)" stroke-dasharray="4 3">
+            <rect x="331" y="84" width="66" height="130" rx="4"/><rect x="397" y="84" width="66" height="130" rx="4"/>
+            <rect x="463" y="84" width="66" height="130" rx="4"/><rect x="529" y="84" width="66" height="130" rx="4"/>
+            <rect x="595" y="84" width="66" height="130" rx="4"/>
+          </g>
+          <g font-size="11" class="muted" text-anchor="middle">
+            <text x="364" y="152">K2</text><text x="430" y="152">K3</text><text x="496" y="152">K4</text><text x="562" y="152">K5</text><text x="628" y="152">K6</text>
+          </g>
+          <rect x="265" y="84" width="66" height="130" rx="4" fill="none" stroke="var(--accent)" stroke-dasharray="4 3"/>
+          <text x="298" y="80" text-anchor="middle" font-size="11" fill="var(--accent)">K1</text>
+
+          <!-- K1: Lüfter-Stiftleiste a22–a25 -->
+          <rect x="265" y="85" width="45" height="10" rx="2" fill="currentColor"/>
+          <!-- Lüfter GND b22 → GND oben, +5V b23 → +5V oben -->
+          <line x1="271" y1="101" x2="271" y2="57" stroke="var(--gnd)" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="282" y1="101" x2="282" y2="46" stroke="var(--v5)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Tacho b24 → Pico a20 (GP16) -->
+          <path d="M293,101 C293,72 249,72 249,90" fill="none" stroke="var(--tach)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- PWM-Pin e25 → Kollektor f25 -->
+          <line x1="304" y1="134" x2="304" y2="164" stroke="var(--pwm)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Pico j1 (GP0) → j22 -->
+          <polyline points="40,208 40,218 271,218 271,208" fill="none" stroke="var(--pwm)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- R1 h22–h26 -->
+          <line x1="271" y1="186" x2="315" y2="186" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="281" y="181" width="24" height="10" rx="3" fill="#D8C49A" stroke="currentColor"/>
+          <!-- Q1 g25/g26/g27, flache Seite zu Reihe j -->
+          <path d="M297,178 L333,178 A18,14 0 0 0 297,178 Z" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+          <text x="315" y="175" text-anchor="middle" font-size="9">Q1</text>
+          <!-- R2 i26 → GND unten -->
+          <line x1="315" y1="197" x2="315" y2="242" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="310" y="206" width="10" height="22" rx="3" fill="#D8C49A" stroke="currentColor"/>
+          <!-- Emitter j27 → GND unten -->
+          <line x1="326" y1="208" x2="326" y2="242" stroke="var(--gnd)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Pico GND a3 → GND oben -->
+          <line x1="62" y1="90" x2="62" y2="57" stroke="var(--gnd)" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Masse-Brücke Spalte 62 -->
+          <line x1="711" y1="57" x2="711" y2="242" stroke="var(--gnd)" stroke-width="2.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+          <!-- Elko auf den oberen Schienen, Spalten 58/59 -->
+          <line x1="667" y1="46" x2="667" y2="14" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="678" y1="57" x2="678" y2="14" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="661" y="2" width="23" height="14" rx="4" fill="var(--surface)" stroke="currentColor"/>
+          <text x="690" y="13" font-size="10">470 µF (+ an +5V)</text>
+          <!-- Schraubklemme Netzteil -->
+          <rect x="744" y="36" width="44" height="30" rx="3" fill="var(--surface)" stroke="var(--v5)" stroke-width="2"/>
+          <text x="766" y="80" text-anchor="middle" font-size="10">USB-Lüfter-</text>
+          <text x="766" y="92" text-anchor="middle" font-size="10">adapter</text>
+          <text x="766" y="104" text-anchor="middle" font-size="10" class="muted">Pin 2 / Pin 1</text>
+          <line x1="744" y1="44" x2="722" y2="46" stroke="var(--v5)" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="744" y1="58" x2="722" y2="57" stroke="var(--gnd)" stroke-width="2.5" stroke-linecap="round"/>
+          <text x="752" y="48" font-size="10">2 +5V</text>
+          <text x="752" y="62" font-size="10">1 GND</text>
+
+          <!-- Punkte an den Steckstellen -->
+          <g fill="currentColor">
+            <circle cx="271" cy="101" r="2.6"/><circle cx="282" cy="101" r="2.6"/><circle cx="293" cy="101" r="2.6"/><circle cx="249" cy="90" r="2.6"/>
+            <circle cx="304" cy="134" r="2.6"/><circle cx="304" cy="164" r="2.6"/><circle cx="40" cy="208" r="2.6"/><circle cx="271" cy="208" r="2.6"/>
+            <circle cx="271" cy="186" r="2.6"/><circle cx="315" cy="186" r="2.6"/><circle cx="315" cy="197" r="2.6"/><circle cx="326" cy="208" r="2.6"/>
+            <circle cx="62" cy="90" r="2.6"/><circle cx="271" cy="57" r="2.6"/><circle cx="282" cy="46" r="2.6"/><circle cx="315" cy="242" r="2.6"/><circle cx="326" cy="242" r="2.6"/>
+            <circle cx="62" cy="57" r="2.6"/><circle cx="711" cy="57" r="2.6"/><circle cx="711" cy="242" r="2.6"/>
+          </g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--pwm)"></i>PWM</span>
+        <span><i style="background:var(--tach)"></i>Tacho</span>
+        <span><i style="background:var(--v5)"></i>+5 V</span>
+        <span><i style="background:var(--gnd)"></i>GND</span>
+        <span><i style="background:#D8C49A"></i>Widerstand</span>
+      </div>
+      <figcaption>Der Pico H steckt mit USB nach links in den Spalten 1–20: seine Pins 1–20 in Reihe h (Pin-Nummer = Spalte), die Pins 40–21 gegenüber in Reihe c. Pro Pico-Pin bleiben die Löcher a/b (oben) bzw. i/j (unten) frei für Brücken. Die oberen Schienen führen +5 V und GND vom USB-Lüfteradapter, die untere GND-Schiene ist über die gestrichelte Brücke verbunden, die untere Plus-Schiene bleibt frei.</figcaption>
+    </figure>
+
+    <h3>Ein Kanal, Schritt für Schritt</h3>
+    <p><b>B</b> ist die erste Spalte des Kanals (K1: B = 22, also B+3 = 25). Die Tabelle darunter nennt B und die Pico-Löcher für jeden Kanal.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Bauteil / Brücke</th><th>von</th><th>nach</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Lüfter-Stiftleiste (4 Pins)</td><td class="mono">a(B) … a(B+3)</td><td>a(B) = Pin 1 GND (schwarz), a(B+3) = Pin 4 PWM (blau)</td></tr>
+          <tr><td class="num">2</td><td>Brücke Lüfter-GND</td><td class="mono">b(B)</td><td>obere blaue Schiene (GND)</td></tr>
+          <tr><td class="num">3</td><td>Brücke Lüfter +5 V</td><td class="mono">b(B+1)</td><td>obere rote Schiene (+5 V)</td></tr>
+          <tr><td class="num">4</td><td>Brücke Tacho</td><td class="mono">b(B+2)</td><td>Pico-Tacho-Loch (Tabelle)</td></tr>
+          <tr><td class="num">5</td><td>Transistor BC547B, flache Seite zu dir (Richtung Reihe j)</td><td class="mono">g(B+3) C · g(B+4) B · g(B+5) E</td><td>über den Graben: Brücke e(B+3) → f(B+3)</td></tr>
+          <tr><td class="num">6</td><td>R1 1 kΩ (liegend)</td><td class="mono">h(B)</td><td class="mono">h(B+4)</td></tr>
+          <tr><td class="num">7</td><td>R2 10 kΩ</td><td class="mono">i(B+4)</td><td>untere blaue Schiene (GND)</td></tr>
+          <tr><td class="num">8</td><td>Brücke Emitter</td><td class="mono">j(B+5)</td><td>untere blaue Schiene (GND)</td></tr>
+          <tr><td class="num">9</td><td>Brücke PWM vom Pico</td><td>Pico-PWM-Loch (Tabelle)</td><td class="mono">j(B)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kanal</th><th>Spalten (B)</th><th>Stiftleiste</th><th>Pico PWM-Loch</th><th>Pico Tacho-Loch</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">K1</td><td class="num">22–27 (22)</td><td class="mono">a22–a25</td><td class="mono">j1 · GP0</td><td class="mono">a20 · GP16</td></tr>
+          <tr><td class="mono">K2</td><td class="num">28–33 (28)</td><td class="mono">a28–a31</td><td class="mono">j4 · GP2</td><td class="mono">a19 · GP17</td></tr>
+          <tr><td class="mono">K3</td><td class="num">34–39 (34)</td><td class="mono">a34–a37</td><td class="mono">j6 · GP4</td><td class="mono">a17 · GP18</td></tr>
+          <tr><td class="mono">K4</td><td class="num">40–45 (40)</td><td class="mono">a40–a43</td><td class="mono">j9 · GP6</td><td class="mono">a16 · GP19</td></tr>
+          <tr><td class="mono">K5</td><td class="num">46–51 (46)</td><td class="mono">a46–a49</td><td class="mono">j11 · GP8</td><td class="mono">a15 · GP20</td></tr>
+          <tr><td class="mono">K6</td><td class="num">52–57 (52)</td><td class="mono">a52–a55</td><td class="mono">j14 · GP10</td><td class="mono">a14 · GP21</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Einmal für alle Kanäle</h3>
+    <ul class="plain">
+      <li>Pico-GND: Brücke <span class="mono">a3</span> → obere blaue Schiene.</li>
+      <li>Strom über den USB-Lüfteradapter an einem USB-Ladegerät (5 V, mindestens 2 A): zwei Female-Male-Brücken, Buchse auf die Adapter-Stifte, Stift ins Brett. Pin 2 (+5 V, rot/gelb) → obere rote Schiene, Pin 1 (GND, schwarz) → obere blaue Schiene. Pin 3 und 4 bleiben frei.</li>
+      <li>Masse-Brücke: obere blaue Schiene → untere blaue Schiene (z. B. bei Spalte 62).</li>
+      <li>Elko 470 µF: langes Bein (+) in die obere rote, gestreiftes Bein (−) in die obere blaue Schiene.</li>
+    </ul>
+    <div class="note"><strong>Vor dem ersten Einschalten:</strong> 0. Am USB-Lüfteradapter zwischen Pin 1 und Pin 2 messen: es müssen ca. 5 V sein. Manche Adapter wandeln auf 12 V hoch (Aufschrift „12V“ oder ein Kästchen im Kabel) – damit gingen die 5-V-Lüfter kaputt. 1. In Spalte 1 oben (a1, b1) nichts einstecken, dort liegen die 5 V vom USB (VBUS). 2. Bei vielen Steckbrettern sind die Schienen in der Mitte unterbrochen (Lücke in der roten/blauen Linie), dann jede Schiene dort mit einer kurzen Brücke verbinden. 3. Lüfterstecker nur bei ausgestecktem USB-Ladegerät aufstecken; das schwarze Kabel (Pin 1) gehört in Loch a(B).</div>
+  </section>
+
+  <section id="anzeige">
+    <h2><span class="tag">Erweiterung</span>E-Paper, Taster und Gehäusefühler</h2>
+    <p>Alles hängt am selben Pico und kommt mit auf das Steckbrett. Die Löcher unten beziehen sich wieder auf den Pico in Spalte 1–20 (Pins 1–20: Löcher i/j, Pins 21–40: Löcher a/b). Keines davon ist schon von den Lüftern belegt.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Anschluss</th><th>Pico-Pin</th><th>Steckbrett-Loch</th><th>Ziel</th></tr></thead>
+        <tbody>
+          <tr><td>E-Paper VCC</td><td class="mono">VSYS · Pin 39</td><td class="mono">b2</td><td>Display-Buchse Pin 39</td></tr>
+          <tr><td>E-Paper GND</td><td class="mono">GND</td><td>obere blaue Schiene</td><td>Display-Buchse Pin 38</td></tr>
+          <tr><td>E-Paper DIN</td><td class="mono">GP15 · Pin 20</td><td class="mono">i20</td><td>Display-Buchse Pin 20</td></tr>
+          <tr><td>E-Paper CLK</td><td class="mono">GP14 · Pin 19</td><td class="mono">i19</td><td>Display-Buchse Pin 19</td></tr>
+          <tr><td>E-Paper CS</td><td class="mono">GP13 · Pin 17</td><td class="mono">i17</td><td>Display-Buchse Pin 17</td></tr>
+          <tr><td>E-Paper DC</td><td class="mono">GP12 · Pin 16</td><td class="mono">i16</td><td>Display-Buchse Pin 16</td></tr>
+          <tr><td>E-Paper RST</td><td class="mono">GP11 · Pin 15</td><td class="mono">i15</td><td>Display-Buchse Pin 15</td></tr>
+          <tr><td>E-Paper BUSY</td><td class="mono">GP22 · Pin 29</td><td class="mono">a12</td><td>Display-Buchse Pin 29</td></tr>
+          <tr><td>Taster 1 · Anzeige weiter / Blockfund quittieren</td><td class="mono">GP1 · Pin 2</td><td class="mono">j2</td><td>Lötfahne A; Lötfahne B → untere GND-Schiene</td></tr>
+          <tr><td>Taster 2 · Lüfter Automatik</td><td class="mono">GP3 · Pin 5</td><td class="mono">j5</td><td>wie oben</td></tr>
+          <tr><td>Taster 3 · Lüfter 100 % (5 s halten: Lüfter aus)</td><td class="mono">GP5 · Pin 7</td><td class="mono">j7</td><td>wie oben</td></tr>
+          <tr><td>Taster 4 (rot) · Neustart Pi + Pico, 3 s halten</td><td class="mono">GP7 · Pin 10</td><td class="mono">j10</td><td>wie oben</td></tr>
+          <tr><td>Fühler-Sammelreihe 3,3 V</td><td class="mono">3V3(OUT) · Pin 36</td><td class="mono">a5</td><td>Brücke nach <span class="mono">a60</span></td></tr>
+          <tr><td>Fühler-Sammelreihe Daten</td><td class="mono">GP26 · Pin 31</td><td class="mono">a10</td><td>Brücke nach <span class="mono">a61</span></td></tr>
+          <tr><td>Widerstand 4,7 kΩ (nur einer für alle Fühler)</td><td></td><td class="mono">e60 – e61</td><td></td></tr>
+          <tr><td>Jeder Fühler: rot (+3,3 V)</td><td></td><td class="mono">b60 / c60 / d60</td><td>ein Loch je Fühler</td></tr>
+          <tr><td>Jeder Fühler: gelb (Daten)</td><td></td><td class="mono">b61 / c61 / d61</td><td>ein Loch je Fühler</td></tr>
+          <tr><td>Jeder Fühler: schwarz (GND)</td><td></td><td>obere blaue Schiene</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h3>E-Paper 7,5" (rot/schwarz/weiß)</h3>
+        <p>Das Modul ist eigentlich zum Aufstecken des Pico gebaut. Hier bleibt der Pico auf dem Steckbrett, und nur acht Leitungen gehen per Male-Male-Brücke in die Buchsenleiste des Moduls – jeweils in das Loch mit derselben Pin-Nummer wie am Pico (Pin 1 ist am Modul markiert). Das Flachbandkabel des Displays steckt in der Klappbuchse des Moduls, Kontakte nach unten.</p>
+        <p>Die Anzeige erneuert sich höchstens alle 3 Minuten (Standard 5, nachts auf Wunsch gar nicht) und braucht dafür etwa 16 Sekunden. Das schont das Panel. Bei einem Alarm (Miner offline, Gehäuse zu warm) aktualisiert sie sofort.</p>
+      </div>
+      <div class="panel">
+        <h3>Taster</h3>
+        <p>Die Drucktaster haben Lötfahnen: je eine Krokodilklemme an Fahne A und B, die anderen Enden an die Stifte zweier Male-Male-Brücken, die ins Brett gehen. Richtung egal. Der Pico hat eingebaute Pull-ups, Widerstände sind nicht nötig; bei jedem Druck blinkt seine LED.</p>
+        <p>Taste 1 blättert die Anzeige weiter oder quittiert eine Sonderanzeige (z. B. Blockfund); die Anzeige reagiert dann nach etwa 30 Sekunden statt nach 3 Minuten. Taste 2 (Automatik) hebt „100 %“ und „Aus“ wieder auf. Taste 3 kurz setzt die Lüfter sofort auf 100 %, auch wenn der Server gerade nicht antwortet; <b>5 Sekunden halten</b> schaltet die Zusatzlüfter aus (Sicherheitsregeln bleiben aktiv). Taste 4 reagiert nur nach <b>3 Sekunden Halten</b> (LED leuchtet 1 s), kurzes Drücken bewirkt nichts. Vor dem Neustart stoppt der Server laufende Benchmarks und stellt die Miner-Einstellungen wieder her. Die Tasten lassen sich in den Einstellungen abschalten.</p>
+      </div>
+      <div class="panel">
+        <h3>Mehrere Temperaturfühler (z. B. Netzteil und Miner-Raum)</h3>
+        <p>Die 3-poligen DS18B20 hängen alle <b>parallel</b> an denselben drei Leitungen: Spalte 60 sammelt 3,3 V, Spalte 61 die Daten (beide Spalten sind rechts neben K6 frei). Es gibt nur einen 4,7-kΩ-Widerstand, egal wie viele Fühler. Jeder Fühler hat eine feste, eingebaute Kennung: Der Server erkennt ihn daran und trägt ihn selbst unter „Lüfter &amp; Anzeige → Temperaturfühler“ ein, dort vergibst du Name und Warnschwelle.</p>
+        <ul class="plain">
+          <li><b>Welcher ist welcher?</b> Einen Fühler in der Hand anwärmen und in der Liste schauen, welcher Wert steigt.</li>
+          <li><b>Rot muss angeschlossen sein</b> (kein „parasitärer“ Betrieb über 2 Adern).</li>
+          <li>Weiche Litzenenden halten schlecht im Steckbrett: mit Krokodilklemme auf eine Male-Male-Brücke gehen, oder Aderendhülsen bzw. Dupont-Stecker verwenden.</li>
+          <li>Fühler auf kleiner Platine mit eigenem Widerstand (oft „Modul“, Anschlüsse −/+/S): dann entfällt unser 4,7 kΩ; bei drei solchen Modulen ist das noch in Ordnung.</li>
+          <li>Kabel zusammen bis etwa 10 m sind mit 4,7 kΩ kein Problem.</li>
+        </ul>
+        <p>Pro Fühler legst du fest, ob er für die <b>Gehäuselüfter</b> zählt (Messgröße „Temperaturfühler“, es gilt der wärmste) und ob er auf dem <b>Display</b> erscheint. Zu warm → Push-Meldung und rote Anzeige. Fehlt ein Fühler länger als 2 Minuten → Meldung. Zählt er für die Gehäuselüfter, laufen diese bis dahin mit dem Wert für „unbekannt“ (Standard 100 %).</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Strom</span>Versorgung</h2>
+    <div class="two">
+      <div class="panel">
+        <h3>5-V-Lüfter (empfohlen)</h3>
+        <dl>
+          <dt>3 × NF-A4x10 5V PWM</dt><dd>je ca. 0,05 A</dd>
+          <dt>2 × Gehäuse 5V PWM</dt><dd>je ca. 0,1–0,15 A</dd>
+          <dt>zusammen</dt><dd>unter 0,5 A</dd>
+          <dt>Quelle</dt><dd>USB-Ladegerät 5 V, ≥ 2 A über den USB-Lüfteradapter</dd>
+        </dl>
+        <p>+5 V an alle Lüfter-Pins 2, Masse an die GND-Schiene. Ein Elko (470 µF) auf der 5-V-Schiene glättet Spannungsspitzen beim Anlaufen.</p>
+      </div>
+      <div class="panel">
+        <h3>12-V-Gehäuselüfter (falls vorhanden)</h3>
+        <p>Die Schaltung ist dieselbe: Das PWM-Signal hängt nicht von der Lüfterspannung ab. Pin 2 bekommt dann +12 V von einem zweiten Netzteil, dessen Minus ebenfalls an die gemeinsame GND-Schiene geht.</p>
+        <p><strong>+12 V darf nie mit dem Pico, dem Pi oder der 5-V-Leitung in Berührung kommen.</strong> Getrennte Schraubklemmen und farbige Litzen helfen.</p>
+      </div>
+    </div>
+    <p>Die Lüfter nicht aus dem 5-V-Pin des Pi oder dem USB des Pico speisen: Der Pi 3 hat dafür wenig Reserve, und beim Anlaufen ziehen Lüfter kurz deutlich mehr Strom.</p>
+  </section>
+
+  <section id="einkauf">
+    <h2><span class="tag">Einkauf</span>Was du brauchst (ohne Löten)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Teil</th><th>Menge</th><th>Wofür</th><th>Shop</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Raspberry Pi Pico <b>2 H</b> (RP2350, Stiftleisten schon angelötet)</td><td class="num">1</td><td>Lüfter-, Display- und Taster-Controller</td><td><a href="https://www.berrybase.de/raspberry-pi-pico-2-rp2350-mikrocontroller-board-mit-headern" target="_blank" rel="noopener">BerryBase</a> · 6,50 €</td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>7,5" E-Paper-Modul für Pico, 800 × 480, rot/schwarz/weiß</td><td class="num">1</td><td>Statusanzeige</td><td><a href="https://www.berrybase.de/7-5-zoll-e-paper-display-modul-fuer-raspberry-pi-pico-800-480-rot-schwarz-weiss" target="_blank" rel="noopener">BerryBase</a> · 52,90 €</td><td><span class="chip opt">Anzeige</span></td></tr>
+          <tr><td>Drucktaster quadratisch, Schließer – 3 × schwarz, 1 × rot (Neustart)</td><td class="num">4</td><td>Aus / Automatik / 100 % / Neustart</td><td><a href="https://www.berrybase.de/drucktaster-quadratisch-schliesser/farbe-schwarz" target="_blank" rel="noopener">BerryBase</a> · je ca. 0,80 €</td><td><span class="chip opt">Taster</span></td></tr>
+          <tr><td>Krokodilklemmen-Kabelset</td><td class="num">1</td><td>Taster ohne Löten anschließen</td><td>BerryBase · ca. 3,90 €</td><td><span class="chip opt">Taster</span></td></tr>
+          <tr><td>Temperatursensor DS18B20, 3-polig (z. B. wasserdicht, 1 m Kabel)</td><td class="num">1–3</td><td>Netzteil, Miner-Raum, …</td><td>BerryBase · ca. 2,70 €</td><td><span class="chip opt">Fühler</span></td></tr>
+          <tr><td>Widerstand 4,7 kΩ, ¼ W</td><td class="num">1</td><td>Pull-up für den DS18B20</td><td>BerryBase</td><td><span class="chip opt">Fühler</span></td></tr>
+          <tr><td>microSD-Karte ab 16 GB (für das fertige Image)</td><td class="num">1</td><td>Pi 3</td><td>vorhanden?</td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Breadboard-Set 400 &amp; 830 Punkte mit 3 × 40 Jumperkabeln (M-M, F-F, M-F) – genutzt: 830er-Brett, Male-Male und 2 × Female-Male</td><td class="num">1</td><td>Aufbau</td><td><a href="https://www.amazon.de/dp/B0GVP7JZQD" target="_blank" rel="noopener">Amazon</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Transistor BC547B (NPN, TO-92)</td><td class="num">6 (+2 Reserve)</td><td>Q1 je Kanal</td><td><a href="https://www.berrybase.de/en/bc547b-bipolar-transistor-npn-45v-100ma-to-92-3-pin" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Widerstand 1 kΩ, ¼ W</td><td class="num">6</td><td>R1 je Kanal</td><td><a href="https://www.berrybase.de/metallschichtwiderstand-1-0-kohm-1-4w-1-0207-axial-durchsteckmontage" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Widerstand 10 kΩ, ¼ W</td><td class="num">6</td><td>R2 je Kanal (R3 entfällt auf dem Steckbrett)</td><td><a href="https://www.berrybase.de/metallschichtwiderstand-10-0-kohm-1-4w-1-0207-axial-durchsteckmontage" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Stiftleiste 1×40, gerade – in 4er-Stücke brechen, darauf steckt der Lüfterstecker</td><td class="num">1</td><td>Lüfteranschluss</td><td><a href="https://www.berrybase.de/stiftleiste-1x-40-polig-rm-2-54-gerade" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Steckbrücken Male-Male, 40er-Streifen, 20 cm (nur für alle 6 Kanäle nötig)</td><td class="num">0–1</td><td>zusätzliche Brücken</td><td><a href="https://www.berrybase.de/en/40pin-jumper-dupont-cable-male-male-separable-019234a373f3735a823c26e00e82d210" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip opt">bei 6 Kanälen</span></td></tr>
+          <tr><td>Drahtbrücken-Box, 140 Stück in 14 Längen</td><td class="num">1</td><td>kurze, flache Brücken (Emitter, Masse, Kollektor)</td><td><a href="https://www.berrybase.de/en/jumper-box-set-with-140-jumpers-in-14-lengths-for-breadboards" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip opt">empfohlen</span></td></tr>
+          <tr><td>USB-A-auf-4-Pin-Lüfteradapter (Stifte am Ende), vorher auf 5 V prüfen</td><td class="num">1</td><td>Lüfterstrom aufs Brett</td><td>vorhanden</td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>USB-Ladegerät 5 V, mindestens 2 A (z. B. altes Handy-Ladegerät)</td><td class="num">1</td><td>Stromquelle für die Lüfter</td><td>vorhanden?</td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Elko 470 µF / 25 V</td><td class="num">1</td><td>Puffer auf der 5-V-Schiene</td><td><a href="https://www.berrybase.de/elektrolytkondensator-470-f-25v-1050c-1-radial-tht" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip opt">empfohlen</span></td></tr>
+          <tr><td>USB-2.0-Kabel A auf Micro-B, 0,5 m (Datenkabel)</td><td class="num">1</td><td>Pi 3 ↔ Pico</td><td><a href="https://www.berrybase.de/en/usb-2.0-hi-speed-kabel-a-stecker-micro-b-stecker-0-50m-schwarz" target="_blank" rel="noopener">BerryBase</a></td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Noctua NF-A4x10 <b>5V PWM</b> (40 mm) – oder NF-A4x20 5V PWM für mehr Luft</td><td class="num">3</td><td>VR-Kühlung je Miner</td><td>Noctua-Shop, Caseking, Amazon</td><td><span class="chip must">nötig</span></td></tr>
+          <tr><td>Gehäuselüfter <b>5V PWM</b>, z. B. Noctua NF-A8 5V PWM oder NF-A12x25 5V PWM</td><td class="num">1–2</td><td>Gehäuse belüften</td><td>Noctua-Shop, Caseking, Amazon</td><td><span class="chip opt">optional</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Werkzeug: nur ein Seitenschneider (Stiftleiste teilen, Beinchen kürzen) und ein Multimeter zum Prüfen. Stand 27.09.2026: Das 830er-Steckbrett war bei BerryBase nicht lieferbar, daher das Amazon-Set. Ein Netzteilmodul oder eine Hohlbuchse ist nicht nötig, der Strom kommt über den USB-Lüfteradapter.</p>
+  </section>
+
+  <section>
+    <h2><span class="tag">Aufbau</span>Zusammenbauen und erster Test</h2>
+    <ol class="steps">
+      <li><b>MicroPython auf den Pico:</b> BOOTSEL-Taste gedrückt halten, Pico per USB an einen PC stecken, die UF2-Datei für „Raspberry Pi Pico 2“ (RPI_PICO2) von <span class="mono">micropython.org/download</span> auf das erscheinende Laufwerk ziehen. Das Lüfterprogramm spielt später der Server selbst auf.</li>
+      <li><b>Steckbrett nach dem Steckplan bestücken</b> – erst Pico, Schienen und Masse-Brücke, dann ein Kanal nach dem anderen. Noch keinen Lüfter und kein Netzteil anschließen.</li>
+      <li><b>Prüfen</b> (Multimeter, Durchgangstest): kein Durchgang zwischen der roten und der blauen Schiene; in Spalte 1 oben (VBUS) steckt nichts; jedes schwarze Lüfterkabel landet in a(B).</li>
+      <li><b>Erst USB-Ladegerät, dann einen Lüfter an K1:</b> Ohne Pico muss er sofort mit voller Drehzahl laufen. Das ist der Ausfallschutz, der hier schon ohne Software wirkt.</li>
+      <li><b>Pico per USB an den Pi 3 stecken.</b> Der Server erkennt ihn, lädt das Lüfterprogramm hoch und übernimmt die Regelung; die Drehzahl erscheint in der Oberfläche.</li>
+      <li><b>Lüfter zuordnen</b> (Einstellungen → Lüfter) und die übrigen Kanäle anschließen.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="tag">Software</span>Einstellungen in BitaxeTuner</h2>
+    <div class="two">
+      <div class="panel">
+        <h3>VR-Lüfter je Miner (K1–K3)</h3>
+        <dl>
+          <dt>Manuell</dt><dd>fester Wert, z. B. 60 %</dd>
+          <dt>Automatik</dt><dd>Kurve nach VR-Temperatur dieses Miners</dd>
+          <dt>Beispielkurve</dt><dd>bis 50 °C → 25 %, ab 70 °C → 100 %, dazwischen linear</dd>
+          <dt>Hysterese</dt><dd>2 °C, damit der Lüfter nicht pendelt</dd>
+          <dt>Mindestwert</dt><dd>einstellbar; unterhalb bleibt er aus oder läuft minimal</dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <h3>Gehäuselüfter (K4–K6)</h3>
+        <dl>
+          <dt>Manuell</dt><dd>fester Wert für die ganze Gruppe</dd>
+          <dt>Automatik</dt><dd>nach der <b>höchsten</b> Temperatur aller zugeordneten Miner</dd>
+          <dt>Messgröße</dt><dd>VR-, ASIC- oder Gehäusetemperatur (DS18B20)</dd>
+          <dt>Kurve</dt><dd>eigene Werte, getrennt von den VR-Lüftern</dd>
+          <dt>Nachtbetrieb</dt><dd>optional Höchstwert zu festen Uhrzeiten (leiser)</dd>
+        </dl>
+      </div>
+    </div>
+    <h3>Immer aktiv, nicht abschaltbar</h3>
+    <ul class="plain">
+      <li>Miner offline oder seine Daten älter als 30 Sekunden → sein Lüfter auf 100 %.</li>
+      <li>Pico bekommt 5 Sekunden lang keinen Befehl (Server hängt oder Neustart) → alle Lüfter auf 100 %.</li>
+      <li>Pico ohne Strom oder USB abgezogen → die Schaltung selbst sorgt für 100 %.</li>
+      <li>Lüfter soll drehen, meldet aber 0 U/min → Push-Meldung „Lüfter steht“.</li>
+      <li>Ein Temperaturfühler über seiner Warnschwelle → Push-Meldung mit seinem Namen und rote Zeile auf dem Display; fehlt ein Fühler, ebenfalls Meldung.</li>
+      <li>Auch mit „Aus“ (Taste 3, 5 s halten) greifen die Regeln oben: ein Lüfter, der aus Sicherheitsgründen trotzdem läuft, wird gemeldet.</li>
+      <li>Jede Änderung im manuellen Modus und jeder Wechsel Manuell ↔ Automatik wird im Protokoll des Miners vermerkt.</li>
+    </ul>
+  </section>
+  <footer style="border-top:1px solid var(--rule);padding-top:16px;color:var(--muted);font-size:14px">
+    Teil von <a href="https://github.com/Elemirus1996/BitaxeTuner">BitaxeTuner</a> · GNU GPL v3.0 · ohne jede Gewähr –
+    Nachbau und Betrieb auf eigenes Risiko. Genannte Shops und Produkte sind Beispiele, keine Werbung;
+    nicht verbunden mit Raspberry Pi Ltd, Waveshare, Noctua, BerryBase oder Amazon.
+  </footer>
+</main>
+</body>
+</html>
