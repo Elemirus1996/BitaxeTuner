@@ -354,6 +354,13 @@ explicit confirmation showing old and new values. The user interface is German. 
 - *No warranty. Independent project, not affiliated with or endorsed by the Bitaxe project, NerdAxe, Raspberry Pi Ltd,
   Home Assistant or Waveshare. All trademarks belong to their respective owners.*
 
+## Datenschutz und Code-Signatur
+
+- BitaxeTuner sammelt keine Daten für die Entwickler (keine Telemetrie, kein Konto, keine Cloud). Welche Dienste das
+  Programm wann kontaktiert: [Datenschutz / Privacy Policy](https://elemirus1996.github.io/BitaxeTuner/privacy.html).
+- Code signing: Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
+  [SignPath Foundation](https://signpath.org/) – [Code signing policy](https://elemirus1996.github.io/BitaxeTuner/code-signing.html).
+
 ## Mitmachen, Fehler melden, Sicherheit
 
 - Fehler und Wünsche: [Issues](../../issues) (Vorlagen vorhanden). Bitte **keine** IP-Adressen, Wallet-Adressen,

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BitaxeTuner – Privacy Policy / Datenschutz</title>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light dark; --muted: #6b7280; --brand: #B45F06; }
+  body { font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 820px; margin: 0 auto; padding: 32px 20px 64px; }
+  a { color: var(--brand); }
+  h1 { margin-bottom: 4px; } .muted { color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; } th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid rgba(127,127,127,.3); vertical-align: top; }
+  hr { margin: 40px 0; border: 0; border-top: 1px solid rgba(127,127,127,.3); }
+</style>
+</head>
+<body>
+<p><a href="./">← BitaxeTuner</a></p>
+<h1>Privacy Policy</h1>
+<p class="muted">BitaxeTuner desktop app, server and website · last updated 27 Sep 2026</p>
+
+<h2>Summary</h2>
+<p><b>BitaxeTuner does not collect any data for the developers.</b> There is no telemetry, no analytics, no user account and no
+cloud service operated by the project. All settings, history and tax records stay on your own computer, Raspberry Pi or server.</p>
+
+<h2>Network connections made by the software</h2>
+<p>The program only connects to the services below, and only for the stated purpose. Optional services are used only if you
+configure them.</p>
+<table>
+  <tr><th>Destination</th><th>Purpose</th><th>When</th></tr>
+  <tr><td>Your miners in your local network</td><td>Read status, apply settings you confirmed, read logs</td><td>Always (core function)</td></tr>
+  <tr><td>api.github.com / github.com</td><td>Check for BitaxeTuner updates and miner firmware versions; download updates you start</td><td>Periodically; download only on request</td></tr>
+  <tr><td>mempool.space</td><td>Bitcoin network data (latest blocks, pools), wallet balance lookups</td><td>When network/wallet features are used</td></tr>
+  <tr><td>api.blockchair.com</td><td>Wallet balances and incoming payments (e.g. BCH), for the tax overview</td><td>Only if you enter wallet addresses</td></tr>
+  <tr><td>api.coingecko.com</td><td>Historical EUR exchange rates for the tax overview</td><td>Only if you use the tax features</td></tr>
+  <tr><td>api.awattar.de / .at, api.tibber.com</td><td>Electricity prices</td><td>Only if you select a price source (Tibber: with your own token)</td></tr>
+  <tr><td>ntfy.sh (or your ntfy server), api.telegram.org</td><td>Push notifications you configured</td><td>Only if you set up push notifications</td></tr>
+  <tr><td>Your own MQTT broker (e.g. Home Assistant)</td><td>Publish miner values</td><td>Only if you enable MQTT</td></tr>
+</table>
+<p>Wallet addresses you enter are sent to the respective explorer to look up balances. These third-party services have their
+own privacy policies. The BitaxeTuner server only accepts connections from private networks and is not meant to be exposed to the internet.</p>
+
+<h2>This website</h2>
+<p>The website is a static page hosted by GitHub Pages. It uses no cookies, no tracking and loads no content from third parties.
+GitHub may process technical access data (e.g. IP address) when delivering the page; see the
+<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a>.</p>
+
+<h2>Contact</h2>
+<p>Questions: <a href="https://github.com/Elemirus1996/BitaxeTuner/issues">GitHub issues</a>. Security issues:
+<a href="https://github.com/Elemirus1996/BitaxeTuner/security/policy">security policy</a>.</p>
+
+<hr>
+
+<h1 lang="de">Datenschutz</h1>
+<div lang="de">
+<p><b>BitaxeTuner sammelt keine Daten für die Entwickler.</b> Es gibt keine Telemetrie, keine Nutzungsstatistik, kein Konto und
+keinen Cloud-Dienst des Projekts. Einstellungen, Verlauf und Steuerdaten bleiben auf deinem PC, Raspberry Pi oder Server.</p>
+<p>Das Programm verbindet sich nur mit den oben aufgeführten Diensten und nur zum jeweils genannten Zweck: mit deinen Minern im
+Heimnetz, mit GitHub (Updates, Firmware-Versionen), mempool.space und Blockchair (Netzwerkdaten, Wallet-Guthaben), CoinGecko
+(Euro-Kurse für die Steuerübersicht), aWATTar/Tibber (Strompreis), ntfy/Telegram (Push) und deinem MQTT-Broker – die optionalen
+Dienste nur, wenn du sie einrichtest. Eingetragene Wallet-Adressen werden zur Abfrage an den jeweiligen Explorer übermittelt;
+für diese Dienste gelten deren Datenschutzbestimmungen.</p>
+<p>Diese Webseite verwendet keine Cookies, kein Tracking und lädt keine Inhalte von Drittanbietern. Sie wird über GitHub Pages
+bereitgestellt; GitHub verarbeitet dabei ggf. technische Zugriffsdaten (z. B. IP-Adresse), siehe
+<a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>.</p>
+</div>
+</body>
+</html>
