@@ -114,12 +114,13 @@ Datensatz pro Minute und Miner (schont die SD-Karte).
 
 **Raspberry Pi – fertiges Image (am einfachsten)**
 
-1. `…-raspios-arm64.img.xz` mit dem **Raspberry Pi Imager** schreiben („Eigenes Image“); in den Einstellungen des
-   Imagers Hostname `bitaxetuner`, Benutzer, WLAN und SSH festlegen. Das Image ist Raspberry Pi OS Lite (64-bit) mit
-   vorinstalliertem Server.
-2. SD-Karte am PC lassen, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
-   Admin-Passwort festlegen, optional *Meine Daten mitgeben*. Die App legt ein Einrichtungspaket auf die Karte
-   (Passwort nur als Hash) und merkt sich Adresse und Token.
+1. `…-raspios-arm64.img.xz` mit dem **Raspberry Pi Imager** schreiben („Eigenes Image“). Das Image ist Raspberry Pi
+   OS Lite (64-bit) mit vorinstalliertem Server. Der Imager bietet für eigene Images keine Einstellungen an –
+   Benutzer, WLAN und SSH trägt die Desktop-App ein (Schritt 2).
+2. SD-Karte neu einstecken, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
+   Admin-Passwort festlegen, Benutzer/Passwort für den Pi und WLAN eintragen, optional *Meine Daten mitgeben*.
+   Die App schreibt die cloud-init-Dateien (`user-data`, `network-config`, `ssh`) und ein Einrichtungspaket auf die
+   Karte (alle Passwörter nur als Hash) und merkt sich Adresse und Token.
 3. Karte in den Pi, starten (erster Start 3–5 Minuten). Der Pi übernimmt das Paket, löscht es von der Karte und
    startet **pausiert**. In der App *Verbindung testen* → *Nur umschalten* – erst dann fragt der Pi die Miner ab.
 

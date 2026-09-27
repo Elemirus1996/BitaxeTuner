@@ -82,7 +82,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="Raspberry Pi vorbereiten"/>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="1. Das BitaxeTuner-Pi-Image (Release-Seite) mit dem Raspberry Pi Imager auf die SD-Karte schreiben; dort Benutzer, WLAN und SSH einstellen. 2. SD-Karte am PC lassen bzw. neu einstecken, hier das Laufwerk „bootfs“ wählen. 3. Admin-Passwort festlegen und optional deine Daten mitgeben. Der Pi übernimmt beim ersten Start alles, startet pausiert und ist unter http://bitaxetuner.local:8484/ erreichbar; danach oben „Nur umschalten“."/>
+                                   Text="1. Das BitaxeTuner-Pi-Image (Release-Seite) mit dem Raspberry Pi Imager auf die SD-Karte schreiben („Eigenes Image“ – der Imager bietet dafür keine Einstellungen an). 2. SD-Karte neu einstecken, hier das Laufwerk „bootfs“ wählen. 3. Admin-Passwort, Zugang zum Pi und WLAN eintragen, optional deine Daten mitgeben. Der Pi übernimmt beim ersten Start alles, startet pausiert und ist unter http://bitaxetuner.local:8484/ erreichbar; danach oben „Nur umschalten“."/>
                         <TextBlock Text="SD-KARTE (BOOT-PARTITION)" Style="{StaticResource Label}"/>
                         <DockPanel Margin="0,0,0,10">
                             <Button DockPanel.Dock="Right" Content="Aktualisieren" Click="RefreshDrives_Click" Margin="6,0,0,0" Padding="10,4"/>
@@ -102,6 +102,38 @@
                                 <TextBlock Text="WIEDERHOLEN" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiPassword2"/>
                             </StackPanel>
+                        </Grid>
+                        <CheckBox x:Name="PiSetupOs" IsChecked="True" Margin="0,0,0,8"
+                                  Content="Zugang zum Pi einrichten (Benutzer, WLAN, SSH, Hostname „bitaxetuner“)"/>
+                        <Grid x:Name="PiOsFields" Margin="0,0,0,10" IsEnabled="{Binding IsChecked, ElementName=PiSetupOs}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Margin="0,0,0,8">
+                                <TextBlock Text="BENUTZERNAME (FÜR SSH)" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="PiUser" Text="pi"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="0,0,0,8">
+                                <TextBlock Text="PI-PASSWORT (MIND. 8 ZEICHEN)" Style="{StaticResource Label}"/>
+                                <PasswordBox x:Name="PiUserPassword"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                                <TextBlock Text="WLAN-NAME (LEER = NUR LAN-KABEL)" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="PiWifiSsid"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
+                                <TextBlock Text="WLAN-PASSWORT" Style="{StaticResource Label}"/>
+                                <PasswordBox x:Name="PiWifiPassword"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource Hint}" Margin="0"
+                                       Text="Pi 3: nur 2,4-GHz-WLAN. Passwörter landen nur als Hash auf der Karte. Land DE, Zeitzone Europe/Berlin, Tastatur deutsch."/>
                         </Grid>
                         <CheckBox x:Name="PiIncludeData" IsChecked="True" Margin="0,0,0,10"
                                   Content="Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)"/>

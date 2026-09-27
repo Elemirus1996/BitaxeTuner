@@ -259,9 +259,31 @@ public partial class ServerModeWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        PiOsOptions? os = null;
+        if (PiSetupOs.IsChecked == true)
+        {
+            os = new PiOsOptions(PiUser.Text.Trim(), PiUserPassword.Password,
+                PiWifiSsid.Text.Trim() is { Length: > 0 } ssid ? ssid : null, PiWifiPassword.Password);
+            try
+            {
+                PiOsSetup.Validate(os);
+                if (!PiOsSetup.Supports(drive.Root))
+                    throw new InvalidOperationException("Auf dieser Karte fehlt cloud-init (meta-data). Bitte das BitaxeTuner-Image ab Version 0.3.0 verwenden.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(this, ex.Message, "Raspberry Pi vorbereiten", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (os.WifiSsid is null && MessageBox.Show(this,
+                    "Kein WLAN eingetragen – der Pi ist dann nur mit LAN-Kabel erreichbar. Trotzdem fortfahren?",
+                    "Raspberry Pi vorbereiten", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+        }
         var withData = PiIncludeData.IsChecked == true;
         if (MessageBox.Show(this,
                 $"Einrichtungspaket nach {drive.Root}{Provisioning.FolderName} schreiben?\n\n" +
+                (os is not null ? $"Zugang: Benutzer „{os.User}“, {(os.WifiSsid is { } w ? $"WLAN „{w}“" : "nur LAN")}, SSH an, Hostname bitaxetuner.\n" : "") +
                 (withData ? $"Mitgegeben werden {_host.Config.Devices.Count} Gerät(e), Verlauf, Einstellungen, Steuerdaten und Ergebnisse (Kopie – lokal bleibt alles erhalten).\n" : "Ohne Daten – der Pi startet leer.\n") +
                 "Der Pi startet pausiert. Diese App fragt die Miner weiter ab, bis du auf „Server“ umschaltest.",
                 "Raspberry Pi vorbereiten", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
@@ -274,9 +296,16 @@ public partial class ServerModeWindow : Window
             _host.Config.Save();
             var password = PiPassword1.Password;
             var version = ViewModels.MainViewModel.CurrentVersion.ToString(3);
+            if (os is not null)
+            {
+                await Task.Run(() => PiOsSetup.Write(drive.Root, os));
+                Log($"Zugang geschrieben: Benutzer „{os.User}“, {(os.WifiSsid is { } s ? $"WLAN „{s}“" : "nur LAN")}, SSH an.");
+            }
             var token = await Task.Run(() => Provisioning.Write(drive.Root, password, withData ? _host.DataDirectory : null, withData ? _host.History : null, version));
             PiPassword1.Clear();
             PiPassword2.Clear();
+            PiUserPassword.Clear();
+            PiWifiPassword.Clear();
             _config.Server.Url = "http://bitaxetuner.local:8484/";
             _config.Server.Token = token;
             _config.Server.CertificateFingerprint = null;
