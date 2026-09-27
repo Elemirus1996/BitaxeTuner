@@ -1027,13 +1027,18 @@ function quickActions(fans, display) {
 function displayCard(d) {
   const st = d.status;
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: 'Vorschau der E-Paper-Anzeige', style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
+  const scenes = [['', 'Als Nächstes'], ['Overview', 'Übersicht'], ['Daily', 'Tagesbilanz'], ['Chart', 'Verlauf 24 h'], ['Soak', 'Dauertest'],
+    ['Network', 'Pool & Netzwerk'], ['BlockFound', 'Blockfund'], ['Alarm', 'Warnungen'], ['BestDiff', 'Best-Diff-Rekord']];
+  const sceneSel = h('select', { onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
+    scenes.map(([v, t]) => h('option', { value: v }, t)));
   const info = !st.enabled ? 'Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.'
     : `${st.connected ? 'Pico verbunden' : 'Pico nicht verbunden'} · zuletzt ${st.lastShown ? time(st.lastShown) : 'noch nie'}` +
       (st.nextDue ? ` · nächste Aktualisierung ab ${new Date(st.nextDue).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '') +
       (st.refreshing ? ' · baut gerade auf …' : '') + (st.error ? ` · ${st.error}` : '');
   const parts = [
     h('div', { class: 'titlebar' }, h('h2', {}, 'E-Paper-Anzeige'), h('span', { class: 'spacer' }),
-      h('button', { class: 'btn small', onclick: () => { img.src = `/api/v1/display/preview.png?t=${Date.now()}`; } }, 'Vorschau neu laden')),
+      sceneSel,
+      h('button', { class: 'btn small', onclick: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } }, 'Vorschau neu laden')),
     h('p', { class: `small ${st.error ? 'danger' : 'muted'}` }, info),
     img,
   ];
@@ -1047,6 +1052,21 @@ function displayCard(d) {
         h('div', {}, h('label', {}, 'Ruhe von (Uhr)'), numInput(s, 'quietFromHour')),
         h('div', {}, h('label', {}, 'bis (Uhr)'), numInput(s, 'quietToHour'))),
       checkInput(s, 'quietEnabled', 'Nachts nur bei Warnungen aktualisieren'),
+      h('h3', {}, 'Seiten (Taste 1 blättert)'),
+      h('div', { class: 'row' },
+        checkInput(s.pages, 'overview', 'Übersicht'),
+        checkInput(s.pages, 'daily', 'Tagesbilanz'),
+        checkInput(s.pages, 'chart', 'Verlauf 24 h'),
+        checkInput(s.pages, 'soak', 'Dauertest (wenn aktiv)'),
+        checkInput(s.pages, 'network', 'Pool & Netzwerk')),
+      checkInput(s, 'rotatePages', 'Bei jeder Aktualisierung zur nächsten Seite wechseln'),
+      h('h3', {}, 'Sonderanzeigen'),
+      h('div', { class: 'form' },
+        h('div', {}, checkInput(s, 'blockFoundScreen', 'Blockfund als Vollbild')),
+        h('div', {}, h('label', {}, 'stehen lassen (Stunden, bis Taste 1)'), numInput(s, 'blockFoundHoldHours'))),
+      checkInput(s, 'alarmFullscreen', 'Warnungen als Vollbild (Taste 1 quittiert bis zur nächsten neuen Warnung)'),
+      checkInput(s, 'bestDiffNotice', 'Neuen Best-Diff-Rekord einmal groß anzeigen'),
+      h('h3', {}, 'Taster'),
       checkInput(s, 'buttonsEnabled', 'Taster am Pico auswerten'),
       checkInput(s, 'allowSystemReboot', 'Taste 4 (3 s halten) startet auch den Raspberry Pi neu'),
       h('div', { class: 'row' },

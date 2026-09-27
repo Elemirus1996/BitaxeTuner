@@ -240,7 +240,9 @@ public sealed partial class MinerHub
             }
 
             // Blockfund laut Miner: Zähler gestiegen seit der letzten Abfrage
-            if (_blockFoundSeen.TryGetValue(host, out var seen) && i.blockFound > seen && n.OnFinds)
+            if (_blockFoundSeen.TryGetValue(host, out var seen) && i.blockFound > seen)
+                OnBlockFound(s.Config.Name.Length > 0 ? s.Config.Name : host, i.blockFound, Options.Clock?.Invoke() ?? DateTime.Now);
+            if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.OnFinds)
             {
                 _ = Notify.SendAsync($"block:{host}:{i.blockFound}", $"BLOCK GEFUNDEN – {s.Config.Name}",
                     $"Der Miner meldet jetzt {i.blockFound} gefundene(n) Block/Blöcke.",
@@ -331,6 +333,8 @@ public sealed partial class MinerHub
             changed = true;
 
             // Ersteintrag (Value 0) nicht melden, nur echte Verbesserungen
+            if (previous.Value > 0)
+                OnBestDiffRecord(s.Config.Name.Length > 0 ? s.Config.Name : s.Config.Host, coin, previous.Raw, raw, Options.Clock?.Invoke() ?? DateTime.Now);
             if (previous.Value > 0 && Config.Notifications.OnRecord)
                 _ = Notify.SendAsync($"record:{s.Config.Host}:{coin}", $"Neuer Rekord – {s.Config.Name}",
                     $"Best Diff {raw} ({coin}), bisher {previous.Raw}", NotifyPriority.Low, TimeSpan.FromMinutes(10));

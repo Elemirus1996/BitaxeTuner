@@ -230,9 +230,12 @@ public static class Endpoints
         })));
 
         // Vorschau genau so, wie die Anzeige es zeigt (auch ohne Hardware)
-        g.MapGet("/display/preview.png", async (HubService hub) =>
+        // Vorschau: ohne scene genau das, was als Nächstes käme; mit scene=Daily|Chart|… eine bestimmte Seite
+        g.MapGet("/display/preview.png", async (string? scene, HubService hub) =>
         {
-            var model = await hub.RunAsync(h => h.BuildDisplayModel(DateTime.Now));
+            var model = await hub.RunAsync(h => Enum.TryParse<Core.Display.DisplayScene>(scene, true, out var sc)
+                ? h.PreviewScene(sc, DateTime.Now)
+                : h.ComposeDisplay(DateTime.Now));
             using var img = Core.Display.StatusRenderer.RenderImage(model);
             var ms = new MemoryStream();
             await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(img, ms);
@@ -563,6 +566,8 @@ public static class Endpoints
         g.MapPut("/display", async (Core.Config.DisplaySettings req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
+            req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
+            req.Pages ??= new Core.Config.DisplayPages();
             req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
             req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
             req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];

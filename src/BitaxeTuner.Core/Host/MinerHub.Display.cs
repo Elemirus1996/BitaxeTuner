@@ -152,7 +152,7 @@ public sealed partial class MinerHub
         }
         var model = BuildDisplayModel(now);
         // Nur neue/weggefallene Warnungen lösen ein Neuzeichnen aus, nicht schwankende Werte darin (schont das Panel)
-        var alarmKey = System.Text.RegularExpressions.Regex.Replace(string.Join("|", model.Alerts), @"-?[\d.,]+ °C", "°C") + "|" + FanOverride + "|" + IsPaused;
+        var alarmKey = AlarmKey(model.Alerts) + "|" + FanOverride + "|" + IsPaused;
         var interval = TimeSpan.FromMinutes(Math.Max(DisplaySettings.MinIntervalMinutes, s.IntervalMinutes));
         var quiet = s.QuietEnabled && FanController.IsNight(new CaseFanSettings { NightFromHour = s.QuietFromHour, NightToHour = s.QuietToHour }, now);
         var routineDue = _displayShown is null || (!quiet && now - _displayShown >= interval);
@@ -165,8 +165,12 @@ public sealed partial class MinerHub
         _displayBusy = true;
         try
         {
-            var planes = await Task.Run(() => StatusRenderer.Render(model));
+            // Regelmäßige Aktualisierung ohne besonderen Anlass: nächste Seite
+            var rotate = routineDue && _displayShown is not null && !_displayRequested && !_displayUserRequested && alarmKey == _displayAlarmKey;
+            var shown = ComposeDisplay(now, nextPage: rotate);
+            var planes = await Task.Run(() => StatusRenderer.Render(shown));
             await pico.ShowImageAsync(planes);
+            SceneShown(shown);
             if (_displayUserRequested && _displayShown is not null && now < _displayShown + DisplayMinGap) _displayUserRefreshes.Enqueue(now);
             _displayShown = now;
             _displayAlarmKey = alarmKey;
