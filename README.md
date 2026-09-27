@@ -358,8 +358,9 @@ explicit confirmation showing old and new values. The user interface is German. 
 
 - BitaxeTuner sammelt keine Daten für die Entwickler (keine Telemetrie, kein Konto, keine Cloud). Welche Dienste das
   Programm wann kontaktiert: [Datenschutz / Privacy Policy](https://elemirus1996.github.io/BitaxeTuner/privacy.html).
-- Code signing: Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
-  [SignPath Foundation](https://signpath.org/) – [Code signing policy](https://elemirus1996.github.io/BitaxeTuner/code-signing.html).
+- Code-Signatur: Die Windows-Setups sind **noch nicht signiert** (daher die Windows-Warnung beim Installieren).
+  Kostenlose Signatur über [SignPath.io](https://about.signpath.io/) mit Zertifikat der [SignPath Foundation](https://signpath.org/)
+  ist beantragt – [Code-Signing-Richtlinie](https://elemirus1996.github.io/BitaxeTuner/code-signing.html).
 
 ## Mitmachen, Fehler melden, Sicherheit
 

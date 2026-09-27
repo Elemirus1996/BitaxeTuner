@@ -15,10 +15,11 @@
 <body>
 <p><a href="./">← BitaxeTuner</a></p>
 <h1>Code Signing Policy</h1>
-<p class="box"><b>Free code signing provided by <a href="https://about.signpath.io/">SignPath.io</a>, certificate by
-<a href="https://signpath.org/">SignPath Foundation</a>.</b></p>
+<p class="box"><b>Status: applied for, not yet approved.</b> BitaxeTuner has applied for free code signing by
+<a href="https://about.signpath.io/">SignPath.io</a> with a certificate by <a href="https://signpath.org/">SignPath Foundation</a>.
+Until approval, the Windows binaries are <b>not signed</b>. This policy describes how signing will be handled once approved.</p>
 
-<h2>What is signed</h2>
+<h2>What will be signed</h2>
 <p>Only the Windows binaries built from this repository are signed: the installers <code>BitaxeTuner-Setup-&lt;version&gt;.exe</code>
 and <code>BitaxeTuner-Server-Setup-&lt;version&gt;.exe</code> and the program files <code>BitaxeTuner.exe</code> and
 <code>BitaxeTuner.Server.exe</code> they contain. No third-party or upstream binaries are signed with this certificate.</p>
@@ -26,7 +27,7 @@ and <code>BitaxeTuner-Server-Setup-&lt;version&gt;.exe</code> and the program fi
 <h2>How releases are built</h2>
 <p>Every release is built by GitHub Actions (<a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/.github/workflows/release.yml">release.yml</a>)
 from a version tag in the public repository. The build runs the test suite, publishes the binaries and attaches them together with
-SHA-256 checksums to the <a href="https://github.com/Elemirus1996/BitaxeTuner/releases">GitHub release</a>. Signing requests are
+SHA-256 checksums to the <a href="https://github.com/Elemirus1996/BitaxeTuner/releases">GitHub release</a>. Signing requests will be
 submitted only from this workflow.</p>
 
 <h2>Team roles</h2>
