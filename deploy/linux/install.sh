@@ -48,6 +48,8 @@ if ! ldconfig -p 2>/dev/null | grep -q libicuuc; then
 fi
 
 id bitaxetuner >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin bitaxetuner
+# Zusatzlüfter über einen Raspberry Pi Pico (USB-Seriell) – Zugriff über die Gruppe dialout
+getent group dialout >/dev/null 2>&1 && usermod -aG dialout bitaxetuner
 mkdir -p "$ROOT/versions" "$DATA"
 
 TARGET="$ROOT/versions/$VERSION"

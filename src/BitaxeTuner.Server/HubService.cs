@@ -50,6 +50,7 @@ public sealed class HubService : IHostedService, IDisposable
             ClientFactory = _options?.ClientFactory,
             OnlineChecks = _options?.OnlineChecks ?? true,
             BenchmarkDelay = _options?.BenchmarkDelay,
+            FanDeviceFactory = _options?.FanDeviceFactory,
             Clock = _options?.Clock,
         });
         if (hub.HistoryError is { } error) _log.LogError("Verlaufsdatenbank nicht verfügbar: {Error}", error);

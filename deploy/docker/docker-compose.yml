@@ -15,6 +15,11 @@ services:
       - "8484:8484"
     volumes:
       - bitaxetuner-data:/data
+    # Zusatzlüfter (Raspberry Pi Pico per USB): Gerät durchreichen
+    # devices:
+    #   - /dev/ttyACM0:/dev/ttyACM0
+    # group_add:
+    #   - dialout
     environment:
       - TZ=Europe/Berlin
       # - BITAXETUNER_HTTPS=1        # selbst signiertes Zertifikat (Fingerabdruck im Protokoll)

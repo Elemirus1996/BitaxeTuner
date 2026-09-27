@@ -26,6 +26,9 @@ public sealed class MinerHubOptions
     /// <summary>Nur für Tests: Uhr für die Auswertung nach jeder Runde (Haltezeiten der Regeln).</summary>
     public Func<DateTime>? Clock { get; init; }
 
+    /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
+    public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
+
     /// <summary>Nur für Tests: Wartezeiten des Benchmarks ersetzen.</summary>
     public Func<TimeSpan, CancellationToken, Task>? BenchmarkDelay { get; init; }
 
@@ -288,6 +291,8 @@ public sealed partial class MinerHub : IDisposable
         _started = true;
         _context = SynchronizationContext.Current;
         InitMonitoring();
+        // Lüfter laufen immer: ohne aktuelle Minerdaten (auch im Pausenzustand) gehen sie auf 100 %
+        StartFanLoop();
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();
         await PollNowAsync();
@@ -398,6 +403,8 @@ public sealed partial class MinerHub : IDisposable
         if (_disposed) return;
         _disposed = true;
         _loops?.Cancel();
+        _fanLoop?.Cancel();
+        CloseFanDevice();
         foreach (var d in _devices.Values) d.Benchmark?.Cts?.Cancel();
         WebView.Dispose();
         _priceHttp.Dispose();

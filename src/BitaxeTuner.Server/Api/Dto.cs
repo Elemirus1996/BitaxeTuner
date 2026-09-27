@@ -43,8 +43,28 @@ public static class Dto
                 currency = hub.Config.Currency,
             },
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },
-            history = hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }),
-            devices = devices.Select(d => Summary(hub, d, role)),
+            history = hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),
+            devices = devices.Select(d => Summary(hub, d, role)).ToList(),
+            fans = Fans(hub, role),
+        };
+    }
+
+    /// <summary>Zusatzlüfter; null, wenn nicht eingeschaltet.</summary>
+    public static object? Fans(MinerHub hub, Role role)
+    {
+        var f = hub.FanStatus;
+        if (!f.Enabled) return null;
+        return new
+        {
+            connected = f.Connected,
+            device = role == Role.Admin ? f.Device : null,
+            error = f.Error,
+            updated = f.Updated,
+            channels = f.Channels.Where(c => c.Role != "none").Select(c => new
+            {
+                c.Channel, c.Name, c.Role, c.Mode, c.Percent, c.Rpm, c.Reason, c.Stalled,
+                minerId = c.MinerHost is { Length: > 0 } h ? DeviceId(h) : null,
+            }).ToList(),
         };
     }
 
@@ -87,7 +107,9 @@ public static class Dto
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
             suggestion = d.PendingSuggestion,
             benchmark = d.Benchmark is { } b ? Run(b) : null,
-            history = s.History.TakeLast(120).Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }),
+            fan = hub.FanStatus.Channels.FirstOrDefault(c => c.Role == "miner" && string.Equals(c.MinerHost?.Trim(), d.Config.Host.Trim(), StringComparison.OrdinalIgnoreCase)) is { } fc
+                ? new { fc.Channel, fc.Percent, fc.Rpm, fc.Reason, fc.Stalled, fc.Mode } : null,
+            history = s.History.TakeLast(120).Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }).ToList(),
         };
     }
 
@@ -120,31 +142,31 @@ public static class Dto
                 p.MinVoltageMv, p.MaxVoltageMv, p.DefaultVoltageMv,
                 p.MaxChipTempC, p.MaxPowerW,
             },
-            profiles = admin ? hub.ProfilesFor(d).Select(x => new { x.Id, x.Name }) : null,
+            profiles = admin ? hub.ProfilesFor(d).Select(x => new { x.Id, x.Name }).ToList() : null,
             benchmarkDefaults = admin ? BenchmarkSettings.FromProfile(p) : null,
             estimatedDuration = BenchmarkManager.EstimatedDurationText(BenchmarkSettings.FromProfile(p)),
             session = session is null ? null : Session(session),
             config = admin ? new
             {
                 c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.ProfileId,
-                c.Presets,
-                thermalGuard = c.ThermalGuard,
+                presets = Copy(c.Presets),
+                thermalGuard = Copy(c.ThermalGuard),
                 thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host),
-                schedule = c.Schedule,
+                schedule = Copy(c.Schedule),
                 scheduleApproved = c.Schedule.IsApproved(d.Host),
             } : null,
-            log = admin ? d.LogLines.TakeLast(300) : null,
+            log = admin ? d.LogLines.TakeLast(300).ToList() : null,
         };
     }
 
     public static object Session(BenchmarkSession s) => new
     {
-        s.Id, s.StartedAt, s.FinishedAt, s.FinishReason, s.IsFinished, s.DeviceModel, s.Settings,
+        s.Id, s.StartedAt, s.FinishedAt, s.FinishReason, s.IsFinished, s.DeviceModel, settings = Copy(s.Settings),
         results = s.Results.Select(r => new
         {
             r.FrequencyMhz, r.CoreVoltageMv, outcome = r.Outcome.ToString(), r.OutcomeText, r.IsStable, r.Message,
             r.AvgHashRateGh, r.ExpectedHashRateGh, r.AvgPowerW, r.EfficiencyJth, r.MaxChipTempC, r.MaxVrTempC, r.AvgErrorPercent,
-        }),
+        }).ToList(),
         ranking = new
         {
             hashrate = Best(s, RankingMode.MaxHashrate),
@@ -172,8 +194,8 @@ public static class Dto
         return new
         {
             range,
-            samples = samples.Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }),
-            tuning = events.Select(e => new { time = Unix(e.Time), source = e.SourceText, change = e.ChangeText, e.Note }),
+            samples = samples.Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }).ToList(),
+            tuning = events.Select(e => new { time = Unix(e.Time), source = e.SourceText, change = e.ChangeText, e.Note }).ToList(),
         };
     }
 
@@ -181,6 +203,12 @@ public static class Dto
     {
         time = r.Time, source = r.Source, change = r.Change, before = r.BeforeText, after = r.AfterText, delta = r.DeltaText,
     };
+
+    /// <summary>
+    /// Unabhängige Kopie für die Antwort. Antworten werden erst nach dem Verlassen des Hub-Kontexts serialisiert –
+    /// alles, was der Hub währenddessen ändern könnte, muss vorher kopiert bzw. als Liste festgeschrieben sein.
+    /// </summary>
+    public static T Copy<T>(T value) => System.Text.Json.JsonSerializer.Deserialize<T>(System.Text.Json.JsonSerializer.Serialize(value))!;
 
     public static long Unix(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
     private static double R(double v) => Math.Round(v, 2);

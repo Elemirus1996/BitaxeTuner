@@ -25,7 +25,8 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-PrivateDevices=true
+# Zusatzlüfter: der Pico (USB, /dev/ttyACM*) muss erreichbar sein – daher kein PrivateDevices
+SupplementaryGroups=dialout
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

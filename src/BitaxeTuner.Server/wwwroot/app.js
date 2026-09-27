@@ -231,6 +231,7 @@ function onStatus() {
   if (v === 'overview') renderOverview();
   else if (v === 'compare') renderCompare();
   else if (v === 'device') updateDeviceLive();
+  else if (v === 'fans') updateFanTable();
 }
 
 // ---------- Navigation ----------
@@ -247,6 +248,7 @@ function route() {
   }
   S.route = { view };
   if (view === 'compare') return renderCompare();
+  if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'settings' && isAdmin()) return renderSettings();
   S.route = { view: 'overview' };
@@ -281,6 +283,8 @@ function renderOverview() {
       : h('div', { class: d.maintenance ? 'warn' : 'danger' }, d.maintenance ? 'Neustart/Tuning …' : (d.error || 'offline')),
     d.automation && d.automation !== 'keine Automatik' ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
     d.benchmark?.running ? h('div', { class: 'progress', style: 'margin-top:8px' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
+    d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}`, style: 'margin-top:6px' },
+      `VR-Lüfter K${d.fan.channel}: ${d.fan.percent} %${d.fan.rpm != null ? ` · ${d.fan.rpm} U/min` : ''}${d.fan.stalled ? ' · steht!' : ''}`) : null,
     d.suggestion ? h('div', { class: 'small warn', style: 'margin-top:6px' }, `Vorschlag offen: ${d.suggestion.frequencyMhz} MHz / ${d.suggestion.coreVoltageMv} mV`) : null));
 
   mount(h('div', { class: 'stack' },
@@ -501,7 +505,8 @@ function liveTiles(d) {
     tile('Shares', d.sharesAccepted ?? '–', d.errorPercent != null ? `Fehlerrate ${n(d.errorPercent, 2)} %` : ''),
     tile('Laufzeit', dur(d.uptimeSeconds), d.bestDiff ? `Best ${d.bestDiff}` : ''),
     tile('Status', d.online ? 'online' : d.maintenance ? 'Neustart …' : 'offline', d.pool || d.error || '', d.online ? 'ok' : 'warn'),
-  ];
+    d.fan ? tile(`VR-Lüfter K${d.fan.channel}`, `${d.fan.percent} %`, d.fan.stalled ? 'Lüfter steht!' : d.fan.rpm != null ? `${d.fan.rpm} U/min` : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,
+  ].filter(Boolean);
 }
 
 function updateDeviceLive() {
@@ -907,6 +912,131 @@ async function renderSettings() {
       h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Aktuell'), curPw), h('div', {}, h('label', {}, 'Neu (mind. 10 Zeichen)'), newPw),
         h('button', { class: 'btn', onclick: async () => { if (await run(() => api('/password', { method: 'POST', body: { current: curPw.value, password: newPw.value } }), 'Passwort geändert – bitte neu anmelden.')) { S.role = 'None'; stopEvents(); renderLogin(); } } }, 'Ändern'))),
     h('p', { class: 'muted small' }, `Server ${S.info.version} · ${S.info.os}`)));
+}
+
+// ---------- Zusatzlüfter (Pico) ----------
+
+const ROLE_TEXT = { none: 'nicht belegt', miner: 'VR-Lüfter', case: 'Gehäuse' };
+
+function fanRows(fans) {
+  if (!fans) return [h('p', { class: 'muted' }, 'Lüftersteuerung ist ausgeschaltet.')];
+  const head = h('p', { class: fans.connected ? 'ok' : 'danger' },
+    fans.connected ? `Verbunden${fans.device ? ': ' + fans.device : ''}` : `Nicht verbunden${fans.error ? ': ' + fans.error : ''} – Lüfter laufen dann auf 100 %.`);
+  if (!fans.channels.length) return [head, h('p', { class: 'muted' }, 'Noch kein Kanal belegt.')];
+  return [head, h('div', { class: 'table-wrap' }, h('table', {},
+    h('thead', {}, h('tr', {}, ['Kanal', 'Lüfter', 'Modus', 'Soll', 'Drehzahl', 'Begründung'].map(x => h('th', {}, x)))),
+    h('tbody', {}, fans.channels.map(c => h('tr', {},
+      h('td', { class: 'mono' }, `K${c.channel}`),
+      h('td', {}, c.name),
+      h('td', {}, c.mode === 'manual' ? 'manuell' : 'Automatik'),
+      h('td', { class: 'num' }, `${c.percent} %`),
+      h('td', { class: `num ${c.stalled ? 'danger' : ''}` }, c.rpm == null ? '–' : c.stalled ? 'steht!' : `${c.rpm} U/min`),
+      h('td', { class: 'small muted' }, c.reason))))))];
+}
+
+function updateFanTable() {
+  const box = $('#fan-status');
+  if (box && S.status) box.replaceChildren(...fanRows(S.status.fans));
+}
+
+async function renderFans() {
+  mount(h('p', { class: 'muted' }, 'Lade …'));
+  const data = await run(() => api('/fans'));
+  if (!data) return;
+  const status = h('div', { id: 'fan-status', class: 'stack' }, fanRows(data.status));
+  const parts = [h('div', { class: 'card stack' }, h('h2', {}, 'Zusatzlüfter'), status)];
+  if (isAdmin()) parts.push(fanEditor(data));
+  else parts.push(h('p', { class: 'muted small' }, 'Einstellungen ändern kann nur der Admin.'));
+  mount(h('div', { class: 'stack' }, parts));
+}
+
+function curveInputs(curve) {
+  return [
+    h('div', {}, h('label', {}, 'ab °C (Start)'), numInput(curve, 'startTemp', 0.5)),
+    h('div', {}, h('label', {}, 'dort %'), numInput(curve, 'startPercent')),
+    h('div', {}, h('label', {}, '100 % ab °C'), numInput(curve, 'fullTemp', 0.5)),
+    h('div', {}, h('label', {}, 'darunter %'), numInput(curve, 'minPercent')),
+    h('div', {}, h('label', {}, 'Hysterese °C'), numInput(curve, 'hysteresis', 0.5)),
+  ];
+}
+
+function selectInput(obj, key, options, onchange) {
+  const s = h('select', { onchange: e => { obj[key] = e.target.value; onchange?.(); } }, options.map(([v, l]) => h('option', { value: v }, l)));
+  s.value = obj[key] ?? '';
+  return s;
+}
+
+function fanEditor(data) {
+  const f = structuredClone(data.settings);
+  const miners = data.miners;
+  const channelsBox = h('div', { class: 'stack' });
+  const renderChannels = () => channelsBox.replaceChildren(...f.channels.map(c => {
+    const row = h('div', { class: 'panel' },
+      h('div', { class: 'titlebar' }, h('h3', {}, `K${c.channel}`),
+        h('span', { class: 'muted small' }, `PWM GP${(c.channel - 1) * 2} · Tacho GP${15 + c.channel}`)),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'Verwendung'), selectInput(c, 'role', [['none', 'nicht belegt'], ['miner', 'VR-Lüfter eines Miners'], ['case', 'Gehäuse (Gruppe)']], renderChannels)),
+        c.role === 'miner' ? h('div', {}, h('label', {}, 'Miner'), selectInput(c, 'minerHost', [['', '— wählen —'], ...miners.map(m => [m.host, m.name])])) : null,
+        c.role !== 'none' ? h('div', {}, h('label', {}, 'Name (optional)'), h('input', { value: c.name, oninput: e => { c.name = e.target.value; } })) : null,
+        c.role === 'miner' ? h('div', {}, h('label', {}, 'Modus'), selectInput(c, 'mode', [['auto', 'Automatik (VR-Temperatur)'], ['manual', 'Manuell']], renderChannels)) : null,
+        c.role === 'miner' && c.mode === 'manual' ? h('div', {}, h('label', {}, 'Drehzahl %'), numInput(c, 'manualPercent')) : null),
+      c.role === 'miner' && c.mode === 'auto' ? h('div', { class: 'form' }, curveInputs(c.curve)) : null,
+      c.role !== 'none' ? checkInput(c, 'hasTach', 'Lüfter hat Drehzahlsignal (Meldung, wenn er steht)') : null);
+    return row;
+  }));
+  renderChannels();
+
+  const cs = f.case;
+  const minerChecks = h('div', { class: 'row' }, miners.map(m => h('label', { class: 'check' },
+    h('input', {
+      type: 'checkbox', checked: cs.miners.length === 0 || cs.miners.includes(m.host),
+      onchange: e => {
+        const all = miners.map(x => x.host);
+        let sel = cs.miners.length === 0 ? all.slice() : cs.miners.slice();
+        sel = e.target.checked ? [...new Set([...sel, m.host])] : sel.filter(x => x !== m.host);
+        cs.miners = sel.length === all.length ? [] : sel;
+      },
+    }), m.name)));
+  const caseBox = h('div', { class: 'stack' });
+  const renderCase = () => caseBox.replaceChildren(
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, 'Modus'), selectInput(cs, 'mode', [['auto', 'Automatik'], ['manual', 'Manuell']], renderCase)),
+      cs.mode === 'manual' ? h('div', {}, h('label', {}, 'Drehzahl %'), numInput(cs, 'manualPercent')) : null,
+      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Messgröße'), selectInput(cs, 'sensor', [['vr', 'VR-Temperatur'], ['asic', 'ASIC-Temperatur']])) : null,
+      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Miner ohne Daten → mind. %'), numInput(cs, 'unknownPercent')) : null),
+    cs.mode === 'auto' ? h('div', { class: 'stack' },
+      h('p', { class: 'muted small' }, 'Es zählt die höchste Temperatur der ausgewählten Miner (keine Auswahl = alle).'),
+      minerChecks,
+      h('div', { class: 'form' }, curveInputs(cs.curve)),
+      checkInput(cs, 'nightEnabled', 'Nachtbetrieb (leiser)'),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'von Uhr'), numInput(cs, 'nightFromHour')),
+        h('div', {}, h('label', {}, 'bis Uhr'), numInput(cs, 'nightToHour')),
+        h('div', {}, h('label', {}, 'höchstens %'), numInput(cs, 'nightMaxPercent'))),
+      h('p', { class: 'muted small' }, 'Nachts wird gedrosselt, außer eine Temperatur erreicht den 100-%-Punkt der Kurve.')) : null);
+  renderCase();
+
+  const save = async () => {
+    const r = await run(() => api('/fans', { method: 'PUT', body: f }), 'Lüfter-Einstellungen gespeichert.');
+    if (r) { const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); }
+  };
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card stack' }, h('h2', {}, 'Verbindung'),
+      checkInput(f, 'enabled', 'Lüftersteuerung einschalten (Pico per USB am Server)'),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Port („auto“ = Pico automatisch finden)'), h('input', { value: f.port, oninput: e => { f.port = e.target.value; } }))),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: save }, 'Speichern'),
+        h('button', {
+          class: 'btn', onclick: async () => {
+            if (!await confirmBox('Programm neu aufspielen', 'Das Lüfterprogramm wird neu auf den Pico geschrieben. Die Lüfter laufen dabei kurz mit 100 %.', 'Aufspielen')) return;
+            const r = await run(() => api('/fans/firmware', { method: 'POST', body: {} }));
+            if (r) { toast(r.ok ? 'Programm aufgespielt, Pico verbunden.' : 'Pico nicht verbunden – siehe Status.', r.ok ? 'ok' : 'error'); const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); }
+          },
+        }, 'Programm neu aufspielen'))),
+    h('div', { class: 'card stack' }, h('h2', {}, 'Kanäle'), channelsBox),
+    h('div', { class: 'card stack' }, h('h2', {}, 'Gehäuselüfter (alle Kanäle mit „Gehäuse“)'), caseBox),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, 'Speichern')),
+    h('p', { class: 'muted small' }, 'Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.'));
 }
 
 /** Server-Update: prüfen, Hinweise je Installationsart, Installation per Klick (Pi/Linux-Paket, Windows-Dienst). */

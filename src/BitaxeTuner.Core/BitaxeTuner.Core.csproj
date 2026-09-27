@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Fans/Firmware/btfan.py" LogicalName="BitaxeTuner.Core.Fans.btfan.py" />
     <EmbeddedResource Include="Profiles\DeviceProfiles.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.json" />
     <!-- Eingebaute Profile früherer Versionen: unveränderte Kopien in der Nutzerdatei sollen neue Werte nicht überdecken -->
     <EmbeddedResource Include="Profiles\DeviceProfiles.v0.1.0.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json" />
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.*" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.*" />
   </ItemGroup>
 
 </Project>

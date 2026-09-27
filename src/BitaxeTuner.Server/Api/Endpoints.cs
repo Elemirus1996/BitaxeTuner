@@ -24,6 +24,7 @@ public sealed record DeviceRequest(string? Name, string? Host, string? WalletAdd
 public sealed record TokenRequest(string? Name);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
+public sealed record FanFirmwareRequest(bool Reinstall);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
 public static class Endpoints
@@ -70,6 +71,39 @@ public static class Endpoints
     }
 
     public static IResult Error(int status, string message) => Results.Json(new { error = message }, statusCode: status);
+
+    private static void ValidateFans(Core.Config.FanSettings f, MinerHub hub)
+    {
+        f.Port = string.IsNullOrWhiteSpace(f.Port) ? "auto" : f.Port.Trim();
+        for (var ch = 1; ch <= Core.Config.FanSettings.ChannelCount; ch++)
+        {
+            var c = f.Channel(ch);
+            if (c.Role is not ("none" or "miner" or "case")) throw new InvalidOperationException($"K{ch}: unbekannte Rolle.");
+            if (c.Mode is not ("auto" or "manual")) throw new InvalidOperationException($"K{ch}: unbekannter Modus.");
+            if (c.Role == "miner" && hub.Device(c.MinerHost ?? "") is null) throw new InvalidOperationException($"K{ch}: Miner auswählen.");
+            CheckCurve(c.Curve, $"K{ch}");
+            c.ManualPercent = Math.Clamp(c.ManualPercent, 0, 100);
+            c.Name = (c.Name ?? "").Trim();
+        }
+        f.Channels = f.Channels.Where(c => c.Channel is >= 1 and <= Core.Config.FanSettings.ChannelCount).OrderBy(c => c.Channel).ToList();
+        CheckCurve(f.Case.Curve, "Gehäuse");
+        if (f.Case.Mode is not ("auto" or "manual")) throw new InvalidOperationException("Gehäuse: unbekannter Modus.");
+        if (f.Case.Sensor is not ("vr" or "asic")) f.Case.Sensor = "vr";
+        f.Case.ManualPercent = Math.Clamp(f.Case.ManualPercent, 0, 100);
+        f.Case.UnknownPercent = Math.Clamp(f.Case.UnknownPercent, 0, 100);
+        f.Case.NightMaxPercent = Math.Clamp(f.Case.NightMaxPercent, 0, 100);
+        f.Case.NightFromHour = Math.Clamp(f.Case.NightFromHour, 0, 23);
+        f.Case.NightToHour = Math.Clamp(f.Case.NightToHour, 0, 23);
+    }
+
+    private static void CheckCurve(Core.Config.FanCurve c, string label)
+    {
+        if (c.FullTemp <= c.StartTemp) throw new InvalidOperationException($"{label}: Volllast-Temperatur muss über der Start-Temperatur liegen.");
+        if (c.StartTemp < 20 || c.FullTemp > 110) throw new InvalidOperationException($"{label}: Temperaturen zwischen 20 und 110 °C.");
+        c.StartPercent = Math.Clamp(c.StartPercent, 0, 100);
+        c.MinPercent = Math.Clamp(c.MinPercent, 0, 100);
+        c.Hysteresis = Math.Clamp(c.Hysteresis, 0, 10);
+    }
 
     private static HubDevice Device(MinerHub hub, string id) =>
         Dto.Find(hub, id) ?? throw new KeyNotFoundException("Gerät nicht gefunden.");
@@ -174,6 +208,14 @@ public static class Endpoints
             Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id)).Select(Dto.Comparison).ToList())));
 
         g.MapGet("/events", (HttpContext http, EventStream events) => events.ServeAsync(http, AuthContext.Of(http).Role));
+
+        g.MapGet("/fans", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            status = Dto.Fans(h, AuthContext.Of(http).Role),
+            enabled = h.Config.Fans.Enabled,
+            settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Fans) : null,
+            miners = h.Devices.Select(d => new { id = Dto.DeviceId(d.Host), name = d.Title, host = AuthContext.Of(http).Role == Role.Admin ? d.Host : null }).ToList(),
+        })));
     }
 
     // ---------- Admin: Geräte ----------
@@ -379,7 +421,7 @@ public static class Endpoints
 
     private static void MapAdmin(RouteGroupBuilder g)
     {
-        g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => SettingsDto.From(h.Config))));
+        g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
         g.MapPut("/settings", async (SettingsDto req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
@@ -419,6 +461,28 @@ public static class Endpoints
 
         g.MapDelete("/tokens/{tokenId}", (string tokenId, AuthStore auth) =>
             auth.RevokeToken(tokenId) ? Results.Ok(new { ok = true }) : Error(404, "Token nicht gefunden."));
+
+        // ---------- Zusatzlüfter (Pico) ----------
+
+        g.MapPut("/fans", async (Core.Config.FanSettings req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            ValidateFans(req, h);
+            var before = System.Text.Json.JsonSerializer.Deserialize<Core.Config.FanSettings>(System.Text.Json.JsonSerializer.Serialize(h.Config.Fans))!;
+            h.Config.Fans = req;
+            h.Config.Save();
+            h.LogFanChanges(before, req);
+            await h.ApplyFanSettingsAsync();
+            return new { ok = true, status = Dto.Fans(h, Role.Admin) };
+        })));
+
+        g.MapPost("/fans/firmware", async (HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            if (!h.Config.Fans.Enabled) throw new InvalidOperationException("Lüftersteuerung ist ausgeschaltet.");
+            await h.ApplyFanSettingsAsync(reinstallFirmware: true);
+            return new { ok = h.FanStatus.Connected, status = Dto.Fans(h, Role.Admin) };
+        })));
+
+        g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));
 
         // ---------- Betrieb mit der Desktop-App ----------
 
@@ -512,7 +576,7 @@ public static class Endpoints
         g.MapGet("/tax/rewards", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
         {
             wallets = h.TaxMonitor.Wallets,
-            rewards = h.TaxMonitor.LoadRewards().OrderByDescending(r => r.ReceivedAtUtc),
+            rewards = h.TaxMonitor.LoadRewards().OrderByDescending(r => r.ReceivedAtUtc).ToList(),
             status = h.TaxMonitor.LastPollUtc,
         })));
 

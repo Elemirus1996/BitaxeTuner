@@ -88,6 +88,9 @@ public sealed class AppConfig
     /// <summary>Betriebsart der Desktop-App: lokal (Standard) oder mit einem BitaxeTuner-Server verbunden.</summary>
     public ServerConnectionSettings Server { get; set; } = new();
 
+    /// <summary>Zusatzlüfter am Server (Raspberry Pi Pico per USB).</summary>
+    public FanSettings Fans { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }
