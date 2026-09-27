@@ -14,7 +14,8 @@ namespace BitaxeTuner.Server.Api;
 public sealed record LoginRequest(string Password);
 public sealed record SetupRequest(string Code, string Password);
 public sealed record PasswordRequest(string Current, string Password);
-public sealed record ChangeRequest(int Frequency, int Voltage);
+/// <summary>SoakHours: nach der Änderung automatisch einen Dauertest dieser Dauer starten (Effizienz-Ratgeber).</summary>
+public sealed record ChangeRequest(int Frequency, int Voltage, int? SoakHours = null);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
 public sealed record SoakRequest(int Hours);
 public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
@@ -305,7 +306,10 @@ public static class Endpoints
 
         g.MapPost("/devices/{id}/change", async (string id, ChangeRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            await h.ApplyChangeAsync(Device(h, id), req.Frequency, req.Voltage);
+            var d = Device(h, id);
+            if (req.SoakHours is { } hours && hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+            await h.ApplyChangeAsync(d, req.Frequency, req.Voltage);
+            if (req.SoakHours is { } soakHours) h.ScheduleSoak(d, soakHours);
             return new { ok = true };
         })));
 
@@ -421,6 +425,24 @@ public static class Endpoints
             {
                 started = results.Count(r => r.Started),
                 results = results.Select(r => new { id = Dto.DeviceId(r.Device.Host), name = r.Device.Title, r.Started, r.Message }).ToList(),
+            };
+        })));
+
+        // Effizienz-Ratgeber: Vorschläge je Miner (Ziel: efficiency | balanced | hashrate)
+        g.MapGet("/advisor", async (string? goal, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var g = Enum.TryParse<Core.Advisor.AdvisorGoal>(goal, true, out var parsed) ? parsed : Core.Advisor.AdvisorGoal.Balanced;
+            return new
+            {
+                goal = g.ToString(),
+                currency = h.Config.Currency,
+                ctPerKwh = h.Config.ElectricityCtPerKwh,
+                miners = h.Advise(g, DateTime.Now).Select(r => new
+                {
+                    id = Dto.DeviceId(r.Host), r.Name, r.FrequencyMhz, r.CoreVoltageMv, r.HashrateGh, r.PowerW, r.Jth, r.Basis, r.Note,
+                    candidates = r.Candidates.Select(c => new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta }).ToList(),
+                    recommended = r.Recommended is { } c ? new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta } : null,
+                }).ToList(),
             };
         })));
 

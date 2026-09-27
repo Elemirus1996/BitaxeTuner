@@ -27,6 +27,8 @@ function h(tag, props, ...kids) {
   return el;
 }
 const mount = (...nodes) => { const app = $('#app'); app.replaceChildren(...nodes); };
+/** Inhalt ersetzen; leere Teile (null/false) und verschachtelte Listen wie bei h(). */
+const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false).map(k => k instanceof Node ? k : String(k)));
 
 // ---------- Formatierung ----------
 
@@ -418,9 +420,64 @@ function renderCompare() {
     ['Pool', d => d.pool || '–'],
     ['Automatik', d => d.automation || '–'],
   ];
-  mount(h('div', { class: 'card' }, h('h2', {}, 'Vergleich'), h('div', { class: 'table-wrap' }, h('table', {},
-    h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
-    h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))))));
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card' }, h('h2', {}, 'Vergleich'), h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
+      h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))))),
+    isAdmin() ? advisorCard() : null));
+}
+
+/** Effizienz-Ratgeber: beste geprüfte Einstellung je Ziel, Vergleich mit dem aktuellen Betrieb. Ändert nie selbst etwas. */
+function advisorCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Lade …'));
+  const goals = [['Balanced', 'Ausgewogen'], ['Efficiency', 'Effizienz (J/TH)'], ['Hashrate', 'Hashrate']];
+  const goalSel = h('select', { style: 'width:auto', onchange: () => load() }, goals.map(([v, t]) => h('option', { value: v }, t)));
+  try { goalSel.value = localStorageGet('advisorGoal') || 'Balanced'; } catch { /* egal */ }
+  const signed = (v, digits, unit) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${n(Math.abs(v), digits)} ${unit}`;
+  const apply = async (m, c, soak) => {
+    const preview = await run(() => api(`/devices/${m.id}/change/preview`, { method: 'POST', body: { frequency: c.frequencyMhz, voltage: c.coreVoltageMv } }));
+    if (!preview) return;
+    const text = preview.confirmText + (soak ? '\n\nDanach startet automatisch ein Dauertest (24 h), sobald der Miner wieder läuft.' : '');
+    if (!await confirmBox(soak ? 'Anwenden und Dauertest' : 'Einstellung anwenden', text, 'Anwenden')) return;
+    const body = { frequency: c.frequencyMhz, voltage: c.coreVoltageMv };
+    if (soak) body.soakHours = 24;
+    if (await run(() => api(`/devices/${m.id}/change`, { method: 'POST', body }), soak ? 'Angewendet – Dauertest folgt.' : 'Einstellung angewendet.')) setTimeout(load, 3000);
+  };
+  const load = async () => {
+    localStorageSet('advisorGoal', goalSel.value);
+    const d = await api(`/advisor?goal=${goalSel.value}`).catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!d) return;
+    fill(body, 
+      h('p', { class: 'muted small' }, `Grundlage: stabile Benchmark-Ergebnisse innerhalb der Profilgrenzen und bestandene Dauertests; im Dauertest durchgefallene Einstellungen werden nicht vorgeschlagen. Kosten mit ${n(d.ctPerKwh, 1)} ct/kWh, 30 Tage. Angewendet wird nur nach Bestätigung.`),
+      d.miners.length ? d.miners.map(m => {
+        const c = m.recommended;
+        return h('div', { class: 'card stack', style: 'margin:0' },
+          h('div', { class: 'titlebar' }, h('h3', {}, m.name), h('span', { class: 'spacer' }),
+            m.frequencyMhz ? h('span', { class: 'pill gray' }, `jetzt ${m.frequencyMhz} MHz / ${m.coreVoltageMv} mV`) : null),
+          m.hashrateGh ? h('p', { class: 'small muted' }, `${m.basis}: ${hash(m.hashrateGh)} · ${n(m.powerW, 1)} W · ${m.jth ? n(m.jth, 2) + ' J/TH' : '–'}`) : null,
+          c ? h('div', { class: 'stack' },
+                h('p', {}, h('b', {}, `Vorschlag: ${c.frequencyMhz} MHz / ${c.coreVoltageMv} mV`), ` · ${hash(c.hashrateGh)} · ${n(c.powerW, 1)} W · ${n(c.jth, 2)} J/TH`),
+                h('p', { class: 'small' },
+                  `${signed(c.deltaGh, 0, 'GH/s')} · ${signed(c.deltaW, 1, 'W')} · `,
+                  h('b', { class: c.monthlyCostDelta < 0 ? 'ok' : '' }, `${signed(c.monthlyCostDelta, 2, d.currency)} pro Monat`),
+                  ` · ${c.confidence}`),
+                h('div', { class: 'row' },
+                  h('button', { class: 'btn small', onclick: () => apply(m, c, false) }, 'Anwenden …'),
+                  c.soakPassed ? null : h('button', { class: 'btn small primary', onclick: () => apply(m, c, true) }, 'Anwenden + Dauertest 24 h …')))
+            : null,
+          h('p', { class: 'small muted' }, m.note),
+          m.candidates.length ? h('details', {}, h('summary', { class: 'small' }, 'Alle Ziele'),
+            h('div', { class: 'table-wrap' }, h('table', {},
+              h('thead', {}, h('tr', {}, ['Ziel', 'Einstellung', 'Hashrate', 'Leistung', 'J/TH', 'pro Monat', 'geprüft'].map(x => h('th', {}, x)))),
+              h('tbody', {}, m.candidates.map(x => h('tr', {},
+                h('td', {}, { Efficiency: 'Effizienz', Balanced: 'Ausgewogen', Hashrate: 'Hashrate' }[x.goal]),
+                h('td', { class: 'num' }, `${x.frequencyMhz} / ${x.coreVoltageMv}`),
+                h('td', { class: 'num' }, hash(x.hashrateGh)), h('td', { class: 'num' }, `${n(x.powerW, 1)} W`), h('td', { class: 'num' }, n(x.jth, 2)),
+                h('td', { class: 'num' }, signed(x.monthlyCostDelta, 2, d.currency)), h('td', { class: 'small' }, x.confidence))))))) : null);
+      }) : h('p', { class: 'muted' }, 'Keine Miner.'));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('div', { class: 'titlebar' }, h('h2', {}, 'Empfehlungen'), h('span', { class: 'spacer' }), goalSel), body);
 }
 
 // ---------- Gerät ----------
@@ -465,7 +522,7 @@ function refreshDeviceTab() {
   const render = { live: tabLive, benchmark: tabBenchmark, results: tabResults, compare: tabCompare, automation: tabAutomation, backups: tabBackups, log: tabLog }[S.route.tab];
   // Protokoll-Tab nicht bei jedem Neuladen neu aufbauen (Live-Log liefe sonst neu an)
   if (S.route.tab === 'log' && $('#miner-log')) { fillAppLog(); return; }
-  tab.replaceChildren(render());
+  fill(tab, render());
 }
 
 function suggestionBanner(d) {
@@ -498,7 +555,7 @@ function tabLive() {
     drawChart(chartHash, [{ points: hist.samples.map(s => [s[0], s[1]]), color: cssVar('--ok'), format: hash }], tm);
     drawChart(chartTemp, [{ points: hist.samples.map(s => [s[0], s[2]]), color: cssVar('--warn'), format: v => `${n(v, 1)} °C` }], tm);
     drawChart(chartPower, [{ points: hist.samples.map(s => [s[0], s[3]]), color: cssVar('--info'), format: v => `${n(v, 1)} W` }], tm);
-    markers.replaceChildren(...hist.tuning.slice(-8).reverse().map(t => h('div', {}, `┊ ${time(t.time)} ${t.source}: ${t.change}${t.note ? ' – ' + t.note : ''}`)));
+    fill(markers, ...hist.tuning.slice(-8).reverse().map(t => h('div', {}, `┊ ${time(t.time)} ${t.source}: ${t.change}${t.note ? ' – ' + t.note : ''}`)));
   }).catch(e => toast(e.message, 'error'));
 
   const freq = h('input', { type: 'number', value: d.frequency ?? p.defaultFrequencyMhz, min: p.minFrequencyMhz, max: p.maxFrequencyMhz, step: 5 });
@@ -552,7 +609,7 @@ function updateDeviceLive() {
   const dot = $('#dev-dot');
   if (dot) dot.className = `dot ${dotClass(d)}`;
   const tiles = $('#live-tiles');
-  if (tiles) tiles.replaceChildren(...liveTiles(d));
+  if (tiles) fill(tiles, ...liveTiles(d));
   if (d.benchmark) updateBenchmark(d.benchmark);
 }
 
@@ -621,7 +678,7 @@ function benchProgress(b) {
 
 function updateBenchmark(b) {
   const box = $('#bench-progress');
-  if (box) box.replaceChildren(...benchProgress(b));
+  if (box) fill(box, ...benchProgress(b));
   if (!b.running && S.route?.view === 'device') reloadDetailSoon();
 }
 
@@ -654,7 +711,7 @@ function tabResults() {
 function tabCompare() {
   const box = h('div', { class: 'card' }, h('h3', {}, 'Vorher/Nachher (je 60 min, erste 5 min nach der Änderung ausgelassen)'), h('p', { class: 'muted' }, 'Lade …'));
   api(`/devices/${S.route.id}/comparisons`).then(rows => {
-    box.replaceChildren(box.firstChild, rows.length
+    fill(box, box.firstChild, rows.length
       ? h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, ['Zeit', 'Quelle', 'Änderung', 'Vorher', 'Nachher', 'Differenz'].map(x => h('th', {}, x)))),
           h('tbody', {}, rows.map(r => h('tr', {}, h('td', {}, time(r.time)), h('td', {}, r.source), h('td', {}, r.change), h('td', {}, r.before), h('td', {}, r.after), h('td', {}, r.delta))))))
@@ -682,7 +739,7 @@ function tabAutomation() {
   const presetOptions = () => [h('option', { value: '' }, '—'), ...presets.map(p => h('option', { value: p.name }, `${p.name} (${p.frequencyMhz} MHz / ${p.coreVoltageMv} mV)`))];
   const presetSelect = (obj, key) => { const s = h('select', { onchange: e => { obj[key] = e.target.value; } }, presetOptions()); s.value = obj[key] || ''; return s; };
 
-  const renderPresets = () => presetList.replaceChildren(
+  const renderPresets = () => fill(presetList, 
     ...presets.map((p, i) => h('div', { class: 'row' }, h('span', { style: 'flex:1' }, `${p.name}: ${p.frequencyMhz} MHz / ${p.coreVoltageMv} mV`),
       h('button', { class: 'btn small ghost', onclick: () => { presets.splice(i, 1); renderPresets(); } }, 'Entfernen'))),
     presets.length ? null : h('p', { class: 'muted small' }, 'Noch keine Voreinstellungen.'));
@@ -692,7 +749,7 @@ function tabAutomation() {
   const pVolt = h('input', { type: 'number', value: d.voltage ?? '' });
 
   const entries = h('div', { class: 'stack' });
-  const renderEntries = () => entries.replaceChildren(...sched.entries.map((e, i) => h('div', { class: 'form' },
+  const renderEntries = () => fill(entries, ...sched.entries.map((e, i) => h('div', { class: 'form' },
     h('div', {}, h('label', {}, 'Tage (z. B. Mo-Fr, Sa,So, täglich)'), h('input', { value: e.daysText, oninput: ev => { e.daysText = ev.target.value; delete e.days; } })),
     h('div', {}, h('label', {}, 'von (Uhr)'), numInput(e, 'fromHour')),
     h('div', {}, h('label', {}, 'bis (Uhr)'), numInput(e, 'toHour')),
@@ -765,7 +822,7 @@ function tabAutomation() {
 
 function tabBackups() {
   const list = h('div', {}, h('p', { class: 'muted' }, 'Lade …'));
-  const load = () => api(`/devices/${S.route.id}/snapshots`).then(snaps => list.replaceChildren(snaps.length
+  const load = () => api(`/devices/${S.route.id}/snapshots`).then(snaps => fill(list, snaps.length
     ? h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ['Zeit', 'Anlass', 'Firmware', ''].map(x => h('th', {}, x)))),
         h('tbody', {}, snaps.map(s => h('tr', {}, h('td', {}, time(s.takenAt)), h('td', {}, s.reason), h('td', {}, s.firmwareVersion || '–'),
           h('td', {}, h('button', { class: 'btn small', onclick: () => restore(s) }, 'Wiederherstellen …')))))))
@@ -818,7 +875,7 @@ function tabLog() {
 function fillAppLog() {
   const box = $('#app-log');
   if (!box || !S.detail?.log) return;
-  box.replaceChildren(...S.detail.log.map(l => h('div', {}, l)));
+  fill(box, ...S.detail.log.map(l => h('div', {}, l)));
   box.scrollTop = box.scrollHeight;
 }
 
@@ -981,7 +1038,7 @@ function fanRows(fans) {
 
 function updateFanTable() {
   const box = $('#fan-status');
-  if (box && S.status) box.replaceChildren(...fanRows(S.status.fans));
+  if (box && S.status) fill(box, ...fanRows(S.status.fans));
 }
 
 async function renderFans() {
@@ -1003,7 +1060,7 @@ function quickActions(fans, display) {
   const mode = fans?.override || 'None';
   const label = { None: 'nach Einstellung (Automatik)', Off: 'AUS per Taste – Sicherheitsregeln aktiv', Full: 'alle 100 %' }[mode];
   const next = async () => { const r = await run(() => api('/display/next', { method: 'POST', body: {} }), 'Anzeige wechselt in Kürze (frühestens 30 s nach der letzten Aktualisierung).'); if (r) renderFans(); };
-  const set = async m => { const r = await run(() => api('/fans/override', { method: 'POST', body: { mode: m } })); if (r) { const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); renderFans(); } };
+  const set = async m => { const r = await run(() => api('/fans/override', { method: 'POST', body: { mode: m } })); if (r) { const box = $('#fan-status'); if (box) fill(box, ...fanRows(r.status)); renderFans(); } };
   return h('div', { class: 'card stack' },
     h('div', { class: 'titlebar' }, h('h2', {}, 'Schnellaktionen'), h('span', { class: 'spacer' }),
       h('span', { class: `pill ${mode === 'None' ? 'gray' : ''}` }, `Lüfter: ${label}`)),
@@ -1031,7 +1088,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: 'Vorschau der E-Paper-Anzeige', style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', 'Als Nächstes'], ['Overview', 'Übersicht'], ['Daily', 'Tagesbilanz'], ['Chart', 'Verlauf 24 h'], ['Soak', 'Dauertest'],
     ['Network', 'Pool & Netzwerk'], ['BlockFound', 'Blockfund'], ['Alarm', 'Warnungen'], ['BestDiff', 'Best-Diff-Rekord']];
-  const sceneSel = h('select', { onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
+  const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, t]) => h('option', { value: v }, t)));
   const info = !st.enabled ? 'Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.'
     : `${st.connected ? 'Pico verbunden' : 'Pico nicht verbunden'} · zuletzt ${st.lastShown ? time(st.lastShown) : 'noch nie'}` +
@@ -1099,7 +1156,7 @@ function fanEditor(data) {
   const f = structuredClone(data.settings);
   const miners = data.miners;
   const channelsBox = h('div', { class: 'stack' });
-  const renderChannels = () => channelsBox.replaceChildren(...f.channels.map(c => {
+  const renderChannels = () => fill(channelsBox, ...f.channels.map(c => {
     const row = h('div', { class: 'panel' },
       h('div', { class: 'titlebar' }, h('h3', {}, `K${c.channel}`),
         h('span', { class: 'muted small' }, `PWM GP${(c.channel - 1) * 2} · Tacho GP${15 + c.channel}`)),
@@ -1127,7 +1184,7 @@ function fanEditor(data) {
       },
     }), m.name)));
   const caseBox = h('div', { class: 'stack' });
-  const renderCase = () => caseBox.replaceChildren(
+  const renderCase = () => fill(caseBox, 
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, 'Modus'), selectInput(cs, 'mode', [['auto', 'Automatik'], ['manual', 'Manuell']], renderCase)),
       cs.mode === 'manual' ? h('div', {}, h('label', {}, 'Drehzahl %'), numInput(cs, 'manualPercent')) : null,
@@ -1151,7 +1208,7 @@ function fanEditor(data) {
   f.sensors = f.sensors || [];
   const sensorBox = h('div', { class: 'stack' });
   const live = id => ((S.status && S.status.fans && S.status.fans.sensors) || []).find(s => s.id === id);
-  const renderSensors = () => sensorBox.replaceChildren(
+  const renderSensors = () => fill(sensorBox, 
     f.sensors.length === 0
       ? h('p', { class: 'muted' }, 'Noch kein Fühler erkannt. DS18B20 an GP26 anschließen (alle parallel, ein 4,7-kΩ-Widerstand nach 3,3 V) – der Server trägt jeden neuen Fühler hier ein.')
       : h('div', { class: 'table-wrap' }, h('table', {},
@@ -1178,7 +1235,7 @@ function fanEditor(data) {
 
   const save = async () => {
     const r = await run(() => api('/fans', { method: 'PUT', body: f }), 'Lüfter-Einstellungen gespeichert.');
-    if (r) { const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); }
+    if (r) { const box = $('#fan-status'); if (box) fill(box, ...fanRows(r.status)); }
   };
   return h('div', { class: 'stack' },
     h('div', { class: 'card stack' }, h('h2', {}, 'Verbindung'),
@@ -1190,7 +1247,7 @@ function fanEditor(data) {
           class: 'btn', onclick: async () => {
             if (!await confirmBox('Programm neu aufspielen', 'Das Lüfterprogramm wird neu auf den Pico geschrieben. Die Lüfter laufen dabei kurz mit 100 %.', 'Aufspielen')) return;
             const r = await run(() => api('/fans/firmware', { method: 'POST', body: {} }));
-            if (r) { toast(r.ok ? 'Programm aufgespielt, Pico verbunden.' : 'Pico nicht verbunden – siehe Status.', r.ok ? 'ok' : 'error'); const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); }
+            if (r) { toast(r.ok ? 'Programm aufgespielt, Pico verbunden.' : 'Pico nicht verbunden – siehe Status.', r.ok ? 'ok' : 'error'); const box = $('#fan-status'); if (box) fill(box, ...fanRows(r.status)); }
           },
         }, 'Programm neu aufspielen'))),
     h('div', { class: 'card stack' }, h('h2', {}, 'Kanäle'), channelsBox),
@@ -1207,7 +1264,7 @@ function mqttCard() {
     const s = d.settings;
     const pw = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.passwordSet ? 'gespeichert – leer lassen = unverändert' : 'Passwort (falls nötig)' });
     const text = (key, ph = '') => h('input', { value: s[key] ?? '', placeholder: ph, oninput: e => { s[key] = e.target.value; } });
-    body.replaceChildren(
+    fill(body, 
       h('p', { class: 'muted small' }, 'Sendet Hashrate, Leistung, Temperaturen, Lüfter und Temperaturfühler an einen MQTT-Broker (z. B. das Mosquitto-Add-on von Home Assistant). Home Assistant legt die Geräte automatisch an. Frequenz und Spannung lassen sich über MQTT nicht ändern.'),
       h('p', { class: `small ${d.connected ? 'ok' : s.enabled ? 'danger' : 'muted'}` },
         d.connected ? 'Verbunden.' : s.enabled ? `Nicht verbunden${d.error ? ': ' + d.error : ''}` : 'Ausgeschaltet.'),
@@ -1230,7 +1287,7 @@ function mqttCard() {
           },
         }, 'Speichern und verbinden')));
   };
-  api('/mqtt').then(render).catch(e => body.replaceChildren(h('p', { class: 'danger' }, e.message)));
+  api('/mqtt').then(render).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
   return h('div', { class: 'card stack' }, h('h2', {}, 'Home Assistant / MQTT'), body);
 }
 
@@ -1239,7 +1296,7 @@ function backupCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Lade …'));
   const mb = b => `${n(b / 1024 / 1024, 1)} MB`;
   const load = async () => {
-    const d = await api('/backup').catch(e => { body.replaceChildren(h('p', { class: 'danger' }, e.message)); return null; });
+    const d = await api('/backup').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
     if (!d) return;
     const s = d.settings, u = d.usb;
     const smbPw = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.smbPasswordSet ? 'gespeichert – leer lassen = unverändert' : 'Passwort' });
@@ -1262,7 +1319,7 @@ function backupCard() {
       : !u.ruleInstalled
         ? h('p', { class: 'warn small' }, 'USB-Stick: die automatische Einbindung ist auf diesem Pi noch nicht eingerichtet. Einmalig per SSH ausführen: ', h('code', {}, u.setupCommand))
         : h('p', { class: `small ${u.mounted ? 'ok' : 'muted'}` }, u.mounted ? 'USB-Stick erkannt und eingebunden.' : 'Kein USB-Stick eingesteckt (FAT32, exFAT oder ext4).');
-    body.replaceChildren(
+    fill(body, 
       h('p', { class: 'muted small' }, 'Einmal täglich: Einstellungen, Verlauf (history.db), Steuerdaten, Benchmark-Ergebnisse und Sicherungen der Miner-Einstellungen als geprüftes Archiv (SHA-256, integrity_check). Passwörter werden nie mitgesichert.'),
       checkInput(s, 'enabled', 'Tägliche Sicherung'),
       h('div', { class: 'form' },
@@ -1317,7 +1374,7 @@ function updateCard() {
     WindowsService: 'Windows-Dienst: Installation per Klick (stilles Setup, der Dienst startet neu).',
     Manual: 'Von Hand gestartet: neues Paket selbst installieren.',
   };
-  const render = u => body.replaceChildren(
+  const render = u => fill(body, 
     h('p', {}, `Installiert: ${u.current}` + (u.latest ? ` · verfügbar: ${u.latest}` : '') + (u.message ? ` · ${u.message}` : '')),
     h('p', { class: 'muted small' }, kinds[u.kind] || ''),
     u.notes ? h('div', { class: 'log', style: 'height:auto;max-height:180px' }, u.notes) : null,

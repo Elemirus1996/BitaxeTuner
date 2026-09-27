@@ -293,6 +293,12 @@ public sealed partial class MinerHub
             var miners = States.Where(x => !IsSimulated(x.Config.Host))
                                .Select(x => (x.Config.Name, x.Config.Host)).ToList();
             var (title, text) = DailyReport.Build(History, Config, miners, now);
+            try
+            {
+                var tips = AdvisorReportLines(now).ToList();
+                if (tips.Count > 0) text += "\n\n" + string.Join("\n", tips) + "\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)";
+            }
+            catch { /* Ratgeber optional */ }
             // Eigener Schlüssel je Tag; "Jetzt senden" umgeht die Sperre über einen eindeutigen Schlüssel
             var key = markSent ? $"report:{now:yyyy-MM-dd}" : $"report-test:{now:O}";
             await Notify.SendAsync(key, title, text, NotifyPriority.Low, TimeSpan.FromHours(20));

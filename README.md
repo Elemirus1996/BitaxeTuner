@@ -252,6 +252,11 @@ Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen 
   App-Neustarts. Bei Fehler Vorschlag der nächstniedrigeren stabilen Einstellung (nur nach Bestätigung).
   **Für mehrere Miner auf einmal**: Übersicht (Browser) bzw. *Dauertest …* (Desktop) – Auswahl, eine Dauer,
   eine Bestätigung mit aktueller Einstellung je Miner; „Alle abbrechen“.
+- **Effizienz-Ratgeber** (Browser → *Vergleich* → *Empfehlungen*): je Miner die beste geprüfte Einstellung für
+  Effizienz, ausgewogen oder Hashrate – aus stabilen Benchmark-Ergebnissen innerhalb der Profilgrenzen, bestandene
+  Dauertests zählen mehr, durchgefallene werden nie vorgeschlagen. Mit Änderung von Hashrate, Leistung und Stromkosten
+  pro Monat; „Anwenden …“ bzw. „Anwenden + Dauertest 24 h …“ nur über den Bestätigungsdialog (alt → neu).
+  Lohnende Vorschläge (ab 1 €/Monat) stehen auch im Tagesbericht.
 - **Vergleich**: alle Miner nebeneinander – aktuelle Einstellung, 24-h-Mittel, Verfügbarkeit, beste Benchmark-Ergebnisse,
   höchste stabile Frequenz (Chip-Güte).
 - **Handy-Ansicht** (Einstellungen → Handy-Ansicht): Nur-Lese-Webseite im Heimnetz, Anmeldung per PIN, nur private

@@ -25,7 +25,7 @@ public sealed partial class MinerHub
         foreach (var device in list)
         {
             var config = device.Config;
-            if (IsSimulated(device.Host) && !config.ThermalGuard.Enabled && !config.Schedule.Enabled && config.Soak is null)
+            if (IsSimulated(device.Host) && !config.ThermalGuard.Enabled && !config.Schedule.Enabled && config.Soak is null && device.PendingSoak is null)
                 continue;
             var state = device.State;
             var maintenance = device.Connection.InMaintenance;
@@ -94,6 +94,20 @@ public sealed partial class MinerHub
 
     private void TickSoak(HubDevice device, MinerState state, DateTime now, bool maintenance)
     {
+        // „Anwenden + Dauertest“: erst starten, wenn der Miner nach dem Neustart wieder Werte liefert
+        if (device.PendingSoak is { } pending && device.Config.Soak is null)
+        {
+            if (!maintenance && state.Online && device.Info is not null && !device.IsBenchmarkRunning)
+            {
+                device.PendingSoak = null;
+                StartSoak(device, pending.Hours);
+            }
+            else if (now - pending.Since > TimeSpan.FromMinutes(30))
+            {
+                device.PendingSoak = null;
+                device.AddLog("Geplanter Dauertest nicht gestartet: Miner war 30 min nach der Änderung nicht bereit.");
+            }
+        }
         if (device.Config.Soak is not { } soak)
         {
             device.SoakMonitor = null;
@@ -112,9 +126,17 @@ public sealed partial class MinerHub
     private void FinishSoak(HubDevice device, SoakTestState soak, SoakResult r)
     {
         if (device.Config.Soak is null) return;
+        var ratio = device.SoakMonitor?.CurrentRatio;
         device.Config.Soak = null;
         Config.Save();
         device.SoakMonitor = null;
+        // Für den Effizienz-Ratgeber: welche Einstellung hat den Dauertest bestanden
+        try
+        {
+            History?.AddSoakResult(new SoakResultRecord(device.Host, soak.StartedAt, Options.Clock?.Invoke() ?? DateTime.Now,
+                soak.FrequencyMhz, soak.CoreVoltageMv, r.Outcome == SoakOutcome.Passed, ratio, r.Message));
+        }
+        catch { /* Verlauf nicht verfügbar – Dauertest-Ergebnis steht trotzdem im Protokoll */ }
         device.SoakStatus = r.Message;
         device.AddLog(r.Message);
         if (Config.Notifications.OnMaintenance)

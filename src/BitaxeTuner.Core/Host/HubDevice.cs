@@ -53,6 +53,9 @@ public sealed class HubDevice
     /// <summary>Offener Vorschlag nach fehlgeschlagenem Dauertest.</summary>
     public SoakSuggestion? PendingSuggestion { get; internal set; }
 
+    /// <summary>Nach einer bestätigten Änderung: Dauertest starten, sobald der Miner wieder läuft (Stunden, Zeitpunkt).</summary>
+    public (int Hours, DateTime Since)? PendingSoak { get; internal set; }
+
     /// <summary>Laufender oder zuletzt beendeter Benchmark (null: in dieser Sitzung keiner gestartet).</summary>
     public BenchmarkRun? Benchmark { get; internal set; }
     public bool IsBenchmarkRunning => Benchmark?.IsRunning == true;

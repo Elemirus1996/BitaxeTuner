@@ -8,6 +8,10 @@ namespace BitaxeTuner.Core.Monitoring;
 /// <summary>Ein Eintrag der Best-Diff-Rekordliste.</summary>
 public sealed record BestDiffRecord(string Host, string Coin, double Value, string Raw, DateTime AchievedAt);
 
+/// <summary>Ergebnis eines Dauertests (Tabelle soak_results).</summary>
+public sealed record SoakResultRecord(string Host, DateTime Started, DateTime Ended, int FrequencyMhz, int CoreVoltageMv, bool Passed,
+    double? Ratio, string Message);
+
 /// <summary>Eine protokollierte Tuning-Änderung (Tabelle tuning_events).</summary>
 public sealed record TuningEvent(
     string Host, DateTime Time, TuningSource Source,
@@ -92,6 +96,61 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, ts, source)
             );
             """);
+        // 0.4.0: Dauertest-Ergebnisse für den Effizienz-Ratgeber – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS soak_results (
+                host    TEXT    NOT NULL,
+                started INTEGER NOT NULL,
+                ended   INTEGER NOT NULL,
+                freq    INTEGER NOT NULL,
+                mv      INTEGER NOT NULL,
+                passed  INTEGER NOT NULL,
+                ratio   REAL,
+                message TEXT    NOT NULL,
+                PRIMARY KEY (host, started)
+            );
+            """);
+    }
+
+    // ---------- Dauertests ----------
+
+    public void AddSoakResult(SoakResultRecord r)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR REPLACE INTO soak_results (host, started, ended, freq, mv, passed, ratio, message)
+                VALUES ($host, $s, $e, $f, $mv, $p, $r, $m);
+                """;
+            cmd.Parameters.AddWithValue("$host", r.Host);
+            cmd.Parameters.AddWithValue("$s", new DateTimeOffset(r.Started).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$e", new DateTimeOffset(r.Ended).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$f", r.FrequencyMhz);
+            cmd.Parameters.AddWithValue("$mv", r.CoreVoltageMv);
+            cmd.Parameters.AddWithValue("$p", r.Passed ? 1 : 0);
+            cmd.Parameters.AddWithValue("$r", (object?)r.Ratio ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$m", r.Message);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Dauertests eines Hosts, neueste zuerst.</summary>
+    public List<SoakResultRecord> QuerySoakResults(string host)
+    {
+        var list = new List<SoakResultRecord>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT started, ended, freq, mv, passed, ratio, message FROM soak_results WHERE host = $host ORDER BY started DESC;";
+            cmd.Parameters.AddWithValue("$host", host);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new SoakResultRecord(host, DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime,
+                    DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(1)).LocalDateTime, (int)r.GetInt64(2), (int)r.GetInt64(3), r.GetInt64(4) == 1,
+                    r.IsDBNull(5) ? null : r.GetDouble(5), r.GetString(6)));
+        }
+        return list;
     }
 
     public string FilePath { get; }
