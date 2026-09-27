@@ -178,6 +178,36 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Soak_batch_starts_selected_miners_skips_unsuitable_and_stops_all()
+    {
+        using var rig = new Rig("10.0.0.61", "10.0.0.62", "10.0.0.63");
+        await rig.Hub.PollNowAsync();
+        rig.Sims["10.0.0.63"].Offline = true;
+        await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100)); // Verbindungscache umgehen
+        await rig.Hub.PollNowAsync();
+        rig.Hub.StartSoak(rig.Device("10.0.0.62"), 6);                  // läuft schon
+
+        var preview = rig.Hub.SoakBatchPreview();
+        Assert.True(preview.Single(e => e.Device.Host == "10.0.0.61").Eligible);
+        Assert.Equal("Dauertest läuft bereits", preview.Single(e => e.Device.Host == "10.0.0.62").Reason);
+        Assert.Equal("nicht erreichbar", preview.Single(e => e.Device.Host == "10.0.0.63").Reason);
+        var info = rig.Device("10.0.0.61").Info!;
+        Assert.Equal((info.FrequencyMhz, info.CoreVoltageMv), (preview[0].FrequencyMhz!.Value, preview[0].CoreVoltageMv!.Value));
+
+        var results = rig.Hub.StartSoakBatch(["10.0.0.61", "10.0.0.62", "10.0.0.63"], 24);
+        Assert.Equal([true, false, false], results.Select(r => r.Started));
+        Assert.True(rig.Device("10.0.0.61").SoakActive);
+        Assert.Equal(TimeSpan.FromHours(24), rig.Device("10.0.0.61").Config.Soak!.Until - rig.Device("10.0.0.61").Config.Soak!.StartedAt);
+        Assert.Equal(TimeSpan.FromHours(6), rig.Device("10.0.0.62").Config.Soak!.Until - rig.Device("10.0.0.62").Config.Soak!.StartedAt);
+        Assert.Throws<InvalidOperationException>(() => rig.Hub.StartSoakBatch(["10.0.0.61"], 500));
+        Assert.Throws<InvalidOperationException>(() => rig.Hub.StartSoakBatch([], 24));
+
+        Assert.Equal(2, rig.Hub.StopAllSoaks());
+        Assert.All(rig.Hub.Devices, d => Assert.False(d.SoakActive));
+        Assert.All(AppConfig.Load(rig.Dir.File("config.json")).Devices, d => Assert.Null(d.Soak));
+    }
+
+    [Fact]
     public async Task Thermal_guard_only_acts_after_approval_and_logs_change()
     {
         using var rig = new Rig("10.0.0.61");

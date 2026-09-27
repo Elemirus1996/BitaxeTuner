@@ -222,6 +222,8 @@ gibt es als eigene Anleitung.
   Jede Änderung: Quelle „Automatik“ in history.db, Markierung im Verlauf, Push.
 - **Dauertest** (6–48 h) der aktuellen Einstellung: Hashrate-Anteil, Fehlerrate, Temperaturen, Erreichbarkeit; übersteht
   App-Neustarts. Bei Fehler Vorschlag der nächstniedrigeren stabilen Einstellung (nur nach Bestätigung).
+  **Für mehrere Miner auf einmal**: Übersicht (Browser) bzw. *Dauertest …* (Desktop) – Auswahl, eine Dauer,
+  eine Bestätigung mit aktueller Einstellung je Miner; „Alle abbrechen“.
 - **Vergleich**: alle Miner nebeneinander – aktuelle Einstellung, 24-h-Mittel, Verfügbarkeit, beste Benchmark-Ergebnisse,
   höchste stabile Frequenz (Chip-Güte).
 - **Handy-Ansicht** (Einstellungen → Handy-Ansicht): Nur-Lese-Webseite im Heimnetz, Anmeldung per PIN, nur private

@@ -296,6 +296,7 @@ function renderOverview() {
       s.price ? tile('Strompreis', `${n(s.price.ct, 2)} ct/kWh`, s.price.source) : null),
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, 'Hashrate gesamt'), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, 'Noch keine Miner eingetragen.', isAdmin() ? ' Unter Einstellungen → Geräte hinzufügen.' : ''),
+    isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     !s.running ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, 'Der Motor ist pausiert – der Server fragt keine Miner ab (z. B. weil die Desktop-App im Modus „Lokal“ läuft oder Daten übertragen werden).'),
       isAdmin() ? h('button', {
@@ -305,6 +306,42 @@ function renderOverview() {
         },
       }, 'Fortsetzen …') : null) : null));
   drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+}
+
+/** Dauertest für mehrere Miner: Auswahl, eine Dauer, eine Bestätigung; laufende Tests mit Restzeit. */
+function soakBatchCard(devices) {
+  const running = devices.filter(d => d.soak);
+  const left = u => { const m = Math.max(0, (new Date(u) - Date.now()) / 60000); return m >= 120 ? `${n(m / 60, 0)} h` : `${n(m, 0)} min`; };
+  const start = async () => {
+    const p = await run(() => api('/soak/prepare', { method: 'POST', body: {} }));
+    if (!p) return;
+    const sel = new Set(p.miners.filter(m => m.eligible).map(m => m.id));
+    if (!sel.size) { toast('Kein Miner ist gerade bereit (offline, Benchmark oder Dauertest läuft).', 'error'); return; }
+    const hours = h('select', {}, [6, 12, 24, 48, 72].map(x => h('option', { value: x, selected: x === 24 }, `${x} h`)));
+    const body = h('div', { class: 'stack' },
+      h('p', {}, 'Beobachtet wird jeweils die aktuelle Einstellung. Am Miner wird nichts geändert; Zeitplan/Strompreis-Regeln pausieren so lange. Schlägt ein Test fehl, gibt es einen Vorschlag (nur nach Bestätigung).'),
+      h('div', { class: 'row' }, h('label', {}, 'Dauer'), hours),
+      h('div', { class: 'stack' }, p.miners.map(m => h('label', { class: `row ${m.eligible ? '' : 'muted'}` },
+        h('input', { type: 'checkbox', checked: sel.has(m.id), disabled: !m.eligible, onchange: e => { e.target.checked ? sel.add(m.id) : sel.delete(m.id); } }),
+        h('span', {}, `${m.name}: ${m.eligible ? `${m.frequencyMhz} MHz / ${m.coreVoltageMv} mV` : m.reason}`)))));
+    if (!await confirmBox('Dauertest für mehrere Miner', body, 'Starten')) return;
+    if (!sel.size) { toast('Kein Miner ausgewählt.', 'error'); return; }
+    const r = await run(() => api('/soak/start', { method: 'POST', body: { hours: Number(hours.value), ids: [...sel] } }));
+    if (!r) return;
+    const skipped = r.results.filter(x => !x.started);
+    toast(`Dauertest gestartet für ${r.started} Miner.` + (skipped.length ? ` Übersprungen: ${skipped.map(x => `${x.name} (${x.message})`).join(', ')}` : ''), skipped.length ? 'info' : 'ok', 10000);
+  };
+  const stopAll = async () => {
+    if (!await confirmBox('Alle Dauertests abbrechen', `${running.length} laufende(n) Dauertest(s) abbrechen? Die Einstellungen der Miner bleiben, wie sie sind.`, 'Abbrechen', true)) return;
+    run(() => api('/soak/stop-all', { method: 'POST', body: {} }), 'Dauertests abgebrochen.');
+  };
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, 'Dauertest'), h('span', { class: 'spacer' }),
+      running.length ? h('button', { class: 'btn small danger', onclick: stopAll }, 'Alle abbrechen') : null,
+      h('button', { class: 'btn small', onclick: start }, 'Dauertest für mehrere Miner …')),
+    running.length
+      ? h('div', { class: 'stack small' }, running.map(d => h('div', {}, h('b', {}, d.name), ` · ${d.soak.status} · noch ${left(d.soak.until)}`)))
+      : h('p', { class: 'muted small' }, 'Kein Dauertest aktiv. Prüft die aktuelle Einstellung mehrerer Miner über Stunden, ohne etwas zu ändern.'));
 }
 
 // ---------- Diagramm (Canvas, ohne Bibliothek) ----------

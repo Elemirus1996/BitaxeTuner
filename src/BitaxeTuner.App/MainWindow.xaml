@@ -37,6 +37,8 @@
                     <Button Content="Einstellungen" Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" />
                     <Button Content="Betriebsart …" Click="OnModeClick"
                             ToolTip="Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb" />
+                    <Button Content="Dauertest …" Click="OnSoakBatchClick"
+                            ToolTip="Dauertest für mehrere Miner auf einmal starten oder alle abbrechen" />
                     <Button Content="Profile bearbeiten" Command="{Binding EditProfilesCommand}" />
                     <Button Content="Datenordner öffnen" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
                     <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />

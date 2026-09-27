@@ -182,6 +182,60 @@ public sealed partial class MinerHub
         RaiseDeviceChanged(device);
     }
 
+    // ---------- Dauertest für mehrere Miner ----------
+
+    /// <summary>Ein Miner in der Auswahl für den gemeinsamen Dauertest.</summary>
+    public sealed record SoakBatchEntry(HubDevice Device, bool Eligible, string? Reason, int? FrequencyMhz, int? CoreVoltageMv, bool Running);
+
+    /// <summary>Alle Miner mit aktueller Einstellung und ob ein Dauertest jetzt möglich ist.</summary>
+    public IReadOnlyList<SoakBatchEntry> SoakBatchPreview() => Devices.Select(d =>
+    {
+        var info = d.Info;
+        var reason = d.Config.Soak is not null ? "Dauertest läuft bereits"
+            : d.IsBenchmarkRunning ? "Benchmark läuft"
+            : info is null ? "nicht erreichbar"
+            : null;
+        return new SoakBatchEntry(d, reason is null, reason, info?.FrequencyMhz, info?.CoreVoltageMv, d.Config.Soak is not null);
+    }).ToList();
+
+    /// <summary>
+    /// Dauertest für die gewählten Miner starten (je Miner wie <see cref="StartSoak"/>). Nicht geeignete werden
+    /// übersprungen; liefert je Miner „gestartet“ oder den Grund.
+    /// </summary>
+    public IReadOnlyList<(HubDevice Device, bool Started, string Message)> StartSoakBatch(IEnumerable<string> hosts, int hours)
+    {
+        if (hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+        var wanted = hosts.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var result = new List<(HubDevice, bool, string)>();
+        foreach (var e in SoakBatchPreview().Where(e => wanted.Contains(e.Device.Host)))
+        {
+            if (!e.Eligible)
+            {
+                result.Add((e.Device, false, e.Reason!));
+                continue;
+            }
+            try
+            {
+                StartSoak(e.Device, hours);
+                result.Add((e.Device, true, $"gestartet: {e.FrequencyMhz} MHz / {e.CoreVoltageMv} mV für {hours} h"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                result.Add((e.Device, false, ex.Message));
+            }
+        }
+        if (result.Count == 0) throw new InvalidOperationException("Dauertest: keinen Miner ausgewählt.");
+        return result;
+    }
+
+    /// <summary>Alle laufenden Dauertests abbrechen; liefert die Anzahl.</summary>
+    public int StopAllSoaks()
+    {
+        var running = Devices.Where(d => d.Config.Soak is not null).ToList();
+        foreach (var d in running) StopSoak(d);
+        return running.Count;
+    }
+
     // ---------- Einstellungen sichern / wiederherstellen ----------
 
     /// <summary>Aktuelle Einstellungen des Miners sichern (&lt;Datenordner&gt;/snapshots).</summary>

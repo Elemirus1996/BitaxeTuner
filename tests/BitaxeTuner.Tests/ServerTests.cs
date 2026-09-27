@@ -71,6 +71,33 @@ public sealed class ServerTests : IDisposable
         (await Json(await c.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString()!;
 
     [Fact]
+    public async Task Soak_batch_api_needs_admin_and_csrf_and_starts_selected_miners()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        for (var i = 0; i < 50 && !(await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("online").GetBoolean(); i++)
+            await Task.Delay(100);
+
+        // ohne CSRF-Kopf abgelehnt
+        var noCsrf = _factory.CreateClient();
+        foreach (var c in admin.DefaultRequestHeaders.Where(h => h.Key != AuthContext.CsrfHeader)) noCsrf.DefaultRequestHeaders.Add(c.Key, c.Value);
+        Assert.False((await noCsrf.PostAsJsonAsync("/api/v1/soak/stop-all", new { })).IsSuccessStatusCode);
+
+        var prep = await Json(await admin.PostAsJsonAsync("/api/v1/soak/prepare", new { }));
+        var m = prep.GetProperty("miners")[0];
+        Assert.True(m.GetProperty("eligible").GetBoolean());
+        Assert.True(m.GetProperty("frequencyMhz").GetInt32() > 0);
+
+        var start = await Json(await admin.PostAsJsonAsync("/api/v1/soak/start", new { hours = 12, ids = new[] { id } }));
+        Assert.Equal(1, start.GetProperty("started").GetInt32());
+        var status = await Json(await admin.GetAsync("/api/v1/status"));
+        Assert.Equal(JsonValueKind.Object, status.GetProperty("devices")[0].GetProperty("soak").ValueKind);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/soak/start", new { hours = 12, ids = Array.Empty<string>() })).StatusCode);
+        Assert.Equal(1, (await Json(await admin.PostAsJsonAsync("/api/v1/soak/stop-all", new { }))).GetProperty("stopped").GetInt32());
+    }
+
+    [Fact]
     public async Task Fresh_server_needs_setup_code_and_locks_after_failures()
     {
         var client = _factory.CreateClient();

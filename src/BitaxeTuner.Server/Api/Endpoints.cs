@@ -17,6 +17,7 @@ public sealed record PasswordRequest(string Current, string Password);
 public sealed record ChangeRequest(int Frequency, int Voltage);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
 public sealed record SoakRequest(int Hours);
+public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
@@ -398,6 +399,29 @@ public static class Endpoints
             h.StopSoak(Device(h, id));
             return new { ok = true };
         })));
+
+        // Dauertest für mehrere Miner: Auswahl mit aktueller Einstellung, Start, alle abbrechen
+        g.MapPost("/soak/prepare", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            miners = h.SoakBatchPreview().Select(e => new
+            {
+                id = Dto.DeviceId(e.Device.Host), name = e.Device.Title, e.Eligible, e.Reason, e.FrequencyMhz, e.CoreVoltageMv, e.Running,
+                until = e.Device.Config.Soak?.Until,
+            }).ToList(),
+        })));
+
+        g.MapPost("/soak/start", async (SoakBatchRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var hosts = (req.Ids ?? []).Select(id => Dto.Find(h, id)?.Host).OfType<string>().ToList();
+            var results = h.StartSoakBatch(hosts, req.Hours);
+            return new
+            {
+                started = results.Count(r => r.Started),
+                results = results.Select(r => new { id = Dto.DeviceId(r.Device.Host), name = r.Device.Title, r.Started, r.Message }).ToList(),
+            };
+        })));
+
+        g.MapPost("/soak/stop-all", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { stopped = h.StopAllSoaks() })));
 
         g.MapPost("/devices/{id}/suggestion/dismiss", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
