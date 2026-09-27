@@ -1,0 +1,23 @@
+# BitaxeTuner-Server mit Docker Compose
+#   docker compose up -d
+#   docker compose logs bitaxetuner        # Einrichtungs-Code steht hier (auch in /data/SETUP-CODE.txt)
+# Update:
+#   docker compose pull && docker compose up -d
+#
+# Zugriff nur aus dem Heimnetz bzw. per VPN – den Port NICHT im Router freigeben.
+
+services:
+  bitaxetuner:
+    image: ghcr.io/elemirus1996/bitaxetuner-server:latest
+    container_name: bitaxetuner
+    restart: unless-stopped
+    ports:
+      - "8484:8484"
+    volumes:
+      - bitaxetuner-data:/data
+    environment:
+      - TZ=Europe/Berlin
+      # - BITAXETUNER_HTTPS=1        # selbst signiertes Zertifikat (Fingerabdruck im Protokoll)
+
+volumes:
+  bitaxetuner-data:

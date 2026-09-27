@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+artifacts/
+.git/
+.github/
+tests/
+installer/
+src/BitaxeTuner.App/
+**/*.user

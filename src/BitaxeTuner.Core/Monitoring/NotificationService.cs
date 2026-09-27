@@ -28,6 +28,12 @@ public sealed class NotificationService : IDisposable
 
     public string? LastError { get; private set; }
 
+    /// <summary>Jede Meldung, die die Sperrzeit passiert hat (für Meldungsverlauf im Browser und Tests).</summary>
+    public event Action<string, string, string, NotifyPriority>? Sending;
+
+    /// <summary>Nur für Tests: statt ntfy/Telegram aufrufen.</summary>
+    internal Func<string, string, NotifyPriority, Task>? TransportOverride { get; set; }
+
     public NotificationService(Func<NotificationSettings> settings)
     {
         _settings = settings;
@@ -49,9 +55,11 @@ public sealed class NotificationService : IDisposable
             _lastSent[key] = DateTime.UtcNow;
         }
 
+        Sending?.Invoke(key, title, message, priority);
         try
         {
-            await SendRawAsync(_settings(), title, message, priority);
+            if (TransportOverride is { } transport) await transport(title, message, priority);
+            else await SendRawAsync(_settings(), title, message, priority);
             LastError = null;
         }
         catch (Exception ex)

@@ -1,15 +1,20 @@
-<#
+﻿<#
 .SYNOPSIS
   Builds BitaxeTuner: runs tests, publishes a self-contained single-file exe and creates the setup (Inno Setup).
 .EXAMPLE
   .\build.ps1                 # version from Directory.Build.props
   .\build.ps1 -Version 0.2.0
-  .\build.ps1 -SkipInstaller  # publish + portable zip only
+  .\build.ps1 -SkipInstaller  # publish + portable zip + server packages, no setups
+  .\build.ps1 -SkipServer     # desktop only
+
+  Server packages: BitaxeTuner-Server-<v>-linux-arm64/-arm/-x64.tar.gz (Raspberry Pi / Linux, install.sh + systemd)
+  and BitaxeTuner-Server-Setup-<v>.exe (Windows service). Docker images are built by the release workflow.
 #>
 param(
     [string]$Version,
     [switch]$SkipTests,
-    [switch]$SkipInstaller
+    [switch]$SkipInstaller,
+    [switch]$SkipServer
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,6 +44,51 @@ $zip = Join-Path $artifacts "BitaxeTuner-$Version-portable-win-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
 Write-Host "Portable: $zip" -ForegroundColor Green
+
+# ---------- Server: Raspberry Pi / Linux (self-contained, install.sh + systemd) ----------
+$serverProject = Join-Path $root 'src\BitaxeTuner.Server\BitaxeTuner.Server.csproj'
+function Write-Lf([string]$path, [string]$text) {
+    # Linux-Dateien immer mit LF und ohne BOM (sonst scheitert /bin/sh bzw. systemd)
+    [IO.File]::WriteAllText($path, $text.Replace("`r`n", "`n"), (New-Object Text.UTF8Encoding $false))
+}
+if (-not $SkipServer) {
+    foreach ($rid in 'linux-arm64', 'linux-arm', 'linux-x64') {
+        $stage = Join-Path $artifacts "server-$rid"
+        $pkg = Join-Path $stage 'bitaxetuner-server'
+        if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+        dotnet publish $serverProject -c Release -r $rid --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=none -p:Version=$Version -o $pkg
+        if ($LASTEXITCODE -ne 0) { throw "Server publish failed ($rid)." }
+        Write-Lf (Join-Path $pkg 'install.sh') (Get-Content (Join-Path $root 'deploy\linux\install.sh') -Raw)
+        Write-Lf (Join-Path $pkg 'bitaxetuner.service') (Get-Content (Join-Path $root 'deploy\linux\bitaxetuner.service') -Raw)
+        Write-Lf (Join-Path $pkg 'VERSION') "$Version`n"
+        Write-Lf (Join-Path $pkg 'LIESMICH.txt') @"
+BitaxeTuner-Server $Version ($rid)
+
+Installieren / aktualisieren:   sudo ./install.sh
+Oberfläche:                     http://<IP-dieses-Geräts>:8484/
+Einrichtungs-Code:              sudo cat /var/lib/bitaxetuner/SETUP-CODE.txt
+Protokoll:                      journalctl -u bitaxetuner -f
+Entfernen (Daten bleiben):      sudo ./install.sh --uninstall
+
+Anleitung: https://github.com/Elemirus1996/BitaxeTuner#247-betrieb
+"@
+        $tgz = Join-Path $artifacts "BitaxeTuner-Server-$Version-$rid.tar.gz"
+        if (Test-Path $tgz) { Remove-Item $tgz }
+        tar -czf $tgz -C $stage bitaxetuner-server
+        if ($LASTEXITCODE -ne 0) { throw "tar failed ($rid)." }
+        Write-Host "Server: $tgz" -ForegroundColor Green
+    }
+
+    # Windows-Dienst: Dateien für das Server-Setup
+    $serverWin = Join-Path $artifacts 'publish-server-win'
+    if (Test-Path $serverWin) { Remove-Item $serverWin -Recurse -Force }
+    dotnet publish $serverProject -c Release -r win-x64 --self-contained true `
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+        -p:DebugType=none -p:Version=$Version -o $serverWin
+    if ($LASTEXITCODE -ne 0) { throw 'Server publish failed (win-x64).' }
+}
 
 if ($SkipInstaller) { return }
 
@@ -71,6 +121,12 @@ if (-not $iscc) {
 & $iscc "/DMyAppVersion=$Version" (Join-Path $root 'installer\BitaxeTuner.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
 Write-Host "Setup: $(Join-Path $artifacts "BitaxeTuner-Setup-$Version.exe")" -ForegroundColor Green
+
+if (-not $SkipServer) {
+    & $iscc "/DMyAppVersion=$Version" (Join-Path $root 'installer\BitaxeTuner-Server.iss')
+    if ($LASTEXITCODE -ne 0) { throw 'Inno Setup (server) failed.' }
+    Write-Host "Server-Setup: $(Join-Path $artifacts "BitaxeTuner-Server-Setup-$Version.exe")" -ForegroundColor Green
+}
 
 # SHA-256 checksums for the in-app updater (in addition to the GitHub asset digest)
 $sums = Get-ChildItem $artifacts -File | Where-Object { $_.Name -like "BitaxeTuner-*$Version*" } | ForEach-Object {

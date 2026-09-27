@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0B0E12">
+<title>BitaxeTuner</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/"><img src="icon.svg" alt="" width="28" height="28"><span>BitaxeTuner</span><small id="version"></small></a>
+  <nav id="nav" hidden>
+    <a href="#/" data-nav="overview">Übersicht</a>
+    <a href="#/compare" data-nav="compare">Vergleich</a>
+    <a href="#/tax" data-nav="tax" data-admin>Steuer</a>
+    <a href="#/settings" data-nav="settings" data-admin>Einstellungen</a>
+  </nav>
+  <div class="top-actions">
+    <span id="live" class="live" title="Live-Verbindung"></span>
+    <button id="theme" class="icon-btn" title="Hell/Dunkel" aria-label="Hell/Dunkel umschalten">◐</button>
+    <button id="logout" class="btn ghost small" hidden>Abmelden</button>
+  </div>
+</header>
+<main id="app"><p class="muted center">Lade …</p></main>
+<footer class="status"><span id="statusline"></span><span id="role"></span></footer>
+<div id="toasts" aria-live="polite"></div>
+<dialog id="dialog">
+  <form method="dialog">
+    <h3 id="dialog-title"></h3>
+    <div id="dialog-body"></div>
+    <div class="dialog-actions">
+      <button value="cancel" class="btn ghost">Abbrechen</button>
+      <button value="ok" id="dialog-ok" class="btn primary">OK</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>

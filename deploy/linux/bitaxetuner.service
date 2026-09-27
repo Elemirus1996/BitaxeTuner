@@ -1,0 +1,36 @@
+[Unit]
+Description=BitaxeTuner-Server (Überwachung und Tuning für Bitaxe/NerdAxe)
+Documentation=https://github.com/Elemirus1996/BitaxeTuner
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+User=bitaxetuner
+Group=bitaxetuner
+WorkingDirectory=/var/lib/bitaxetuner
+Environment=BITAXETUNER_DATA_DIR=/var/lib/bitaxetuner
+Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=/var/lib/bitaxetuner/.net
+# Eigene Einstellungen (z. B. BITAXETUNER_PORT=8484, BITAXETUNER_HTTPS=1) in /etc/default/bitaxetuner
+EnvironmentFile=-/etc/default/bitaxetuner
+ExecStart=/opt/bitaxetuner/current/BitaxeTuner.Server
+# Neustart bei Absturz und nach einem Selbst-Update
+Restart=always
+RestartSec=5
+# Beim Stoppen laufende Benchmarks beenden und Einstellungen der Miner wiederherstellen
+TimeoutStopSec=120
+
+# Härtung: nur Datenordner und Programmordner (Selbst-Update) beschreibbar
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/bitaxetuner /opt/bitaxetuner
+
+[Install]
+WantedBy=multi-user.target

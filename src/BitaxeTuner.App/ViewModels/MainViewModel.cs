@@ -48,12 +48,9 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly AppHost _host;
     private readonly Dictionary<string, DeviceViewModel> _devices = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly AutomationCoordinator _automation;
-
     public MainViewModel(AppHost host)
     {
         _host = host;
-        _automation = new AutomationCoordinator(host);
         VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0");
         if (host.StartupNotes.Count > 0) StatusText = host.StartupNotes[^1];
     }
@@ -85,22 +82,21 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Geräteliste aus config.json übernehmen (Start, Hinzufügen, Entfernen, Einstellungen gespeichert).</summary>
     public void Rebuild()
     {
-        _host.Polling.Sync(_host.Config.Devices);
-        _host.SyncLogAlerts();
+        _host.Hub.SyncDevices();
         var selectedKind = SelectedNav?.Kind ?? NavKind.Aggregate;
         var selectedHost = SelectedNav?.Host;
 
-        foreach (var gone in _devices.Keys.Where(h => _host.Polling.State(h) is null).ToList())
+        var hubDevices = _host.Hub.Devices;
+        foreach (var gone in _devices.Where(d => !hubDevices.Contains(d.Value.Device)).Select(d => d.Key).ToList())
         {
             _devices[gone].Dispose();
             _devices.Remove(gone);
         }
 
-        foreach (var state in _host.Polling.States)
+        foreach (var device in hubDevices)
         {
-            if (_devices.ContainsKey(state.Config.Host)) continue;
-            var connection = _host.Polling.Connection(state.Config.Host)!;
-            var vm = new DeviceViewModel(connection, state.Config, _host);
+            if (_devices.ContainsKey(device.Config.Host)) continue;
+            var vm = new DeviceViewModel(device, _host);
             vm.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(DeviceViewModel.IsRunning))
@@ -110,7 +106,7 @@ public sealed partial class MainViewModel : ObservableObject
                 }
             };
             vm.Initialize();
-            _devices[state.Config.Host] = vm;
+            _devices[device.Config.Host] = vm;
         }
 
         NavItems.Clear();
@@ -133,9 +129,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Nach jeder zentralen Abfragerunde: Live-Werte der Tuning-Ansichten aktualisieren.</summary>
     public void OnPolled()
     {
-        foreach (var state in _host.Polling.States)
-            if (_devices.TryGetValue(state.Config.Host, out var vm)) vm.OnPolled(state);
-        _automation.Tick(_devices.Values);
+        foreach (var vm in _devices.Values) vm.OnPolled();
     }
 
     /// <summary>Kurztexte aus der Überwachung in die Geräteliste übernehmen.</summary>

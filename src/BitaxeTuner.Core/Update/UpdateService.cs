@@ -27,9 +27,15 @@ public sealed record UpdateCheckResult(UpdateCheckStatus Status, UpdateInfo? Upd
 /// Repo), lädt die Setup-Datei und prüft deren SHA-256 (GitHub-Asset-Digest oder SHA256SUMS.txt im Release).
 /// Vorabversionen (Pre-Release) liefert <c>releases/latest</c> nicht aus.
 /// </summary>
-public sealed partial class UpdateService(HttpClient http, string repository)
+/// <param name="assetFilter">Welche Release-Datei passt (Standard: Setup der Desktop-App). Der Server wählt sein Paket je Plattform.</param>
+public sealed partial class UpdateService(HttpClient http, string repository, Func<string, bool>? assetFilter = null)
 {
     public const string SetupPrefix = "BitaxeTuner-Setup-";
+
+    public static bool IsDesktopSetup(string name) =>
+        name.StartsWith(SetupPrefix, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+    private readonly Func<string, bool> _matches = assetFilter ?? IsDesktopSetup;
 
     public string Repository => repository;
 
@@ -50,7 +56,7 @@ public sealed partial class UpdateService(HttpClient http, string repository)
             var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             var info = await ParseAsync(json, ct).ConfigureAwait(false);
             if (info is null)
-                return new(UpdateCheckStatus.NoRelease, null, "Der neueste Release enthält keine Setup-Datei.");
+                return new(UpdateCheckStatus.NoRelease, null, "Der neueste Release enthält keine passende Datei für diese Installation.");
             return info.Version > current
                 ? new(UpdateCheckStatus.UpdateAvailable, info, $"Version {info.Tag} ist verfügbar.")
                 : new(UpdateCheckStatus.UpToDate, info, $"Aktuell (neuester Release {info.Tag}).");
@@ -77,7 +83,7 @@ public sealed partial class UpdateService(HttpClient http, string repository)
         foreach (var a in r.GetProperty("assets").EnumerateArray())
         {
             var name = a.GetProperty("name").GetString() ?? "";
-            if (name.StartsWith(SetupPrefix, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            if (_matches(name))
                 setup = a;
             else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
                 sumsUrl = a.GetProperty("browser_download_url").GetString();

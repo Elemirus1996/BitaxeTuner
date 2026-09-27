@@ -117,7 +117,7 @@ public partial class MainWindow : Window
     {
         var host = Vm.Host;
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
-            () => _monitor.SendDailyReportAsync(DateTime.Now, markSent: false)) { Owner = this };
+            () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false)) { Owner = this };
         if (dialog.ShowDialog() != true) return;
 
         ThemeManager.Apply(host.Config.Theme);
@@ -126,6 +126,9 @@ public partial class MainWindow : Window
         await _monitor.ApplySettingsChangedAsync();
         PlaceMonitor();
     }
+
+    private void OnModeClick(object sender, RoutedEventArgs e) =>
+        new ServerModeWindow(Vm.Host.Config, Vm.Host) { Owner = this }.ShowDialog();
 
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)

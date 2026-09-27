@@ -67,7 +67,10 @@ public static class ConfigMigrator
     /// </summary>
     public static string BackupDataDirectory(string dataDirectory)
     {
-        var target = Path.Combine(dataDirectory, "backup-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        // Eindeutig, auch bei mehreren Sicherungen in derselben Sekunde (nie in eine vorhandene Sicherung schreiben)
+        var stamp = "backup-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        var target = Path.Combine(dataDirectory, stamp);
+        for (var n = 2; Directory.Exists(target); n++) target = Path.Combine(dataDirectory, $"{stamp}-{n}");
         Directory.CreateDirectory(target);
 
         foreach (var file in Directory.EnumerateFiles(dataDirectory, "*", SearchOption.AllDirectories))

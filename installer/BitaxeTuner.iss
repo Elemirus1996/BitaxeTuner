@@ -1,6 +1,6 @@
 ﻿; Inno Setup script for BitaxeTuner – built by build.ps1 (locally) or .github/workflows/release.yml
 #ifndef MyAppVersion
-  #define MyAppVersion "0.2.0"
+  #define MyAppVersion "0.3.0"
 #endif
 #define MyAppName "BitaxeTuner"
 #define MyAppExe "BitaxeTuner.exe"

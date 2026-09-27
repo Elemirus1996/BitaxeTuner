@@ -1,0 +1,264 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using BitaxeTuner.Core.Host;
+using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.Simulation;
+using BitaxeTuner.Server;
+using BitaxeTuner.Server.Security;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace BitaxeTuner.Tests;
+
+/// <summary>Server-API mit simulierten Minern: Einrichtung, Anmeldung, Rollen, CSRF, Token, Befehle, Live-Ereignisse.</summary>
+public sealed class ServerTests : IDisposable
+{
+    private readonly TempDir _dir = new();
+    private readonly WebApplicationFactory<Program> _factory;
+
+    public ServerTests()
+    {
+        File.WriteAllText(_dir.File("config.json"), """
+            { "IntervalSeconds": 60, "Devices": [ { "Name": "Gamma Wohnzimmer", "Host": "192.168.50.10", "WalletAddress": "bc1qtestwalletadresse" } ] }
+            """);
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment("Development");
+            b.ConfigureServices(s =>
+            {
+                s.RemoveAll<ServerSettings>();
+                s.AddSingleton(new ServerSettings { DataDirectory = _dir.Path });
+                s.AddSingleton(new MinerHubOptions
+                {
+                    ClientFactory = h => new SimulatedMinerClient(gamma, 3, h),
+                    OnlineChecks = false,
+                    BenchmarkDelay = (_, ct) => { ct.ThrowIfCancellationRequested(); return Task.CompletedTask; },
+                });
+            });
+        });
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        _dir.Dispose();
+    }
+
+    private AuthStore Auth => _factory.Services.GetRequiredService<AuthStore>();
+
+    /// <summary>Eingerichteter Server, angemeldeter Admin-Browser (mit CSRF-Wert).</summary>
+    private async Task<HttpClient> AdminAsync()
+    {
+        var client = _factory.CreateClient();
+        var r = await client.PostAsJsonAsync("/api/v1/setup", new { code = Auth.SetupCode, password = "sehr-geheim-123" });
+        r.EnsureSuccessStatusCode();
+        var csrf = (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("csrf").GetString()!;
+        client.DefaultRequestHeaders.Add(AuthContext.CsrfHeader, csrf);
+        return client;
+    }
+
+    private static async Task<JsonElement> Json(HttpResponseMessage r)
+    {
+        Assert.True(r.IsSuccessStatusCode, $"{(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}");
+        return await r.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private async Task<string> DeviceIdAsync(HttpClient c) =>
+        (await Json(await c.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString()!;
+
+    [Fact]
+    public async Task Fresh_server_needs_setup_code_and_locks_after_failures()
+    {
+        var client = _factory.CreateClient();
+        var info = await Json(await client.GetAsync("/api/v1/info"));
+        Assert.True(info.GetProperty("setupRequired").GetBoolean());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/status")).StatusCode);
+
+        // zu kurzes Passwort
+        var shortPw = await client.PostAsJsonAsync("/api/v1/setup", new { code = Auth.SetupCode, password = "kurz" });
+        Assert.Equal(HttpStatusCode.BadRequest, shortPw.StatusCode);
+
+        for (var i = 0; i < Lockout.MaxFailures; i++)
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/v1/setup", new { code = "0000-0000-0000", password = "sehr-geheim-123" })).StatusCode);
+        var locked = await client.PostAsJsonAsync("/api/v1/setup", new { code = Auth.SetupCode, password = "sehr-geheim-123" });
+        Assert.Equal((HttpStatusCode)429, locked.StatusCode);
+        Assert.False(Auth.IsSetUp);
+    }
+
+    [Fact]
+    public async Task Admin_sees_everything_and_password_is_stored_hashed()
+    {
+        var admin = await AdminAsync();
+        Assert.Null(Auth.SetupCode);
+        var status = await Json(await admin.GetAsync("/api/v1/status"));
+        var device = status.GetProperty("devices")[0];
+        Assert.Equal("192.168.50.10", device.GetProperty("host").GetString());
+
+        var detail = await Json(await admin.GetAsync($"/api/v1/devices/{device.GetProperty("id").GetString()}"));
+        Assert.Equal("bc1qtestwalletadresse", detail.GetProperty("config").GetProperty("walletAddress").GetString());
+
+        var stored = File.ReadAllText(_dir.File("server-auth.json"));
+        Assert.DoesNotContain("sehr-geheim-123", stored);
+        Assert.Contains("pbkdf2-sha256$", stored);
+    }
+
+    [Fact]
+    public async Task Browser_writes_need_csrf_token()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        admin.DefaultRequestHeaders.Remove(AuthContext.CsrfHeader);
+        var r = await admin.PostAsJsonAsync($"/api/v1/devices/{id}/soak/stop", new { });
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+        Assert.Contains("CSRF", await r.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Viewer_pin_gives_read_only_access_without_addresses()
+    {
+        var admin = await AdminAsync();
+        var settings = await Json(await admin.GetAsync("/api/v1/settings"));
+        var body = JsonSerializer.Deserialize<Dictionary<string, object?>>(settings.GetRawText())!;
+        body["newViewerPin"] = "4711";
+        await Json(await admin.PutAsJsonAsync("/api/v1/settings", body));
+
+        var viewer = _factory.CreateClient();
+        var login = await Json(await viewer.PostAsJsonAsync("/api/v1/login", new { password = "4711" }));
+        Assert.Equal("Viewer", login.GetProperty("role").GetString());
+        viewer.DefaultRequestHeaders.Add(AuthContext.CsrfHeader, login.GetProperty("csrf").GetString());
+
+        var status = await Json(await viewer.GetAsync("/api/v1/status"));
+        var device = status.GetProperty("devices")[0];
+        Assert.Equal(JsonValueKind.Null, device.GetProperty("host").ValueKind);
+        var raw = status.GetRawText();
+        Assert.DoesNotContain("192.168.50.10", raw);
+        Assert.DoesNotContain("bc1q", raw);
+
+        var detail = await Json(await viewer.GetAsync($"/api/v1/devices/{device.GetProperty("id").GetString()}"));
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("config").ValueKind);
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("log").ValueKind);
+        Assert.DoesNotContain("192.168.50.10", detail.GetRawText());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync("/api/v1/settings")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await viewer.PostAsJsonAsync($"/api/v1/devices/{device.GetProperty("id").GetString()}/change", new { frequency = 500, voltage = 1100 })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Api_token_for_desktop_works_without_cookie_and_can_be_revoked()
+    {
+        var admin = await AdminAsync();
+        var created = await Json(await admin.PostAsJsonAsync("/api/v1/tokens", new { name = "Desktop-PC" }));
+        var token = created.GetProperty("token").GetString()!;
+        Assert.StartsWith("btk_", token);
+        Assert.DoesNotContain(token, File.ReadAllText(_dir.File("server-auth.json")));
+
+        var desktop = _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        desktop.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        var id = await DeviceIdAsync(desktop);
+        await Json(await desktop.PostAsJsonAsync($"/api/v1/devices/{id}/soak/stop", new { })); // ohne CSRF: Token-Aufruf
+
+        await Json(await admin.DeleteAsync($"/api/v1/tokens/{created.GetProperty("id").GetString()}"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await desktop.GetAsync("/api/v1/status")).StatusCode);
+
+        desktop.DefaultRequestHeaders.Authorization = new("Bearer", "btk_gefaelscht");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await desktop.GetAsync("/api/v1/status")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Change_via_api_checks_limits_and_shows_old_and_new_value()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        var detail = await Json(await admin.GetAsync($"/api/v1/devices/{id}"));
+        var max = detail.GetProperty("profile").GetProperty("maxFrequencyMhz").GetInt32();
+
+        var tooHigh = await admin.PostAsJsonAsync($"/api/v1/devices/{id}/change/preview", new { frequency = max + 100, voltage = 1150 });
+        Assert.Equal(HttpStatusCode.BadRequest, tooHigh.StatusCode);
+        Assert.Contains("außerhalb der Grenzen", await tooHigh.Content.ReadAsStringAsync());
+
+        var preview = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/change/preview", new { frequency = 550, voltage = 1150 }));
+        Assert.Contains("→  550 MHz", preview.GetProperty("confirmText").GetString());
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/change", new { frequency = 550, voltage = 1150 }));
+
+        var log = (await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("log").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Contains(log, l => l!.Contains("→ 550 MHz / 1150 mV"));
+    }
+
+    [Fact]
+    public async Task Benchmark_started_in_browser_runs_on_server()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        for (var i = 0; i < 50; i++) // Profilerkennung nach der ersten Runde abwarten
+        {
+            var p = (await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("profile").GetProperty("id").GetString();
+            if (p == "bitaxe-gamma") break;
+            await Task.Delay(100);
+        }
+        var settings = new
+        {
+            startFrequencyMhz = 525, maxFrequencyMhz = 600, frequencyStepMhz = 25, startVoltageMv = 1150, minVoltageMv = 1100,
+            maxVoltageMv = 1200, voltageStepMv = 25, warmupSeconds = 30, measureSeconds = 150, sampleIntervalSeconds = 15, minSamples = 7,
+            maxChipTempC = 66, maxVrTempC = 85, maxPowerW = 40, minHashRateRatio = 0.9, maxErrorPercent = 2,
+        };
+        var prepare = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/benchmark/prepare", new { settings, resume = false }));
+        Assert.Contains("Benchmark starten", prepare.GetProperty("confirmText").GetString());
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/benchmark/start", new { settings, resume = false }));
+
+        JsonElement bench = default;
+        for (var i = 0; i < 300; i++)
+        {
+            bench = (await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("summary").GetProperty("benchmark");
+            if (bench.ValueKind == JsonValueKind.Object && !bench.GetProperty("running").GetBoolean()) break;
+            await Task.Delay(100);
+        }
+        Assert.Equal("Fertig", bench.GetProperty("phase").GetString());
+        var session = (await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("session");
+        Assert.True(session.GetProperty("isFinished").GetBoolean());
+        Assert.True(session.GetProperty("results").GetArrayLength() > 0);
+    }
+
+    [Fact]
+    public async Task Event_stream_starts_with_current_status()
+    {
+        var admin = await AdminAsync();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var response = await admin.GetAsync("/api/v1/events", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cts.Token));
+        var lines = new List<string>();
+        while (lines.Count < 4 && await reader.ReadLineAsync(cts.Token) is { } line) lines.Add(line);
+        Assert.Contains("event: status", lines);
+        Assert.Contains(lines, l => l.StartsWith("data: {") && l.Contains("\"totals\""));
+    }
+
+    [Fact]
+    public async Task Web_ui_is_served_with_security_headers()
+    {
+        var client = _factory.CreateClient();
+        var r = await client.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Equal("text/html", r.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("frame-ancestors 'none'", r.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal("DENY", r.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/gibtsnicht")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("192.168.1.20", true)]
+    [InlineData("10.1.2.3", true)]
+    [InlineData("172.20.0.5", true)]      // Docker-Netz
+    [InlineData("100.101.102.103", true)] // Tailscale
+    [InlineData("127.0.0.1", true)]
+    [InlineData("fd12:3456::1", true)]
+    [InlineData("8.8.8.8", false)]
+    [InlineData("172.32.0.1", false)]
+    [InlineData("2001:4860::8888", false)]
+    public void Only_home_network_and_vpn_are_private(string ip, bool expected) =>
+        Assert.Equal(expected, NetworkRules.IsPrivate(IPAddress.Parse(ip)));
+}

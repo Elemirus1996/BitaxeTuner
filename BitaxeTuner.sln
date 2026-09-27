@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitaxeTuner.App", "src\Bita
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitaxeTuner.Tests", "tests\BitaxeTuner.Tests\BitaxeTuner.Tests.csproj", "{3E0826AD-B63F-4EAC-BA66-C98424D81577}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitaxeTuner.Server", "src\BitaxeTuner.Server\BitaxeTuner.Server.csproj", "{FAC401E3-6089-4752-8572-58BBD15DE65D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,18 @@ Global
 		{3E0826AD-B63F-4EAC-BA66-C98424D81577}.Release|x64.Build.0 = Release|Any CPU
 		{3E0826AD-B63F-4EAC-BA66-C98424D81577}.Release|x86.ActiveCfg = Release|Any CPU
 		{3E0826AD-B63F-4EAC-BA66-C98424D81577}.Release|x86.Build.0 = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|x64.Build.0 = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Debug|x86.Build.0 = Debug|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|x64.ActiveCfg = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|x64.Build.0 = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|x86.ActiveCfg = Release|Any CPU
+		{FAC401E3-6089-4752-8572-58BBD15DE65D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -65,5 +79,6 @@ Global
 		{F7D857B2-5F4D-4CA7-A870-5C5B3257C057} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{7FA417B7-247C-4B57-AB0B-EF3849191CD6} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{3E0826AD-B63F-4EAC-BA66-C98424D81577} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{FAC401E3-6089-4752-8572-58BBD15DE65D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

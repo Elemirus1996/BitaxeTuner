@@ -1,0 +1,416 @@
+using BitaxeTuner.Core.Api;
+using BitaxeTuner.Core.Automation;
+using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.Network;
+using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.Simulation;
+using BitaxeTuner.Core.Storage;
+using BitaxeTuner.Core.Tax.Services;
+using BitaxeTuner.Core.Update;
+using BitaxeTuner.Core.Web;
+
+namespace BitaxeTuner.Core.Host;
+
+public sealed class MinerHubOptions
+{
+    /// <summary>GitHub-Repository für Update-Prüfungen.</summary>
+    public string UpdateRepository { get; init; } = "Elemirus1996/BitaxeTuner";
+
+    /// <summary>Nur für Tests: eigene Miner-Clients statt AxeOS.</summary>
+    public Func<string, IMinerClient>? ClientFactory { get; init; }
+
+    /// <summary>Online-Abfragen: Firmware-Releases (GitHub) und Wallet-Stände. Tests: aus, damit keine Netzzugriffe entstehen.</summary>
+    public bool OnlineChecks { get; init; } = true;
+
+    /// <summary>Nur für Tests: Uhr für die Auswertung nach jeder Runde (Haltezeiten der Regeln).</summary>
+    public Func<DateTime>? Clock { get; init; }
+
+    /// <summary>Nur für Tests: Wartezeiten des Benchmarks ersetzen.</summary>
+    public Func<TimeSpan, CancellationToken, Task>? BenchmarkDelay { get; init; }
+
+    /// <summary>
+    /// Datenordner (config.json, history.db, tax, tuning, snapshots). Ohne Angabe der aktuelle Datenordner
+    /// der App (<see cref="DataPaths.Current"/>).
+    /// </summary>
+    public string? DataDirectory { get; init; }
+}
+
+/// <summary>
+/// Headless-Motor von BitaxeTuner: alle Funktionen, die rund um die Uhr laufen müssen – Abfrage, Verlauf,
+/// Benachrichtigungen, Watchdog, Firmware-, Pool- und Wallet-Prüfung, Tagesbericht, Steuer-Erfassung,
+/// Log-Alarme, Automatik-Regeln, Dauertests und Benchmarks. Läuft in der Desktop-App (Betriebsart „Lokal“)
+/// oder im Server-Dienst; jeder Dienst existiert genau einmal (insbesondere ein Blockchair-Dienst mit
+/// 9-Minuten-Cache und ein zentraler Abfragedienst je Miner).
+///
+/// Threading: <see cref="Start"/> merkt sich den <see cref="SynchronizationContext"/> des Aufrufers
+/// (Desktop: UI-Thread, Server: <see cref="HubThread"/>). Alle Takte und Zustandsänderungen laufen dort
+/// nacheinander – wie früher mit den DispatcherTimern der Oberfläche. Aufrufe von außen gehen über <see cref="InvokeAsync{T}"/>.
+/// </summary>
+public sealed partial class MinerHub : IDisposable
+{
+    private readonly string _tuningDirectory;
+    private readonly Dictionary<string, HubDevice> _devices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HttpClient _priceHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly HttpClient _updateHttp = new() { Timeout = TimeSpan.FromMinutes(10) };
+    private SynchronizationContext? _context;
+    private CancellationTokenSource? _loops;
+    private bool _paused, _started, _disposed;
+
+    public MinerHub(AppConfig config, MinerHubOptions? options = null)
+    {
+        options ??= new MinerHubOptions();
+        Options = options;
+        Config = config;
+        var explicitDir = options.DataDirectory is { Length: > 0 } d ? Path.GetFullPath(d) : null;
+        DataDirectory = explicitDir ?? DataPaths.Current;
+        if (explicitDir is not null) config.FilePath ??= Path.Combine(explicitDir, "config.json");
+        _tuningDirectory = Path.Combine(DataDirectory, "tuning");
+
+        Maintenance = new MaintenanceTracker();
+        Profiles = ProfileRegistry.Load(_tuningDirectory);
+        Results = new ResultStore(_tuningDirectory);
+        var factory = options.ClientFactory ?? (host => MinerClientFactory.Create(host, Profiles));
+        Polling = new MinerPollingService(Maintenance, factory);
+
+        try
+        {
+            History = new HistoryStore(explicitDir is null ? null : Path.Combine(explicitDir, "history.db"));
+        }
+        catch (Exception ex)
+        {
+            History = null;
+            HistoryError = ex.Message;
+        }
+
+        // Jede Frequenz-/Spannungsänderung landet mit Zeitstempel, altem und neuem Wert in history.db
+        Polling.TuningApplied += e =>
+        {
+            if (SimulatedMinerClient.IsSimAddress(e.Host)) return;
+            try { History?.AddTuningEvent(e); } catch { /* nicht kritisch */ }
+            TuningApplied?.Invoke(e);
+        };
+
+        Notify = new NotificationService(() => Config.Notifications);
+        Firmware = new FirmwareChecker();
+
+        Blockchair = new BlockchairBlockchainService(config.BlockchairApiKey);
+        CoinGecko = new CoinGeckoPriceService(config.CoinGeckoApiKey);
+        WalletClient = new WalletClient();
+        WalletClient.UseBlockchairForBch(Blockchair);
+        NetworkClient = new NetworkClient();
+        Odds = new SoloOddsService(Blockchair);
+        TaxRepository = new TaxLogRepository(explicitDir is null ? null : Path.Combine(explicitDir, "tax"));
+        TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository);
+
+        Snapshots = new SettingsSnapshots(Path.Combine(DataDirectory, "snapshots"));
+        PoolWatch = new PoolWatch();
+        LogAlerts = new LogAlertService(() => Config, Maintenance, SendAlert);
+
+        _priceHttp.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner");
+        Prices = new PriceService(() => Config.PriceSource, _priceHttp);
+        Automation = new AutomationEngine(Prices);
+        WebView = new WebViewServer(() => Config.WebView.PinHash, () => WebStatusJson);
+        Updates = new UpdateService(_updateHttp, options.UpdateRepository);
+        Benchmarks = new BenchmarkManager(this);
+
+        SyncDevices();
+    }
+
+    public AppConfig Config { get; }
+    public MinerHubOptions Options { get; }
+    public string DataDirectory { get; }
+
+    public MaintenanceTracker Maintenance { get; }
+    public MinerPollingService Polling { get; }
+    public HistoryStore? History { get; }
+    public string? HistoryError { get; }
+    public ProfileRegistry Profiles { get; private set; }
+    public ResultStore Results { get; }
+
+    public NotificationService Notify { get; }
+    public FirmwareChecker Firmware { get; }
+    public BlockchairBlockchainService Blockchair { get; }
+    public CoinGeckoPriceService CoinGecko { get; }
+    public WalletClient WalletClient { get; }
+    public NetworkClient NetworkClient { get; }
+    public SoloOddsService Odds { get; }
+    public TaxLogRepository TaxRepository { get; }
+    public WalletMonitorService TaxMonitor { get; }
+
+    public SettingsSnapshots Snapshots { get; }
+    public PoolWatch PoolWatch { get; }
+    public LogAlertService LogAlerts { get; }
+    public PriceService Prices { get; }
+    public AutomationEngine Automation { get; }
+    public WebViewServer WebView { get; }
+    public UpdateService Updates { get; }
+    public BenchmarkManager Benchmarks { get; }
+
+    /// <summary>Zuletzt erzeugter Stand für die Handy-Ansicht (im Hub-Kontext gebaut, vom Webserver nur gelesen).</summary>
+    public volatile string WebStatusJson = "{}";
+
+    /// <summary>Geräte in der Reihenfolge der Konfiguration.</summary>
+    public IReadOnlyList<HubDevice> Devices =>
+        Polling.States.Select(s => _devices.Values.FirstOrDefault(d => ReferenceEquals(d.State, s))).OfType<HubDevice>().ToList();
+
+    /// <summary>Gerät zur Adresse (wie in config.json oder wie vom Client normalisiert).</summary>
+    public HubDevice? Device(string host) =>
+        _devices.GetValueOrDefault(host.Trim()) ??
+        _devices.Values.FirstOrDefault(d => string.Equals(d.Config.Host.Trim(), host.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public bool IsRunning => _started && !_paused;
+
+    // ---------- Ereignisse (im Hub-Kontext) ----------
+
+    /// <summary>Nach jeder Abfragerunde, nachdem Verlauf, Meldungen, Watchdog und Automatik gelaufen sind.</summary>
+    public event Action? Polled;
+
+    /// <summary>Protokollierte Tuning-Änderung (kann auf einem Pool-Thread kommen).</summary>
+    public event Action<TuningEvent>? TuningApplied;
+
+    /// <summary>Statuszeile: (ok, Text).</summary>
+    public event Action<bool, string>? StatusMessage;
+
+    /// <summary>Geräteliste neu aufgebaut (hinzugefügt, entfernt, Einstellungen gespeichert).</summary>
+    public event Action? DevicesChanged;
+
+    /// <summary>Profil, Automatik- oder Dauertest-Status eines Geräts geändert.</summary>
+    public event Action<HubDevice>? DeviceChanged;
+
+    internal void RaiseStatus(bool ok, string text) => StatusMessage?.Invoke(ok, text);
+    internal void RaiseDeviceChanged(HubDevice device) => DeviceChanged?.Invoke(device);
+
+    // ---------- Geräteliste ----------
+
+    /// <summary>Geräteliste aus config.json übernehmen (Start, Hinzufügen, Entfernen, Einstellungen gespeichert).</summary>
+    public void SyncDevices()
+    {
+        Polling.Sync(Config.Devices);
+
+        var states = Polling.States;
+        foreach (var gone in _devices.Where(d => !states.Contains(d.Value.State)).Select(d => d.Key).ToList())
+        {
+            if (_devices[gone].IsBenchmarkRunning) Benchmarks.Stop(_devices[gone]);
+            _devices.Remove(gone);
+        }
+
+        foreach (var state in states)
+        {
+            var connection = Polling.Connection(state.Config.Host)!;
+            if (_devices.TryGetValue(connection.Address, out var existing))
+            {
+                existing.State = state;
+                continue;
+            }
+            var device = new HubDevice(state, connection, Profiles.Generic.Clone());
+            _devices[connection.Address] = device;
+            InitDevice(device);
+        }
+
+        if (!_paused) SyncLogAlerts();
+        DevicesChanged?.Invoke();
+    }
+
+    private void InitDevice(HubDevice device)
+    {
+        device.AddLog($"Gerät: {device.Title} ({device.Host})");
+
+        // Manuell gewähltes Profil aus config.json, sonst Erkennung beim ersten Datenpunkt
+        if (device.Config.ProfileId is { } id && Profiles.Profiles.FirstOrDefault(p => p.Id == id) is { } chosen)
+        {
+            device.Profile = chosen.Clone();
+            device.ProfileResolved = true;
+            device.AddLog($"Profil aus den Einstellungen: „{chosen.Name}“");
+        }
+
+        var last = Results.LoadLatest(device.Host, null);
+        if (last is not null)
+            device.AddLog($"Letzter Lauf vom {last.StartedAt:g} geladen ({last.Results.Count} Ergebnisse" +
+                          (last.IsFinished ? ")." : ", nicht abgeschlossen – kann fortgesetzt werden)."));
+    }
+
+    /// <summary>Log-Alarme an Geräteliste und Einstellungen angleichen.</summary>
+    public void SyncLogAlerts() =>
+        LogAlerts.Sync(Polling.States
+            .Where(s => !IsSimulated(s.Config.Host))
+            .Select(s => (s.Config, Polling.Connection(s.Config.Host)!)));
+
+    /// <summary>Profile nach Bearbeiten der profiles.json neu laden.</summary>
+    public void ReloadProfiles() => Profiles = ProfileRegistry.Load(_tuningDirectory);
+
+    /// <summary>Auswahl für ein Gerät: das erkannte (angepasste) Profil ersetzt seinen Registry-Eintrag.</summary>
+    public IReadOnlyList<DeviceProfile> ProfilesFor(HubDevice device) =>
+        device.MatchedProfile is { } m ? Profiles.Profiles.Select(p => p.Id == m.Id ? m : p).ToList() : Profiles.Profiles.ToList();
+
+    /// <summary>Vom Benutzer gewähltes Profil dauerhaft in der Geräteliste merken.</summary>
+    public void SetProfile(HubDevice device, DeviceProfile profile)
+    {
+        device.Profile = profile;
+        device.ProfileResolved = true;
+        device.Config.ProfileId = profile.Id;
+        Config.Save();
+        device.AddLog($"Profil gewählt: „{profile.Name}“ (gespeichert)");
+        RaiseDeviceChanged(device);
+    }
+
+    private async Task ResolveProfileAsync(HubDevice device, MinerInfo info)
+    {
+        device.ProfileResolved = true;
+        AsicInfo? asic = null;
+        try { asic = await device.Connection.GetAsicInfoAsync(); } catch (MinerApiException) { }
+        var matched = Profiles.Match(info, asic);
+        device.MatchedProfile = matched;
+        device.Profile = matched;
+        device.AddLog($"Erkannt: {info.DeviceModel ?? info.AsicModel} ({FirmwareName(info.Firmware)} {info.FirmwareVersion}) → Profil „{matched.Name}“");
+        RaiseDeviceChanged(device);
+    }
+
+    public static string FirmwareName(FirmwareKind kind) => kind switch
+    {
+        FirmwareKind.AxeOS => "AxeOS",
+        FirmwareKind.NerdQAxe => "NerdQAxe-Firmware",
+        FirmwareKind.Simulated => "Simulation",
+        _ => "Firmware",
+    };
+
+    public static bool IsSimulated(string host) => SimulatedMinerClient.IsSimAddress(host);
+
+    // ---------- Takt ----------
+
+    /// <summary>
+    /// Takte starten (Miner-Abfrage, Wallets, Steuer-Monitor) und sofort eine Runde abfragen.
+    /// Muss im Kontext aufgerufen werden, in dem der Hub laufen soll.
+    /// </summary>
+    public async Task StartAsync()
+    {
+        if (_started) return;
+        _started = true;
+        _context = SynchronizationContext.Current;
+        InitMonitoring();
+        if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
+        RestartLoops();
+        await PollNowAsync();
+        // Wallets im Hintergrund (Netzabfrage) – der Start wartet nicht darauf
+        _ = PollWalletsAsync();
+    }
+
+    /// <summary>
+    /// Abfragen anhalten/fortsetzen (Datenordner-Umzug, Datenübertragung, Server während Desktop-Betrieb).
+    /// Pausiert heißt: keine Miner-, Wallet- oder Steuerabfragen und keine Log-Verbindungen zu den Minern.
+    /// </summary>
+    public void SetPaused(bool paused)
+    {
+        _paused = paused;
+        if (paused)
+        {
+            _loops?.Cancel();
+            LogAlerts.Sync([]);
+            TaxMonitor.Stop();
+        }
+        else
+        {
+            SyncLogAlerts();
+            if (_started) RestartLoops();
+        }
+    }
+
+    public bool IsPaused => _paused;
+
+    /// <summary>Nach "Einstellungen speichern": Geräteliste, Takte und Caches neu, sofort abfragen.</summary>
+    public async Task ApplySettingsChangedAsync()
+    {
+        SyncDevices();
+        if (_started && !_paused) RestartLoops();
+        _lastFirmwareRefresh = DateTime.MinValue;
+        await PollNowAsync();
+        await PollWalletsAsync();
+    }
+
+    private void RestartLoops()
+    {
+        _loops?.Cancel();
+        _loops = new CancellationTokenSource();
+        var ct = _loops.Token;
+        _ = RunLoopAsync(() => TimeSpan.FromSeconds(Math.Clamp(Config.IntervalSeconds, 1, 300)), PollNowAsync, ct);
+        _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.WalletPollMinutes, 1, 1440)), PollWalletsAsync, ct);
+        TaxMonitor.Start(TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440)));
+    }
+
+    private async Task RunLoopAsync(Func<TimeSpan> interval, Func<Task> body, CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            // Ohne ConfigureAwait: die Fortsetzung läuft wieder im Hub-Kontext
+            try { await Task.Delay(interval(), ct); }
+            catch (OperationCanceledException) { return; }
+            if (ct.IsCancellationRequested) return;
+            try { await body(); }
+            catch (Exception ex) { RaiseStatus(false, "Interner Fehler: " + ex.Message); }
+        }
+    }
+
+    /// <summary>Aufruf von außen (Server-API, anderer Thread) im Hub-Kontext ausführen.</summary>
+    public Task<T> InvokeAsync<T>(Func<Task<T>> action)
+    {
+        if (_context is null || SynchronizationContext.Current == _context) return action();
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _context.Post(async _ =>
+        {
+            try { tcs.SetResult(await action()); }
+            catch (Exception ex) { tcs.SetException(ex); }
+        }, null);
+        return tcs.Task;
+    }
+
+    public Task InvokeAsync(Func<Task> action) => InvokeAsync(async () => { await action(); return true; });
+
+    public Task<T> InvokeAsync<T>(Func<T> action) => InvokeAsync(() => Task.FromResult(action()));
+
+    // ---------- Handy-Ansicht ----------
+
+    /// <summary>Handy-Ansicht gemäß Einstellungen starten oder stoppen. Liefert eine Statusmeldung.</summary>
+    public string ApplyWebView()
+    {
+        var w = Config.WebView;
+        if (!w.Enabled || string.IsNullOrEmpty(w.PinHash))
+        {
+            WebView.Stop();
+            return w.Enabled ? "Handy-Ansicht: PIN fehlt – nicht gestartet." : "";
+        }
+        if (WebView.IsRunning && WebView.Port == w.Port) return $"Handy-Ansicht: {string.Join(" oder ", WebViewServer.LocalUrls(w.Port))}";
+        // Nur für Tests: BITAXETUNER_WEB_BIND=127.0.0.1 bindet ausschließlich lokal (kein Firewall-Dialog)
+        var bind = Environment.GetEnvironmentVariable("BITAXETUNER_WEB_BIND") is { Length: > 0 } b &&
+                   System.Net.IPAddress.TryParse(b, out var ip) ? ip : null;
+        WebView.Start(w.Port, bind);
+        return WebView.IsRunning
+            ? bind is not null
+                ? $"Handy-Ansicht (nur lokal, Test): http://{bind}:{w.Port}/"
+                : $"Handy-Ansicht: {string.Join(" oder ", WebViewServer.LocalUrls(w.Port))}"
+            : $"Handy-Ansicht nicht gestartet: {WebView.LastError}";
+    }
+
+    /// <summary>Meldung über den gemeinsamen Benachrichtigungsdienst (mit Sperrzeit je Schlüssel).</summary>
+    public void SendAlert(Alert a) => _ = Notify.SendAsync(a.Key, a.Title, a.Message, a.Priority, a.Cooldown);
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _loops?.Cancel();
+        foreach (var d in _devices.Values) d.Benchmark?.Cts?.Cancel();
+        WebView.Dispose();
+        _priceHttp.Dispose();
+        _updateHttp.Dispose();
+        TaxMonitor.Dispose();
+        LogAlerts.Dispose();
+        Polling.Dispose();
+        History?.Dispose();
+        Notify.Dispose();
+        Firmware.Dispose();
+        WalletClient.Dispose();
+        NetworkClient.Dispose();
+        Blockchair.Dispose();
+        CoinGecko.Dispose();
+    }
+}

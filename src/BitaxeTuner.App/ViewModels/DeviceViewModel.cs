@@ -7,9 +7,9 @@ using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Benchmark;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
-using BitaxeTuner.Core.Simulation;
 using BitaxeTuner.Core.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,57 +17,53 @@ using Microsoft.Win32;
 
 namespace BitaxeTuner.App.ViewModels;
 
-/// <summary>Vorher/Nachher-Vergleich einer Tuning-Änderung aus history.db.</summary>
-public sealed record TuningComparisonRow(TuningEvent Event, WindowAverage? Before, WindowAverage? After)
-{
-    public DateTime Time => Event.Time;
-    public string Source => Event.SourceText;
-    public string Change => Event.ChangeText;
-    public string BeforeText => Format(Before);
-    public string AfterText => Format(After);
-    public string DeltaText => Before is null || After is null ? "–"
-        : $"{After.HashRateGh - Before.HashRateGh:+0;-0;0} GH/s · {After.Temp - Before.Temp:+0.0;-0.0;0.0} °C · " +
-          (Before.EfficiencyJth is { } b && After.EfficiencyJth is { } a ? $"{a - b:+0.00;-0.00;0.00} J/TH" : "–");
-
-    private static string Format(WindowAverage? w) => w is null ? "keine Daten"
-        : $"{w.HashRateGh:0} GH/s · {w.Temp:0.0} °C · {(w.EfficiencyJth is { } e ? $"{e:0.00} J/TH" : "–")} ({w.Minutes} min)";
-}
-
+/// <summary>
+/// Ansicht eines Miners (Tabs Live, Benchmark, Ergebnisse, Vorher/Nachher, Automatik, Protokoll).
+/// Logik und Zustand liegen im <see cref="HubDevice"/> bzw. <see cref="MinerHub"/>; hier bleiben Anzeige,
+/// Eingaben und die Bestätigungsdialoge (alter → neuer Wert).
+/// </summary>
 public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 {
     private const int HistoryLength = 240;
-    private const int MaxLogLines = 2000;
-    private const int SimulationSpeedup = 30;
 
     private readonly AppHost _host;
-    private readonly MinerConnection _connection;
-    private ProfileRegistry _registry => _host.Profiles;
-    private ResultStore _store => _host.Results;
-    private CancellationTokenSource? _cts;
-    private BenchmarkEngine? _engine;
-    private Task? _runTask;
+    private readonly HubDevice _device;
+    private MinerHub _hub => _host.Hub;
     private bool _refreshing;
-    private bool _profileResolved;
     private bool _assigningProfile;
 
-    /// <param name="connection">Gemeinsame Verbindung aus dem zentralen Polling – kein eigener Abruf-Timer mehr.</param>
-    public DeviceViewModel(MinerConnection connection, DeviceConfig config, AppHost host)
+    public DeviceViewModel(HubDevice device, AppHost host)
     {
-        _connection = connection;
+        _device = device;
         _host = host;
-        Config = config;
         Settings = new BenchmarkSettings();
-        AvailableProfiles = host.Profiles.Profiles;
-        Logs = new LogViewModel(connection);
+        AvailableProfiles = _hub.ProfilesFor(device);
+        foreach (var line in device.LogLines) Log.Add(line);
+        Logs = new LogViewModel(device.Connection);
+
         _host.TuningApplied += OnTuningApplied;
         _host.LogAlerts.Triggered += OnLogAlert;
+        _device.LogAdded += OnLogAdded;
+        _hub.DeviceChanged += OnDeviceChanged;
+        _hub.SoakFinished += OnSoakFinished;
+        _hub.Benchmarks.Progress += OnBenchmarkProgress;
+        _hub.Benchmarks.StateChanged += OnBenchmarkStateChanged;
     }
+
+    /// <summary>Laufzeitzustand im Hub.</summary>
+    public HubDevice Device => _device;
 
     private void OnLogAlert(string host, LogLine line, string rule)
     {
         if (!string.Equals(host, Address, StringComparison.OrdinalIgnoreCase)) return;
-        Application.Current?.Dispatcher.BeginInvoke(() => AddLog($"Log-Alarm ({rule}): {line.Tag} {line.Message}"));
+        AddLog($"Log-Alarm ({rule}): {line.Tag} {line.Message}");
     }
+
+    private void OnLogAdded(string line) => Ui(() =>
+    {
+        Log.Add(line);
+        while (Log.Count > HubDevice.MaxLogLines) Log.RemoveAt(0);
+    });
 
     /// <summary>Miner-Logs (Tab "Miner-Logs").</summary>
     public LogViewModel Logs { get; }
@@ -78,10 +74,10 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Gerät aus der gemeinsamen Geräteliste (config.json).</summary>
-    public DeviceConfig Config { get; private set; }
-    public IMinerClient Client => _connection;
-    public string Address => _connection.Address;
-    public bool IsSimulated => _connection.Inner is SimulatedMinerClient;
+    public DeviceConfig Config => _device.Config;
+    public IMinerClient Client => _device.Connection;
+    public string Address => _device.Host;
+    public bool IsSimulated => _device.IsSimulated;
     /// <summary>Alle Profile – das automatisch erkannte (evtl. angepasste) Profil ersetzt seinen Registry-Eintrag.</summary>
     [ObservableProperty] private IReadOnlyList<DeviceProfile> _availableProfiles = [];
 
@@ -135,9 +131,9 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public ObservableCollection<TuningComparisonRow> Comparisons { get; } = [];
 
     public bool IsIdle => !IsRunning;
-    public string Title => !string.IsNullOrWhiteSpace(Config.Name) ? Config.Name : Info?.DisplayName ?? Address;
+    public string Title => _device.Title;
     public string Subtitle => Info is null ? Address
-        : $"{Address} · {Info.DeviceModel ?? Info.AsicModel} · {FirmwareName(Info.Firmware)} {Info.FirmwareVersion}";
+        : $"{Address} · {Info.DeviceModel ?? Info.AsicModel} · {MinerHub.FirmwareName(Info.Firmware)} {Info.FirmwareVersion}";
     public string? ProfileNotes => Profile?.Notes;
     public string EfficiencyText => Info?.EfficiencyJth is { } e ? $"{e:F2}" : "–";
 
@@ -145,82 +141,70 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         ? $"{b.FrequencyMhz} MHz / {b.CoreVoltageMv} mV → {b.AvgHashRateGh:F1} GH/s · {b.AvgPowerW:F1} W · {b.EfficiencyJth:F2} J/TH · max. {b.MaxChipTempC:F1} °C"
         : "Noch keine stabilen Ergebnisse.";
 
-    public string EstimatedDurationText
-    {
-        get
-        {
-            var total = TimeSpan.FromTicks(Settings.EstimatedStepDuration.Ticks * Settings.EstimatedSteps);
-            return $"≈ {Settings.EstimatedSteps} Schritte à {Settings.EstimatedStepDuration.TotalMinutes:F0} min – bis zu {FormatDuration(total)}";
-        }
-    }
+    public string EstimatedDurationText => BenchmarkManager.EstimatedDurationText(Settings);
 
     public void Initialize()
     {
-        AddLog($"Gerät: {Title} ({Address})");
+        SetProfile(_device.Profile);
 
-        // Manuell gewähltes Profil aus config.json, sonst Erkennung beim ersten Datenpunkt
-        if (Config.ProfileId is { } id && _registry.Profiles.FirstOrDefault(p => p.Id == id) is { } chosen)
-        {
-            SetProfile(chosen.Clone(), fromUser: false);
-            _profileResolved = true;
-            AddLog($"Profil aus den Einstellungen: „{chosen.Name}“");
-        }
-        else
-        {
-            SetProfile(AvailableProfiles.First(p => p.Id == _registry.Generic.Id), fromUser: false);
-        }
-
-        var last = _store.LoadLatest(Address, Info?.Hostname);
+        var last = _hub.Benchmarks.LatestSession(_device);
         if (last is not null)
         {
             Session = last;
             SetResults(last.Results);
-            AddLog($"Letzter Lauf vom {last.StartedAt:g} geladen ({last.Results.Count} Ergebnisse" +
-                   (last.IsFinished ? ")." : ", nicht abgeschlossen – kann fortgesetzt werden)."));
         }
+        if (_device.Benchmark is { } run) ApplyRunState(run);
+        AutomationStatus = _device.AutomationStatus;
+        SoakStatus = _device.SoakStatus;
         RefreshComparisons();
         LoadAutomation();
     }
 
+    private DeviceConfig? _loadedConfig;
+
     /// <summary>Nach jeder zentralen Abfragerunde (UI-Thread).</summary>
-    public void OnPolled(MinerState state)
+    public void OnPolled()
     {
-        if (!ReferenceEquals(Config, state.Config))
-        {
-            Config = state.Config;   // nach "Einstellungen speichern" neue Kopie
-            LoadAutomation();
-        }
+        if (!ReferenceEquals(_loadedConfig, Config)) LoadAutomation(); // nach "Einstellungen speichern" neue Kopie
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(EstimatedDurationText));
+        AutomationStatus = _device.AutomationStatus;
+        SoakStatus = _device.SoakStatus;
 
+        var state = _device.State;
         if (state.Online && state.Normalized is { } info)
         {
             IsOnline = true;
             // Während eines Benchmarks liefert die Engine die Live-Werte (gleiche Verbindung, kein Doppelabruf)
             if (!IsRunning) UpdateLive(info);
-            if (!_profileResolved) _ = ResolveProfileAsync(info);
         }
         else
         {
             IsOnline = false;
-            Status = _connection.InMaintenance ? "Neustart/Tuning …" : state.Error ?? "Offline";
+            Status = _device.Connection.InMaintenance ? "Neustart/Tuning …" : state.Error ?? "Offline";
         }
     }
 
-    private async Task ResolveProfileAsync(MinerInfo info)
+    /// <summary>Profil erkannt/gewählt, Automatik- oder Dauertest-Status im Hub geändert.</summary>
+    private void OnDeviceChanged(HubDevice device)
     {
-        _profileResolved = true;
-        AsicInfo? asic = null;
-        try { asic = await Client.GetAsicInfoAsync(); } catch (MinerApiException) { }
-        var matched = _registry.Match(info, asic);
-        AvailableProfiles = _registry.Profiles.Select(p => p.Id == matched.Id ? matched : p).ToList();
-        SetProfile(matched, fromUser: false);
-        AddLog($"Erkannt: {info.DeviceModel ?? info.AsicModel} ({FirmwareName(info.Firmware)} {info.FirmwareVersion}) → Profil „{matched.Name}“");
+        if (!ReferenceEquals(device, _device)) return;
+        Ui(() =>
+        {
+            AutomationStatus = device.AutomationStatus;
+            SoakStatus = device.SoakStatus;
+            OnPropertyChanged(nameof(SoakActive));
+            if (!ReferenceEquals(Profile, device.Profile))
+            {
+                AvailableProfiles = _hub.ProfilesFor(device);
+                SetProfile(device.Profile);
+            }
+        });
     }
 
-    private void SetProfile(DeviceProfile profile, bool fromUser)
+    private void SetProfile(DeviceProfile profile)
     {
-        _assigningProfile = !fromUser;
+        _assigningProfile = true;
         try { Profile = profile; }
         finally { _assigningProfile = false; }
     }
@@ -228,13 +212,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     partial void OnProfileChanged(DeviceProfile? value)
     {
         if (value is null) return;
-        if (!_assigningProfile && !IsRunning)
-        {
-            // Vom Benutzer gewählt: dauerhaft in der gemeinsamen Geräteliste merken
-            Config.ProfileId = value.Id;
-            _host.Config.Save();
-            AddLog($"Profil gewählt: „{value.Name}“ (gespeichert)");
-        }
+        // Vom Benutzer gewählt: dauerhaft in der gemeinsamen Geräteliste merken
+        if (!_assigningProfile && !IsRunning) _hub.SetProfile(_device, value);
         if (IsRunning) return;
         Settings = BenchmarkSettings.FromProfile(value);
         if (Info is { FrequencyMhz: > 0 } i && i.FrequencyMhz >= value.MinFrequencyMhz && i.FrequencyMhz < value.MaxFrequencyMhz)
@@ -282,6 +261,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
     }
 
+    // ---------- Benchmark (läuft im Hub) ----------
+
     private bool CanStart() => !IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanStart))]
@@ -295,106 +276,79 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private async Task RunBenchmarkAsync(bool resume)
     {
         if (Profile is null) return;
-        var settings = resume && Session is not null ? Session.Settings : Settings.Clone();
-        var errors = settings.Validate();
-        if (errors.Count > 0)
+        BenchmarkPlan plan;
+        try
         {
-            MessageBox.Show(string.Join(Environment.NewLine, errors), "Ungültige Einstellungen", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            plan = await _hub.Benchmarks.PrepareAsync(_device, Settings, resume);
         }
-
-        // Profilgrenzen je ASIC-Modell: der Suchbereich darf sie nicht überschreiten
-        if (settings.MaxFrequencyMhz > Profile.MaxFrequencyMhz || settings.MaxVoltageMv > Profile.MaxVoltageMv ||
-            settings.StartFrequencyMhz < Profile.MinFrequencyMhz || settings.MinVoltageMv < Profile.MinVoltageMv)
+        catch (InvalidOperationException ex)
         {
-            MessageBox.Show($"Der Suchbereich liegt außerhalb der Grenzen für {Profile.Name}:\n" +
-                            $"Frequenz {Profile.MinFrequencyMhz}–{Profile.MaxFrequencyMhz} MHz, Spannung {Profile.MinVoltageMv}–{Profile.MaxVoltageMv} mV.",
-                "Grenzwerte", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, "Benchmark", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         // Einmalige Bestätigung für den ganzen Lauf (jeder einzelne Schritt wird in history.db protokolliert)
-        var overclock = false;
-        try { overclock = await Client.WillEnableOverclockAsync(settings.MaxFrequencyMhz, settings.MaxVoltageMv); }
-        catch (MinerApiException) { }
-        var current = Info is { } ci ? $"{ci.FrequencyMhz} MHz / {ci.CoreVoltageMv} mV" : "unbekannt (Gerät nicht erreichbar)";
-        var restore = settings.RestoreMode == RestoreMode.Best
-            ? $"beste Einstellung ({BenchmarkEngine.RankingName(settings.RestoreRanking)}); ohne stabiles Ergebnis die aktuelle"
-            : "aktuelle Einstellung (" + current + ")";
-        var msg = $"{(resume ? "Benchmark fortsetzen" : "Benchmark starten")} für {Title}?\n\n" +
-                  $"Aktuell: {current}\n" +
-                  $"Frequenz: {settings.StartFrequencyMhz} → {settings.MaxFrequencyMhz} MHz (Schritt {settings.FrequencyStepMhz})\n" +
-                  $"Spannung: {settings.StartVoltageMv} → {settings.MaxVoltageMv} mV (Schritt {settings.VoltageStepMv})\n" +
-                  $"Grenzen: Chip {settings.MaxChipTempC} °C · VR {settings.MaxVrTempC} °C · {settings.MaxPowerW} W\n" +
-                  $"Profilgrenzen {Profile.Name}: {Profile.MinFrequencyMhz}–{Profile.MaxFrequencyMhz} MHz, {Profile.MinVoltageMv}–{Profile.MaxVoltageMv} mV\n" +
-                  $"Am Ende gesetzt: {restore}\n" +
-                  $"{EstimatedDurationText}\n" +
-                  (overclock ? "\nHinweis: Für Werte außerhalb der AxeOS-Auswahlliste wird „overclockEnabled“ eingeschaltet.\n" : "") +
-                  "\nWährend des Laufs pausiert der Watchdog für diesen Miner, Offline-Meldungen für die Neustarts entfallen.\n" +
-                  "Übertakten geschieht auf eigenes Risiko. Stelle sicher, dass Netzteil und Kühlung ausreichen.";
-        if (MessageBox.Show(msg, "Benchmark", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(plan.ConfirmText, "Benchmark", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
-        await TryAutoBackupAsync("vor Benchmark");
+        if (!resume) SetResults([]);
 
-        if (!resume)
-        {
-            Session = new BenchmarkSession
-            {
-                DeviceAddress = Address,
-                Hostname = Info?.Hostname,
-                DeviceModel = Info?.DeviceModel ?? Profile.Name,
-                ProfileId = Profile.Id,
-                Settings = settings,
-            };
-            SetResults([]);
-        }
-
-        var session = Session!;
-        // Wartungsfenster für die gesamte Laufzeit (+3 min Nachlauf): Watchdog und Offline-Meldungen ruhen
-        using var maintenance = _connection.BeginMaintenance("Benchmark");
-        IsRunning = true;
-        IsPaused = false;
-        _cts = new CancellationTokenSource();
-        _engine = new BenchmarkEngine(Client, Profile)
-        {
-            // Simulation läuft 30× schneller, damit ein kompletter Lauf in wenigen Minuten sichtbar ist.
-            Delay = IsSimulated ? (t, ct) => Task.Delay(t / SimulationSpeedup, ct) : Task.Delay,
-            Progress = new Progress<BenchmarkProgress>(OnProgress),
-            Log = msg => Application.Current.Dispatcher.BeginInvoke(() => AddLog(msg)),
-            StepCompleted = s => _store.SaveAsync(s),
-        };
-
-        var started = DateTime.Now;
-        var run = _engine.RunAsync(session, _cts.Token);
-        _runTask = run;
         try
         {
-            await run;
-            PhaseText = "Fertig";
-            Status = "Benchmark fertig";
+            await _hub.Benchmarks.RunAsync(_device, plan);
+            if (_device.Benchmark?.PhaseText == "Fertig") Status = "Benchmark fertig";
         }
-        catch (OperationCanceledException)
+        catch (InvalidOperationException ex)
         {
-            PhaseText = "Abgebrochen";
+            MessageBox.Show(ex.Message, "Benchmark", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        catch (Exception ex)
+    }
+
+    private void OnBenchmarkStateChanged(HubDevice device)
+    {
+        if (!ReferenceEquals(device, _device) || device.Benchmark is not { } run) return;
+        Ui(() =>
         {
-            PhaseText = "Fehler";
-            AddLog($"Fehler: {ex.Message}");
-        }
-        finally
+            var finished = IsRunning && !run.IsRunning;
+            ApplyRunState(run);
+            if (finished)
+            {
+                OnPropertyChanged(nameof(Session));
+                ResumeBenchmarkCommand.NotifyCanExecuteChanged();
+                RefreshComparisons();
+            }
+        });
+    }
+
+    private void ApplyRunState(BenchmarkRun run)
+    {
+        IsRunning = run.IsRunning;
+        IsPaused = run.IsPaused;
+        Session = run.Session;
+        PhaseText = run.PhaseText;
+        StepText = run.StepText;
+        EtaText = run.EtaText;
+        PhaseProgress = run.PhaseProgress;
+        OverallProgress = run.OverallProgress;
+    }
+
+    private void OnBenchmarkProgress(HubDevice device, BenchmarkProgress p)
+    {
+        if (!ReferenceEquals(device, _device) || device.Benchmark is not { } run) return;
+        Ui(() =>
         {
-            IsRunning = false;
-            IsPaused = false;
-            _engine = null;
-            _cts.Dispose();
-            _cts = null;
-            OnPropertyChanged(nameof(Session));
-            ResumeBenchmarkCommand.NotifyCanExecuteChanged();
-            StepText = session.FinishReason ?? "";
-            EtaText = $"Dauer: {FormatDuration(DateTime.Now - started)}";
-            RefreshComparisons();
-        }
+            if (p.Info is not null)
+            {
+                UpdateLive(p.Info);
+                IsOnline = true;
+            }
+            if (p.CompletedStep is not null)
+            {
+                Results.Add(p.CompletedStep);
+                UpdateRanking();
+                OnPropertyChanged(nameof(Results));
+            }
+            ApplyRunState(run);
+        });
     }
 
     private bool CanStop() => IsRunning;
@@ -402,26 +356,21 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void StopBenchmark()
     {
-        PhaseText = "Stoppe – stelle Einstellungen wieder her …";
-        _cts?.Cancel();
+        _hub.Benchmarks.Stop(_device);
+        if (_device.Benchmark is { } run) PhaseText = run.PhaseText;
     }
 
     /// <summary>Bricht einen laufenden Benchmark ab und wartet, bis die Einstellungen wiederhergestellt sind.</summary>
-    public async Task StopAndWaitAsync()
-    {
-        if (!IsRunning || _runTask is null) return;
-        _cts?.Cancel();
-        try { await _runTask; } catch { /* Abbruch erwartet */ }
-    }
+    public Task StopAndWaitAsync() => _hub.Benchmarks.StopAndWaitAsync(_device);
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void TogglePause()
     {
-        if (_engine is null) return;
-        _engine.IsPaused = !_engine.IsPaused;
-        IsPaused = _engine.IsPaused;
-        PhaseText = IsPaused ? "Pausiert" : PhaseText;
+        _hub.Benchmarks.TogglePause(_device);
+        if (_device.Benchmark is { } run) ApplyRunState(run);
     }
+
+    // ---------- Einstellung anwenden ----------
 
     private bool CanApplyBest() => !IsRunning && BestResult is not null;
 
@@ -451,44 +400,29 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Frequenz/Spannung setzen – nur nach ausdrücklicher Bestätigung mit aktuellem und neuem Wert.
-    /// Werte außerhalb der Profilgrenzen des ASIC-Modells werden abgelehnt.
+    /// Werte außerhalb der Profilgrenzen des ASIC-Modells lehnt der Hub ab.
     /// </summary>
     private async Task ApplyValuesAsync(int frequencyMhz, int coreVoltageMv, string? intro = null)
     {
-        if (Profile is { } p && (frequencyMhz < p.MinFrequencyMhz || frequencyMhz > p.MaxFrequencyMhz ||
-                                 coreVoltageMv < p.MinVoltageMv || coreVoltageMv > p.MaxVoltageMv))
+        ChangePreview preview;
+        try
         {
-            MessageBox.Show($"{frequencyMhz} MHz / {coreVoltageMv} mV liegt außerhalb der Grenzen für {p.Name}:\n" +
-                            $"Frequenz {p.MinFrequencyMhz}–{p.MaxFrequencyMhz} MHz, Spannung {p.MinVoltageMv}–{p.MaxVoltageMv} mV.",
-                "Grenzwerte", MessageBoxButton.OK, MessageBoxImage.Warning);
+            preview = await _hub.PreviewChangeAsync(_device, frequencyMhz, coreVoltageMv, intro);
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Grenzwerte", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-
-        MinerInfo? now = null;
-        try { now = await Client.GetInfoAsync(); } catch (MinerApiException) { }
-        var overclock = false;
-        try { overclock = await Client.WillEnableOverclockAsync(frequencyMhz, coreVoltageMv); } catch (MinerApiException) { }
-        var restart = _host.Config.RestartAfterApply;
-
-        var text = (intro is null ? "" : intro + "\n\n") + $"Einstellung für {Title} ändern?\n\n" +
-                   $"Frequenz:      {(now is null ? "?" : now.FrequencyMhz.ToString())} MHz  →  {frequencyMhz} MHz\n" +
-                   $"Kernspannung:  {(now is null ? "?" : now.CoreVoltageMv.ToString())} mV  →  {coreVoltageMv} mV\n\n" +
-                   $"Grenzen {Profile?.Name}: {Profile?.MinFrequencyMhz}–{Profile?.MaxFrequencyMhz} MHz, {Profile?.MinVoltageMv}–{Profile?.MaxVoltageMv} mV\n" +
-                   (overclock ? "Der Wert liegt außerhalb der AxeOS-Auswahlliste – „overclockEnabled“ wird eingeschaltet.\n" : "") +
-                   (restart ? "Das Gerät wird danach neu gestartet (Watchdog und Offline-Meldung pausieren).\n" : "") +
-                   "\nDie Änderung wird mit Zeitstempel in history.db protokolliert.";
-        if (MessageBox.Show(text, "Einstellung anwenden", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(preview.ConfirmText, "Einstellung anwenden", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
-        await TryAutoBackupAsync("vor manueller Änderung");
 
         try
         {
-            await Client.ApplySettingsAsync(frequencyMhz, coreVoltageMv, TuningSource.Manual);
-            if (restart) await Client.RestartAsync();
-            AddLog($"Angewendet: {(now is null ? "?" : $"{now.FrequencyMhz} MHz / {now.CoreVoltageMv} mV")} → {frequencyMhz} MHz / {coreVoltageMv} mV");
+            await _hub.ApplyChangeAsync(_device, frequencyMhz, coreVoltageMv);
             RefreshComparisons();
         }
-        catch (MinerApiException ex)
+        catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)
         {
             MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -521,6 +455,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     private void LoadAutomation()
     {
+        _loadedConfig = Config;
         Presets.Clear();
         foreach (var p in Config.Presets) Presets.Add(p);
         ScheduleEntries.Clear();
@@ -529,6 +464,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Schedule));
         OnPropertyChanged(nameof(ScheduleIsPrice));
         OnPropertyChanged(nameof(ScheduleIsTime));
+        OnPropertyChanged(nameof(SoakActive));
     }
 
     private void StoreAutomation()
@@ -565,10 +501,9 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     private void UpsertPreset(TuningPreset preset)
     {
-        if (Profile is { } p && (preset.FrequencyMhz < p.MinFrequencyMhz || preset.FrequencyMhz > p.MaxFrequencyMhz ||
-                                 preset.CoreVoltageMv < p.MinVoltageMv || preset.CoreVoltageMv > p.MaxVoltageMv))
+        if (MinerHub.CheckPreset(_device, preset) is { } error)
         {
-            MessageBox.Show($"{preset} liegt außerhalb der Grenzen für {p.Name}.", "Voreinstellungen", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(error, "Voreinstellungen", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         var existing = Presets.FirstOrDefault(x => string.Equals(x.Name, preset.Name, StringComparison.OrdinalIgnoreCase));
@@ -612,42 +547,15 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private void ApproveThermalGuard()
     {
         StoreAutomation();
-        var g = ThermalGuard;
-        var text = $"Temperaturschutz für {Title} freigeben?\n\n" +
-                   $"Wenn die Chiptemperatur über {g.MaxChipTempC:0.#} °C oder die VR-Temperatur über {g.MaxVrTempC:0.#} °C liegt " +
-                   $"(durchgehend {g.Minutes} min), senkt die App die Frequenz um {g.StepMhz} MHz, nie unter {g.MinFrequencyMhz} MHz. " +
-                   "Die Kernspannung bleibt unverändert.\n" +
-                   (g.Recover ? $"Ist der Miner {g.RecoverMinutes} min mindestens 5 °C unter den Grenzen, geht sie schrittweise zurück bis zur ursprünglichen Frequenz.\n" : "") +
-                   "\nJede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet. Ändert sich die Regel, ist eine neue Freigabe nötig.";
-        Approve(g, text, "Temperaturschutz");
+        Approve(ThermalGuard, MinerHub.ThermalGuardApprovalText(_device), "Temperaturschutz");
     }
 
     [RelayCommand]
     private void ApproveSchedule()
     {
         StoreAutomation();
-        var s = Schedule;
-        string body;
-        if (s.Mode == "price")
-        {
-            body = $"Strompreis ({_host.Prices.SourceName}) ≤ {s.ThresholdCt:0.##} ct/kWh → {PresetText(s.CheapPreset)}\n" +
-                   $"sonst → {PresetText(s.ExpensivePreset)}";
-        }
-        else
-        {
-            body = string.Join("\n", s.Entries.Select(e => $"{e.DaysText} {e.FromHour:00}–{e.ToHour:00} Uhr → {PresetText(e.Preset)}")) +
-                   $"\nsonst → {(string.IsNullOrWhiteSpace(s.DefaultPreset) ? "keine Änderung" : PresetText(s.DefaultPreset))}";
-        }
-        var text = $"{(s.Mode == "price" ? "Strompreis-Regel" : "Zeitplan")} für {Title} freigeben?\n\n{body}\n\n" +
-                   $"Zwischen zwei automatischen Änderungen liegen mindestens {AutomationEngine.MinGap.TotalMinutes:0} min. " +
-                   "Während eines Benchmarks, Dauertests oder abgesenkten Temperaturschutzes pausiert die Regel. " +
-                   "Jede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet.";
-        Approve(s, text, "Zeitplan");
+        Approve(Schedule, _hub.ScheduleApprovalText(_device), "Zeitplan");
     }
-
-    private string PresetText(string name) =>
-        Presets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } p
-            ? p.ToString() : $"„{name}“ (fehlt!)";
 
     private void Approve(AutomationRule rule, string text, string label)
     {
@@ -658,9 +566,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         if (MessageBox.Show(text, label + " freigeben", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
             return;
-        rule.Approve(Address);
-        _host.Config.Save();
-        AddLog($"{label} freigegeben.");
+        _hub.ApproveRule(_device, rule, label);
     }
 
     // ---------- Dauertest ----------
@@ -668,52 +574,36 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _soakStatus = "";
     [ObservableProperty] private int _soakHours = 24;
     public IReadOnlyList<int> SoakHourOptions { get; } = [6, 12, 24, 48];
-    public bool SoakActive => Config.Soak is not null;
+    public bool SoakActive => _device.SoakActive;
 
     [RelayCommand]
     private void StartSoak()
     {
         if (Info is null) { AddLog("Dauertest: Miner nicht erreichbar."); return; }
         if (IsRunning) { AddLog("Dauertest: zuerst den Benchmark beenden."); return; }
-        if (MessageBox.Show($"Dauertest für {Title} starten?\n\n" +
-                            $"Beobachtet wird die aktuelle Einstellung {Info.FrequencyMhz} MHz / {Info.CoreVoltageMv} mV für {SoakHours} h: " +
-                            $"Hashrate (Ø 15 min, mind. {SoakMonitor.RatioThreshold:P0} der Soll-Hashrate), Fehlerrate, Temperaturen, Erreichbarkeit.\n\n" +
-                            "Am Miner wird dabei nichts geändert. Zeitplan/Strompreis-Regel pausieren so lange. " +
-                            "Bei einem Fehler meldet die App das und schlägt die nächstniedrigere stabile Einstellung vor (nur nach Bestätigung).",
-                "Dauertest", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        string text;
+        try { text = _hub.SoakConfirmText(_device, SoakHours); }
+        catch (InvalidOperationException ex) { AddLog(ex.Message); return; }
+        if (MessageBox.Show(text, "Dauertest", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
-        var now = DateTime.Now;
-        Config.Soak = new SoakTestState(now, now.AddHours(SoakHours), Info.FrequencyMhz, Info.CoreVoltageMv);
-        _host.Config.Save();
-        SoakStatus = "Dauertest gestartet – Anlaufphase";
-        OnPropertyChanged(nameof(SoakActive));
-        AddLog($"Dauertest gestartet: {Info.FrequencyMhz} MHz / {Info.CoreVoltageMv} mV für {SoakHours} h");
+        try { _hub.StartSoak(_device, SoakHours); }
+        catch (InvalidOperationException ex) { AddLog(ex.Message); }
     }
 
     [RelayCommand]
-    private void StopSoak()
-    {
-        if (Config.Soak is null) return;
-        Config.Soak = null;
-        _host.Config.Save();
-        SoakStatus = "Dauertest abgebrochen";
-        OnPropertyChanged(nameof(SoakActive));
-        AddLog("Dauertest abgebrochen.");
-    }
+    private void StopSoak() => _hub.StopSoak(_device);
 
-    /// <summary>Vom Koordinator nach Ende des Dauertests aufgerufen.</summary>
-    public async Task OnSoakFinishedAsync(SoakResult result, SoakTestState soak)
+    /// <summary>Dauertest im Hub beendet: bei Fehlschlag den Vorschlag (nur nach Bestätigung) anbieten.</summary>
+    private void OnSoakFinished(HubDevice device, SoakResult result, SoakSuggestion? suggestion)
     {
-        SoakStatus = result.Message;
-        OnPropertyChanged(nameof(SoakActive));
-        AddLog(result.Message);
-        if (result.Outcome != SoakOutcome.Failed) return;
-
-        if (SoakMonitor.SuggestLower(Results, soak.FrequencyMhz) is { } s)
-            await ApplyValuesAsync(s.Frequency, s.Voltage,
-                $"Dauertest fehlgeschlagen: {result.Message}\n\nVorschlag: nächstniedrigere stabile Einstellung aus dem letzten Benchmark.");
-        else
-            AddLog("Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz.");
+        if (!ReferenceEquals(device, _device)) return;
+        Ui(async () =>
+        {
+            SoakStatus = result.Message;
+            OnPropertyChanged(nameof(SoakActive));
+            if (suggestion is null) return;
+            await ApplyValuesAsync(suggestion.FrequencyMhz, suggestion.CoreVoltageMv, suggestion.Reason);
+        });
     }
 
     // ---------- Einstellungen sichern / wiederherstellen ----------
@@ -724,9 +614,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var raw = await _connection.GetRawInfoAsync();
-            var snap = _host.Snapshots.Save(Address, Title, raw, "manuell");
-            AddLog($"Einstellungen gesichert: {snap.DisplayText}");
+            var snap = await _hub.BackupSettingsAsync(_device);
             MessageBox.Show($"Einstellungen von {Title} gesichert:\n{snap.DisplayText}\n\n{snap.FilePath}\n\n" +
                             "Hinweis: Die Datei enthält auch Pool-Benutzer (Wallet-Adresse). Pool-Passwörter liefert AxeOS nicht aus.",
                 "Einstellungen sichern", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -737,75 +625,41 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task TryAutoBackupAsync(string reason)
-    {
-        if (IsSimulated) return;
-        try
-        {
-            var raw = await _connection.GetRawInfoAsync();
-            _host.Snapshots.Save(Address, Title, raw, reason);
-            AddLog($"Automatische Sicherung ({reason})");
-        }
-        catch (Exception ex)
-        {
-            AddLog($"Automatische Sicherung ({reason}) fehlgeschlagen: {ex.Message}");
-        }
-    }
-
     private bool CanRestore() => !IsRunning;
 
     /// <summary>Gesicherte Einstellungen zurückspielen – nur ausgewählte, geänderte Felder, nach Bestätigung.</summary>
     [RelayCommand(CanExecute = nameof(CanRestore))]
     private async Task RestoreSettings()
     {
-        var snapshots = _host.Snapshots.List(Address);
-        if (snapshots.Count == 0)
+        IReadOnlyList<SettingsSnapshot> snapshots;
+        string current;
+        try
         {
-            MessageBox.Show($"Für {Title} gibt es noch keine Sicherung.", "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Information);
+            (snapshots, current) = await _hub.RestoreCandidatesAsync(_device);
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-
-        string current;
-        try { current = await _connection.GetRawInfoAsync(); }
         catch (MinerApiException ex)
         {
             MessageBox.Show(ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
-        var dialog = new Views.RestoreWindow(Title, snapshots, snap => SettingsSnapshots.Diff(snap, current), Profile)
+        var dialog = new Views.RestoreWindow(Title, snapshots.ToList(), snap => SettingsSnapshots.Diff(snap, current), Profile)
         {
             Owner = Application.Current.MainWindow,
         };
         if (dialog.ShowDialog() != true || dialog.Selected.Count == 0) return;
 
-        var changes = dialog.Selected;
-        await TryAutoBackupAsync("vor Wiederherstellung");
         try
         {
-            // Frequenz/Spannung über den protokollierten Weg (history.db, Diagramm-Markierung)
-            var freq = changes.FirstOrDefault(c => c.Field == "frequency");
-            var volt = changes.FirstOrDefault(c => c.Field == "coreVoltage");
-            if (freq is not null || volt is not null)
-            {
-                var info = await Client.GetInfoAsync();
-                var f = freq is not null ? (int)SettingsSnapshots.ToPatchValue(freq.Value) : info.FrequencyMhz;
-                var v = volt is not null ? (int)SettingsSnapshots.ToPatchValue(volt.Value) : info.CoreVoltageMv;
-                await Client.ApplySettingsAsync(f, v, TuningSource.Restore);
-            }
-
-            var rest = changes.Where(c => c.Field is not "frequency" and not "coreVoltage")
-                              .ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value));
-            if (rest.Count > 0) await _connection.PatchSettingsAsync(rest);
-
-            var restart = _host.Config.RestartAfterApply || changes.Any(c => c.Group == SettingGroup.Pool);
-            if (restart) await Client.RestartAsync();
-
-            AddLog($"Wiederhergestellt ({dialog.Snapshot!.DisplayText}): " +
-                   string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
+            await _hub.RestoreAsync(_device, dialog.Snapshot!, dialog.Selected);
             RefreshComparisons();
         }
-        catch (MinerApiException ex)
+        catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)
         {
             MessageBox.Show("Wiederherstellen fehlgeschlagen: " + ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -813,27 +667,14 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     // ---------- Vorher/Nachher ----------
 
-    /// <summary>
-    /// Je Tuning-Änderung: Ø Hashrate, Temperatur und J/TH in den 60 min davor und 60 min danach
-    /// (die ersten 5 min nach der Änderung werden als Anlaufphase übersprungen).
-    /// </summary>
+    /// <summary>Je Tuning-Änderung Ø-Werte 60 min davor und danach (aus history.db, berechnet im Hub).</summary>
     [RelayCommand]
     private void RefreshComparisons()
     {
         Comparisons.Clear();
-        if (_host.History is not { } history || IsSimulated) return;
         try
         {
-            var events = history.QueryTuningEvents(Address, DateTime.Now.AddDays(-30), DateTime.Now)
-                .OrderByDescending(e => e.Time).Take(50);
-            foreach (var e in events)
-            {
-                var before = history.Average(Address, e.Time.AddMinutes(-60), e.Time.AddMinutes(-1));
-                var after = e.Time.AddMinutes(5) < DateTime.Now
-                    ? history.Average(Address, e.Time.AddMinutes(5), e.Time.AddMinutes(65))
-                    : null;
-                Comparisons.Add(new TuningComparisonRow(e, before, after));
-            }
+            foreach (var row in _hub.Comparisons(_device)) Comparisons.Add(row);
         }
         catch (Exception ex)
         {
@@ -869,53 +710,6 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private void OnProgress(BenchmarkProgress p)
-    {
-        if (p.Info is not null)
-        {
-            UpdateLive(p.Info);
-            IsOnline = true;
-        }
-        if (p.CompletedStep is not null)
-        {
-            Results.Add(p.CompletedStep);
-            UpdateRanking();
-            OnPropertyChanged(nameof(Results));
-        }
-
-        PhaseText = p.Phase switch
-        {
-            BenchmarkPhase.Preparing => "Vorbereitung",
-            BenchmarkPhase.Applying => "Einstellung wird gesetzt",
-            BenchmarkPhase.Restarting => "Neustart – warte auf Gerät",
-            BenchmarkPhase.WarmingUp => "Aufwärmen",
-            BenchmarkPhase.Measuring => "Messung läuft",
-            BenchmarkPhase.Restoring => "Stelle Einstellung wieder her",
-            BenchmarkPhase.Finished => "Fertig",
-            BenchmarkPhase.Cancelled => "Abgebrochen",
-            BenchmarkPhase.Failed => "Fehler",
-            _ => PhaseText,
-        };
-        if (IsPaused) PhaseText = "Pausiert";
-        if (p.FrequencyMhz > 0)
-            StepText = $"Schritt {p.StepIndex} von ca. {p.EstimatedSteps}: {p.FrequencyMhz} MHz / {p.CoreVoltageMv} mV";
-        if (p.Message is not null && p.Phase is BenchmarkPhase.Restoring or BenchmarkPhase.Finished or BenchmarkPhase.Failed or BenchmarkPhase.Cancelled)
-            StepText = p.Message;
-
-        PhaseProgress = p.Phase is BenchmarkPhase.WarmingUp or BenchmarkPhase.Measuring ? p.PhaseProgress * 100 : PhaseProgress;
-        if (p.EstimatedSteps > 0)
-        {
-            var within = p.Phase == BenchmarkPhase.WarmingUp ? p.PhaseProgress * 0.15 : p.Phase == BenchmarkPhase.Measuring ? 0.15 + p.PhaseProgress * 0.85 : 0;
-            OverallProgress = Math.Min(100, (Math.Max(0, p.StepIndex - 1) + within) / p.EstimatedSteps * 100);
-            if (Session is { } s && p.Phase is BenchmarkPhase.WarmingUp or BenchmarkPhase.Measuring)
-            {
-                var remainingSteps = Math.Max(0, p.EstimatedSteps - p.StepIndex) + (1 - within);
-                var timeScale = IsSimulated ? SimulationSpeedup : 1;
-                EtaText = $"Restzeit höchstens ≈ {FormatDuration(TimeSpan.FromTicks((long)(s.Settings.EstimatedStepDuration.Ticks * remainingSteps / timeScale)))}";
-            }
-        }
-    }
-
     private void UpdateLive(MinerInfo info)
     {
         Info = info;
@@ -949,29 +743,29 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         BestResult = ranked.FirstOrDefault();
     }
 
-    public void AddLog(string message)
+    /// <summary>Zeile ins Geräteprotokoll des Hubs (erscheint über LogAdded auch hier).</summary>
+    public void AddLog(string message) => _device.AddLog(message);
+
+    public static string FormatDuration(TimeSpan t) => BenchmarkManager.FormatDuration(t);
+
+    /// <summary>Hub-Ereignisse können von Hintergrund-Threads kommen (Benchmark-Protokoll, Log-Alarme).</summary>
+    private static void Ui(Action action)
     {
-        Log.Add($"{DateTime.Now:HH:mm:ss}  {message}");
-        while (Log.Count > MaxLogLines) Log.RemoveAt(0);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        else dispatcher.BeginInvoke(action);
     }
-
-    private static string FirmwareName(FirmwareKind kind) => kind switch
-    {
-        FirmwareKind.AxeOS => "AxeOS",
-        FirmwareKind.NerdQAxe => "NerdQAxe-Firmware",
-        FirmwareKind.Simulated => "Simulation",
-        _ => "Firmware",
-    };
-
-    public static string FormatDuration(TimeSpan t) =>
-        t.TotalHours >= 1 ? $"{(int)t.TotalHours} h {t.Minutes:D2} min" : $"{Math.Max(0, (int)t.TotalMinutes)} min";
 
     public void Dispose()
     {
-        // Die Verbindung gehört dem zentralen Polling und wird dort freigegeben
-        _cts?.Cancel();
+        // Verbindung und Benchmark gehören dem Hub; hier nur die Anzeige abmelden
         _host.TuningApplied -= OnTuningApplied;
         _host.LogAlerts.Triggered -= OnLogAlert;
+        _device.LogAdded -= OnLogAdded;
+        _hub.DeviceChanged -= OnDeviceChanged;
+        _hub.SoakFinished -= OnSoakFinished;
+        _hub.Benchmarks.Progress -= OnBenchmarkProgress;
+        _hub.Benchmarks.StateChanged -= OnBenchmarkStateChanged;
         Logs.Dispose();
     }
 }

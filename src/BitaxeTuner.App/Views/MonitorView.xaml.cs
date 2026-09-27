@@ -10,6 +10,7 @@ using BitaxeTuner.App.Services;
 using BitaxeTuner.App.Tax.ViewModels;
 using BitaxeTuner.App.Themes;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Network;
 using BitaxeTuner.Core.Tax.Services;
@@ -47,19 +48,18 @@ public partial class MonitorView : UserControl
     private AppConfig _config => _host.Config;
 
     private IReadOnlyList<MinerState> _states => _host.Polling.States;
-    private readonly List<Sample> _aggHistory = new();
-    private readonly Dictionary<string, WalletInfo> _wallets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, string> _walletErrors = new(StringComparer.OrdinalIgnoreCase);
+    // Live-Summe, Wallet-Stände und Fehler pflegt der Hub (laufen auch ohne Fenster weiter)
+    private IReadOnlyList<Sample> _aggHistory => _host.Hub.AggregateHistory;
+    private IReadOnlyDictionary<string, WalletInfo> _wallets => _host.Hub.Wallets;
+    private IReadOnlyDictionary<string, string> _walletErrors => _host.Hub.WalletErrors;
 
     private readonly ObservableCollection<BlockRow> _blockRows = new();
     private readonly ObservableCollection<PoolRow> _poolRows = new();
     private string _poolPeriod = "1w";
     private DateTime _blocksFetched = DateTime.MinValue;
 
-    private readonly DispatcherTimer _timer = new();
-    private readonly DispatcherTimer _walletTimer = new();
     private readonly DispatcherTimer _networkTimer = new();
-    private bool _busy, _walletBusy, _networkBusy, _started;
+    private bool _networkBusy, _started;
 
     private MonitorMode _mode = MonitorMode.Aggregate;
     private string? _selectedHost;
@@ -93,8 +93,11 @@ public partial class MonitorView : UserControl
         BlockList.ItemsSource = _blockRows;
         PoolList.ItemsSource = _poolRows;
 
-        _timer.Tick += async (_, _) => await PollAsync();
-        _walletTimer.Tick += async (_, _) => await PollWalletsAsync();
+        // Abfrage, Wallets, Meldungen und Automatik laufen im Hub; die Ansicht zeigt nur an
+        _host.Hub.Polled += OnHubPolled;
+        _host.Hub.StatusMessage += SetStatus;
+        _host.Hub.WalletsUpdated += OnWalletsUpdated;
+        _host.Hub.PayoutDetected += ShowPayout;
         _networkTimer.Tick += async (_, _) =>
         {
             if (NetworkPanel.Visibility != Visibility.Visible) return;
@@ -112,17 +115,20 @@ public partial class MonitorView : UserControl
             _started = true;
             AttachWindow();
             StartTimers();
-            await PollAsync();
-            await PollWalletsAsync();
+            // Der Hub übernimmt den Kontext des UI-Threads: alle Takte laufen hier nacheinander (wie zuvor die DispatcherTimer)
+            await _host.Hub.StartAsync();
         };
     }
 
     /// <summary>Beim Beenden (vormals Closed-Handler des MainWindow).</summary>
     public void Shutdown()
     {
-        _timer.Stop();
-        _walletTimer.Stop();
         _networkTimer.Stop();
+        _host.Hub.SetPaused(true);
+        _host.Hub.Polled -= OnHubPolled;
+        _host.Hub.StatusMessage -= SetStatus;
+        _host.Hub.WalletsUpdated -= OnWalletsUpdated;
+        _host.Hub.PayoutDetected -= ShowPayout;
         ThemeManager.Changed -= RenderSelected;
         _taxViewModel.Dispose();
         DisposeFeatures();
@@ -131,7 +137,8 @@ public partial class MonitorView : UserControl
     /// <summary>Abfragen anhalten/fortsetzen (z. B. während eines Datenordner-Umzugs).</summary>
     public void SetPaused(bool paused)
     {
-        if (paused) { _timer.Stop(); _walletTimer.Stop(); _networkTimer.Stop(); }
+        _host.Hub.SetPaused(paused);
+        if (paused) _networkTimer.Stop();
         else StartTimers();
     }
 
@@ -189,23 +196,18 @@ public partial class MonitorView : UserControl
 
     private void StartTimers()
     {
-        _timer.Interval = TimeSpan.FromSeconds(Math.Clamp(_config.IntervalSeconds, 1, 300));
-        _timer.Start();
-        _walletTimer.Interval = TimeSpan.FromMinutes(Math.Clamp(_config.WalletPollMinutes, 1, 1440));
-        _walletTimer.Start();
+        // Nur die Netzwerk-Ansicht hat einen eigenen Takt (reine Anzeige); Miner, Wallets und Steuer laufen im Hub
         _networkTimer.Interval = TimeSpan.FromMinutes(2);
         _networkTimer.Start();
-        _taxMonitor.Start(TimeSpan.FromMinutes(Math.Clamp(_config.TaxPollMinutes, 1, 1440)));
     }
 
     private void ClearButton_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var s in _states) s.History.Clear();
-        _aggHistory.Clear();
+        _host.Hub.ClearLiveHistory();
         RenderSelected();
     }
 
-    private async void WalletButton_Click(object sender, RoutedEventArgs e) => await PollWalletsAsync();
+    private async void WalletButton_Click(object sender, RoutedEventArgs e) => await _host.Hub.PollWalletsAsync();
 
     private void WalletBox_LostFocus(object sender, RoutedEventArgs e)
     {
@@ -219,43 +221,12 @@ public partial class MonitorView : UserControl
         _config.Save();
     }
 
-    private async Task PollAsync()
+    /// <summary>Nach jeder Abfragerunde des Hubs (UI-Thread): Anzeige aktualisieren.</summary>
+    private void OnHubPolled()
     {
-        if (_busy) return;
-        _busy = true;
-        try
-        {
-            // Zentraler Abruf aller Miner (eine Verbindung je Miner, geteilt mit dem Tuning)
-            if (!await _host.Polling.PollOnceAsync()) return;
-
-            var now = DateTime.Now;
-            var online = _states.Where(s => s.Online).Select(s => s.Info!).ToList();
-            if (online.Count > 0)
-            {
-                _aggHistory.Add(new Sample(now,
-                    online.Sum(i => i.hashRate),
-                    online.Max(i => i.temp),
-                    online.Sum(i => i.power)));
-            }
-
-            var cutoff = now.AddMinutes(-Math.Max(1, _config.HistoryMinutes));
-            _aggHistory.RemoveAll(x => x.Time < cutoff);
-            foreach (var s in _states) s.History.RemoveAll(x => x.Time < cutoff);
-
-            var ok = _states.Count(s => s.Online);
-            SetStatus(ok > 0, ok == _states.Count
-                ? $"alle {ok} Miner online – {now.ToString("HH:mm:ss", De)}"
-                : $"{ok}/{_states.Count} online – {now.ToString("HH:mm:ss", De)}");
-
-            AfterPoll(now);
-            UpdateDeviceList();
-            RenderSelected();
-            _host.RaisePolled();
-        }
-        finally
-        {
-            _busy = false;
-        }
+        UpdateDeviceList();
+        UpdateTray();
+        RenderSelected();
     }
 
     private static string Shorten(Exception ex) => ex switch
@@ -273,76 +244,22 @@ public partial class MonitorView : UserControl
 
     // ---------- Wallets ----------
 
-    private async Task PollWalletsAsync()
+    private void OnWalletsUpdated()
     {
-        if (_walletBusy) return;
-
-        var addresses = _states
-            .Select(s => s.WalletAddress)
-            .Where(a => !string.IsNullOrWhiteSpace(a))
-            .Select(a => a!.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (addresses.Count == 0)
-        {
-            WalletStatus.Text = "keine Adresse bekannt";
-            return;
-        }
-
-        _walletBusy = true;
-        try
-        {
-            foreach (var address in addresses)
-            {
-                try
-                {
-                    var w = await _walletClient.GetAsync(address, CancellationToken.None);
-                    _wallets[address] = w;
-                    _walletErrors.Remove(address);
-                    CheckPayout(w);
-                }
-                catch (Exception ex)
-                {
-                    _walletErrors[address] = Shorten(ex);
-                }
-            }
-
-            WalletStatus.Text = $"geprüft {DateTime.Now.ToString("HH:mm", De)} · {addresses.Count} Adresse(n)";
-            RenderSelected();
-        }
-        finally
-        {
-            _walletBusy = false;
-        }
+        WalletStatus.Text = _host.Hub.WalletStatusText;
+        RenderSelected();
     }
 
-    private void CheckPayout(WalletInfo w)
+    /// <summary>Eingang auf einer Miner-Wallet, die das Steuer-Modul nicht selbst meldet.</summary>
+    private void ShowPayout(PayoutNotice p)
     {
-        var txid = w.LastIncomingTxid;
-        if (string.IsNullOrEmpty(txid)) return;
-
-        var known = _config.LastSeenPayoutTxids.TryGetValue(w.Address, out var last) ? last : null;
-        if (txid == known) return;
-
-        var first = string.IsNullOrEmpty(known);
-        _config.LastSeenPayoutTxids[w.Address] = txid;
-        _config.Save();
-        if (first) return;
-
-        // Überwacht das Steuer-Modul die Adresse, meldet es den Zufluss selbst (mit EUR-Wert).
-        if (_taxMonitor.Contains(w.Address)) return;
-
-        var owner = _states.FirstOrDefault(s =>
-            string.Equals(s.WalletAddress, w.Address, StringComparison.OrdinalIgnoreCase));
-
         OwnerWindow.Activate();
         MessageBox.Show(OwnerWindow,
-            $"Eingang auf {ShortAddress(w.Address)}" +
-            (owner is not null ? $" ({owner.Config.Name})" : "") + "\n\n" +
-            $"Betrag: {FormatBtc(w.LastIncomingSat ?? 0)}\n" +
-            $"Status: {(w.LastIncomingConfirmed ? "bestätigt" : "unbestätigt (Mempool)")}\n" +
-            $"TXID: {txid}",
+            $"Eingang auf {ShortAddress(p.Address)}" +
+            (p.MinerName is not null ? $" ({p.MinerName})" : "") + "\n\n" +
+            $"Betrag: {FormatBtc(p.AmountSat)}\n" +
+            $"Status: {(p.Confirmed ? "bestätigt" : "unbestätigt (Mempool)")}\n" +
+            $"TXID: {p.TxId}",
             "Auszahlung eingegangen", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -974,24 +891,15 @@ public partial class MonitorView : UserControl
     /// <summary>Nach "Speichern" im Einstellungsfenster (vormals SettingsButton_Click).</summary>
     public async Task ApplySettingsChangedAsync()
     {
-        SyncStates();
-
-        _timer.Stop();
-        _walletTimer.Stop();
         _networkTimer.Stop();
         StartTimers();
 
         // Geänderte Miner, Repositories oder Coins wirken sofort
         _chartCache.Clear();
         _availabilityCache.Clear();
-        _lastFirmwareRefresh = DateTime.MinValue;
 
-        await PollAsync();
-        await PollWalletsAsync();
+        await _host.Hub.ApplySettingsChangedAsync();
     }
-
-    /// <summary>Laufzeitzustände an die (geänderte) Geräteliste angleichen, vorhandene Verläufe behalten.</summary>
-    public void SyncStates() => _host.Polling.Sync(_config.Devices);
 
     // ---------- Stromkosten ----------
 

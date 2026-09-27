@@ -1,0 +1,172 @@
+using System.Text.Json;
+using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Host;
+using BitaxeTuner.Core.Transfer;
+
+namespace BitaxeTuner.Server;
+
+/// <summary>
+/// Betreibt den <see cref="MinerHub"/> auf einem eigenen <see cref="HubThread"/> – alle Takte und
+/// Zustandsänderungen laufen dort nacheinander. API-Aufrufe kommen über <see cref="RunAsync{T}(Func{MinerHub, Task{T}})"/>.
+/// Beim Beenden des Dienstes werden laufende Benchmarks gestoppt und die Einstellungen der Miner wiederhergestellt.
+/// </summary>
+public sealed class HubService : IHostedService, IDisposable
+{
+    private readonly HubThread _thread = new();
+    private readonly ILogger<HubService> _log;
+    private readonly MinerHubOptions? _options;
+    private readonly string _stateFile;
+    private Task? _stopping;
+    private int _disposed;
+
+    public HubService(ServerSettings settings, ILogger<HubService> log, MinerHubOptions? options = null)
+    {
+        _log = log;
+        _options = options;
+        Settings = settings;
+        Directory.CreateDirectory(settings.DataDirectory);
+        _stateFile = Path.Combine(settings.DataDirectory, "server-state.json");
+        // Ein Prozess = ein Datenordner: alle Pfade (auch config.json) zeigen dorthin
+        DataPaths.Override(settings.DataDirectory);
+        Hub = _thread.RunAsync(CreateHub).GetAwaiter().GetResult();
+    }
+
+    public ServerSettings Settings { get; }
+
+    /// <summary>Aktueller Motor. Wird nach einer Datenübernahme ersetzt (<see cref="HubReplaced"/>).</summary>
+    public MinerHub Hub { get; private set; }
+
+    /// <summary>Neuer Motor nach Datenübernahme (im Hub-Kontext).</summary>
+    public event Action<MinerHub>? HubReplaced;
+
+    private MinerHub CreateHub()
+    {
+        var file = Path.Combine(Settings.DataDirectory, "config.json");
+        var config = AppConfig.Load(file);
+        config.FilePath = file;
+        var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = Settings.DataDirectory,
+            ClientFactory = _options?.ClientFactory,
+            OnlineChecks = _options?.OnlineChecks ?? true,
+            BenchmarkDelay = _options?.BenchmarkDelay,
+            Clock = _options?.Clock,
+        });
+        if (hub.HistoryError is { } error) _log.LogError("Verlaufsdatenbank nicht verfügbar: {Error}", error);
+        hub.StatusMessage += (ok, text) =>
+        {
+            if (!ok) _log.LogWarning("{Text}", text);
+        };
+        if (LoadPaused()) hub.SetPaused(true);
+        return hub;
+    }
+
+    /// <summary>Im Hub-Kontext ausführen (einziger erlaubter Zugriff auf Hub-Zustände von außen).</summary>
+    public Task<T> RunAsync<T>(Func<MinerHub, Task<T>> action) => _thread.RunAsync(() => action(Hub));
+
+    public Task<T> RunAsync<T>(Func<MinerHub, T> action) => _thread.RunAsync(() => action(Hub));
+
+    public Task RunAsync(Func<MinerHub, Task> action) => _thread.RunAsync(() => action(Hub));
+
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await _thread.RunAsync(() => Hub.StartAsync());
+        _log.LogInformation("Motor gestartet: {Count} Miner, Datenordner {Dir}{Paused}", Hub.Devices.Count, Settings.DataDirectory,
+            Hub.IsPaused ? " – PAUSIERT (Desktop-App fragt selbst ab)" : "");
+    }
+
+    // ---------- Pause (Schutz gegen Doppelbetrieb mit der Desktop-App) ----------
+
+    /// <summary>Motor pausieren/fortsetzen; bleibt über Neustarts des Dienstes erhalten.</summary>
+    public Task SetPausedAsync(bool paused) => _thread.RunAsync(async () =>
+    {
+        if (paused && Hub.Benchmarks.AnyRunning) await Hub.Benchmarks.StopAllAsync();
+        Hub.SetPaused(paused);
+        if (!paused) await Hub.PollNowAsync();
+        File.WriteAllText(_stateFile, JsonSerializer.Serialize(new { paused }));
+        _log.LogInformation(paused ? "Motor pausiert." : "Motor läuft wieder.");
+        return true;
+    });
+
+    private bool LoadPaused()
+    {
+        try
+        {
+            return File.Exists(_stateFile) &&
+                   JsonDocument.Parse(File.ReadAllText(_stateFile)).RootElement.TryGetProperty("paused", out var p) && p.GetBoolean();
+        }
+        catch { return false; }
+    }
+
+    // ---------- Datenübernahme ----------
+
+    /// <summary>Leer = keine Geräte, kein Verlauf, keine Zuflüsse. Nur dann ist eine Übernahme ohne Rückfrage erlaubt.</summary>
+    public Task<bool> IsEmptyAsync() => RunAsync(h =>
+        h.Config.Devices.Count == 0 &&
+        (h.History?.CountRows().GetValueOrDefault("samples") ?? 0) == 0 &&
+        h.TaxMonitor.LoadRewards().Count == 0);
+
+    /// <summary>
+    /// Geprüfte Daten aus <paramref name="stagingDirectory"/> übernehmen: Benchmarks stoppen, Motor anhalten und freigeben,
+    /// Datenordner sichern und ersetzen, Motor neu starten. Liefert den Sicherungsordner.
+    /// </summary>
+    public async Task<string> ReplaceDataAsync(string stagingDirectory)
+    {
+        string backup = "";
+        await _thread.RunAsync(async () =>
+        {
+            await Hub.Benchmarks.StopAllAsync();
+            Hub.SetPaused(true);
+            Hub.Config.Save();
+            Hub.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try
+            {
+                backup = DataArchive.Apply(stagingDirectory, Settings.DataDirectory, (old, fresh) =>
+                {
+                    fresh.Server = new ServerConnectionSettings(); // Verbindungsdaten der Desktop-App gehören nicht auf den Server
+                });
+            }
+            finally
+            {
+                // Auch bei einem Fehler weiterlaufen (mit dem, was jetzt im Ordner liegt – die Sicherung bleibt erhalten)
+                Hub = CreateHub();
+                HubReplaced?.Invoke(Hub);
+                await Hub.StartAsync();
+            }
+            return true;
+        });
+        _log.LogWarning("Daten übernommen. Vorheriger Stand gesichert in {Backup}", backup);
+        return backup;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => _stopping ??= StopCoreAsync();
+
+    private async Task StopCoreAsync()
+    {
+        await _thread.RunAsync(async () =>
+        {
+            Hub.SetPaused(true);
+            if (Hub.Benchmarks.AnyRunning)
+            {
+                _log.LogInformation("Stoppe laufende Benchmarks und stelle die Einstellungen wieder her …");
+                await Hub.Benchmarks.StopAllAsync();
+            }
+            Hub.Config.Save();
+        });
+    }
+
+    public void Dispose()
+    {
+        // Der Container gibt den Dienst ggf. zweimal frei (Singleton und Hosted Service)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+        try
+        {
+            // Erst ein laufendes Stoppen (Benchmarks wiederherstellen) abschließen lassen
+            _stopping?.Wait(TimeSpan.FromSeconds(60));
+            _thread.RunAsync(() => { Hub.Dispose(); return true; }).Wait(TimeSpan.FromSeconds(10));
+        }
+        catch { /* beim Beenden egal */ }
+        _thread.Dispose();
+    }
+}

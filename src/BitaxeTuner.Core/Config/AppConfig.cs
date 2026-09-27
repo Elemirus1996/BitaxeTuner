@@ -85,6 +85,9 @@ public sealed class AppConfig
     /// <summary>Nur-Lese-Ansicht fürs Handy im Heimnetz.</summary>
     public WebViewSettings WebView { get; set; } = new();
 
+    /// <summary>Betriebsart der Desktop-App: lokal (Standard) oder mit einem BitaxeTuner-Server verbunden.</summary>
+    public ServerConnectionSettings Server { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }
@@ -138,7 +141,14 @@ public sealed class AppConfig
         return cfg;
     }
 
-    public void Save() => Save(DataPaths.ConfigFile);
+    /// <summary>
+    /// Fester Speicherort (Server, Tests). Ohne Angabe gilt der aktuelle Datenordner – so landet die Datei
+    /// nach einem Datenordner-Umzug automatisch am neuen Ort.
+    /// </summary>
+    [JsonIgnore]
+    public string? FilePath { get; set; }
+
+    public void Save() => Save(FilePath ?? DataPaths.ConfigFile);
 
     public void Save(string filePath)
     {
@@ -449,4 +459,16 @@ public sealed class WebViewSettings
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bitaxetuner|" + pin.Trim())));
 
     public WebViewSettings Clone() => (WebViewSettings)MemberwiseClone();
+}
+
+/// <summary>Verbindung der Desktop-App zu einem BitaxeTuner-Server (Betriebsart „Server“).</summary>
+public sealed class ServerConnectionSettings
+{
+    /// <summary>true: die App fragt keine Miner ab, alles läuft auf dem Server.</summary>
+    public bool Enabled { get; set; }
+    public string Url { get; set; } = "";
+    /// <summary>API-Token (btk_…) aus der Server-Oberfläche.</summary>
+    public string Token { get; set; } = "";
+    /// <summary>SHA-256-Fingerabdruck des selbst signierten HTTPS-Zertifikats (bestätigt beim Verbinden).</summary>
+    public string? CertificateFingerprint { get; set; }
 }

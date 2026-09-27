@@ -1,6 +1,7 @@
 # BitaxeTuner
 
-**Automatisches Übertakten und Benchmarken für Bitaxe- und NerdAxe-Miner – als Windows-Programm (WPF).**
+**Automatisches Übertakten, Benchmarken und Überwachen für Bitaxe- und NerdAxe-Miner – als Windows-Programm (WPF)
+und als [24/7-Server](#247-betrieb) für Raspberry Pi, Windows oder Docker mit Browser-Oberfläche.**
 *Automatic overclocking & benchmarking for Bitaxe and NerdAxe miners – English summary below.*
 
 BitaxeTuner erhöht Frequenz und Kernspannung deines Miners Schritt für Schritt, misst jede Kombination
@@ -93,6 +94,86 @@ Alle Profile lassen sich über **„Profile bearbeiten“** (`profiles.json` im 
 
 Es wird **keine** separate .NET-Installation benötigt.
 
+## 24/7-Betrieb
+
+Die Miner laufen ohne PC weiter – Verlauf, Push-Meldungen, Watchdog, Automatik-Regeln, Dauertests, Benchmarks,
+Tagesbericht und Steuer-Erfassung aber nur, solange BitaxeTuner läuft. Soll das rund um die Uhr passieren, ohne dass
+dein PC an ist, installierst du den **BitaxeTuner-Server** auf einem Gerät, das ohnehin durchläuft:
+
+| Gerät | Paket | Aufwand |
+|---|---|---|
+| Raspberry Pi 3/4/5 (Pi OS 64-bit) | `BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` | 2 Befehle |
+| Raspberry Pi mit 32-bit-System | `…-linux-arm.tar.gz` | 2 Befehle |
+| Linux-PC / Mini-PC (x64) | `…-linux-x64.tar.gz` | 2 Befehle |
+| Zweiter Windows-PC / Mini-PC | `BitaxeTuner-Server-Setup-x.y.z.exe` (Windows-Dienst) | Setup |
+| NAS / Home-Server mit Docker | `ghcr.io/elemirus1996/bitaxetuner-server` | `docker compose up -d` |
+
+Der Server braucht wenig: ca. 100–150 MB RAM, kaum CPU; ein Pi 3B+ reicht. history.db schreibt höchstens einen
+Datensatz pro Minute und Miner (schont die SD-Karte).
+
+**Raspberry Pi / Linux**
+
+```sh
+tar xzf BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz
+cd bitaxetuner-server && sudo ./install.sh
+```
+
+`install.sh` legt einen Systembenutzer an, installiert nach `/opt/bitaxetuner`, Daten nach `/var/lib/bitaxetuner`
+und richtet den systemd-Dienst `bitaxetuner` ein (Autostart, Neustart bei Absturz). Am Ende zeigt es die Adresse
+und den **Einrichtungs-Code**. Protokoll: `journalctl -u bitaxetuner -f`. Entfernen: `sudo ./install.sh --uninstall`
+(Daten bleiben) bzw. `--purge`. Eigene Einstellungen (Port, HTTPS) in `/etc/default/bitaxetuner`, z. B. `BITAXETUNER_PORT=8484`.
+
+**Windows (zweiter PC)**: `BitaxeTuner-Server-Setup-x.y.z.exe` ausführen. Es richtet den Dienst „BitaxeTuner“
+(Autostart, Neustart bei Fehler) und eine Firewall-Regel **nur für private Netzwerke** ein. Daten:
+`C:\ProgramData\BitaxeTuner`, Einrichtungs-Code in `SETUP-CODE.txt` dort.
+
+**Docker**: [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml) herunterladen, `docker compose up -d`,
+Einrichtungs-Code mit `docker compose logs bitaxetuner`. Daten im Volume `/data`.
+
+**Einrichten**: Im Browser `http://<IP>:8484/` öffnen, Einrichtungs-Code eingeben und ein Admin-Passwort festlegen.
+Danach unter *Einstellungen* Geräte, Push-Dienst usw. einrichten – oder die Daten vom PC übertragen (siehe unten).
+
+### Bedienung: Browser oder Desktop-App
+
+- **Browser** (PC, Handy, Tablet): Übersicht, Vergleich, je Miner Live-Werte und Verlauf mit Tuning-Markierungen,
+  Benchmark, Ergebnisse, Vorher/Nachher, Automatik-Regeln mit Freigabe, Dauertest, Sicherungen, Miner-Logs live,
+  Steuer (Zuflüsse, CSV), Einstellungen. Hell/Dunkel, handytauglich, als App zum Startbildschirm hinzufügbar.
+  Frequenz/Spannung ändern sich – wie am Desktop – nur nach einem Dialog mit altem und neuem Wert und den Profilgrenzen.
+- **Rollen**: *Admin* (Passwort, alles) und *Nur ansehen* (PIN, ohne IP- und Wallet-Adressen, ohne Protokolle).
+- **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
+  (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
+  die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.
+
+### Umstieg und Rückweg (Datenübertragung)
+
+*Betriebsart …* in der Desktop-App:
+
+- **Lokal → Server**: *Daten übertragen und umschalten* schickt `config.json`, `history.db`, Steuerdaten, Benchmark-
+  Ergebnisse und Sicherungen einmalig an den Server. Geprüft wird alles (SHA-256 je Datei, `integrity_check`,
+  Zeilenzahlen). Hat der Server schon Daten, wird nachgefragt und er sichert seinen Stand vorher (`backup-…`).
+  Deine lokalen Daten bleiben unverändert.
+- **Server → Lokal**: *Daten vom Server holen und umschalten* pausiert den Server, lädt seinen Stand, prüft ihn,
+  sichert den lokalen Stand und übernimmt beim Neustart der App.
+- **Nie doppelt**: Es fragt immer nur eine Seite die Miner ab. Startet die App im Modus „Lokal“, während ein bekannter
+  Server dieselben Miner abfragt, fragt sie nach (umschalten oder Server pausieren). Ein pausierter Server zeigt das
+  in seiner Oberfläche und lässt sich dort fortsetzen.
+
+### Sicherheit
+
+- Erreichbar nur aus privaten Netzen (Heimnetz, Docker-Netz, VPN wie **Tailscale**/WireGuard). Den Port **nicht** im
+  Router freigeben – für unterwegs ein VPN verwenden.
+- Admin-Passwort als PBKDF2-Hash, Sperre nach 5 Fehlversuchen, Sitzungs-Cookies HttpOnly/SameSite=Strict,
+  CSRF-Schutz für alle Änderungen, API-Token nur als Hash gespeichert.
+- Optional HTTPS mit selbst signiertem Zertifikat (`BITAXETUNER_HTTPS=1`); die Desktop-App lässt den Fingerabdruck
+  beim ersten Verbinden bestätigen.
+
+### Updates
+
+- Server: *Einstellungen → Server-Update*. Raspberry Pi/Linux: neue Version wird neben die alte gelegt und atomar
+  umgeschaltet (die alte bleibt als Rückfall in `/opt/bitaxetuner/versions`). Windows: stilles Setup, der Dienst startet neu.
+  Docker: `docker compose pull && docker compose up -d`. Jede Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft.
+- Desktop-App und Server prüfen die Versionen beim Verbinden; passen sie nicht zusammen, gibt es eine klare Meldung.
+
 ## Bedienung
 
 1. Links die IP-Adresse des Miners eingeben (oder **„Netzwerk durchsuchen“**).
@@ -149,7 +230,9 @@ Voraussetzungen: .NET 8 SDK, optional [Inno Setup 6](https://jrsoftware.org/isin
 ```powershell
 dotnet test                 # Tests
 dotnet run --project src/BitaxeTuner.App
-.\build.ps1                 # Tests + Single-File-Exe + portable ZIP + Setup.exe in .\artifacts
+.\build.ps1                 # Tests + Desktop (Exe, ZIP, Setup) + Server (Linux-Pakete, Windows-Setup) in .\artifacts
+dotnet run --project src/BitaxeTuner.Server -- --data .\serverdaten --port 8484
+docker build -f deploy/docker/Dockerfile -t bitaxetuner-server .
 ```
 
 Ein Release entsteht automatisch per GitHub Actions, sobald ein Tag `v*` gepusht wird (`git tag v0.1.0 && git push --tags`).
@@ -157,10 +240,14 @@ Ein Release entsteht automatisch per GitHub Actions, sobald ein Tag `v*` gepusht
 ## Projektstruktur
 
 ```
-src/BitaxeTuner.Core   API-Client, Geräteprofile, Benchmark-Engine, Simulator, Speicherung
-src/BitaxeTuner.App    WPF-Oberfläche (MVVM)
-tests/                 xUnit-Tests (Engine gegen simulierten Miner)
-installer/             Inno-Setup-Skript
+src/BitaxeTuner.Core     API-Client, Geräteprofile, Benchmark-Engine, Simulator, Speicherung,
+                         Host/MinerHub (der Motor: Abfrage, Verlauf, Meldungen, Watchdog, Automatik, Benchmarks),
+                         Transfer (Datenübertragung, Server-Client)
+src/BitaxeTuner.App      WPF-Oberfläche (MVVM) – Betriebsart „Lokal“ (Motor im Prozess) oder „Server“
+src/BitaxeTuner.Server   ASP.NET-Core-Dienst: Motor + REST-API /api/v1 + Live-Ereignisse + Browser-Oberfläche (wwwroot)
+deploy/                  install.sh + systemd-Unit (Linux/Pi), Dockerfile + docker-compose.yml
+tests/                   xUnit-Tests (Engine, Hub, Server-API, Datenübertragung)
+installer/               Inno-Setup-Skripte (Desktop, Server-Dienst)
 ```
 
 ---
@@ -172,7 +259,9 @@ Gamma, Duo, GT, Hex, SupraHex) and NerdAxe-family miners (NerdAxe, NerdAxe Gamma
 It steps through frequency/core-voltage combinations, measures hashrate, power, efficiency and temperatures,
 enforces safety limits on every sample, and recommends the best setting by max hashrate, efficiency or a
 weighted balance. Multiple miners can be tuned in parallel. Download the installer from Releases.
-Use at your own risk.
+For 24/7 operation without a PC, run the **BitaxeTuner-Server** on a Raspberry Pi (`install.sh` + systemd),
+a Windows machine (service setup) or Docker (`ghcr.io/elemirus1996/bitaxetuner-server`); use it from any browser
+or connect the desktop app to it. Use at your own risk.
 
 ## Lizenz
 

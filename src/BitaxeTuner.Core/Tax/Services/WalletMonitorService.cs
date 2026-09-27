@@ -49,6 +49,13 @@ public sealed class WalletMonitorService : IDisposable
         _timer = new Timer(async _ => await PollOnceAsync(), null, TimeSpan.FromSeconds(5), period);
     }
 
+    /// <summary>Zyklisches Polling anhalten (Pause, Datenübertragung).</summary>
+    public void Stop()
+    {
+        _timer?.Dispose();
+        _timer = null;
+    }
+
     // ---------- Wallets ----------
 
     public IReadOnlyList<WalletAddress> Wallets

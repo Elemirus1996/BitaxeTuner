@@ -1,0 +1,9 @@
+{
+  "name": "BitaxeTuner",
+  "short_name": "BitaxeTuner",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0F1216",
+  "theme_color": "#0B0E12",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

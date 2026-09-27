@@ -26,6 +26,13 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) => WriteCrashLog(args.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, args) => { WriteCrashLog(args.Exception); args.SetObserved(); };
 
+        // 0. Neustart nach Moduswechsel: warten, bis die alte Instanz history.db freigegeben hat
+        var waitIndex = Array.IndexOf(e.Args, "--wait-pid");
+        if (waitIndex >= 0 && waitIndex + 1 < e.Args.Length && int.TryParse(e.Args[waitIndex + 1], out var pid))
+        {
+            try { Process.GetProcessById(pid).WaitForExit(30_000); } catch { /* schon beendet */ }
+        }
+
         // 1. Läuft der alte BitaxeMonitor noch? Dann würden beide pollen und in dieselbe history.db schreiben.
         if (Process.GetProcessesByName("BitaxeMonitor").Length > 0 &&
             MessageBox.Show(
@@ -39,8 +46,31 @@ public partial class App : Application
 
         var dataDir = DataPaths.Current;
         Directory.CreateDirectory(dataDir);
-        var config = AppConfig.Load();
         var notes = new List<string>();
+
+        // Vom Server geholte, bereits geprüfte Daten übernehmen – bevor history.db geöffnet wird
+        try
+        {
+            if (ServerTransfer.ApplyPendingImport(dataDir) is { } imported) notes.Add(imported);
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog(ex);
+            MessageBox.Show($"Die Daten vom Server konnten nicht übernommen werden:\n{ex.Message}\n\nDer bisherige lokale Stand ist unverändert bzw. gesichert (backup-…).",
+                "BitaxeTuner", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        var config = AppConfig.Load();
+
+        // Betriebsart „Server“: kein eigener Motor, keine Miner-Abfrage – nur die Oberfläche des Servers
+        if (config.Server.Enabled && config.Server.Url.Length > 0)
+        {
+            ThemeManager.Apply(config.Theme);
+            var remote = new Views.RemoteWindow(config);
+            MainWindow = remote;
+            remote.Show();
+            return;
+        }
 
         // 2. Vor der ersten Schemaänderung (tuning_events) den ganzen Datenordner sichern – bevor history.db geöffnet wird
         if (!config.IntegrationBackupDone &&
@@ -103,6 +133,50 @@ public partial class App : Application
         if (config.StartMinimized) window.WindowState = WindowState.Minimized;
         window.Initialize(new MainViewModel(_host));
         window.Show();
+        _ = CheckDoubleOperationAsync(window, _host);
+    }
+
+    /// <summary>
+    /// Doppelbetrieb verhindern: Ist ein Server bekannt, der gerade dieselben Miner abfragt, während diese App
+    /// im Modus „Lokal“ startet, wird nachgefragt (umschalten, Server pausieren oder – nicht empfohlen – beide).
+    /// </summary>
+    private static async Task CheckDoubleOperationAsync(Window owner, AppHost host)
+    {
+        var s = host.Config.Server;
+        if (s.Url.Length == 0 || s.Token.Length == 0) return;
+        try
+        {
+            using var client = new Core.Transfer.ServerClient(s.Url, s.Token, s.CertificateFingerprint, TimeSpan.FromSeconds(5));
+            var info = await client.InfoAsync();
+            if (info.Paused || info.Devices == 0) return;
+            var status = await client.StatusAsync();
+            var local = host.Config.Devices.Select(d => d.Host.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var shared = status.GetProperty("devices").EnumerateArray()
+                .Select(d => d.GetProperty("host").GetString() ?? "").Where(local.Contains).ToList();
+            if (shared.Count == 0) return;
+
+            var answer = MessageBox.Show(owner,
+                $"Der BitaxeTuner-Server {client.BaseUri} fragt gerade dieselben Miner ab ({shared.Count}).\n" +
+                "Beide gleichzeitig würden die Miner doppelt abfragen, doppelt melden und zwei getrennte Verläufe schreiben.\n\n" +
+                "Ja: auf „Server“ umschalten (App startet neu, ohne Daten zu übertragen)\n" +
+                "Nein: Server pausieren – diese App fragt ab\n" +
+                "Abbrechen: beide laufen lassen (nicht empfohlen)",
+                "Doppelbetrieb", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+            if (answer == MessageBoxResult.Yes)
+            {
+                host.Config.Server.Enabled = true;
+                host.Config.Save();
+                ServerTransfer.Restart();
+            }
+            else if (answer == MessageBoxResult.No)
+            {
+                await client.SetPausedAsync(true);
+            }
+        }
+        catch (Core.Transfer.ServerException)
+        {
+            // Server nicht erreichbar oder Token widerrufen: kein Doppelbetrieb möglich bzw. nicht feststellbar
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

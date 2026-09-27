@@ -86,6 +86,36 @@ public class UpdateTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => good.DownloadAsync(update with { Sha256 = null }, dir.File("c")));
     }
 
+    [Fact]
+    public async Task Server_picks_its_own_platform_package_not_the_desktop_setup()
+    {
+        var json = """
+            { "tag_name": "v0.3.0", "draft": false, "prerelease": false, "html_url": "x", "assets": [
+              { "name": "BitaxeTuner-Setup-0.3.0.exe", "browser_download_url": "https://dl/desk", "size": 1, "digest": "sha256:aa" },
+              { "name": "BitaxeTuner-Server-Setup-0.3.0.exe", "browser_download_url": "https://dl/srvwin", "size": 1, "digest": "sha256:bb" },
+              { "name": "BitaxeTuner-Server-0.3.0-linux-arm64.tar.gz", "browser_download_url": "https://dl/arm64", "size": 1, "digest": "sha256:cc" },
+              { "name": "BitaxeTuner-Server-0.3.0-linux-x64.tar.gz", "browser_download_url": "https://dl/x64", "size": 1, "digest": "sha256:dd" } ] }
+            """;
+        var desktop = await Service(_ => Ok(json)).CheckAsync(new Version(0, 2, 0));
+        Assert.Equal("BitaxeTuner-Setup-0.3.0.exe", desktop.Update!.SetupName);
+
+        var server = await new UpdateService(new HttpClient(new FakeGitHub(_ => Ok(json))), "x/y", BitaxeTuner.Server.ServerUpdater.MatchesPlatform)
+            .CheckAsync(new Version(0, 2, 0));
+        var expected = OperatingSystem.IsWindows() ? "BitaxeTuner-Server-Setup-0.3.0.exe"
+            : System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64
+                ? "BitaxeTuner-Server-0.3.0-linux-arm64.tar.gz" : "BitaxeTuner-Server-0.3.0-linux-x64.tar.gz";
+        Assert.Equal(expected, server.Update!.SetupName);
+    }
+
+    [Theory]
+    [InlineData("BitaxeTuner-Server-0.3.0-linux-arm.tar.gz", false)]      // 32-bit-Paket nie auf 64-bit
+    [InlineData("BitaxeTuner-Setup-0.3.0.exe", false)]
+    public void Server_never_matches_foreign_packages(string name, bool expected)
+    {
+        if (!OperatingSystem.IsWindows() && System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm) return;
+        Assert.Equal(expected, BitaxeTuner.Server.ServerUpdater.MatchesPlatform(name));
+    }
+
     [Theory]
     [InlineData("v0.2.0", 0, 2, 0)]
     [InlineData("0.10", 0, 10, 0)]
