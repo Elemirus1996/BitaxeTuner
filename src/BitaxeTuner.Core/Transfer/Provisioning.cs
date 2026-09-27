@@ -154,6 +154,7 @@ public static class Provisioning
                 var config = Config.AppConfig.Load(configFile);
                 config.Server = new Config.ServerConnectionSettings();
                 config.Backup = new Config.BackupSettings(); // Sicherungsziele des PCs (Pfade, NAS) passen nicht zum Pi
+                config.Mqtt.Enabled = false;                 // ohne Passwort (liegt nicht im Paket) erst im Browser einschalten
                 config.Save(configFile);
             }
             log.Add($"Daten übernommen: {manifest.Devices} Gerät(e), {manifest.HistoryRows.GetValueOrDefault("samples"):N0} Verlaufswerte.");

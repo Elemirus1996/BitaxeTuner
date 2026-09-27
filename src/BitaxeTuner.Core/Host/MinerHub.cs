@@ -296,6 +296,8 @@ public sealed partial class MinerHub : IDisposable
         InitMonitoring();
         // Lüfter laufen immer: ohne aktuelle Minerdaten (auch im Pausenzustand) gehen sie auf 100 %
         StartFanLoop();
+        // Home Assistant bekommt auch im Pausenzustand Werte (Lüfter, Fühler, „pausiert“)
+        if (Config.Mqtt.Enabled) _ = ApplyMqttSettingsAsync();
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();
         await PollNowAsync();
@@ -407,6 +409,9 @@ public sealed partial class MinerHub : IDisposable
         _disposed = true;
         _loops?.Cancel();
         _fanLoop?.Cancel();
+        _mqttLoop?.Cancel();
+        // außerhalb des Hub-Kontexts trennen (dieser Thread wartet hier)
+        if (_mqtt is { } mqtt) try { Task.Run(() => mqtt.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(3)); } catch { /* Broker weg */ }
         CloseFanDevice();
         foreach (var d in _devices.Values) d.Benchmark?.Cts?.Cancel();
         WebView.Dispose();

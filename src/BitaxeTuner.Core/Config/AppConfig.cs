@@ -97,6 +97,9 @@ public sealed class AppConfig
     /// <summary>Tägliche Sicherung (Datenordner, Ordner/USB, Netzlaufwerk).</summary>
     public BackupSettings Backup { get; set; } = new();
 
+    /// <summary>Home Assistant / MQTT.</summary>
+    public MqttSettings Mqtt { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }

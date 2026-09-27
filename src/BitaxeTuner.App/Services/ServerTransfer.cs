@@ -50,6 +50,7 @@ public static class ServerTransfer
         fromServer.TunerDataMigrated = local.TunerDataMigrated;
         fromServer.WebView = local.WebView;
         fromServer.Backup = local.Backup; // Sicherungsziele gehören zum Gerät (Pfade, NAS)
+        fromServer.Mqtt = local.Mqtt;
     }
 
     /// <summary>Lokale Daten (inkl. geöffneter history.db) als Archiv hochladen. Fragt nach, wenn der Server schon Daten hat.</summary>

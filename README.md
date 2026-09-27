@@ -165,6 +165,15 @@ wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellunge
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
 gibt es als eigene Anleitung.
 
+### Home Assistant / MQTT
+
+*Einstellungen → Home Assistant / MQTT* (Browser): Broker-Adresse (z. B. das Mosquitto-Add-on von Home Assistant),
+Benutzer, Passwort. BitaxeTuner sendet Hashrate, Leistung, Effizienz, Temperaturen, Frequenz/Spannung (nur lesend),
+Best Diff, Dauertest, Zusatzlüfter und Temperaturfühler; Home Assistant legt je Miner und für den Server automatisch
+Geräte an (MQTT-Discovery, Verfügbarkeit per Last Will). Aus Home Assistant schaltbar: „Anzeige aktualisieren“ und –
+nur wenn freigegeben – der Zusatzlüfter-Modus (Automatik / 100 % / Aus). **Frequenz und Spannung lassen sich über
+MQTT nicht ändern.** Das Passwort liegt getrennt in `secrets.json` und geht nie in Sicherungen oder Übertragungen.
+
 ### Sicherung
 
 Einmal täglich (Standard ab 3 Uhr) sichert BitaxeTuner Einstellungen, Verlauf (history.db), Steuerdaten,

@@ -144,6 +144,7 @@ public sealed class HubService : IHostedService, IDisposable
                 {
                     fresh.Server = new ServerConnectionSettings(); // Verbindungsdaten der Desktop-App gehören nicht auf den Server
                     fresh.Backup = old.Backup;                      // Sicherungsziele gehören zum Gerät (Pfade, NAS)
+                    fresh.Mqtt = old.Mqtt;                          // MQTT-Verbindung ebenso (Passwort liegt ohnehin getrennt)
                 });
             }
             finally

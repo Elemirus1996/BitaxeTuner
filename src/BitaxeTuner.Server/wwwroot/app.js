@@ -945,6 +945,7 @@ async function renderSettings() {
           },
         }, 'Token erzeugen'))),
     backupCard(),
+    mqttCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, 'Admin-Passwort ändern'),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Aktuell'), curPw), h('div', {}, h('label', {}, 'Neu (mind. 10 Zeichen)'), newPw),
@@ -1197,6 +1198,40 @@ function fanEditor(data) {
     h('div', { class: 'card stack' }, h('h2', {}, 'Temperaturfühler'), sensorBox),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, 'Speichern')),
     h('p', { class: 'muted small' }, 'Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.'));
+}
+
+/** Home Assistant / MQTT: Broker, Geräteerkennung, optional Lüfter-Modus aus Home Assistant. */
+function mqttCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Lade …'));
+  const render = d => {
+    const s = d.settings;
+    const pw = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.passwordSet ? 'gespeichert – leer lassen = unverändert' : 'Passwort (falls nötig)' });
+    const text = (key, ph = '') => h('input', { value: s[key] ?? '', placeholder: ph, oninput: e => { s[key] = e.target.value; } });
+    body.replaceChildren(
+      h('p', { class: 'muted small' }, 'Sendet Hashrate, Leistung, Temperaturen, Lüfter und Temperaturfühler an einen MQTT-Broker (z. B. das Mosquitto-Add-on von Home Assistant). Home Assistant legt die Geräte automatisch an. Frequenz und Spannung lassen sich über MQTT nicht ändern.'),
+      h('p', { class: `small ${d.connected ? 'ok' : s.enabled ? 'danger' : 'muted'}` },
+        d.connected ? 'Verbunden.' : s.enabled ? `Nicht verbunden${d.error ? ': ' + d.error : ''}` : 'Ausgeschaltet.'),
+      checkInput(s, 'enabled', 'MQTT einschalten'),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'Broker (IP oder Name)'), text('host', 'z. B. homeassistant.local')),
+        h('div', {}, h('label', {}, 'Port'), numInput(s, 'port')),
+        h('div', {}, h('label', {}, 'Benutzer'), text('user')),
+        h('div', {}, h('label', {}, 'Passwort'), pw),
+        h('div', {}, h('label', {}, 'Topic'), text('baseTopic', 'bitaxetuner')),
+        h('div', {}, h('label', {}, 'senden alle (s)'), numInput(s, 'intervalSeconds'))),
+      checkInput(s, 'tls', 'TLS (verschlüsselt, meist Port 8883)'),
+      checkInput(s, 'discovery', 'Home-Assistant-Geräteerkennung'),
+      checkInput(s, 'allowFanControl', 'Zusatzlüfter-Modus (Automatik / 100 % / Aus) aus Home Assistant schalten erlauben'),
+      h('div', { class: 'row' },
+        h('button', {
+          class: 'btn primary', onclick: async () => {
+            const r = await run(() => api('/mqtt', { method: 'PUT', body: { settings: s, password: pw.value || null, clearPassword: false } }));
+            if (r) { render(r); toast(r.connected ? 'Verbunden – die Geräte erscheinen in Home Assistant unter „MQTT“.' : r.settings.enabled ? `Gespeichert, aber nicht verbunden: ${r.error || 'unbekannt'}` : 'Gespeichert.', r.connected || !r.settings.enabled ? 'ok' : 'error', 10000); }
+          },
+        }, 'Speichern und verbinden')));
+  };
+  api('/mqtt').then(render).catch(e => body.replaceChildren(h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, 'Home Assistant / MQTT'), body);
 }
 
 /** Tägliche Sicherung: Datenordner (immer), Ordner/USB-Stick, Netzlaufwerk; Status, Jetzt sichern, Download. */
