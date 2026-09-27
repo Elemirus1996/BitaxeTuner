@@ -6,3 +6,4 @@
 Dockerfile text eol=lf
 docker-compose.yml text eol=lf
 *.path text eol=lf
+*.rules text eol=lf
