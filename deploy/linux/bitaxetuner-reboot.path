@@ -1,0 +1,9 @@
+[Unit]
+Description=BitaxeTuner: Neustart auf Anforderung (Taste 4 am Pico oder Browser)
+
+[Path]
+# Der Dienst (ohne Root-Rechte) legt diese Datei an; systemd startet daraufhin neu
+PathExists=/var/lib/bitaxetuner/reboot-request
+
+[Install]
+WantedBy=multi-user.target

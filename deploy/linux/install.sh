@@ -22,8 +22,8 @@ DATA=/var/lib/bitaxetuner
 UNIT=/etc/systemd/system/bitaxetuner.service
 
 if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "--purge" ]; then
-    systemctl disable --now bitaxetuner 2>/dev/null || true
-    rm -f "$UNIT"
+    systemctl disable --now bitaxetuner bitaxetuner-reboot.path 2>/dev/null || true
+    rm -f "$UNIT" /etc/systemd/system/bitaxetuner-reboot.path /etc/systemd/system/bitaxetuner-reboot.service
     systemctl daemon-reload
     rm -rf "$ROOT"
     if [ "$1" = "--purge" ]; then
@@ -56,7 +56,7 @@ TARGET="$ROOT/versions/$VERSION"
 rm -rf "$TARGET.new"
 mkdir -p "$TARGET.new"
 for f in "$HERE"/*; do
-    case "$(basename "$f")" in install.sh|bitaxetuner.service|LIESMICH.txt) ;; *) cp -a "$f" "$TARGET.new/" ;; esac
+    case "$(basename "$f")" in install.sh|bitaxetuner*.service|bitaxetuner*.path|bitaxetuner-firstboot.sh|LIESMICH.txt) ;; *) cp -a "$f" "$TARGET.new/" ;; esac
 done
 chmod 755 "$TARGET.new/BitaxeTuner.Server"
 rm -rf "$TARGET"
@@ -70,8 +70,13 @@ chown -R bitaxetuner:bitaxetuner "$ROOT" "$DATA"
 chmod 750 "$DATA"
 
 install -m 644 "$HERE/bitaxetuner.service" "$UNIT"
+# Neustart per Taste 4 / Browser: der Dienst legt eine Anforderungsdatei ab, diese Pfad-Unit (root) startet neu
+install -m 644 "$HERE/bitaxetuner-reboot.path" /etc/systemd/system/bitaxetuner-reboot.path
+install -m 644 "$HERE/bitaxetuner-reboot.service" /etc/systemd/system/bitaxetuner-reboot.service
+rm -f "$DATA/reboot-request"
 systemctl daemon-reload
-systemctl enable bitaxetuner >/dev/null
+systemctl enable bitaxetuner bitaxetuner-reboot.path >/dev/null
+systemctl restart bitaxetuner-reboot.path
 systemctl restart bitaxetuner
 
 PORT=8484

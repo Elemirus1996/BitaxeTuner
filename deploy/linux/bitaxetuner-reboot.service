@@ -1,0 +1,7 @@
+[Unit]
+Description=BitaxeTuner: Neustart des Rechners
+
+[Service]
+Type=oneshot
+ExecStart=/bin/rm -f /var/lib/bitaxetuner/reboot-request
+ExecStart=/bin/systemctl --no-block reboot

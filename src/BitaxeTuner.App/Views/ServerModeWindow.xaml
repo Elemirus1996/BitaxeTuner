@@ -78,6 +78,38 @@
                     </StackPanel>
                 </Border>
 
+                <Border Style="{StaticResource Card}" x:Name="PiCard">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Section}" Text="Raspberry Pi vorbereiten"/>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="1. Das BitaxeTuner-Pi-Image (Release-Seite) mit dem Raspberry Pi Imager auf die SD-Karte schreiben; dort Benutzer, WLAN und SSH einstellen. 2. SD-Karte am PC lassen bzw. neu einstecken, hier das Laufwerk „bootfs“ wählen. 3. Admin-Passwort festlegen und optional deine Daten mitgeben. Der Pi übernimmt beim ersten Start alles, startet pausiert und ist unter http://bitaxetuner.local:8484/ erreichbar; danach oben „Nur umschalten“."/>
+                        <TextBlock Text="SD-KARTE (BOOT-PARTITION)" Style="{StaticResource Label}"/>
+                        <DockPanel Margin="0,0,0,10">
+                            <Button DockPanel.Dock="Right" Content="Aktualisieren" Click="RefreshDrives_Click" Margin="6,0,0,0" Padding="10,4"/>
+                            <ComboBox x:Name="DriveBox" DisplayMemberPath="Label"/>
+                        </DockPanel>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="ADMIN-PASSWORT (MIND. 10 ZEICHEN)" Style="{StaticResource Label}"/>
+                                <PasswordBox x:Name="PiPassword1"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="WIEDERHOLEN" Style="{StaticResource Label}"/>
+                                <PasswordBox x:Name="PiPassword2"/>
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox x:Name="PiIncludeData" IsChecked="True" Margin="0,0,0,10"
+                                  Content="Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)"/>
+                        <Button Content="Einrichtungspaket auf die SD-Karte schreiben" Click="PreparePi_Click"
+                                Style="{StaticResource PrimaryButton}" Padding="12,4" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource Card}" x:Name="ToLocalCard">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="Auf „Lokal“ umschalten"/>

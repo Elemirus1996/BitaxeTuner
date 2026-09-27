@@ -61,7 +61,9 @@ if (-not $SkipServer) {
             -p:DebugType=none -p:Version=$Version -o $pkg
         if ($LASTEXITCODE -ne 0) { throw "Server publish failed ($rid)." }
         Write-Lf (Join-Path $pkg 'install.sh') (Get-Content (Join-Path $root 'deploy\linux\install.sh') -Raw)
-        Write-Lf (Join-Path $pkg 'bitaxetuner.service') (Get-Content (Join-Path $root 'deploy\linux\bitaxetuner.service') -Raw)
+        foreach ($f in 'bitaxetuner.service', 'bitaxetuner-reboot.path', 'bitaxetuner-reboot.service', 'bitaxetuner-firstboot.service', 'bitaxetuner-firstboot.sh') {
+            Write-Lf (Join-Path $pkg $f) (Get-Content (Join-Path $root "deploy\linux\$f") -Raw)
+        }
         Write-Lf (Join-Path $pkg 'VERSION') "$Version`n"
         Write-Lf (Join-Path $pkg 'LIESMICH.txt') @"
 BitaxeTuner-Server $Version ($rid)

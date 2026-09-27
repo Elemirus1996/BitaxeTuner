@@ -8,6 +8,28 @@ using BitaxeTuner.Server.Security;
 var settings = ServerSettings.FromArgs(args);
 Console.OutputEncoding = System.Text.Encoding.UTF8; // Umlaute im Protokoll (Windows-Konsole)
 
+// Erster Start eines vorbereiteten Pi: Einrichtungspaket von der Boot-Partition übernehmen, dann beenden
+var provisionIndex = Array.IndexOf(args, "--provision");
+if (provisionIndex >= 0)
+{
+    if (provisionIndex + 1 >= args.Length)
+    {
+        Console.Error.WriteLine("Aufruf: BitaxeTuner.Server --provision <Ordner> [--data <Datenordner>]");
+        return 2;
+    }
+    try
+    {
+        foreach (var line in BitaxeTuner.Core.Transfer.Provisioning.Apply(args[provisionIndex + 1], settings.DataDirectory))
+            Console.WriteLine(line);
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine("Einrichtungspaket konnte nicht übernommen werden: " + ex.Message);
+        return 1;
+    }
+}
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -97,6 +119,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
 });
 
 app.Run();
+return 0;
 
 /// <summary>Einstiegspunkt (für Tests mit WebApplicationFactory sichtbar).</summary>
 public partial class Program;

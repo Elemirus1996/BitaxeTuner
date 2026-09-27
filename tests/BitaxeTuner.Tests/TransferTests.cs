@@ -201,6 +201,48 @@ public class TransferTests
     }
 
     [Fact]
+    public async Task Provisioning_package_sets_up_pi_on_first_boot_and_removes_secrets()
+    {
+        using var desktop = new TempDir();
+        using var boot = new TempDir();
+        using var serverDir = new TempDir();
+        FillDataDirectory(desktop.Path);
+
+        Assert.Throws<InvalidOperationException>(() => Provisioning.Write(boot.Path, "kurz", null, null, "0.3.0"));
+        var token = Provisioning.Write(boot.Path, "sehr-geheim-123", desktop.Path, null, "0.3.0");
+        var package = Path.Combine(boot.Path, Provisioning.FolderName);
+        var accessJson = File.ReadAllText(Path.Combine(package, Provisioning.AccessFile));
+        Assert.DoesNotContain("sehr-geheim-123", accessJson);
+        Assert.DoesNotContain(token, accessJson);
+        Assert.True(File.Exists(Path.Combine(package, Provisioning.DataFile)));
+
+        var log = Provisioning.Apply(package, serverDir.Path);
+        Assert.Contains(log, l => l.StartsWith("Daten übernommen: 1 Gerät"));
+        // Geheimnisse und Datenarchiv sind von der Boot-Partition verschwunden
+        Assert.False(File.Exists(Path.Combine(package, Provisioning.AccessFile)));
+        Assert.False(File.Exists(Path.Combine(package, Provisioning.DataFile)));
+        Assert.True(File.Exists(Path.Combine(package, "UEBERNOMMEN.txt")));
+        Assert.Empty(AppConfig.Load(serverDir.File("config.json")).Server.Token);
+
+        using var f = Server(serverDir.Path);
+        var auth = f.Services.GetRequiredService<AuthStore>();
+        Assert.Null(auth.SetupCode);
+        Assert.Equal(Role.Admin, auth.Login("sehr-geheim-123"));
+        var c = f.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        c.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        var info = await c.GetFromJsonAsync<JsonElement>("/api/v1/info");
+        Assert.True(info.GetProperty("paused").GetBoolean());
+        var status = await c.GetFromJsonAsync<JsonElement>("/api/v1/status");
+        Assert.Equal("192.168.60.5", status.GetProperty("devices")[0].GetProperty("host").GetString());
+
+        // Zweites Paket auf einem eingerichteten Pi: nichts wird überschrieben
+        Provisioning.Write(boot.Path, "anderes-passwort-9", desktop.Path, null, "0.3.0");
+        var second = Provisioning.Apply(package, serverDir.Path);
+        Assert.Contains(second, l => l.Contains("bereits eingerichtet"));
+        Assert.Contains(second, l => l.Contains("nicht übernommen"));
+    }
+
+    [Fact]
     public async Task Pause_stops_server_and_survives_restart()
     {
         using var dir = new TempDir();

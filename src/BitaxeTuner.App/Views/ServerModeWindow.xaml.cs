@@ -29,6 +29,8 @@ public partial class ServerModeWindow : Window
             : "Aktuell: Lokal – dieser PC fragt die Miner ab";
         ToServerCard.Visibility = serverMode ? Visibility.Collapsed : Visibility.Visible;
         ToLocalCard.Visibility = serverMode ? Visibility.Visible : Visibility.Collapsed;
+        PiCard.Visibility = serverMode ? Visibility.Collapsed : Visibility.Visible;
+        if (!serverMode) RefreshDrives();
     }
 
     private void Log(string text) => Dispatcher.Invoke(() =>
@@ -206,6 +208,93 @@ public partial class ServerModeWindow : Window
             ServerTransfer.Restart();
         }
         catch (ServerException ex) { MessageBox.Show(this, ex.Message, "Umschalten", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally { SetBusy(false); }
+    }
+
+    // ---------- Raspberry Pi vorbereiten ----------
+
+    private sealed record BootDrive(string Root, string Label);
+
+    /// <summary>Wechseldatenträger; Boot-Partitionen eines Pi-Images (config.txt/cmdline.txt) zuerst.</summary>
+    private void RefreshDrives()
+    {
+        var drives = new List<(BootDrive Drive, bool IsPiBoot)>();
+        foreach (var d in System.IO.DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (!d.IsReady || d.DriveType != System.IO.DriveType.Removable) continue;
+                var root = d.RootDirectory.FullName;
+                var piBoot = System.IO.File.Exists(System.IO.Path.Combine(root, "config.txt")) && System.IO.File.Exists(System.IO.Path.Combine(root, "cmdline.txt"));
+                var ours = System.IO.Directory.Exists(System.IO.Path.Combine(root, Provisioning.FolderName));
+                var label = $"{root}  {d.VolumeLabel}  ({d.TotalSize / 1024.0 / 1024.0:0} MB)" +
+                            (ours ? " – BitaxeTuner-Image" : piBoot ? " – Raspberry Pi OS" : "");
+                drives.Add((new BootDrive(root, label), piBoot));
+            }
+            catch (System.IO.IOException) { /* Laufwerk nicht lesbar */ }
+        }
+        DriveBox.ItemsSource = drives.OrderByDescending(x => x.IsPiBoot).Select(x => x.Drive).ToList();
+        DriveBox.SelectedIndex = drives.Count > 0 ? 0 : -1;
+    }
+
+    private void RefreshDrives_Click(object sender, RoutedEventArgs e) => RefreshDrives();
+
+    private async void PreparePi_Click(object sender, RoutedEventArgs e)
+    {
+        if (_host is null) return;
+        if (DriveBox.SelectedItem is not BootDrive drive)
+        {
+            MessageBox.Show(this, "Keine SD-Karte gefunden. Karte einstecken und „Aktualisieren“ klicken.", "Raspberry Pi vorbereiten");
+            return;
+        }
+        if (!System.IO.File.Exists(System.IO.Path.Combine(drive.Root, "cmdline.txt")))
+        {
+            MessageBox.Show(this, $"{drive.Root} ist keine Boot-Partition eines Raspberry-Pi-Images (cmdline.txt fehlt).", "Raspberry Pi vorbereiten",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (PiPassword1.Password.Length < 10 || PiPassword1.Password != PiPassword2.Password)
+        {
+            MessageBox.Show(this, "Das Admin-Passwort braucht mindestens 10 Zeichen und beide Eingaben müssen übereinstimmen.", "Raspberry Pi vorbereiten",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var withData = PiIncludeData.IsChecked == true;
+        if (MessageBox.Show(this,
+                $"Einrichtungspaket nach {drive.Root}{Provisioning.FolderName} schreiben?\n\n" +
+                (withData ? $"Mitgegeben werden {_host.Config.Devices.Count} Gerät(e), Verlauf, Einstellungen, Steuerdaten und Ergebnisse (Kopie – lokal bleibt alles erhalten).\n" : "Ohne Daten – der Pi startet leer.\n") +
+                "Der Pi startet pausiert. Diese App fragt die Miner weiter ab, bis du auf „Server“ umschaltest.",
+                "Raspberry Pi vorbereiten", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+            return;
+
+        SetBusy(true);
+        try
+        {
+            Log($"Schreibe Einrichtungspaket nach {drive.Root} …");
+            _host.Config.Save();
+            var password = PiPassword1.Password;
+            var version = ViewModels.MainViewModel.CurrentVersion.ToString(3);
+            var token = await Task.Run(() => Provisioning.Write(drive.Root, password, withData ? _host.DataDirectory : null, withData ? _host.History : null, version));
+            PiPassword1.Clear();
+            PiPassword2.Clear();
+            _config.Server.Url = "http://bitaxetuner.local:8484/";
+            _config.Server.Token = token;
+            _config.Server.CertificateFingerprint = null;
+            _config.Save();
+            UrlBox.Text = _config.Server.Url;
+            TokenBox.Password = token;
+            Log("Einrichtungspaket geschrieben, Adresse und Token für die App gespeichert.");
+            MessageBox.Show(this,
+                "Fertig. SD-Karte sicher auswerfen, in den Pi stecken und starten (der erste Start dauert einige Minuten).\n\n" +
+                "Danach hier „Verbindung testen“ und „Nur umschalten“ – erst dann fragt der Pi die Miner ab.\n" +
+                "Wird bitaxetuner.local nicht gefunden, die IP-Adresse des Pi eintragen (Router-Übersicht).",
+                "Raspberry Pi vorbereiten", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.IO.InvalidDataException)
+        {
+            Log("Abgebrochen: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Raspberry Pi vorbereiten", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         finally { SetBusy(false); }
     }
 

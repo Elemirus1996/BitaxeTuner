@@ -64,7 +64,8 @@ public sealed class HubService : IHostedService, IDisposable
     }
 
     /// <summary>
-    /// Rechner-Neustart nur bei der Installation per install.sh/Pi-Image (systemd + Polkit-Regel für den Dienstbenutzer).
+    /// Rechner-Neustart nur bei der Installation per install.sh/Pi-Image: Der Dienst (ohne Root-Rechte) legt
+    /// &lt;Datenordner&gt;/reboot-request an, die systemd-Pfad-Unit „bitaxetuner-reboot.path“ startet daraufhin neu.
     /// Windows-Dienst, Docker und von Hand gestartete Server starten nur den Pico neu.
     /// </summary>
     private Func<Task>? DefaultReboot()
@@ -72,10 +73,9 @@ public sealed class HubService : IHostedService, IDisposable
         if (!OperatingSystem.IsLinux() || ServerUpdater.DetectKind() != InstallKind.LinuxPackage) return null;
         return async () =>
         {
-            _log.LogWarning("Neustart des Rechners (Taste 4 / Browser).");
+            _log.LogWarning("Neustart des Rechners angefordert (Taste 4 / Browser).");
             await Task.Delay(1500); // Protokoll und Antworten noch rausgeben
-            using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("systemctl", "reboot") { UseShellExecute = false });
-            p?.WaitForExit(10000);
+            await File.WriteAllTextAsync(Path.Combine(Settings.DataDirectory, "reboot-request"), DateTime.Now.ToString("O"));
         };
     }
 

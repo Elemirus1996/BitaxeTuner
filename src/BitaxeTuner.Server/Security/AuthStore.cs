@@ -39,7 +39,6 @@ public sealed class AuthData
 public sealed class AuthStore
 {
     public const int MinPasswordLength = 10;
-    private const int Iterations = 210_000;
     private const string TokenPrefix = "btk_";
 
     private readonly string _file;
@@ -169,29 +168,10 @@ public sealed class AuthStore
     public static string? ValidatePassword(string password) =>
         password.Length < MinPasswordLength ? $"Das Passwort braucht mindestens {MinPasswordLength} Zeichen." : null;
 
-    public static string HashPassword(string password)
-    {
-        var salt = RandomNumberGenerator.GetBytes(16);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(password), salt, Iterations, HashAlgorithmName.SHA256, 32);
-        return $"pbkdf2-sha256${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
-    }
+    // Gleiche Hashes wie das Einrichtungspaket der Desktop-App (Core/Transfer/Provisioning.cs)
+    public static string HashPassword(string password) => Core.Transfer.Secrets.HashPassword(password);
 
-    public static bool VerifyPassword(string password, string stored)
-    {
-        var parts = stored.Split('$');
-        if (parts.Length != 4 || parts[0] != "pbkdf2-sha256" || !int.TryParse(parts[1], out var iterations)) return false;
-        try
-        {
-            var salt = Convert.FromBase64String(parts[2]);
-            var expected = Convert.FromBase64String(parts[3]);
-            var actual = Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(password), salt, iterations, HashAlgorithmName.SHA256, expected.Length);
-            return CryptographicOperations.FixedTimeEquals(actual, expected);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
+    public static bool VerifyPassword(string password, string stored) => Core.Transfer.Secrets.VerifyPassword(password, stored);
 
     private static string NewSetupCode() =>
         string.Concat(Enumerable.Range(0, 3).Select(_ => RandomNumberGenerator.GetInt32(1000, 10000).ToString())).Insert(8, "-").Insert(4, "-");
@@ -199,10 +179,9 @@ public sealed class AuthStore
     private static bool FixedEquals(string a, string b) =>
         CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(a), Encoding.UTF8.GetBytes(b));
 
-    private static string Sha256(string s) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s))).ToLowerInvariant();
+    private static string Sha256(string s) => Core.Transfer.Secrets.TokenHash(s);
 
-    internal static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    internal static string Base64Url(byte[] bytes) => Core.Transfer.Secrets.Base64Url(bytes);
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 

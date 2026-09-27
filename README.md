@@ -102,6 +102,7 @@ dein PC an ist, installierst du den **BitaxeTuner-Server** auf einem Gerät, das
 
 | Gerät | Paket | Aufwand |
 |---|---|---|
+| Raspberry Pi 3/4/5, Zero 2 W – **fertiges SD-Image** | `BitaxeTuner-Server-x.y.z-raspios-arm64.img.xz` | Raspberry Pi Imager |
 | Raspberry Pi 3/4/5 (Pi OS 64-bit) | `BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` | 2 Befehle |
 | Raspberry Pi mit 32-bit-System | `…-linux-arm.tar.gz` | 2 Befehle |
 | Linux-PC / Mini-PC (x64) | `…-linux-x64.tar.gz` | 2 Befehle |
@@ -111,7 +112,21 @@ dein PC an ist, installierst du den **BitaxeTuner-Server** auf einem Gerät, das
 Der Server braucht wenig: ca. 100–150 MB RAM, kaum CPU; ein Pi 3B+ reicht. history.db schreibt höchstens einen
 Datensatz pro Minute und Miner (schont die SD-Karte).
 
-**Raspberry Pi / Linux**
+**Raspberry Pi – fertiges Image (am einfachsten)**
+
+1. `…-raspios-arm64.img.xz` mit dem **Raspberry Pi Imager** schreiben („Eigenes Image“); in den Einstellungen des
+   Imagers Hostname `bitaxetuner`, Benutzer, WLAN und SSH festlegen. Das Image ist Raspberry Pi OS Lite (64-bit) mit
+   vorinstalliertem Server.
+2. SD-Karte am PC lassen, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
+   Admin-Passwort festlegen, optional *Meine Daten mitgeben*. Die App legt ein Einrichtungspaket auf die Karte
+   (Passwort nur als Hash) und merkt sich Adresse und Token.
+3. Karte in den Pi, starten (erster Start 3–5 Minuten). Der Pi übernimmt das Paket, löscht es von der Karte und
+   startet **pausiert**. In der App *Verbindung testen* → *Nur umschalten* – erst dann fragt der Pi die Miner ab.
+
+Selbst bauen: `sudo deploy/pi-image/build-image.sh BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` (Linux/WSL; lädt das
+offizielle Image und prüft dessen SHA-256). Ersteinrichtungs-Protokoll auf dem Pi: `/var/log/bitaxetuner-firstboot.log`.
+
+**Raspberry Pi / Linux (Paket)**
 
 ```sh
 tar xzf BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz
@@ -132,6 +147,17 @@ Einrichtungs-Code mit `docker compose logs bitaxetuner`. Daten im Volume `/data`
 
 **Einrichten**: Im Browser `http://<IP>:8484/` öffnen, Einrichtungs-Code eingeben und ein Admin-Passwort festlegen.
 Danach unter *Einstellungen* Geräte, Push-Dienst usw. einrichten – oder die Daten vom PC übertragen (siehe unten).
+
+### Zusatzlüfter, E-Paper-Anzeige und Taster (Raspberry Pi Pico)
+
+Ein Raspberry Pi Pico (2) per USB am Server regelt bis zu sechs 4-Pin-PWM-Lüfter (5 V oder 12 V): je Miner einen
+VR-Lüfter (manuell oder automatisch nach VR-Temperatur) und eine Gehäuse-Gruppe (nach VR-, ASIC- oder
+Gehäusetemperatur über einen DS18B20). Optional zeigt ein 7,5"-E-Paper (rot/schwarz/weiß) die wichtigsten Werte,
+vier Taster schalten *Zusatzlüfter aus* / *Automatik* / *100 %* / *Neustart Pi + Pico* (3 s halten).
+Das Pico-Programm spielt der Server selbst auf. Sicherheit: Miner offline oder Daten älter als 30 s → 100 %;
+Pico ohne Befehl für 5 s → 100 %; ohne Pico läuft jeder Lüfter über die Schaltung mit voller Drehzahl.
+Einstellungen und Vorschau: Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
+gibt es als eigene Anleitung.
 
 ### Bedienung: Browser oder Desktop-App
 

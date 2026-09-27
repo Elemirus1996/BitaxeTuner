@@ -1,0 +1,15 @@
+[Unit]
+Description=BitaxeTuner: Einrichtung beim ersten Start
+Wants=network-online.target
+After=network-online.target
+Before=bitaxetuner.service
+ConditionPathExists=/opt/bitaxetuner/current/BitaxeTuner.Server
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bitaxetuner/bitaxetuner-firstboot.sh
+RemainAfterExit=yes
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target
