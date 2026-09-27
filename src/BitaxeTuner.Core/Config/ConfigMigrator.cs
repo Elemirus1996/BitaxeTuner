@@ -77,6 +77,8 @@ public static class ConfigMigrator
         {
             var relative = Path.GetRelativePath(dataDirectory, file);
             if (relative.StartsWith("backup-", StringComparison.OrdinalIgnoreCase)) continue;
+            // Tägliche Sicherungen nicht in jede Sicherung kopieren (würde sich vervielfachen)
+            if (relative.StartsWith("auto-backups", StringComparison.OrdinalIgnoreCase)) continue;
             var name = Path.GetFileName(file);
             // history.db samt WAL-Dateien wird unten konsistent über die Backup-API gesichert
             if (name.StartsWith("history.db", StringComparison.OrdinalIgnoreCase) && Path.GetDirectoryName(relative) is "" or null) continue;

@@ -32,6 +32,8 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 ReadWritePaths=/var/lib/bitaxetuner /opt/bitaxetuner
+# USB-Stick für Sicherungen (wird bei Bedarf eingebunden; fehlt der Ordner, wird die Zeile ignoriert)
+ReadWritePaths=-/media/bitaxetuner-usb
 
 [Install]
 WantedBy=multi-user.target

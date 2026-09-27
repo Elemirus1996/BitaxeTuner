@@ -30,6 +30,8 @@ public partial class ServerModeWindow : Window
         ToServerCard.Visibility = serverMode ? Visibility.Collapsed : Visibility.Visible;
         ToLocalCard.Visibility = serverMode ? Visibility.Visible : Visibility.Collapsed;
         PiCard.Visibility = serverMode ? Visibility.Collapsed : Visibility.Visible;
+        PickupCheck.IsChecked = config.Server.BackupPickup;
+        PickupFolder.Text = Core.Backup.BackupPickup.FolderOf(config.Server);
         if (!serverMode) RefreshDrives();
     }
 
@@ -208,6 +210,45 @@ public partial class ServerModeWindow : Window
             ServerTransfer.Restart();
         }
         catch (ServerException ex) { MessageBox.Show(this, ex.Message, "Umschalten", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally { SetBusy(false); }
+    }
+
+    // ---------- Sicherung vom Server holen ----------
+
+    private void Pickup_Changed(object sender, RoutedEventArgs e)
+    {
+        _config.Server.BackupPickup = PickupCheck.IsChecked == true;
+        var folder = PickupFolder.Text.Trim();
+        _config.Server.BackupFolder = folder == Core.Backup.BackupPickup.DefaultFolder ? "" : folder;
+        _config.Save();
+    }
+
+    private void PickupBrowse_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Ordner für Sicherungen vom Server", InitialDirectory = PickupFolder.Text };
+        if (dlg.ShowDialog(this) != true) return;
+        PickupFolder.Text = dlg.FolderName;
+        Pickup_Changed(sender, e);
+    }
+
+    private async void PickupNow_Click(object sender, RoutedEventArgs e)
+    {
+        Pickup_Changed(sender, e);
+        SetBusy(true);
+        try
+        {
+            var conn = await ConnectAsync();
+            if (conn is not { } c) return;
+            using var client = c.Client;
+            Log("Hole Sicherung vom Server …");
+            var name = await Core.Backup.BackupPickup.RunAsync(client, Core.Backup.BackupPickup.FolderOf(_config.Server), Math.Clamp(_config.Server.BackupKeep, 1, 365), DateTime.Now);
+            Log($"Sicherung geprüft und abgelegt: {System.IO.Path.Combine(Core.Backup.BackupPickup.FolderOf(_config.Server), name)}");
+        }
+        catch (Exception ex) when (ex is ServerException or System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException)
+        {
+            Log("Sicherung fehlgeschlagen: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Sicherung", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         finally { SetBusy(false); }
     }
 

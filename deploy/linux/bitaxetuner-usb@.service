@@ -1,0 +1,10 @@
+[Unit]
+Description=BitaxeTuner: USB-Stick %I für Sicherungen einbinden
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/bitaxetuner/usb-mount add %I
+ExecStop=/usr/local/lib/bitaxetuner/usb-mount remove %I

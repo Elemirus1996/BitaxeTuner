@@ -94,6 +94,9 @@ public sealed class AppConfig
     /// <summary>E-Paper-Anzeige und Taster am Pico.</summary>
     public DisplaySettings Display { get; set; } = new();
 
+    /// <summary>Tägliche Sicherung (Datenordner, Ordner/USB, Netzlaufwerk).</summary>
+    public BackupSettings Backup { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }
@@ -477,4 +480,11 @@ public sealed class ServerConnectionSettings
     public string Token { get; set; } = "";
     /// <summary>SHA-256-Fingerabdruck des selbst signierten HTTPS-Zertifikats (bestätigt beim Verbinden).</summary>
     public string? CertificateFingerprint { get; set; }
+
+    /// <summary>Täglich eine geprüfte Sicherung vom Server auf diesen PC holen.</summary>
+    public bool BackupPickup { get; set; }
+    /// <summary>Zielordner (leer = Dokumente\BitaxeTuner-Sicherungen).</summary>
+    public string BackupFolder { get; set; } = "";
+    public int BackupKeep { get; set; } = 14;
+    public string? BackupLastPickup { get; set; }
 }

@@ -165,6 +165,22 @@ wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellunge
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
 gibt es als eigene Anleitung.
 
+### Sicherung
+
+Einmal täglich (Standard ab 3 Uhr) sichert BitaxeTuner Einstellungen, Verlauf (history.db), Steuerdaten,
+Benchmark-Ergebnisse und Miner-Sicherungen als geprüftes Archiv (SHA-256 je Datei, integrity_check, vor dem Ablegen
+einmal vollständig entpackt und geprüft). Ziele unter *Einstellungen → Sicherung* (Browser):
+
+- **Datenordner** (`auto-backups`, immer; Standard: die letzten 7),
+- **Ordner oder USB-Stick** – am Pi wird ein eingesteckter Stick (FAT32, exFAT, ext4) automatisch unter
+  `/media/bitaxetuner-usb` eingebunden; auf einem bereits eingerichteten Pi einmalig
+  `sudo sh /opt/bitaxetuner/current/install.sh --system` ausführen,
+- **Netzlaufwerk/NAS** (SMB, ohne Einbinden ins System; Passwort getrennt in `secrets.json`, nie in Sicherungen),
+- **PC holt ab**: Die Desktop-App im Modus „Server“ holt täglich eine geprüfte Sicherung in einen Ordner auf dem PC
+  (*Betriebsart …*).
+
+Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen als Push-Meldung.
+
 ### Bedienung: Browser oder Desktop-App
 
 - **Browser** (PC, Handy, Tablet): Übersicht, Vergleich, je Miner Live-Werte und Verlauf mit Tuning-Markierungen,

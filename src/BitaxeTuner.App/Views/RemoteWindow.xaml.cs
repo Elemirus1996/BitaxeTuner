@@ -20,6 +20,9 @@ public partial class RemoteWindow : Window
 {
     private readonly AppConfig _config;
     private readonly DispatcherTimer _retry = new() { Interval = TimeSpan.FromSeconds(30) };
+    /// <summary>Tägliche Sicherung vom Server holen: 2 min nach dem Start, danach halbstündlich prüfen.</summary>
+    private readonly DispatcherTimer _pickup = new() { Interval = TimeSpan.FromMinutes(2) };
+    private bool _pickupBusy;
     private readonly System.Net.Http.HttpClient _updateHttp = new() { Timeout = TimeSpan.FromMinutes(10) };
     private UpdateInfo? _update;
     private bool _webReady;
@@ -31,12 +34,44 @@ public partial class RemoteWindow : Window
         ServerText.Text = config.Server.Url;
         VersionText.Text = "App v" + MainViewModel.CurrentVersion.ToString(3);
         _retry.Tick += async (_, _) => await ConnectAsync();
+        _pickup.Tick += async (_, _) =>
+        {
+            _pickup.Interval = TimeSpan.FromMinutes(30);
+            await PickupBackupAsync();
+        };
+        _pickup.Start();
         Loaded += async (_, _) =>
         {
             await ConnectAsync();
             await CheckUpdateAsync();
         };
-        Closed += (_, _) => { _retry.Stop(); _updateHttp.Dispose(); };
+        Closed += (_, _) => { _retry.Stop(); _pickup.Stop(); _updateHttp.Dispose(); };
+    }
+
+    /// <summary>Einmal täglich eine geprüfte Sicherung des Servers auf diesen PC holen (Einstellung unter Betriebsart).</summary>
+    private async Task PickupBackupAsync()
+    {
+        var s = _config.Server;
+        if (_pickupBusy || !Core.Backup.BackupPickup.IsDue(s, DateTime.Now)) return;
+        _pickupBusy = true;
+        try
+        {
+            using var client = new ServerClient(s.Url, s.Token, s.CertificateFingerprint);
+            var name = await Core.Backup.BackupPickup.RunAsync(client, Core.Backup.BackupPickup.FolderOf(s), Math.Clamp(s.BackupKeep, 1, 365), DateTime.Now);
+            s.BackupLastPickup = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            _config.Save();
+            BackupText.Text = $"· Sicherung {DateTime.Now:HH:mm} ✓";
+            BackupText.ToolTip = Path.Combine(Core.Backup.BackupPickup.FolderOf(s), name);
+        }
+        catch (Exception ex) when (ex is ServerException or IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            BackupText.Text = "· Sicherung fehlgeschlagen";
+            BackupText.ToolTip = ex.Message;
+        }
+        finally
+        {
+            _pickupBusy = false;
+        }
     }
 
     private async Task ConnectAsync()

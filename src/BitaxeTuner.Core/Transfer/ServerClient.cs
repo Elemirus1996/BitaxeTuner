@@ -42,6 +42,14 @@ public sealed class ServerClient : IDisposable
         if (!string.IsNullOrWhiteSpace(token)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
     }
 
+    /// <summary>Für Tests: eigener HTTP-Handler (z. B. In-Memory-Testserver).</summary>
+    internal ServerClient(HttpClient http, string token)
+    {
+        _http = http;
+        BaseUri = http.BaseAddress ?? new Uri("http://localhost/");
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
     public Uri BaseUri { get; }
 
     /// <summary>Fingerabdruck des zuletzt vorgelegten Zertifikats (zum Bestätigen beim ersten Verbinden).</summary>

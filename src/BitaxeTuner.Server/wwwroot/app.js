@@ -944,6 +944,7 @@ async function renderSettings() {
             renderSettings();
           },
         }, 'Token erzeugen'))),
+    backupCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, 'Admin-Passwort ändern'),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Aktuell'), curPw), h('div', {}, h('label', {}, 'Neu (mind. 10 Zeichen)'), newPw),
@@ -1196,6 +1197,80 @@ function fanEditor(data) {
     h('div', { class: 'card stack' }, h('h2', {}, 'Temperaturfühler'), sensorBox),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, 'Speichern')),
     h('p', { class: 'muted small' }, 'Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.'));
+}
+
+/** Tägliche Sicherung: Datenordner (immer), Ordner/USB-Stick, Netzlaufwerk; Status, Jetzt sichern, Download. */
+function backupCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Lade …'));
+  const mb = b => `${n(b / 1024 / 1024, 1)} MB`;
+  const load = async () => {
+    const d = await api('/backup').catch(e => { body.replaceChildren(h('p', { class: 'danger' }, e.message)); return null; });
+    if (!d) return;
+    const s = d.settings, u = d.usb;
+    const smbPw = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.smbPasswordSet ? 'gespeichert – leer lassen = unverändert' : 'Passwort' });
+    const text = (obj, key, ph = '') => h('input', { value: obj[key] ?? '', placeholder: ph, oninput: e => { obj[key] = e.target.value; } });
+    const st = d.status;
+    const statusBox = h('div', { class: 'stack small' },
+      st.lastRun
+        ? h('p', { class: st.lastOk ? 'ok' : 'danger' }, `Letzte Sicherung: ${time(st.lastRun)}${st.lastOk ? '' : ' – mit Fehlern'}${st.running ? ' · läuft gerade …' : ''}`)
+        : h('p', { class: 'muted' }, 'Noch keine Sicherung erstellt.'),
+      (st.targets || []).map(t => h('div', { class: t.ok ? '' : 'danger' }, `${t.ok ? '✓' : '✗'} ${t.target}: ${t.message}`)));
+    const save = async () => {
+      const r = await run(() => api('/backup', { method: 'PUT', body: { settings: s, smbPassword: smbPw.value || null, clearSmbPassword: false } }), 'Sicherungs-Einstellungen gespeichert.');
+      if (r) load();
+    };
+    const test = async target => {
+      const r = await run(() => api('/backup/test', { method: 'POST', body: { target } }));
+      if (r) toast(r.message, r.ok ? 'ok' : 'error', 10000);
+    };
+    const usbInfo = !u.available ? null
+      : !u.ruleInstalled
+        ? h('p', { class: 'warn small' }, 'USB-Stick: die automatische Einbindung ist auf diesem Pi noch nicht eingerichtet. Einmalig per SSH ausführen: ', h('code', {}, u.setupCommand))
+        : h('p', { class: `small ${u.mounted ? 'ok' : 'muted'}` }, u.mounted ? 'USB-Stick erkannt und eingebunden.' : 'Kein USB-Stick eingesteckt (FAT32, exFAT oder ext4).');
+    body.replaceChildren(
+      h('p', { class: 'muted small' }, 'Einmal täglich: Einstellungen, Verlauf (history.db), Steuerdaten, Benchmark-Ergebnisse und Sicherungen der Miner-Einstellungen als geprüftes Archiv (SHA-256, integrity_check). Passwörter werden nie mitgesichert.'),
+      checkInput(s, 'enabled', 'Tägliche Sicherung'),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'ab Uhrzeit (Stunde)'), numInput(s, 'hour')),
+        h('div', {}, h('label', {}, 'im Datenordner behalten'), numInput(s, 'localKeep')),
+        h('div', {}, h('label', {}, 'auf Ordner/USB/NAS behalten'), numInput(s, 'keep'))),
+      h('h3', {}, 'Ordner oder USB-Stick'),
+      checkInput(s.folder, 'enabled', 'Zusätzlich in einen Ordner sichern'),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Zielordner (vollständiger Pfad)'), text(s.folder, 'path', u.available ? u.folder : 'D:\\Sicherungen\\BitaxeTuner'))),
+      u.available ? h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { s.folder.enabled = true; s.folder.path = u.folder; save(); } }, 'USB-Stick am Pi verwenden')) : null,
+      usbInfo,
+      h('h3', {}, 'Netzlaufwerk / NAS (SMB)'),
+      checkInput(s.smb, 'enabled', 'Zusätzlich auf eine Freigabe sichern'),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'Server (Name oder IP)'), text(s.smb, 'server', 'nas oder 192.168.1.10')),
+        h('div', {}, h('label', {}, 'Freigabe'), text(s.smb, 'share', 'backup')),
+        h('div', {}, h('label', {}, 'Unterordner'), text(s.smb, 'folder', 'BitaxeTuner')),
+        h('div', {}, h('label', {}, 'Benutzer'), text(s.smb, 'user')),
+        h('div', {}, h('label', {}, 'Passwort'), smbPw),
+        h('div', {}, h('label', {}, 'Domäne (meist leer)'), text(s.smb, 'domain'))),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: save }, 'Speichern'),
+        h('button', { class: 'btn', onclick: () => test('folder') }, 'Ordner testen'),
+        h('button', { class: 'btn', onclick: () => test('smb') }, 'Netzlaufwerk testen'),
+        h('button', {
+          class: 'btn', onclick: async () => {
+            toast('Sicherung läuft …', 'info');
+            const r = await run(() => api('/backup/run', { method: 'POST', body: {} }));
+            if (r) { toast(r.lastOk ? 'Sicherung erstellt.' : 'Sicherung mit Fehlern – siehe Status.', r.lastOk ? 'ok' : 'error'); load(); }
+          },
+        }, 'Jetzt sichern')),
+      h('h3', {}, 'Status'),
+      statusBox,
+      d.files.length
+        ? h('div', { class: 'table-wrap' }, h('table', {},
+            h('thead', {}, h('tr', {}, ['Sicherung im Datenordner', 'Größe', ''].map(x => h('th', {}, x)))),
+            h('tbody', {}, d.files.map(f => h('tr', {},
+              h('td', { class: 'mono small' }, f.name), h('td', { class: 'num' }, mb(f.size)),
+              h('td', {}, h('a', { class: 'btn small', href: `/api/v1/backup/files/${encodeURIComponent(f.name)}`, download: f.name }, 'Herunterladen')))))))
+        : null);
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, 'Sicherung'), body);
 }
 
 /** Server-Update: prüfen, Hinweise je Installationsart, Installation per Klick (Pi/Linux-Paket, Windows-Dienst). */

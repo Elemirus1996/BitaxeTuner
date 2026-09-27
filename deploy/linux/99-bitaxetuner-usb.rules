@@ -1,0 +1,2 @@
+# BitaxeTuner: USB-Stick für Sicherungen automatisch einbinden (erste Partition mit FAT32, exFAT oder ext4)
+ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}=="vfat|exfat|ext4", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bitaxetuner-usb@%k.service"

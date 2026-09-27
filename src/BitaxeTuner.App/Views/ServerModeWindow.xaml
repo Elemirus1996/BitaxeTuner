@@ -62,6 +62,13 @@
                             <Button Content="Server-Oberfläche im Browser" Click="OpenBrowser_Click" Style="{StaticResource LinkButton}" Margin="12,4,0,0"/>
                         </StackPanel>
                         <TextBlock x:Name="ConnectionText" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+                        <CheckBox x:Name="PickupCheck" Margin="0,6,0,6" Click="Pickup_Changed"
+                                  Content="Im Modus „Server“ täglich eine geprüfte Sicherung vom Server auf diesen PC holen"/>
+                        <DockPanel Margin="0,0,0,4">
+                            <Button DockPanel.Dock="Right" Content="Jetzt holen" Click="PickupNow_Click" Margin="6,0,0,0" Padding="10,4"/>
+                            <Button DockPanel.Dock="Right" Content="…" Click="PickupBrowse_Click" Margin="6,0,0,0" Padding="10,4" ToolTip="Ordner wählen"/>
+                            <TextBox x:Name="PickupFolder" LostFocus="Pickup_Changed" ToolTip="Zielordner für die Sicherungen (die letzten 14 bleiben)"/>
+                        </DockPanel>
                     </StackPanel>
                 </Border>
 

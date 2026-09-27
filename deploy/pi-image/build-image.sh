@@ -68,14 +68,18 @@ echo "== BitaxeTuner-Server installieren =="
 R="$WORK/root"
 install -d "$R/opt/bitaxetuner/versions/$VERSION" "$R/var/lib/bitaxetuner"
 for f in "$SRC"/*; do
-    case "$(basename "$f")" in install.sh|bitaxetuner*.service|bitaxetuner*.path|bitaxetuner-firstboot.sh|LIESMICH.txt) ;; *) cp -a "$f" "$R/opt/bitaxetuner/versions/$VERSION/" ;; esac
+    case "$(basename "$f")" in LIESMICH.txt) ;; *) cp -a "$f" "$R/opt/bitaxetuner/versions/$VERSION/" ;; esac
 done
 chmod 755 "$R/opt/bitaxetuner/versions/$VERSION/BitaxeTuner.Server"
 ln -sfn "/opt/bitaxetuner/versions/$VERSION" "$R/opt/bitaxetuner/current"
 install -m 755 "$SRC/bitaxetuner-firstboot.sh" "$R/opt/bitaxetuner/bitaxetuner-firstboot.sh"
-for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service; do
+for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service bitaxetuner-usb@.service; do
     install -m 644 "$SRC/$u" "$R/etc/systemd/system/$u"
 done
+# USB-Stick für Sicherungen
+install -d -m 755 "$R/usr/local/lib/bitaxetuner" "$R/media/bitaxetuner-usb"
+install -m 755 "$SRC/bitaxetuner-usb-mount.sh" "$R/usr/local/lib/bitaxetuner/usb-mount"
+install -m 644 "$SRC/99-bitaxetuner-usb.rules" "$R/etc/udev/rules.d/99-bitaxetuner-usb.rules"
 # Dienste aktivieren (wie "systemctl enable", ohne das Zielsystem zu starten)
 install -d "$R/etc/systemd/system/multi-user.target.wants"
 for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-firstboot.service; do

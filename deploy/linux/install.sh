@@ -9,6 +9,8 @@
 # Daten:     /var/lib/bitaxetuner                 (bleiben bei Update und Deinstallation erhalten)
 # Dienst:    bitaxetuner.service                  (startet automatisch, Neustart bei Absturz)
 # Entfernen: sudo ./install.sh --uninstall        (Daten bleiben; löschen mit --purge)
+# System:    sudo sh /opt/bitaxetuner/current/install.sh --system
+#            (nur Dienste, Neustart-Funktion und USB-Sicherung neu einrichten, z. B. nach einem Update per Oberfläche)
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -20,10 +22,39 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=/opt/bitaxetuner
 DATA=/var/lib/bitaxetuner
 UNIT=/etc/systemd/system/bitaxetuner.service
+USB_RULE=/etc/udev/rules.d/99-bitaxetuner-usb.rules
+USB_HELPER=/usr/local/lib/bitaxetuner/usb-mount
+
+# Dienste, Neustart per Taste/Browser und USB-Stick für Sicherungen (alles root-eigene Dateien)
+install_system() {
+    install -m 644 "$HERE/bitaxetuner.service" "$UNIT"
+    # Neustart per Taste 4 / Browser: der Dienst legt eine Anforderungsdatei ab, diese Pfad-Unit (root) startet neu
+    install -m 644 "$HERE/bitaxetuner-reboot.path" /etc/systemd/system/bitaxetuner-reboot.path
+    install -m 644 "$HERE/bitaxetuner-reboot.service" /etc/systemd/system/bitaxetuner-reboot.service
+    # USB-Stick: udev-Regel startet bitaxetuner-usb@<gerät>, das Skript liegt root-eigen außerhalb von /opt
+    install -d -m 755 /usr/local/lib/bitaxetuner /media/bitaxetuner-usb
+    install -m 755 "$HERE/bitaxetuner-usb-mount.sh" "$USB_HELPER"
+    install -m 644 "$HERE/bitaxetuner-usb@.service" /etc/systemd/system/bitaxetuner-usb@.service
+    install -m 644 "$HERE/99-bitaxetuner-usb.rules" "$USB_RULE"
+    rm -f "$DATA/reboot-request"
+    systemctl daemon-reload
+    udevadm control --reload-rules 2>/dev/null || true
+    systemctl enable bitaxetuner bitaxetuner-reboot.path >/dev/null
+    systemctl restart bitaxetuner-reboot.path
+}
+
+if [ "${1:-}" = "--system" ]; then
+    install_system
+    systemctl restart bitaxetuner
+    echo "Systemdateien eingerichtet (Dienst, Neustart-Funktion, USB-Sicherung)."
+    exit 0
+fi
 
 if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "--purge" ]; then
     systemctl disable --now bitaxetuner bitaxetuner-reboot.path 2>/dev/null || true
-    rm -f "$UNIT" /etc/systemd/system/bitaxetuner-reboot.path /etc/systemd/system/bitaxetuner-reboot.service
+    umount -l /media/bitaxetuner-usb 2>/dev/null || true
+    rm -f "$UNIT" /etc/systemd/system/bitaxetuner-reboot.path /etc/systemd/system/bitaxetuner-reboot.service \
+          /etc/systemd/system/bitaxetuner-usb@.service "$USB_RULE" "$USB_HELPER"
     systemctl daemon-reload
     rm -rf "$ROOT"
     if [ "$1" = "--purge" ]; then
@@ -56,7 +87,8 @@ TARGET="$ROOT/versions/$VERSION"
 rm -rf "$TARGET.new"
 mkdir -p "$TARGET.new"
 for f in "$HERE"/*; do
-    case "$(basename "$f")" in install.sh|bitaxetuner*.service|bitaxetuner*.path|bitaxetuner-firstboot.sh|LIESMICH.txt) ;; *) cp -a "$f" "$TARGET.new/" ;; esac
+    # alles, auch install.sh und die Systemdateien (für „install.sh --system“ nach einem Update)
+    case "$(basename "$f")" in LIESMICH.txt) ;; *) cp -a "$f" "$TARGET.new/" ;; esac
 done
 chmod 755 "$TARGET.new/BitaxeTuner.Server"
 rm -rf "$TARGET"
@@ -69,14 +101,7 @@ mv -T "$ROOT/current.tmp" "$ROOT/current"
 chown -R bitaxetuner:bitaxetuner "$ROOT" "$DATA"
 chmod 750 "$DATA"
 
-install -m 644 "$HERE/bitaxetuner.service" "$UNIT"
-# Neustart per Taste 4 / Browser: der Dienst legt eine Anforderungsdatei ab, diese Pfad-Unit (root) startet neu
-install -m 644 "$HERE/bitaxetuner-reboot.path" /etc/systemd/system/bitaxetuner-reboot.path
-install -m 644 "$HERE/bitaxetuner-reboot.service" /etc/systemd/system/bitaxetuner-reboot.service
-rm -f "$DATA/reboot-request"
-systemctl daemon-reload
-systemctl enable bitaxetuner bitaxetuner-reboot.path >/dev/null
-systemctl restart bitaxetuner-reboot.path
+install_system
 systemctl restart bitaxetuner
 
 PORT=8484

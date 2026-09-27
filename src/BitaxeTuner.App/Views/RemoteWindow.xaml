@@ -18,6 +18,7 @@
                     <TextBlock Text="Betriebsart: Server" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <TextBlock x:Name="ServerText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <TextBlock x:Name="VersionText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="BackupText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <Button x:Name="UpdateButton" Click="Update_Click" Style="{StaticResource PrimaryButton}" Margin="14,0,0,0" Padding="10,2" Visibility="Collapsed" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

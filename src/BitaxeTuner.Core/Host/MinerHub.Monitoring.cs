@@ -137,6 +137,7 @@ public sealed partial class MinerHub
         CheckHealth();
         CheckPools(now);
         CheckDailyReport(now);
+        CheckBackup(now);
         CheckBestDiffs();
         RunWatchdog();
         _ = RefreshFirmwareAsync();
