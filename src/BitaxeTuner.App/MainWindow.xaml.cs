@@ -130,6 +130,26 @@ public partial class MainWindow : Window
     private void OnModeClick(object sender, RoutedEventArgs e) =>
         new ServerModeWindow(Vm.Host.Config, Vm.Host) { Owner = this }.ShowDialog();
 
+    /// <summary>Rechtliche Hinweise nach GPL-3.0 §5(d): Copyright, keine Gewähr, Lizenz, Quelltext.</summary>
+    private void OnLicenseClick(object sender, RoutedEventArgs e)
+    {
+        var dir = AppContext.BaseDirectory;
+        var notices = System.IO.Path.Combine(dir, "THIRD-PARTY-NOTICES.txt");
+        var text = $"BitaxeTuner {ViewModels.MainViewModel.CurrentVersion.ToString(3)}\n" +
+                   "Copyright © 2026 BitaxeTuner contributors\n\n" +
+                   "Dieses Programm ist freie Software: Du kannst es unter den Bedingungen der GNU General Public License v3.0 " +
+                   "weitergeben und/oder verändern.\n\n" +
+                   "Es wird OHNE JEDE GEWÄHR bereitgestellt, auch ohne die Gewähr der Marktreife oder der Eignung für einen " +
+                   "bestimmten Zweck. Übertakten geschieht auf eigenes Risiko.\n\n" +
+                   "Quelltext: https://github.com/Elemirus1996/BitaxeTuner\n" +
+                   "Lizenztext: LICENSE.txt · Enthaltene Komponenten anderer Urheber: THIRD-PARTY-NOTICES.txt (im Programmordner)\n\n" +
+                   "Hinweise zu den enthaltenen Komponenten jetzt öffnen?";
+        if (MessageBox.Show(this, text, "Lizenz", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes) return;
+        var target = System.IO.File.Exists(notices) ? notices : "https://github.com/Elemirus1996/BitaxeTuner/blob/main/THIRD-PARTY-NOTICES.txt";
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Lizenz"); }
+    }
+
     private void OnSoakBatchClick(object sender, RoutedEventArgs e) =>
         new SoakBatchWindow(Vm.Host) { Owner = this }.ShowDialog();
 

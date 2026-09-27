@@ -1007,7 +1007,10 @@ async function renderSettings() {
     h('div', { class: 'card stack' }, h('h2', {}, 'Admin-Passwort ändern'),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Aktuell'), curPw), h('div', {}, h('label', {}, 'Neu (mind. 10 Zeichen)'), newPw),
         h('button', { class: 'btn', onclick: async () => { if (await run(() => api('/password', { method: 'POST', body: { current: curPw.value, password: newPw.value } }), 'Passwort geändert – bitte neu anmelden.')) { S.role = 'None'; stopEvents(); renderLogin(); } } }, 'Ändern'))),
-    h('p', { class: 'muted small' }, `Server ${S.info.version} · ${S.info.os}`)));
+    h('p', { class: 'muted small' }, `Server ${S.info.version} · ${S.info.os}`),
+    h('p', { class: 'muted small' }, 'BitaxeTuner – Copyright © 2026 BitaxeTuner contributors. Freie Software unter der GNU GPL v3.0, ',
+      h('b', {}, 'ohne jede Gewähr'), '. Quelltext, Lizenz und Hinweise zu enthaltenen Komponenten: ',
+      h('a', { href: 'https://github.com/Elemirus1996/BitaxeTuner', target: '_blank', rel: 'noopener' }, 'github.com/Elemirus1996/BitaxeTuner'), '.')));
 }
 
 // ---------- Zusatzlüfter (Pico) ----------

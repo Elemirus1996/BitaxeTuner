@@ -22,7 +22,8 @@
                         <TextBlock Text="₿" Foreground="White" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Text="BitaxeTuner" Foreground="White" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding VersionText}" Foreground="#9CA3AF" Margin="8,4,0,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding VersionText}" Foreground="#9CA3AF" Margin="8,4,0,0" VerticalAlignment="Center"
+                               ToolTip="Copyright © 2026 BitaxeTuner contributors · Freie Software unter der GNU GPL v3.0, ohne jede Gewähr · Quelltext, Lizenz (LICENSE.txt) und Drittanbieter-Hinweise (THIRD-PARTY-NOTICES.txt) im Programmordner und auf github.com/Elemirus1996/BitaxeTuner" />
                     <Button Content="{Binding UpdateText}" Command="{Binding InstallUpdateCommand}" Style="{StaticResource PrimaryButton}"
                             Margin="14,0,6,0" Padding="10,3" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}}" />
@@ -42,6 +43,7 @@
                     <Button Content="Profile bearbeiten" Command="{Binding EditProfilesCommand}" />
                     <Button Content="Datenordner öffnen" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
                     <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />
+                    <Button Content="Lizenz" Click="OnLicenseClick" ToolTip="Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten" />
                     <Button Content="■ Alle stoppen" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="0" />
                 </StackPanel>
             </DockPanel>
