@@ -477,14 +477,134 @@ public class CaseSensorTests
         Assert.Equal(s.Case.UnknownPercent, c.Compute(s, [], now)[3].Percent);
     }
 
+    private const string Psu = "28ff641e0f16044a", Room = "28aa11b2c3d4e5f6";
+
     [Fact]
-    public async Task Pico_reports_case_temperatures_with_the_rpm_line()
+    public async Task Pico_reports_each_sensor_with_its_rom_id()
     {
         var pico = new FakePico { ProgramRunning = true };
         using var device = PicoFanDevice.Connect(pico, "COM5");
-        pico.NextRpmLine = "RPM 1000 0 0 0 0 0 T 31.5 29.25";
+        pico.NextRpmLine = $"RPM 1000 0 0 0 0 0 T {Psu}=31.5 {Room.ToUpperInvariant()}=29.25";
         var rpm = await device.ExchangeAsync([50, 50, 50, 50, 50, 50]);
         Assert.Equal(1000, rpm[0]);
-        Assert.Equal([31.5, 29.25], device.Temperatures);
+        Assert.Equal([new TempReading(Psu, 31.5), new TempReading(Room, 29.25)], device.Temperatures);
+    }
+
+    [Fact]
+    public void Old_firmware_format_is_still_understood()
+    {
+        Assert.Equal([new TempReading("#1", 31.5), new TempReading("#2", 29.25)], PicoFanDevice.ParseTemperatures("31.5 29.25"));
+        Assert.Empty(PicoFanDevice.ParseTemperatures("x=abc 85x"));
+    }
+
+    private static (MinerHub Hub, SimulatedFanDevice Sim, List<string> Sent, Func<DateTime> Now, Action<int> Advance, TempDir Dir) Hub(Action<AppConfig>? edit = null)
+    {
+        var dir = new TempDir();
+        var sim = new SimulatedFanDevice();
+        var now = DateTime.Now;
+        var config = new AppConfig { Notifications = { Provider = "ntfy", NtfyTopic = "t" } };
+        config.Fans.Enabled = true;
+        config.Fans.Channel(4).Role = "case";
+        config.Fans.Case.Sensor = "case";
+        edit?.Invoke(config);
+        config.Save(Path.Combine(dir.Path, "config.json"));
+        var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = dir.Path,
+            OnlineChecks = false,
+            FanDeviceFactory = _ => sim,
+            Clock = () => now,
+        });
+        var sent = new List<string>();
+        hub.Notify.TransportOverride = (_, _, _) => Task.CompletedTask;
+        hub.Notify.Sending += (key, _, _, _) => sent.Add(key);
+        return (hub, sim, sent, () => now, s => now = now.AddSeconds(s), dir);
+    }
+
+    [Fact]
+    public async Task New_sensors_are_registered_named_and_warn_individually()
+    {
+        var (hub, sim, sent, _, advance, dir) = Hub(c => c.Fans.CaseTempWarn = 50);
+        using var _d = dir;
+        using var _h = hub;
+        sim.Sensors.Add(new TempReading(Psu, 38));
+        sim.Sensors.Add(new TempReading(Room, 30));
+        await hub.FanTickAsync();   // Verbindung, erste Messung
+        advance(2);
+        await hub.FanTickAsync();
+
+        Assert.Equal([Psu, Room], hub.Config.Fans.Sensors.Select(s => s.Id));
+        Assert.Equal(["Fühler 1", "Fühler 2"], hub.Config.Fans.Sensors.Select(s => s.Name));
+        Assert.All(hub.Config.Fans.Sensors, s => Assert.Equal(50, s.WarnTemp));
+        // dauerhaft gespeichert
+        Assert.Equal(2, AppConfig.Load(Path.Combine(dir.Path, "config.json")).Fans.Sensors.Count);
+
+        hub.Config.Fans.Sensors[0].Name = "Netzteil";
+        hub.Config.Fans.Sensors[0].WarnTemp = 45;
+        hub.Config.Fans.Sensors[1].Name = "Miner-Raum";
+        hub.Config.Fans.Sensors[1].WarnTemp = 35;
+        sim.Sensors[0] = new TempReading(Psu, 46.5);                   // nur das Netzteil ist zu warm
+        advance(2);
+        await hub.FanTickAsync();
+
+        var psu = hub.FanStatus.Sensors!.Single(s => s.Id == Psu);
+        var room = hub.FanStatus.Sensors!.Single(s => s.Id == Room);
+        Assert.True(psu.Hot);
+        Assert.False(room.Hot);
+        Assert.Contains($"temp-hot:{Psu}", sent);
+        Assert.DoesNotContain($"temp-hot:{Room}", sent);
+        Assert.Equal(46.5, hub.FanStatus.CaseTemp);
+
+        var model = hub.BuildDisplayModel(DateTime.Now);
+        Assert.Equal(["Netzteil", "Miner-Raum"], model.Temps!.Select(t => t.Name));
+        Assert.Contains(model.Alerts, a => a.StartsWith("Netzteil 46,5"));
+    }
+
+    [Fact]
+    public async Task Case_fans_follow_only_selected_sensors_and_go_safe_when_one_is_missing()
+    {
+        var (hub, sim, sent, _, advance, dir) = Hub(c =>
+        {
+            c.Fans.Case.Curve = new FanCurve { StartTemp = 30, StartPercent = 30, FullTemp = 50, MinPercent = 20, Hysteresis = 0 };
+            c.Fans.Sensors.Add(new TempSensorSettings { Id = Psu, Name = "Netzteil", WarnTemp = 60, CaseFans = false });
+            c.Fans.Sensors.Add(new TempSensorSettings { Id = Room, Name = "Miner-Raum", WarnTemp = 45 });
+        });
+        using var _d = dir;
+        using var _h = hub;
+        sim.Sensors.Add(new TempReading(Psu, 48));    // wärmer, zählt aber nicht für die Gehäuselüfter
+        sim.Sensors.Add(new TempReading(Room, 36));
+        await hub.FanTickAsync();
+        advance(2);
+        await hub.FanTickAsync();
+        Assert.Equal(FanController.Evaluate(hub.Config.Fans.Case.Curve, 36), sim.LastPercent[3]);
+
+        // Raum-Fühler fällt aus → Gehäuselüfter auf „unbekannt“ (100 %), nach 2 Minuten Meldung
+        sim.Sensors.RemoveAt(1);
+        advance(40);
+        await hub.FanTickAsync();
+        Assert.Null(hub.FanStatus.Sensors!.Single(s => s.Id == Room).Temp);
+        Assert.Equal(hub.Config.Fans.Case.UnknownPercent, sim.LastPercent[3]);
+        Assert.DoesNotContain($"temp-missing:{Room}", sent);
+        advance(120);
+        await hub.FanTickAsync();
+        Assert.Contains($"temp-missing:{Room}", sent);
+        Assert.Contains(hub.BuildDisplayModel(DateTime.Now).Alerts, a => a == "Fühler Miner-Raum fehlt");
+    }
+
+    [Fact]
+    public void Sensor_names_are_validated_by_the_api()
+    {
+        var f = new FanSettings();
+        f.Sensors.Add(new TempSensorSettings { Id = " 28FF641E0F16044A ", Name = "  Netzteil ", WarnTemp = 500 });
+        f.Sensors.Add(new TempSensorSettings { Id = "28ff641e0f16044a", Name = "doppelt" });
+        f.Sensors.Add(new TempSensorSettings { Id = "#1", Name = "alt" });
+        using var dir = new TempDir();
+        using var hub = new MinerHub(new AppConfig(), new MinerHubOptions { DataDirectory = dir.Path, OnlineChecks = false });
+        BitaxeTuner.Server.Api.Endpoints.ValidateFans(f, hub);
+        var s = Assert.Single(f.Sensors);
+        Assert.Equal(("28ff641e0f16044a", "Netzteil", 100.0), (s.Id, s.Name, s.WarnTemp));
+
+        f.Sensors[0].Name = " ";
+        Assert.Throws<InvalidOperationException>(() => BitaxeTuner.Server.Api.Endpoints.ValidateFans(f, hub));
     }
 }

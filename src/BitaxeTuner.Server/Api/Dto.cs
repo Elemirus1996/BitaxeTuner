@@ -58,8 +58,8 @@ public static class Dto
         {
             connected = f.Connected,
             @override = f.Override.ToString(),
-            caseTemps = f.CaseTemps?.ToList() ?? [],
-            caseTempWarn = hub.Config.Fans.CaseTempWarn,
+            caseTemp = f.CaseTemp,
+            sensors = (f.Sensors ?? []).Select(s => new { s.Id, s.Name, s.Temp, s.WarnTemp, s.Hot, s.CaseFans, s.ShowOnDisplay }).ToList(),
             device = role == Role.Admin ? f.Device : null,
             error = f.Error,
             updated = f.Updated,

@@ -6,12 +6,13 @@
 # Tacho GP16..21 with internal pull-up.
 # Buttons GP1,3,5,7 to GND (internal pull-up). Onboard LED blinks on every press.
 # e-Paper 7.5" B (800x480, black/white/red, UC8179): DIN GP15, CLK GP14, CS GP13, DC GP12, RST GP11, BUSY GP22.
-# Case temperature: DS18B20 on GP26 (1-Wire, 4.7k pull-up to 3V3); several sensors on one wire are fine.
+# Temperatures: DS18B20 on GP26 (1-Wire, one 4.7k pull-up to 3V3); several sensors in parallel on one wire,
+# each reported with its unique 64-bit ROM id (so names like "PSU" / "miner room" never mix up).
 #
 # Protocol (USB serial, one command per line, every line resets the watchdog):
 #   HELLO                -> OK BTFAN <version> <channels>
-#   SET p1 .. p6         -> RPM r1 .. r6 [T t1 t2 ..]   (fan percent 0..100; T = DS18B20 temperatures in C)
-#   GET                  -> RPM r1 .. r6 [T t1 t2 ..]
+#   SET p1 .. p6         -> RPM r1 .. r6 [T id=t id=t ..]   (fan percent 0..100; T = DS18B20 ROM id (hex) = deg C)
+#   GET                  -> RPM r1 .. r6 [T id=t id=t ..]
 #   IMG <bytes>          -> OK IMG             (then D-lines with base64 data, 1st half black plane, 2nd half red plane)
 #   D <base64>           -> (no reply)
 #   SHOW                 -> OK SHOW | ERR ...  (refresh runs in the background, ~16 s)
@@ -26,7 +27,7 @@ import machine
 import ubinascii
 from machine import Pin, PWM
 
-VERSION = "3"
+VERSION = "4"
 PWM_PINS = (0, 2, 4, 6, 8, 10)
 TACH_PINS = (16, 17, 18, 19, 20, 21)
 BUTTON_PINS = (1, 3, 5, 7)
@@ -90,7 +91,7 @@ def all_full():
 def rpm_line():
     line = "RPM " + " ".join(str(r) for r in rpm)
     if temps:
-        line += " T " + " ".join(str(t) for t in temps)
+        line += " T " + " ".join(i + "=" + str(t) for i, t in temps)
     return line
 
 # ---------- DS18B20 case temperature ----------
@@ -127,9 +128,13 @@ def poll_temps(now):
         elif time.ticks_diff(now, ds_started) >= 800:
             vals = []
             for r in roms:
-                t = ds.read_temp(r)
-                if t is not None and -40 < t < 120:
-                    vals.append(round(t, 1))
+                try:
+                    t = ds.read_temp(r)
+                except Exception:
+                    continue  # one faulty sensor must not hide the others
+                # 85.0 is the power-on value of a sensor that did not convert
+                if t is not None and -40 < t < 120 and t != 85.0:
+                    vals.append(("".join("%02x" % b for b in r), round(t, 1)))
             temps = vals
             ds_state = 0
     except Exception:

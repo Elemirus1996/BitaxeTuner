@@ -19,8 +19,11 @@ public sealed class FanSettings
     /// <summary>Gemeinsame Einstellung für alle Kanäle mit Rolle „Gehäuse“.</summary>
     public CaseFanSettings Case { get; set; } = new();
 
-    /// <summary>Gehäusefühler (DS18B20): ab dieser Temperatur Meldung und rote Anzeige.</summary>
+    /// <summary>Vorgabe-Warnschwelle für neu erkannte Temperaturfühler (°C).</summary>
     public double CaseTempWarn { get; set; } = 45;
+
+    /// <summary>Temperaturfühler (DS18B20) am Pico, erkannt an ihrer 1-Wire-Kennung. Neue werden automatisch ergänzt.</summary>
+    public List<TempSensorSettings> Sensors { get; set; } = [];
 
     /// <summary>Kanal 1–6, fehlende Einträge (ältere config.json) werden ergänzt.</summary>
     public FanChannelSettings Channel(int channel)
@@ -56,6 +59,22 @@ public sealed class FanChannelSettings
     public bool HasTach { get; set; } = true;
 }
 
+/// <summary>Ein Temperaturfühler, z. B. „Netzteil“ oder „Miner-Raum“.</summary>
+public sealed class TempSensorSettings
+{
+    /// <summary>1-Wire-Kennung (16 Hex-Zeichen); "#1" usw. bei alter Pico-Firmware.</summary>
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+
+    /// <summary>Ab dieser Temperatur: Push-Meldung und rote Anzeige.</summary>
+    public double WarnTemp { get; set; } = 45;
+
+    /// <summary>Zählt für die Gehäuselüfter (Messgröße „Temperaturfühler“; es gilt der höchste Wert).</summary>
+    public bool CaseFans { get; set; } = true;
+
+    public bool ShowOnDisplay { get; set; } = true;
+}
+
 /// <summary>Unter StartTemp: MinPercent. Von StartTemp (StartPercent) linear bis FullTemp (100 %).</summary>
 public sealed class FanCurve
 {
@@ -72,7 +91,7 @@ public sealed class CaseFanSettings
     public string Mode { get; set; } = "auto";
     public int ManualPercent { get; set; } = 50;
 
-    /// <summary>"vr", "asic" (höchster Wert der zugeordneten Miner) oder "case" (Gehäusefühler DS18B20).</summary>
+    /// <summary>"vr", "asic" (höchster Wert der zugeordneten Miner) oder "case" (Temperaturfühler mit <see cref="TempSensorSettings.CaseFans"/>).</summary>
     public string Sensor { get; set; } = "vr";
 
     /// <summary>Hosts der berücksichtigten Miner; leer = alle.</summary>

@@ -4,6 +4,9 @@ using System.Text;
 
 namespace BitaxeTuner.Core.Fans;
 
+/// <summary>Messwert eines Temperaturfühlers (DS18B20): Id = 1-Wire-Kennung (16 Hex-Zeichen), °C.</summary>
+public sealed record TempReading(string Id, double Celsius);
+
 /// <summary>Pico-Zubehör: Lüfter, E-Paper-Anzeige, Taster.</summary>
 public interface IFanDevice : IDisposable
 {
@@ -18,8 +21,8 @@ public interface IFanDevice : IDisposable
     Task ResetAsync(CancellationToken ct = default);
     /// <summary>Seit dem letzten Aufruf gemeldete Ereignisse („BTN 1“, „BTN 4 LONG“, „EPD DONE“).</summary>
     IReadOnlyList<string> DrainEvents();
-    /// <summary>Gehäusetemperaturen (DS18B20) aus der letzten Antwort, °C; leer ohne Sensor.</summary>
-    IReadOnlyList<double> Temperatures { get; }
+    /// <summary>Temperaturfühler (DS18B20) aus der letzten Antwort; leer ohne Fühler.</summary>
+    IReadOnlyList<TempReading> Temperatures { get; }
 }
 
 /// <summary>Zeilenbasierte serielle Verbindung (austauschbar für Tests).</summary>
@@ -90,13 +93,13 @@ public sealed class SerialLineTransport : ILineTransport
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "3";
+    public const string FirmwareVersion = "4";
     public const int ImageBytes = 2 * 800 * 480 / 8;
     private readonly ILineTransport _io;
     private readonly object _lock = new();
     private readonly List<string> _events = new();
 
-    public IReadOnlyList<double> Temperatures { get; private set; } = [];
+    public IReadOnlyList<TempReading> Temperatures { get; private set; } = [];
 
     private PicoFanDevice(ILineTransport io, string description)
     {
@@ -282,16 +285,29 @@ public sealed class PicoFanDevice : IFanDevice
         throw new IOException("Pico antwortet nicht.");
     }
 
-    /// <summary>"RPM r1 .. r6 [T t1 t2 ..]" – Drehzahlen und optional Gehäusetemperaturen.</summary>
+    /// <summary>"RPM r1 .. r6 [T id=t id=t ..]" – Drehzahlen und optional Temperaturfühler.</summary>
     private int[] ParseRpm(string line)
     {
         var parts = line[4..].Split(" T ", 2);
-        Temperatures = parts.Length > 1
-            ? parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(v => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : double.NaN)
-                .Where(t => !double.IsNaN(t)).ToList()
-            : [];
+        Temperatures = parts.Length > 1 ? ParseTemperatures(parts[1]) : [];
         return parts[0].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => int.TryParse(v, out var r) ? r : 0).ToArray();
+    }
+
+    /// <summary>"id=t id=t" (ab Firmware 4) oder "t1 t2" (Firmware 3, Ids dann "#1", "#2" nach Reihenfolge).</summary>
+    public static List<TempReading> ParseTemperatures(string text)
+    {
+        var result = new List<TempReading>();
+        var items = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < items.Length; i++)
+        {
+            var eq = items[i].IndexOf('=');
+            var id = eq > 0 ? items[i][..eq].ToLowerInvariant() : $"#{i + 1}";
+            var value = eq > 0 ? items[i][(eq + 1)..] : items[i];
+            if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var t)
+                && t is > -40 and < 120)
+                result.Add(new TempReading(id, t));
+        }
+        return result;
     }
 
     public void Dispose() => _io.Dispose();
@@ -346,9 +362,9 @@ public sealed class SimulatedFanDevice : IFanDevice
     public string Description => "Simulierter Pico";
     public List<byte[]> Images { get; } = [];
     public int Resets { get; private set; }
-    /// <summary>Simulierter Gehäusefühler (°C); leer = kein Sensor.</summary>
-    public List<double> CaseTemps { get; } = [];
-    public IReadOnlyList<double> Temperatures => CaseTemps;
+    /// <summary>Simulierte Temperaturfühler; leer = kein Fühler.</summary>
+    public List<TempReading> Sensors { get; } = [];
+    public IReadOnlyList<TempReading> Temperatures => Sensors.ToList();
 
     /// <summary>Tastendruck nachbilden („BTN 1“ … „BTN 4 LONG“).</summary>
     public void Press(string evt)

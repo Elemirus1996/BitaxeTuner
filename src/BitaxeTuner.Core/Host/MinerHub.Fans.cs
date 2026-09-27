@@ -7,11 +7,14 @@ namespace BitaxeTuner.Core.Host;
 /// <summary>Zustand eines Lüfterkanals für Oberfläche und API.</summary>
 public sealed record FanChannelStatus(int Channel, string Name, string Role, string? MinerHost, string Mode, int Percent, int? Rpm, string Reason, bool Stalled);
 
+/// <summary>Zustand eines Temperaturfühlers. Temp null = gerade nicht gemeldet (Kabel, Fühler defekt, Pico getrennt).</summary>
+public sealed record TempSensorStatus(string Id, string Name, double? Temp, double WarnTemp, bool Hot, bool CaseFans, bool ShowOnDisplay);
+
 public sealed record FanStatus(bool Enabled, bool Connected, string? Device, string? Error, DateTime? Updated, IReadOnlyList<FanChannelStatus> Channels,
-    FanOverride Override = FanOverride.None, IReadOnlyList<double>? CaseTemps = null)
+    FanOverride Override = FanOverride.None, IReadOnlyList<TempSensorStatus>? Sensors = null)
 {
-    /// <summary>Höchster Wert der Gehäusefühler, null ohne Sensor.</summary>
-    public double? CaseTemp => CaseTemps is { Count: > 0 } t ? t.Max() : null;
+    /// <summary>Höchster Wert der Fühler für die Gehäuselüfter, null ohne (vollständige) Messung.</summary>
+    public double? CaseTemp { get; init; }
 }
 
 /// <summary>
@@ -28,6 +31,11 @@ public sealed partial class MinerHub
     private int[]? _fanRpm;
     private readonly Dictionary<int, (int Count, DateTime Since)> _fanStall = new();
     private bool _fanBusy, _fanForceInstall;
+    /// <summary>Letzter Messwert je Fühler-Id.</summary>
+    private readonly Dictionary<string, (double Temp, DateTime Seen)> _sensorSeen = new();
+    private DateTime? _fanConnectedSince;
+    /// <summary>Ein Fühler gilt als vorhanden, solange sein letzter Wert höchstens so alt ist.</summary>
+    public static readonly TimeSpan SensorStale = TimeSpan.FromSeconds(30);
 
     public FanStatus FanStatus { get; private set; } = new(false, false, null, null, null, []);
 
@@ -57,6 +65,7 @@ public sealed partial class MinerHub
         _fanDevice?.Dispose();
         _fanDevice = null;
         _fanRpm = null;
+        _fanConnectedSince = null;
     }
 
     internal async Task FanTickAsync()
@@ -83,6 +92,7 @@ public sealed partial class MinerHub
                     _fanForceInstall = false;
                     _fanDevice = await Task.Run(() => OpenFanDevice(settings.Port, force));
                     _fanError = null;
+                    _fanConnectedSince = now;
                 }
                 catch (Exception ex)
                 {
@@ -94,7 +104,8 @@ public sealed partial class MinerHub
             var miners = Devices.Select(d => new MinerTemps(d.Host, d.Title, d.State.Online,
                 d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk)).ToList();
             _fanController.Override = FanOverride;
-            _fanController.CaseTemperature = _fanDevice?.Temperatures is { Count: > 0 } ct ? ct.Max() : null;
+            var sensors = SensorStatus(settings, now);
+            _fanController.CaseTemperature = CaseTemperature(sensors);
             var targets = _fanController.Compute(settings, miners, now);
 
             if (_fanDevice is not null)
@@ -105,6 +116,7 @@ public sealed partial class MinerHub
                     _fanRpm = settings.Enabled
                         ? await _fanDevice.ExchangeAsync(targets.Select(t => t.Percent).ToList())
                         : await _fanDevice.PollAsync();
+                    RecordSensors(_fanDevice.Temperatures, now);
                     await HandlePicoEventsAsync(_fanDevice.DrainEvents());
                 }
                 catch (Exception ex)
@@ -125,11 +137,12 @@ public sealed partial class MinerHub
                     c.Role == "case" ? settings.Case.Mode : c.Mode, t.Percent, rpm, t.Reason, stalled);
             }).ToList();
             if (!settings.Enabled) channels.Clear();
-            var caseTemps = _fanDevice?.Temperatures.ToList() ?? [];
-            FanStatus = new FanStatus(settings.Enabled, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels, FanOverride, caseTemps);
-            if (FanStatus.CaseTemp is { } hot && hot >= settings.CaseTempWarn && Config.Notifications.OnOverheat)
-                SendAlert(new Alert("case-hot", "Gehäuse zu warm", $"Gehäusetemperatur {hot.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))} °C (Grenze {settings.CaseTempWarn:0} °C).",
-                    NotifyPriority.High, TimeSpan.FromMinutes(30)));
+            sensors = SensorStatus(settings, now);
+            FanStatus = new FanStatus(settings.Enabled, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels, FanOverride, sensors)
+            {
+                CaseTemp = CaseTemperature(sensors),
+            };
+            CheckSensorAlerts(sensors, now);
             FansUpdated?.Invoke();
             ReportSafetyOverrides(targets);
             await DisplayTickAsync(now);
@@ -137,6 +150,79 @@ public sealed partial class MinerHub
         finally
         {
             _fanBusy = false;
+        }
+    }
+
+    /// <summary>Messwerte übernehmen; unbekannte Fühler (feste 1-Wire-Kennung) in die Einstellungen eintragen.</summary>
+    private void RecordSensors(IReadOnlyList<TempReading> readings, DateTime now)
+    {
+        var added = false;
+        foreach (var r in readings)
+        {
+            _sensorSeen[r.Id] = (r.Celsius, now);
+            // "#1" usw. (alte Pico-Firmware) nicht speichern: die Nummer hängt nur von der Reihenfolge ab
+            if (r.Id.StartsWith('#') || Config.Fans.Sensors.Any(s => s.Id == r.Id)) continue;
+            Config.Fans.Sensors.Add(new TempSensorSettings
+            {
+                Id = r.Id,
+                Name = $"Fühler {Config.Fans.Sensors.Count + 1}",
+                WarnTemp = Config.Fans.CaseTempWarn,
+            });
+            added = true;
+        }
+        if (added)
+        {
+            Config.Save();
+            RaiseStatus(true, "Neuer Temperaturfühler erkannt – Name und Warnschwelle unter „Lüfter & Anzeige“ festlegen.");
+        }
+    }
+
+    /// <summary>Eingetragene Fühler plus vorübergehende ("#n") mit aktuellem Wert.</summary>
+    private List<TempSensorStatus> SensorStatus(FanSettings settings, DateTime now)
+    {
+        double? Current(string id) => _fanDevice is not null && _sensorSeen.TryGetValue(id, out var v) && now - v.Seen <= SensorStale ? v.Temp : null;
+        var list = settings.Sensors.Select(s =>
+        {
+            var t = Current(s.Id);
+            return new TempSensorStatus(s.Id, s.Name.Length > 0 ? s.Name : s.Id, t, s.WarnTemp, t >= s.WarnTemp, s.CaseFans, s.ShowOnDisplay);
+        }).ToList();
+        var n = 0;
+        foreach (var (id, _) in _sensorSeen.Where(x => x.Key.StartsWith('#')).OrderBy(x => x.Key))
+        {
+            n++;
+            if (Current(id) is not { } t) continue;
+            list.Add(new TempSensorStatus(id, $"Fühler {n}", t, settings.CaseTempWarn, t >= settings.CaseTempWarn, true, true));
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Höchster Wert der Fühler für die Gehäuselüfter. Fehlt einer davon, ist der Wert unbekannt (null) –
+    /// die Gehäuselüfter laufen dann mit dem Wert für „unbekannt“ (Standard 100 %).
+    /// </summary>
+    private static double? CaseTemperature(IReadOnlyList<TempSensorStatus> sensors)
+    {
+        var used = sensors.Where(s => s.CaseFans).ToList();
+        if (used.Count == 0 || used.Any(s => s.Temp is null)) return null;
+        return used.Max(s => s.Temp!.Value);
+    }
+
+    private void CheckSensorAlerts(IReadOnlyList<TempSensorStatus> sensors, DateTime now)
+    {
+        if (!Config.Notifications.OnOverheat) return;
+        var de = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+        foreach (var s in sensors)
+        {
+            if (s.Hot)
+                SendAlert(new Alert($"temp-hot:{s.Id}", $"{s.Name} zu warm", $"{s.Name}: {s.Temp!.Value.ToString("0.0", de)} °C (Grenze {s.WarnTemp.ToString("0.#", de)} °C).",
+                    NotifyPriority.High, TimeSpan.FromMinutes(30)));
+            // Fühler fehlt, obwohl der Pico seit 2 Minuten verbunden ist
+            else if (s.Temp is null && !s.Id.StartsWith('#') && _fanConnectedSince is { } since && now - since >= TimeSpan.FromMinutes(2)
+                     && (!_sensorSeen.TryGetValue(s.Id, out var seen) || now - seen.Seen >= TimeSpan.FromMinutes(2)))
+                SendAlert(new Alert($"temp-missing:{s.Id}", $"Temperaturfühler {s.Name} fehlt",
+                    $"{s.Name} meldet keinen Wert. Kabel prüfen – oder den Fühler unter „Lüfter & Anzeige“ entfernen." +
+                    (s.CaseFans ? " Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“." : ""),
+                    NotifyPriority.High, TimeSpan.FromHours(6)));
         }
     }
 

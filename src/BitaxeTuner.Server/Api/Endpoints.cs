@@ -73,7 +73,7 @@ public static class Endpoints
 
     public static IResult Error(int status, string message) => Results.Json(new { error = message }, statusCode: status);
 
-    private static void ValidateFans(Core.Config.FanSettings f, MinerHub hub)
+    internal static void ValidateFans(Core.Config.FanSettings f, MinerHub hub)
     {
         f.Port = string.IsNullOrWhiteSpace(f.Port) ? "auto" : f.Port.Trim();
         for (var ch = 1; ch <= Core.Config.FanSettings.ChannelCount; ch++)
@@ -91,6 +91,16 @@ public static class Endpoints
         if (f.Case.Mode is not ("auto" or "manual")) throw new InvalidOperationException("Gehäuse: unbekannter Modus.");
         if (f.Case.Sensor is not ("vr" or "asic" or "case")) f.Case.Sensor = "vr";
         f.CaseTempWarn = Math.Clamp(f.CaseTempWarn, 20, 80);
+        f.Sensors = (f.Sensors ?? []).Where(s => s.Id is { Length: > 0 } id && !id.StartsWith('#'))
+            .GroupBy(s => s.Id.Trim().ToLowerInvariant()).Select(g => g.First()).ToList();
+        foreach (var s in f.Sensors)
+        {
+            s.Id = s.Id.Trim().ToLowerInvariant();
+            s.Name = (s.Name ?? "").Trim();
+            if (s.Name.Length == 0) throw new InvalidOperationException("Jeder Temperaturfühler braucht einen Namen.");
+            if (s.Name.Length > 24) s.Name = s.Name[..24];
+            s.WarnTemp = Math.Clamp(s.WarnTemp, 20, 100);
+        }
         f.Case.ManualPercent = Math.Clamp(f.Case.ManualPercent, 0, 100);
         f.Case.UnknownPercent = Math.Clamp(f.Case.UnknownPercent, 0, 100);
         f.Case.NightMaxPercent = Math.Clamp(f.Case.NightMaxPercent, 0, 100);

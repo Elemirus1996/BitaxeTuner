@@ -127,7 +127,8 @@ public sealed partial class MinerHub
             return;
         }
         var model = BuildDisplayModel(now);
-        var alarmKey = string.Join("|", model.Alerts) + "|" + FanOverride + "|" + IsPaused;
+        // Nur neue/weggefallene Warnungen lösen ein Neuzeichnen aus, nicht schwankende Werte darin (schont das Panel)
+        var alarmKey = System.Text.RegularExpressions.Regex.Replace(string.Join("|", model.Alerts), @"-?[\d.,]+ °C", "°C") + "|" + FanOverride + "|" + IsPaused;
         var interval = TimeSpan.FromMinutes(Math.Max(DisplaySettings.MinIntervalMinutes, s.IntervalMinutes));
         var quiet = s.QuietEnabled && FanController.IsNight(new CaseFanSettings { NightFromHour = s.QuietFromHour, NightToHour = s.QuietToHour }, now);
         var routineDue = _displayShown is null || (!quiet && now - _displayShown >= interval);
@@ -182,9 +183,11 @@ public sealed partial class MinerHub
             if (vrHot) alerts.Add($"{d.Title} VR {i!.vrTemp.ToString("0", CultureInfo.GetCultureInfo("de-DE"))} °C");
         }
         foreach (var c in fans.Where(c => c.Stalled)) alerts.Add($"Lüfter K{c.Channel} steht");
-        var caseTemp = FanStatus.CaseTemp;
-        var caseHot = caseTemp >= Config.Fans.CaseTempWarn;
-        if (caseHot) alerts.Add($"Gehäuse {caseTemp!.Value.ToString("0.0", CultureInfo.GetCultureInfo("de-DE"))} °C");
+        var temps = (FanStatus.Sensors ?? []).Where(s => s.ShowOnDisplay).Select(s => new DisplayTemp(s.Name, s.Temp, s.Hot)).ToList();
+        foreach (var s in (FanStatus.Sensors ?? []).Where(s => s.Hot))
+            alerts.Add($"{s.Name} {s.Temp!.Value.ToString("0.0", CultureInfo.GetCultureInfo("de-DE"))} °C");
+        if (FanStatus.Connected)
+            foreach (var s in (FanStatus.Sensors ?? []).Where(s => s.Temp is null)) alerts.Add($"Fühler {s.Name} fehlt");
         if (Config.Fans.Enabled && !FanStatus.Connected) alerts.Add("Pico-Lüfter getrennt");
 
         var online = devices.Where(d => d.State.Online && d.State.Info is not null).Select(d => d.State.Info!).ToList();
@@ -198,6 +201,6 @@ public sealed partial class MinerHub
             _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? $"Automatik · Gehäuse {caseFan.Percent} %" : "Automatik",
         };
         return new DisplayModel(Config.Display.Title, now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
-            Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, caseTemp, caseHot);
+            Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps);
     }
 }

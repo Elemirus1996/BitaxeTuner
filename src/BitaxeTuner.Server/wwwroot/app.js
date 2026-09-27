@@ -920,12 +920,14 @@ const ROLE_TEXT = { none: 'nicht belegt', miner: 'VR-Lüfter', case: 'Gehäuse' 
 
 function fanRows(fans) {
   if (!fans) return [h('p', { class: 'muted' }, 'Lüftersteuerung ist ausgeschaltet.')];
-  const temps = (fans.caseTemps || []).map(t => `${n(t, 1)} °C`).join(', ');
-  const hot = (fans.caseTemps || []).some(t => t >= fans.caseTempWarn);
+  const sensors = fans.sensors || [];
   const head = h('div', { class: 'stack' },
     h('p', { class: fans.connected ? 'ok' : 'danger' },
       fans.connected ? `Verbunden${fans.device ? ': ' + fans.device : ''}` : `Nicht verbunden${fans.error ? ': ' + fans.error : ''} – Lüfter laufen dann auf 100 %.`),
-    fans.connected ? h('p', { class: hot ? 'danger' : 'muted' }, temps ? `Gehäusetemperatur: ${temps}${hot ? ' – zu warm!' : ''}` : 'Kein Gehäusefühler (DS18B20) erkannt.') : null);
+    sensors.length
+      ? h('div', { class: 'row' }, sensors.map(s => h('span', { class: `pill ${s.hot || s.temp == null ? 'danger' : 'gray'}`, title: `Warnung ab ${n(s.warnTemp, 1)} °C` },
+          `${s.name}: ${s.temp == null ? 'fehlt' : n(s.temp, 1) + ' °C'}${s.hot ? ' – zu warm!' : ''}`)))
+      : fans.connected ? h('p', { class: 'muted' }, 'Kein Temperaturfühler (DS18B20) erkannt.') : null);
   if (!fans.channels.length) return [head, h('p', { class: 'muted' }, 'Noch kein Kanal belegt.')];
   return [head, h('div', { class: 'table-wrap' }, h('table', {},
     h('thead', {}, h('tr', {}, ['Kanal', 'Lüfter', 'Modus', 'Soll', 'Drehzahl', 'Begründung'].map(x => h('th', {}, x)))),
@@ -1068,11 +1070,11 @@ function fanEditor(data) {
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, 'Modus'), selectInput(cs, 'mode', [['auto', 'Automatik'], ['manual', 'Manuell']], renderCase)),
       cs.mode === 'manual' ? h('div', {}, h('label', {}, 'Drehzahl %'), numInput(cs, 'manualPercent')) : null,
-      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Messgröße'), selectInput(cs, 'sensor', [['vr', 'VR-Temperatur der Miner'], ['asic', 'ASIC-Temperatur der Miner'], ['case', 'Gehäusefühler (DS18B20)']], renderCase)) : null,
+      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Messgröße'), selectInput(cs, 'sensor', [['vr', 'VR-Temperatur der Miner'], ['asic', 'ASIC-Temperatur der Miner'], ['case', 'Temperaturfühler (DS18B20)']], renderCase)) : null,
       cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Miner ohne Daten → mind. %'), numInput(cs, 'unknownPercent')) : null),
     cs.mode === 'auto' ? h('div', { class: 'stack' },
       cs.sensor === 'case'
-        ? h('p', { class: 'muted small' }, 'Es zählt der wärmste Gehäusefühler. Ohne Fühler gilt „Miner ohne Daten → mind. %“.')
+        ? h('p', { class: 'muted small' }, 'Es zählt der wärmste Fühler mit Haken „Gehäuselüfter“ (Karte „Temperaturfühler“). Fehlt einer davon, gilt „Miner ohne Daten → mind. %“.')
         : h('p', { class: 'muted small' }, 'Es zählt die höchste Temperatur der ausgewählten Miner (keine Auswahl = alle).'),
       cs.sensor === 'case' ? null : minerChecks,
       h('div', { class: 'form' }, curveInputs(cs.curve)),
@@ -1083,6 +1085,35 @@ function fanEditor(data) {
         h('div', {}, h('label', {}, 'höchstens %'), numInput(cs, 'nightMaxPercent'))),
       h('p', { class: 'muted small' }, 'Nachts wird gedrosselt, außer eine Temperatur erreicht den 100-%-Punkt der Kurve.')) : null);
   renderCase();
+
+  // Temperaturfühler: Pico meldet jeden mit fester Kennung; neue trägt der Server selbst ein
+  f.sensors = f.sensors || [];
+  const sensorBox = h('div', { class: 'stack' });
+  const live = id => ((S.status && S.status.fans && S.status.fans.sensors) || []).find(s => s.id === id);
+  const renderSensors = () => sensorBox.replaceChildren(
+    f.sensors.length === 0
+      ? h('p', { class: 'muted' }, 'Noch kein Fühler erkannt. DS18B20 an GP26 anschließen (alle parallel, ein 4,7-kΩ-Widerstand nach 3,3 V) – der Server trägt jeden neuen Fühler hier ein.')
+      : h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, ['Jetzt', 'Name', 'Warnung ab °C', 'Gehäuselüfter', 'Anzeige', 'Kennung', ''].map(x => h('th', {}, x)))),
+        h('tbody', {}, f.sensors.map(s => {
+          const l = live(s.id);
+          return h('tr', {},
+            h('td', { class: `num ${!l || l.temp == null || l.hot ? 'danger' : ''}` }, !l || l.temp == null ? 'fehlt' : `${n(l.temp, 1)} °C`),
+            h('td', {}, h('input', { value: s.name, maxlength: 24, style: 'min-width:9em', oninput: e => { s.name = e.target.value; } })),
+            h('td', {}, numInput(s, 'warnTemp', 0.5)),
+            h('td', {}, h('input', { type: 'checkbox', checked: s.caseFans, onchange: e => { s.caseFans = e.target.checked; } })),
+            h('td', {}, h('input', { type: 'checkbox', checked: s.showOnDisplay, onchange: e => { s.showOnDisplay = e.target.checked; } })),
+            h('td', { class: 'mono small muted' }, s.id),
+            h('td', {}, h('button', {
+              class: 'btn small', title: 'Aus der Liste entfernen (z. B. abgebauter Fühler). Wird er wieder gemeldet, erscheint er neu.',
+              onclick: () => { f.sensors = f.sensors.filter(x => x !== s); renderSensors(); },
+            }, 'Entfernen')));
+        })))),
+    h('p', { class: 'muted small' }, 'Welcher ist welcher? Einen Fühler kurz in der Hand anwärmen und „Jetzt“ beobachten (aktualisiert beim Neuladen der Seite). ' +
+      '„Gehäuselüfter“: zählt für die Messgröße „Temperaturfühler“ der Gehäuselüfter; fehlt so ein Fühler, laufen sie auf dem Wert für „unbekannt“. ' +
+      'Über der Warnschwelle gibt es eine Push-Meldung und eine rote Zeile auf dem Display.'),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Warnschwelle für neu erkannte Fühler °C'), numInput(f, 'caseTempWarn', 0.5))));
+  renderSensors();
 
   const save = async () => {
     const r = await run(() => api('/fans', { method: 'PUT', body: f }), 'Lüfter-Einstellungen gespeichert.');
@@ -1102,8 +1133,8 @@ function fanEditor(data) {
           },
         }, 'Programm neu aufspielen'))),
     h('div', { class: 'card stack' }, h('h2', {}, 'Kanäle'), channelsBox),
-    h('div', { class: 'card stack' }, h('h2', {}, 'Gehäuselüfter (alle Kanäle mit „Gehäuse“)'), caseBox,
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Meldung ab Gehäusetemperatur °C'), numInput(f, 'caseTempWarn', 0.5)))),
+    h('div', { class: 'card stack' }, h('h2', {}, 'Gehäuselüfter (alle Kanäle mit „Gehäuse“)'), caseBox),
+    h('div', { class: 'card stack' }, h('h2', {}, 'Temperaturfühler'), sensorBox),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, 'Speichern')),
     h('p', { class: 'muted small' }, 'Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.'));
 }

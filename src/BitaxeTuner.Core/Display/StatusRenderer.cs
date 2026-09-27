@@ -14,11 +14,14 @@ public sealed record DisplayMiner(
     string Name, bool Online, bool Maintenance, double? HashGh, double? ChipTemp, double? VrTemp,
     int? FanPercent, bool ChipHot, bool VrHot, bool FanStalled, string? Error);
 
+/// <summary>Ein Temperaturfühler auf der Anzeige (Temp null = fehlt).</summary>
+public sealed record DisplayTemp(string Name, double? Temp, bool Hot);
+
 /// <summary>Alles, was auf die Anzeige kommt (vom Hub zusammengestellt).</summary>
 public sealed record DisplayModel(
     string Title, DateTime Time, double TotalGh, double TotalW, double? EfficiencyJth, int Online, int Count,
     double? PriceCt, string FanMode, bool FanModeAlert, bool ServerPaused,
-    IReadOnlyList<DisplayMiner> Miners, IReadOnlyList<string> Alerts, double? CaseTemp = null, bool CaseHot = false);
+    IReadOnlyList<DisplayMiner> Miners, IReadOnlyList<string> Alerts, IReadOnlyList<DisplayTemp>? Temps = null);
 
 /// <summary>
 /// Zeichnet den Status für das 7,5″-E-Paper (800 × 480, schwarz/weiß/rot) und liefert die beiden Ebenen,
@@ -58,6 +61,24 @@ public static class StatusRenderer
                       (m.EfficiencyJth is { } e ? $" · {e.ToString("0.0", De)} J/TH" : "") +
                       $" · {m.Online}/{m.Count} online";
             TextRight(ctx, sub, Regular.Value, 22, Width - 16, 56, m.Online < m.Count ? Red : Ink);
+            // Temperaturfühler unter dem Titel, jeder für sich (zu warm oder fehlend in Rot)
+            if (m.Temps is { Count: > 0 } temps)
+            {
+                var tf = Regular.Value.CreateFont(21);
+                var tfHot = Bold.Value.CreateFont(21);
+                var subWidth = TextMeasurer.MeasureSize(sub, new TextOptions(Regular.Value.CreateFont(22))).Width;
+                var limit = Width - 16 - subWidth - 24;
+                float x = 16;
+                foreach (var t in temps)
+                {
+                    var text = $"{t.Name} {(t.Temp is { } v ? v.ToString("0.0", De) + " °C" : "–")}";
+                    var font = t.Hot || t.Temp is null ? tfHot : tf;
+                    var w = TextMeasurer.MeasureSize(text, new TextOptions(font)).Width;
+                    if (x + w > limit) break;
+                    Text(ctx, text, font, x, 57, t.Hot || t.Temp is null ? Red : Ink);
+                    x += w + 18;
+                }
+            }
             ctx.Fill(Crisp, Ink, new RectangleF(16, 88, Width - 32, 3));
 
             // Spaltenköpfe
@@ -111,15 +132,20 @@ public static class StatusRenderer
             // Fußzeile
             ctx.Fill(Crisp, Ink, new RectangleF(16, 442, Width - 32, 2));
             var foot = Regular.Value.CreateFont(21);
-            Text(ctx, "Lüfter: " + m.FanMode, m.FanModeAlert ? Bold.Value.CreateFont(21) : foot, 16, 450, m.FanModeAlert ? Red : Ink);
-            var middle = string.Join(" · ", new[]
+            var fanText = "Lüfter: " + m.FanMode;
+            var fanFont = m.FanModeAlert ? Bold.Value.CreateFont(21) : foot;
+            Text(ctx, fanText, fanFont, 16, 450, m.FanModeAlert ? Red : Ink);
+            var stand = (m.ServerPaused ? "Server pausiert · " : "") + "Stand " + m.Time.ToString("dd.MM. HH:mm", De);
+            TextRight(ctx, stand, foot, Width - 16, 450, m.ServerPaused ? Red : Ink);
+            if (m.PriceCt is { } p)
             {
-                m.CaseTemp is { } ct ? $"Gehäuse {ct.ToString("0.0", De)} °C" : null,
-                m.PriceCt is { } p ? $"Strom {p.ToString("0.0", De)} ct" : null,
-            }.Where(x => x is not null));
-            if (middle.Length > 0) TextCenter(ctx, middle, m.CaseHot ? Bold.Value.CreateFont(21) : foot, Width / 2 + 30, 450, m.CaseHot ? Red : Ink);
-            TextRight(ctx, (m.ServerPaused ? "Server pausiert · " : "") + "Stand " + m.Time.ToString("dd.MM. HH:mm", De), foot, Width - 16, 450,
-                m.ServerPaused ? Red : Ink);
+                // Strompreis zwischen Lüfter und Stand – nur, wenn er ohne Überlappung passt
+                var price = $"Strom {p.ToString("0.0", De)} ct";
+                var left = 16 + TextMeasurer.MeasureSize(fanText, new TextOptions(fanFont)).Width + 28;
+                var right = Width - 16 - TextMeasurer.MeasureSize(stand, new TextOptions(foot)).Width - 28;
+                var w = TextMeasurer.MeasureSize(price, new TextOptions(foot)).Width;
+                if (right - left >= w) Text(ctx, price, foot, (left + right - w) / 2, 450, Ink);
+            }
         });
         return img;
     }
