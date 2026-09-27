@@ -3,18 +3,208 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BitaxeTuner – Anleitungen</title>
+<title>BitaxeTuner – Bitaxe & NerdAxe automatisch optimieren und rund um die Uhr überwachen</title>
+<meta name="description" content="Kostenlose Open-Source-Software für Bitaxe- und NerdAxe-Miner: automatischer Benchmark, sichere Übertaktung, 24/7-Überwachung auf Raspberry Pi, Windows oder Docker, Home Assistant, E-Paper-Anzeige und Lüftersteuerung.">
+<meta property="og:title" content="BitaxeTuner">
+<meta property="og:description" content="Bitaxe & NerdAxe automatisch optimieren und rund um die Uhr überwachen – kostenlos und Open Source.">
+<meta property="og:image" content="https://elemirus1996.github.io/BitaxeTuner/assets/banner.png">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <style>
-  :root { color-scheme: light dark; }
-  body { font: 16px/1.55 system-ui, "Segoe UI", sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 16px; }
-  a { color: #A8572A; }
+  :root {
+    --bg: #F6F7F9; --surface: #FFFFFF; --ink: #14181F; --muted: #5B6472; --rule: #E2E5EA;
+    --brand: #F7931A; --brand-ink: #B45F06; --hero: #0F1216; --hero-ink: #F3F4F6; --hero-muted: #A3AAB6;
+    --ok: #16A34A; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0D1014; --surface: #151A21; --ink: #E7EAEE; --muted: #9AA3B0; --rule: #232A33; --brand-ink: #F7A541; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--brand-ink); }
+  img { max-width: 100%; height: auto; display: block; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  nav { position: sticky; top: 0; z-index: 10; background: rgba(15, 18, 22, .94); backdrop-filter: blur(8px); }
+  nav .wrap { display: flex; align-items: center; gap: 22px; height: 60px; }
+  nav .logo { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; text-decoration: none; font-size: 18px; }
+  nav .logo img { width: 30px; height: 30px; }
+  nav .links { margin-left: auto; display: flex; gap: 20px; }
+  nav .links a { color: var(--hero-muted); text-decoration: none; font-size: 15px; }
+  nav .links a:hover { color: #fff; }
+  header.hero { background: radial-gradient(1200px 500px at 70% -10%, #3a2408 0%, var(--hero) 55%); color: var(--hero-ink); padding: 72px 0 0; overflow: hidden; }
+  .hero h1 { font-size: clamp(34px, 5.2vw, 58px); line-height: 1.08; margin: 0 0 18px; letter-spacing: -0.02em; max-width: 21ch; }
+  .hero h1 em { font-style: normal; color: var(--brand); }
+  .hero p.lead { font-size: clamp(18px, 2vw, 21px); color: var(--hero-muted); max-width: 58ch; margin: 0 0 28px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 16px; }
+  .btn.primary { background: var(--brand); color: #1b1203; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { border: 1px solid #3a414c; color: var(--hero-ink); }
+  .btn.ghost:hover { border-color: var(--hero-muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--hero-muted); font-size: 14px; margin-bottom: 44px; }
+  .chips span::before { content: "✓ "; color: var(--brand); }
+  .shot-hero { border-radius: 14px 14px 0 0; border: 1px solid #2a3038; border-bottom: 0; box-shadow: 0 -20px 60px rgba(247,147,26,.12); }
+  section { padding: 76px 0; }
+  section h2 { font-size: clamp(26px, 3.2vw, 36px); margin: 0 0 10px; letter-spacing: -0.01em; }
+  section p.sub { color: var(--muted); margin: 0 0 36px; max-width: 64ch; }
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 22px; }
+  .card h3 { margin: 8px 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: rgba(247, 147, 26, .16); font-size: 21px; }
+  .alt { background: var(--surface); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .alt .card { background: var(--bg); }
+  .split { display: grid; gap: 40px; grid-template-columns: 1fr 1.1fr; align-items: center; }
+  .split.rev > :first-child { order: 2; }
+  .shot { border-radius: 12px; border: 1px solid var(--rule); box-shadow: 0 10px 30px rgba(0,0,0,.10); }
+  .epaper { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .epaper img { border-radius: 8px; border: 6px solid #222; background: #fff; }
+  ul.check { padding: 0; margin: 14px 0 0; list-style: none; }
+  ul.check li { padding-left: 26px; position: relative; margin: 7px 0; }
+  ul.check li::before { content: "✓"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+  .steps { counter-reset: s; margin-top: 14px; }
+  .steps .card { position: relative; padding-top: 30px; }
+  .steps .card::before { counter-increment: s; content: counter(s); position: absolute; top: -14px; left: 22px; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #1b1203; font-weight: 700; display: grid; place-items: center; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; background: rgba(127, 127, 127, .14); padding: 1px 6px; border-radius: 5px; }
+  .note { border-left: 4px solid var(--brand); background: var(--bg); padding: 16px 20px; border-radius: 0 10px 10px 0; color: var(--muted); }
+  footer { border-top: 1px solid var(--rule); padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+  footer p { margin: 6px 0; max-width: 92ch; }
+  @media (max-width: 860px) {
+    .split, .epaper { grid-template-columns: 1fr; }
+    .split.rev > :first-child { order: 0; }
+    nav .links a:not(.gh) { display: none; }
+    header.hero { padding-top: 48px; }
+  }
 </style>
 </head>
 <body>
-<h1>BitaxeTuner – Anleitungen</h1>
-<ul>
-  <li><a href="pico-luefter/">Pico-Lüftersteuerung, E-Paper-Anzeige, Taster und Temperaturfühler</a> – Schaltplan, Steckbrett ohne Löten, Einkaufsliste, fertiges Pi-Image</li>
-</ul>
-<p>Programm, Quelltext und Lizenz: <a href="https://github.com/Elemirus1996/BitaxeTuner">github.com/Elemirus1996/BitaxeTuner</a> (GNU GPL v3.0, ohne jede Gewähr).</p>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#"><img src="assets/icon.svg" alt="">BitaxeTuner</a>
+    <div class="links">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#server">24/7-Server</a>
+      <a href="#zubehoer">Zubehör</a>
+      <a href="#loslegen">Loslegen</a>
+      <a class="gh" href="https://github.com/Elemirus1996/BitaxeTuner">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Das Beste aus deinem <em>Bitaxe</em> holen – automatisch und sicher.</h1>
+    <p class="lead">BitaxeTuner findet die beste Einstellung für deine Bitaxe- und NerdAxe-Miner, überwacht sie rund um die Uhr
+      und meldet sich, wenn etwas nicht stimmt. Kostenlos, quelloffen, ohne Cloud.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/Elemirus1996/BitaxeTuner/releases/latest">⬇ Herunterladen</a>
+      <a class="btn ghost" href="#loslegen">So legst du los</a>
+      <a class="btn ghost" href="https://github.com/Elemirus1996/BitaxeTuner">Quelltext auf GitHub</a>
+    </div>
+    <div class="chips">
+      <span>Kostenlos &amp; Open Source (GPL-3.0)</span>
+      <span>Windows, Raspberry Pi, Docker</span>
+      <span>Bitaxe &amp; NerdAxe</span>
+      <span>Keine Cloud, keine Anmeldung</span>
+    </div>
+    <img class="shot-hero" src="assets/screen-overview.png" alt="Übersicht der Browser-Oberfläche mit drei Minern, Gesamt-Hashrate und laufendem Benchmark" width="1280" height="740">
+  </div>
+</header>
+
+<main>
+<section id="funktionen">
+  <div class="wrap">
+    <h2>Alles, was ein Home-Miner braucht</h2>
+    <p class="sub">Vom ersten Benchmark bis zum Dauerbetrieb: BitaxeTuner übernimmt das Ausprobieren und das Aufpassen – entscheiden tust du.</p>
+    <div class="grid">
+      <div class="card"><div class="icon">⚡</div><h3>Automatischer Benchmark</h3><p>Frequenz und Spannung Schritt für Schritt testen, jede Kombination messen und die beste Einstellung finden – für Hashrate, Effizienz oder beides.</p></div>
+      <div class="card"><div class="icon">🛡️</div><h3>Sicher statt schnell</h3><p>Grenzwerte je Modell, Watchdog bei jedem Messwert, Abbruch bei Überhitzung. Jede Änderung nur nach Bestätigung mit altem und neuem Wert.</p></div>
+      <div class="card"><div class="icon">🕒</div><h3>Rund um die Uhr</h3><p>Der Server läuft auf einem Raspberry Pi, einem Windows-Rechner oder im Docker-Container – dein PC darf aus sein.</p></div>
+      <div class="card"><div class="icon">📈</div><h3>Überwachung &amp; Push</h3><p>Verlauf, Offline- und Temperatur-Alarm, Pool-Wechsel, Log-Alarme, Best-Diff-Rekorde und Tagesbericht aufs Handy.</p></div>
+      <div class="card"><div class="icon">💡</div><h3>Effizienz-Ratgeber</h3><p>Zeigt je Miner die beste geprüfte Einstellung und was sie pro Monat an Strom spart – angewendet wird nur nach deiner Bestätigung.</p></div>
+      <div class="card"><div class="icon">⏱️</div><h3>Dauertest</h3><p>Prüft eine Einstellung über Stunden – für einen oder alle Miner auf einmal – und schlägt bei Problemen eine stabilere vor.</p></div>
+      <div class="card"><div class="icon">🏠</div><h3>Home Assistant</h3><p>Alle Werte per MQTT mit automatischer Geräteerkennung. Frequenz und Spannung bleiben dabei tabu.</p></div>
+      <div class="card"><div class="icon">💾</div><h3>Tägliche Sicherung</h3><p>Geprüfte Sicherung auf USB-Stick, Netzlaufwerk oder deinen PC. Passwörter werden nie mitgesichert.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="server" class="alt">
+  <div class="wrap split">
+    <div>
+      <h2>Im Browser, auf dem Handy, am PC</h2>
+      <p class="sub" style="margin-bottom:12px">Der BitaxeTuner-Server bringt eine vollständige Oberfläche mit. Die Windows-App kann sie einbetten oder alles selbst erledigen.</p>
+      <ul class="check">
+        <li>Fertiges SD-Karten-Image für den Raspberry Pi – WLAN, Benutzer und deine Daten richtet die App ein</li>
+        <li>Windows-Dienst oder Docker-Container (NAS, Home-Server)</li>
+        <li>Passwort, Nur-Ansehen-PIN und API-Tokens; nur im Heimnetz erreichbar</li>
+        <li>Einmaliger, geprüfter Umzug deiner Daten vom PC auf den Server – und zurück</li>
+        <li>Updates per Klick, die alte Version bleibt als Rückfall</li>
+      </ul>
+    </div>
+    <img class="shot" src="assets/screen-advisor.png" alt="Empfehlungen des Effizienz-Ratgebers mit Einsparung pro Monat">
+  </div>
+</section>
+
+<section id="zubehoer">
+  <div class="wrap split rev">
+    <div>
+      <h2>Zubehör: Lüfter, E-Paper, Tasten</h2>
+      <p class="sub" style="margin-bottom:12px">Ein Raspberry Pi Pico für ein paar Euro macht aus dem Server eine kleine Mining-Zentrale – aufgebaut ganz ohne Löten.</p>
+      <ul class="check">
+        <li>Bis zu sechs 4-Pin-PWM-Lüfter: VR-Kühlung je Miner und Gehäuselüfter, automatisch nach Temperatur</li>
+        <li>7,5″-E-Paper mit Übersicht, Tagesbilanz, Verlauf – und Vollbild bei Blockfund</li>
+        <li>Vier Taster für Anzeige, Lüfter und Neustart</li>
+        <li>Temperaturfühler z. B. am Netzteil und im Miner-Raum</li>
+        <li>Fällt etwas aus, laufen die Lüfter automatisch mit voller Drehzahl</li>
+      </ul>
+      <p style="margin-top:22px"><a class="btn primary" href="pico-luefter/">Bauanleitung mit Schaltplan &amp; Einkaufsliste</a></p>
+    </div>
+    <div class="epaper">
+      <img src="assets/epaper-overview.png" alt="E-Paper: Übersicht aller Miner">
+      <img src="assets/epaper-block.png" alt="E-Paper: Vollbild Block gefunden">
+      <img src="assets/epaper-daily.png" alt="E-Paper: Tagesbilanz">
+      <img src="assets/epaper-chart.png" alt="E-Paper: Hashrate der letzten 24 Stunden">
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap split">
+    <div>
+      <h2>Lüfter und Anzeige im Griff</h2>
+      <p class="sub" style="margin-bottom:12px">Kurven je Lüfter, Gehäusegruppe, Nachtbetrieb, Temperaturfühler mit eigenen Warnschwellen – und eine Vorschau jeder E-Paper-Seite direkt im Browser.</p>
+    </div>
+    <img class="shot" src="assets/screen-fans.png" alt="Seite Lüfter und Anzeige mit Lüfterkanälen und E-Paper-Vorschau">
+  </div>
+</section>
+
+<section id="loslegen">
+  <div class="wrap">
+    <h2>So legst du los</h2>
+    <p class="sub">Alle Downloads gibt es auf der <a href="https://github.com/Elemirus1996/BitaxeTuner/releases/latest">Release-Seite</a>.</p>
+    <div class="grid steps">
+      <div class="card"><h3>Nur mit dem PC</h3><p><code>BitaxeTuner-Setup-….exe</code> installieren, Miner suchen lassen, Benchmark starten. Überwacht wird, solange der PC läuft.</p></div>
+      <div class="card"><h3>Raspberry Pi (24/7)</h3><p>Das Image <code>…-pi-arm64.img.xz</code> mit dem Raspberry Pi Imager schreiben, in der App „Raspberry Pi vorbereiten“ – fertig. Pi 3, 4, 5 oder Zero 2 W.</p></div>
+      <div class="card"><h3>Docker / NAS</h3><p><code>docker compose up -d</code> mit der mitgelieferten <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/deploy/docker/docker-compose.yml">docker-compose.yml</a> – dann im Browser einrichten.</p></div>
+    </div>
+    <p class="note" style="margin-top:34px">⚠️ <b>Übertakten auf eigenes Risiko.</b> Höhere Frequenz und Spannung erhöhen Leistungsaufnahme und Temperatur und können die Hardware beschädigen. Prüfe Netzteil und Kühlung. BitaxeTuner hält sich an die Grenzen deines Geräteprofils und ändert nichts ohne deine Bestätigung.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>BitaxeTuner</b> · Copyright © 2026 BitaxeTuner contributors · Freie Software unter der
+      <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/LICENSE">GNU GPL v3.0</a>, ohne jede Gewähr ·
+      <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/THIRD-PARTY-NOTICES.txt">Hinweise zu enthaltenen Komponenten</a> ·
+      <a href="https://github.com/Elemirus1996/BitaxeTuner/security/policy">Sicherheit</a></p>
+    <p>Unabhängiges Projekt, nicht verbunden mit dem Bitaxe-Projekt, NerdAxe, Raspberry Pi Ltd, Home Assistant oder Waveshare.
+      Alle Marken gehören ihren Inhabern. Diese Seite verwendet keine Cookies, kein Tracking und lädt keine Inhalte von Drittanbietern;
+      bereitgestellt über GitHub Pages (<a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>).</p>
+    <p lang="en"><i>Free, open-source tool to benchmark, tune and monitor Bitaxe &amp; NerdAxe miners (German UI). No warranty; not affiliated with the Bitaxe project.</i></p>
+  </div>
+</footer>
+
 </body>
 </html>

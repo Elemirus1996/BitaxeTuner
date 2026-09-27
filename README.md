@@ -1,3 +1,13 @@
+<p align="center"><a href="https://elemirus1996.github.io/BitaxeTuner/"><img src="docs/assets/banner.png" alt="BitaxeTuner – Bitaxe & NerdAxe automatisch optimieren und rund um die Uhr überwachen" width="100%"></a></p>
+
+<p align="center">
+  <a href="https://github.com/Elemirus1996/BitaxeTuner/releases/latest"><b>⬇ Herunterladen</b></a> ·
+  <a href="https://elemirus1996.github.io/BitaxeTuner/"><b>Webseite</b></a> ·
+  <a href="https://elemirus1996.github.io/BitaxeTuner/pico-luefter/">Pico-Bauanleitung</a> ·
+  <a href="#247-betrieb">24/7-Server</a> ·
+  <a href="#english-summary">English</a>
+</p>
+
 # BitaxeTuner
 
 **Automatisches Übertakten, Benchmarken und Überwachen für Bitaxe- und NerdAxe-Miner – als Windows-Programm (WPF)
