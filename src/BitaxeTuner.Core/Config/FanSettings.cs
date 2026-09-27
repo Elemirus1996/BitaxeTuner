@@ -19,6 +19,9 @@ public sealed class FanSettings
     /// <summary>Gemeinsame Einstellung für alle Kanäle mit Rolle „Gehäuse“.</summary>
     public CaseFanSettings Case { get; set; } = new();
 
+    /// <summary>Gehäusefühler (DS18B20): ab dieser Temperatur Meldung und rote Anzeige.</summary>
+    public double CaseTempWarn { get; set; } = 45;
+
     /// <summary>Kanal 1–6, fehlende Einträge (ältere config.json) werden ergänzt.</summary>
     public FanChannelSettings Channel(int channel)
     {
@@ -69,7 +72,7 @@ public sealed class CaseFanSettings
     public string Mode { get; set; } = "auto";
     public int ManualPercent { get; set; } = 50;
 
-    /// <summary>"vr" oder "asic": Messgröße für die Automatik (höchster Wert der zugeordneten Miner).</summary>
+    /// <summary>"vr", "asic" (höchster Wert der zugeordneten Miner) oder "case" (Gehäusefühler DS18B20).</summary>
     public string Sensor { get; set; } = "vr";
 
     /// <summary>Hosts der berücksichtigten Miner; leer = alle.</summary>

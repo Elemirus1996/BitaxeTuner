@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fans/Firmware/btfan.py" LogicalName="BitaxeTuner.Core.Fans.btfan.py" />
+    <!-- DejaVu Sans Condensed (freie Lizenz, siehe Display/Fonts/LICENSE) für das E-Paper-Bild -->
+    <EmbeddedResource Include="Display/Fonts/DejaVuSansCondensed.ttf" LogicalName="BitaxeTuner.Core.Display.Regular.ttf" />
+    <EmbeddedResource Include="Display/Fonts/DejaVuSansCondensed-Bold.ttf" LogicalName="BitaxeTuner.Core.Display.Bold.ttf" />
     <EmbeddedResource Include="Profiles\DeviceProfiles.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.json" />
     <!-- Eingebaute Profile früherer Versionen: unveränderte Kopien in der Nutzerdatei sollen neue Werte nicht überdecken -->
     <EmbeddedResource Include="Profiles\DeviceProfiles.v0.1.0.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json" />
@@ -17,6 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.*" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.*" />
     <PackageReference Include="System.IO.Ports" Version="8.0.*" />
   </ItemGroup>
 

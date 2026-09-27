@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Display;
 using BitaxeTuner.Core.Fans;
 using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Profiles;
@@ -123,6 +124,12 @@ internal sealed class FakePico : ILineTransport
     public string? MainPy { get; private set; }
     private readonly StringBuilder _file = new();
     public List<string> SetCommands { get; } = [];
+    private List<byte>? _image;
+    public byte[]? Shown { get; private set; }
+    public string? NextRpmLine { get; set; }
+
+    /// <summary>Taster am Pico (unaufgefordert gesendete Zeile).</summary>
+    public void Press(string evt) => _out.Append(evt + "\r\n");
 
     public void Write(string text)
     {
@@ -140,8 +147,12 @@ internal sealed class FakePico : ILineTransport
         {
             var line = _in.ToString().Trim();
             _in.Clear();
-            if (line == "HELLO") _out.Append("OK BTFAN 1 6\r\n");
-            else if (line.StartsWith("SET ")) { SetCommands.Add(line); _out.Append("RPM 1200 1300 0 0 0 0\r\n"); }
+            if (line == "HELLO") _out.Append($"OK BTFAN {PicoFanDevice.FirmwareVersion} 6\r\n");
+            else if (line.StartsWith("SET ")) { SetCommands.Add(line); _out.Append((NextRpmLine ?? "RPM 1200 1300 0 0 0 0") + "\r\n"); }
+            else if (line == "GET") _out.Append("RPM 0 0 0 0 0 0\r\n");
+            else if (line.StartsWith("IMG ")) { _image = new List<byte>(); _out.Append("OK IMG\r\n"); }
+            else if (line.StartsWith("D ")) _image?.AddRange(Convert.FromBase64String(line[2..]));
+            else if (line == "SHOW") { Shown = _image?.ToArray(); _out.Append("OK SHOW\r\n"); }
             return;
         }
         _in.Append(ch);
@@ -194,7 +205,7 @@ public class PicoProtocolTests
 
         Assert.Equal(PicoFanDevice.Firmware, pico.MainPy);          // Datei byte-genau übertragen
         Assert.Contains(log, l => l.Contains("wird aufgespielt"));
-        Assert.Contains("v1", device.Description);
+        Assert.Contains("v" + PicoFanDevice.FirmwareVersion, device.Description);
 
         var rpm = await device.ExchangeAsync([40, 50, 100, 100, 100, 100]);
         Assert.Equal([1200, 1300, 0, 0, 0, 0], rpm);
@@ -319,5 +330,161 @@ public class FanApiTests
         Assert.True(ok.IsSuccessStatusCode, await ok.Content.ReadAsStringAsync());
         Assert.Equal(55, sim.LastPercent[0]);
         Assert.True(AppConfig.Load(dir.File("config.json")).Fans.Enabled);
+    }
+}
+
+public class DisplayAndButtonTests
+{
+    private static DisplayModel Model(bool offline = false) => new("BitaxeTuner", new DateTime(2026, 9, 27, 14, 32, 0), 1670, 29.9, 17.9, offline ? 1 : 2, 2, 24.1,
+        "Automatik", false, false,
+        [
+            new DisplayMiner("Gamma Wohnzimmer", true, false, 1050, 57, 70, 60, false, false, false, null),
+            new DisplayMiner("Supra", !offline, false, offline ? null : 620, offline ? null : 58, offline ? null : 71, 45, false, false, false, offline ? "keine Verbindung" : null),
+        ],
+        offline ? ["Supra offline"] : []);
+
+    private static int RedPixels(byte[] planes) => planes.Skip(48000).Sum(b => System.Numerics.BitOperations.PopCount(b));
+    private static int BlackPixels(byte[] planes) => planes.Take(48000).Sum(b => 8 - System.Numerics.BitOperations.PopCount(b));
+
+    [Fact]
+    public void Renders_two_planes_with_red_only_for_warnings()
+    {
+        var ok = StatusRenderer.Render(Model());
+        Assert.Equal(PicoFanDevice.ImageBytes, ok.Length);
+        Assert.True(BlackPixels(ok) > 5000, "Text muss sichtbar sein");
+        Assert.Equal(0, RedPixels(ok));
+
+        var bad = StatusRenderer.Render(Model(offline: true));
+        Assert.True(RedPixels(bad) > 500, "Offline-Miner und Warnung in Rot");
+    }
+
+    [Fact]
+    public void Umlauts_and_degree_sign_render_without_missing_glyphs()
+    {
+        // „Lüfter“ und „°C“ gezeichnet: gleiche Breite wie ohne Zeichen wäre ein Hinweis auf fehlende Glyphen
+        var a = StatusRenderer.Render(Model() with { FanMode = "Automatik · Gehäuse 45 %" });
+        var b = StatusRenderer.Render(Model() with { FanMode = "Automatik · Gehause 45 %" });
+        Assert.NotEqual(BlackPixels(a), BlackPixels(b));
+    }
+
+    [Fact]
+    public void Off_override_keeps_safety_rules()
+    {
+        var now = DateTime.Now;
+        var s = new FanSettings { Enabled = true };
+        s.Channel(1).Role = "miner";
+        s.Channel(1).MinerHost = "a";
+        s.Channel(2).Role = "miner";
+        s.Channel(2).MinerHost = "b";
+        var c = new FanController { Override = FanOverride.Off };
+        var t = c.Compute(s, [new MinerTemps("a", "A", true, 60, 55, now), new MinerTemps("b", "B", true, 75, 60, now)], now);
+        Assert.Equal(0, t[0].Percent);
+        Assert.Equal(100, t[1].Percent);                         // VR über 100-%-Punkt der Kurve
+        Assert.True(t[1].SafetyOverride);
+        Assert.Equal(100, c.Compute(s, [new MinerTemps("a", "A", false, null, null, null)], now)[0].Percent); // offline
+
+        c.Override = FanOverride.Full;
+        Assert.All(c.Compute(s, [new MinerTemps("a", "A", true, 40, 40, now), new MinerTemps("b", "B", true, 40, 40, now)], now).Take(2),
+            x => Assert.Equal(100, x.Percent));
+    }
+
+    [Fact]
+    public async Task Pico_receives_image_and_reports_buttons()
+    {
+        var pico = new FakePico { ProgramRunning = true };
+        using var device = PicoFanDevice.Connect(pico, "COM5");
+        var planes = StatusRenderer.Render(Model());
+        pico.Press("BTN 3");
+        await device.ShowImageAsync(planes);
+        Assert.Equal(planes, pico.Shown);
+        pico.Press("BTN 4 LONG");
+        await device.ExchangeAsync([50, 50, 50, 50, 50, 50]);
+        Assert.Equal(["BTN 3", "BTN 4 LONG"], device.DrainEvents());
+        Assert.Empty(device.DrainEvents());
+    }
+
+    [Fact]
+    public async Task Hub_handles_buttons_and_limits_display_refreshes()
+    {
+        using var dir = new TempDir();
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var sim = new SimulatedFanDevice();
+        var now = DateTime.Now;
+        var rebooted = 0;
+        var config = new AppConfig();
+        config.Devices.Add(new DeviceConfig { Name = "A", Host = "10.0.8.1" });
+        config.Fans.Enabled = true;
+        config.Fans.Channel(1).Role = "miner";
+        config.Fans.Channel(1).MinerHost = "10.0.8.1";
+        config.Display.Enabled = true;
+        using var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new SimulatedMinerClient(gamma, 1, h),
+            FanDeviceFactory = _ => sim,
+            Clock = () => now,
+            SystemReboot = () => { rebooted++; return Task.CompletedTask; },
+        });
+        await hub.PollNowAsync();
+        now = DateTime.Now;
+        await hub.FanTickAsync();
+        Assert.Single(sim.Images);                                     // erstes Bild sofort
+
+        sim.Press("BTN 1");
+        await hub.FanTickAsync();
+        Assert.Equal(FanOverride.Off, hub.FanOverride);
+        await hub.FanTickAsync();
+        Assert.Contains(sim.LastPercent[0], new[] { 0, 100 });          // aus – oder Sicherheitsregel bei heißem VR
+        Assert.Single(sim.Images);                                     // Mindestpause 3 min: noch kein neues Bild
+
+        now = now.AddMinutes(3).AddSeconds(1);
+        await hub.FanTickAsync();
+        Assert.Equal(2, sim.Images.Count);                             // Änderung („Aus“) nach der Pause angezeigt
+
+        sim.Press("BTN 3");
+        await hub.FanTickAsync();
+        await hub.FanTickAsync();
+        Assert.Equal(100, sim.LastPercent[0]);
+        sim.Press("BTN 2");
+        await hub.FanTickAsync();
+        Assert.Equal(FanOverride.None, hub.FanOverride);
+
+        sim.Press("BTN 4 LONG");
+        await hub.FanTickAsync();
+        for (var i = 0; i < 20 && rebooted == 0; i++) await Task.Delay(20);
+        Assert.Equal(1, rebooted);
+        Assert.Equal(1, sim.Resets);
+    }
+}
+
+public class CaseSensorTests
+{
+    [Fact]
+    public void Case_group_can_follow_the_case_sensor()
+    {
+        var now = DateTime.Now;
+        var s = new FanSettings { Enabled = true };
+        s.Channel(4).Role = "case";
+        s.Case.Sensor = "case";
+        s.Case.Curve = new FanCurve { StartTemp = 30, StartPercent = 30, FullTemp = 45, MinPercent = 20, Hysteresis = 0 };
+        var c = new FanController { CaseTemperature = 37.5 };
+        var t = c.Compute(s, [], now)[3];
+        Assert.Equal(FanController.Evaluate(s.Case.Curve, 37.5), t.Percent);
+        Assert.Contains("Gehäuse 37,5 °C", t.Reason);
+
+        c.CaseTemperature = null;                                  // Fühler fehlt/defekt
+        Assert.Equal(s.Case.UnknownPercent, c.Compute(s, [], now)[3].Percent);
+    }
+
+    [Fact]
+    public async Task Pico_reports_case_temperatures_with_the_rpm_line()
+    {
+        var pico = new FakePico { ProgramRunning = true };
+        using var device = PicoFanDevice.Connect(pico, "COM5");
+        pico.NextRpmLine = "RPM 1000 0 0 0 0 0 T 31.5 29.25";
+        var rpm = await device.ExchangeAsync([50, 50, 50, 50, 50, 50]);
+        Assert.Equal(1000, rpm[0]);
+        Assert.Equal([31.5, 29.25], device.Temperatures);
     }
 }

@@ -7,7 +7,12 @@ namespace BitaxeTuner.Core.Host;
 /// <summary>Zustand eines Lüfterkanals für Oberfläche und API.</summary>
 public sealed record FanChannelStatus(int Channel, string Name, string Role, string? MinerHost, string Mode, int Percent, int? Rpm, string Reason, bool Stalled);
 
-public sealed record FanStatus(bool Enabled, bool Connected, string? Device, string? Error, DateTime? Updated, IReadOnlyList<FanChannelStatus> Channels);
+public sealed record FanStatus(bool Enabled, bool Connected, string? Device, string? Error, DateTime? Updated, IReadOnlyList<FanChannelStatus> Channels,
+    FanOverride Override = FanOverride.None, IReadOnlyList<double>? CaseTemps = null)
+{
+    /// <summary>Höchster Wert der Gehäusefühler, null ohne Sensor.</summary>
+    public double? CaseTemp => CaseTemps is { Count: > 0 } t ? t.Max() : null;
+}
 
 /// <summary>
 /// Zusatzlüfter (Raspberry Pi Pico per USB): alle 2 Sekunden Sollwerte berechnen und senden, Drehzahlen lesen.
@@ -62,7 +67,8 @@ public sealed partial class MinerHub
         {
             var settings = Config.Fans;
             var now = Options.Clock?.Invoke() ?? DateTime.Now;
-            if (!settings.Enabled)
+            // Der Pico wird gebraucht für Lüfter und/oder Anzeige und Taster
+            if (!settings.Enabled && !Config.Display.Enabled)
             {
                 if (_fanDevice is not null) CloseFanDevice();
                 FanStatus = new FanStatus(false, false, null, null, null, []);
@@ -87,13 +93,19 @@ public sealed partial class MinerHub
 
             var miners = Devices.Select(d => new MinerTemps(d.Host, d.Title, d.State.Online,
                 d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk)).ToList();
+            _fanController.Override = FanOverride;
+            _fanController.CaseTemperature = _fanDevice?.Temperatures is { Count: > 0 } ct ? ct.Max() : null;
             var targets = _fanController.Compute(settings, miners, now);
 
             if (_fanDevice is not null)
             {
                 try
                 {
-                    _fanRpm = await _fanDevice.ExchangeAsync(targets.Select(t => t.Percent).ToList());
+                    // Ohne Lüftersteuerung nur Lebenszeichen/Tasten abfragen – der Pico lässt die Lüfter dann auf 100 %
+                    _fanRpm = settings.Enabled
+                        ? await _fanDevice.ExchangeAsync(targets.Select(t => t.Percent).ToList())
+                        : await _fanDevice.PollAsync();
+                    await HandlePicoEventsAsync(_fanDevice.DrainEvents());
                 }
                 catch (Exception ex)
                 {
@@ -112,8 +124,15 @@ public sealed partial class MinerHub
                 return new FanChannelStatus(t.Channel, c.Name.Length > 0 ? c.Name : DefaultFanName(c), c.Role, c.MinerHost,
                     c.Role == "case" ? settings.Case.Mode : c.Mode, t.Percent, rpm, t.Reason, stalled);
             }).ToList();
-            FanStatus = new FanStatus(true, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels);
+            if (!settings.Enabled) channels.Clear();
+            var caseTemps = _fanDevice?.Temperatures.ToList() ?? [];
+            FanStatus = new FanStatus(settings.Enabled, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels, FanOverride, caseTemps);
+            if (FanStatus.CaseTemp is { } hot && hot >= settings.CaseTempWarn && Config.Notifications.OnOverheat)
+                SendAlert(new Alert("case-hot", "Gehäuse zu warm", $"Gehäusetemperatur {hot.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))} °C (Grenze {settings.CaseTempWarn:0} °C).",
+                    NotifyPriority.High, TimeSpan.FromMinutes(30)));
             FansUpdated?.Invoke();
+            ReportSafetyOverrides(targets);
+            await DisplayTickAsync(now);
         }
         finally
         {

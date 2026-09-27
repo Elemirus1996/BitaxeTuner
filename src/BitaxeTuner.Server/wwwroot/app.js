@@ -920,8 +920,12 @@ const ROLE_TEXT = { none: 'nicht belegt', miner: 'VR-Lüfter', case: 'Gehäuse' 
 
 function fanRows(fans) {
   if (!fans) return [h('p', { class: 'muted' }, 'Lüftersteuerung ist ausgeschaltet.')];
-  const head = h('p', { class: fans.connected ? 'ok' : 'danger' },
-    fans.connected ? `Verbunden${fans.device ? ': ' + fans.device : ''}` : `Nicht verbunden${fans.error ? ': ' + fans.error : ''} – Lüfter laufen dann auf 100 %.`);
+  const temps = (fans.caseTemps || []).map(t => `${n(t, 1)} °C`).join(', ');
+  const hot = (fans.caseTemps || []).some(t => t >= fans.caseTempWarn);
+  const head = h('div', { class: 'stack' },
+    h('p', { class: fans.connected ? 'ok' : 'danger' },
+      fans.connected ? `Verbunden${fans.device ? ': ' + fans.device : ''}` : `Nicht verbunden${fans.error ? ': ' + fans.error : ''} – Lüfter laufen dann auf 100 %.`),
+    fans.connected ? h('p', { class: hot ? 'danger' : 'muted' }, temps ? `Gehäusetemperatur: ${temps}${hot ? ' – zu warm!' : ''}` : 'Kein Gehäusefühler (DS18B20) erkannt.') : null);
   if (!fans.channels.length) return [head, h('p', { class: 'muted' }, 'Noch kein Kanal belegt.')];
   return [head, h('div', { class: 'table-wrap' }, h('table', {},
     h('thead', {}, h('tr', {}, ['Kanal', 'Lüfter', 'Modus', 'Soll', 'Drehzahl', 'Begründung'].map(x => h('th', {}, x)))),
@@ -944,10 +948,72 @@ async function renderFans() {
   const data = await run(() => api('/fans'));
   if (!data) return;
   const status = h('div', { id: 'fan-status', class: 'stack' }, fanRows(data.status));
+  const display = await run(() => api('/display'));
   const parts = [h('div', { class: 'card stack' }, h('h2', {}, 'Zusatzlüfter'), status)];
+  if (isAdmin()) parts.push(quickActions(data.status, display));
+  if (display) parts.push(displayCard(display));
   if (isAdmin()) parts.push(fanEditor(data));
   else parts.push(h('p', { class: 'muted small' }, 'Einstellungen ändern kann nur der Admin.'));
   mount(h('div', { class: 'stack' }, parts));
+}
+
+/** Die vier Taster am Pico – hier auch per Klick. */
+function quickActions(fans, display) {
+  const mode = fans?.override || 'None';
+  const label = { None: 'nach Einstellung (Automatik)', Off: 'AUS per Taste – Sicherheitsregeln aktiv', Full: 'alle 100 %' }[mode];
+  const set = async m => { const r = await run(() => api('/fans/override', { method: 'POST', body: { mode: m } })); if (r) { const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); renderFans(); } };
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h2', {}, 'Schnellaktionen'), h('span', { class: 'spacer' }),
+      h('span', { class: `pill ${mode === 'None' ? 'gray' : ''}` }, `Lüfter: ${label}`)),
+    h('p', { class: 'muted small' }, 'Dieselben Aktionen wie die Taster am Pico. „Aus“ und „100 %“ gelten bis zum nächsten Neustart des Servers.'),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: () => set('off') }, '1 · Lüfter aus'),
+      h('button', { class: 'btn', onclick: () => set('auto') }, '2 · Automatik'),
+      h('button', { class: 'btn', onclick: () => set('full') }, '3 · Alle 100 %'),
+      h('button', {
+        class: 'btn danger', onclick: async () => {
+          const text = display?.rebootAvailable
+            ? 'Pico und Raspberry Pi neu starten?\n\nLaufende Benchmarks werden beendet und ihre Einstellungen wiederhergestellt. Die Oberfläche ist ca. 1–2 Minuten nicht erreichbar, die Miner laufen weiter.'
+            : 'Pico neu starten?\n\nEin Neustart des Rechners ist auf dieser Installation nicht eingerichtet.';
+          if (!await confirmBox('Neustart', text, 'Neu starten', true)) return;
+          const r = await run(() => api('/system/reboot', { method: 'POST', body: {} }));
+          if (r) toast(r.message, 'ok', 15000);
+        },
+      }, '4 · Neustart')));
+}
+
+/** E-Paper: Vorschau genau wie auf dem Display, Status, Einstellungen. */
+function displayCard(d) {
+  const st = d.status;
+  const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: 'Vorschau der E-Paper-Anzeige', style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
+  const info = !st.enabled ? 'Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.'
+    : `${st.connected ? 'Pico verbunden' : 'Pico nicht verbunden'} · zuletzt ${st.lastShown ? time(st.lastShown) : 'noch nie'}` +
+      (st.nextDue ? ` · nächste Aktualisierung ab ${new Date(st.nextDue).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '') +
+      (st.refreshing ? ' · baut gerade auf …' : '') + (st.error ? ` · ${st.error}` : '');
+  const parts = [
+    h('div', { class: 'titlebar' }, h('h2', {}, 'E-Paper-Anzeige'), h('span', { class: 'spacer' }),
+      h('button', { class: 'btn small', onclick: () => { img.src = `/api/v1/display/preview.png?t=${Date.now()}`; } }, 'Vorschau neu laden')),
+    h('p', { class: `small ${st.error ? 'danger' : 'muted'}` }, info),
+    img,
+  ];
+  if (isAdmin() && d.settings) {
+    const s = structuredClone(d.settings);
+    parts.push(
+      checkInput(s, 'enabled', 'Anzeige einschalten (7,5″ E-Paper am Pico)'),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, 'Titel'), h('input', { value: s.title, oninput: e => { s.title = e.target.value; } })),
+        h('div', {}, h('label', {}, 'aktualisieren alle (min, mind. 3)'), numInput(s, 'intervalMinutes')),
+        h('div', {}, h('label', {}, 'Ruhe von (Uhr)'), numInput(s, 'quietFromHour')),
+        h('div', {}, h('label', {}, 'bis (Uhr)'), numInput(s, 'quietToHour'))),
+      checkInput(s, 'quietEnabled', 'Nachts nur bei Warnungen aktualisieren'),
+      checkInput(s, 'buttonsEnabled', 'Taster am Pico auswerten'),
+      checkInput(s, 'allowSystemReboot', 'Taste 4 (3 s halten) startet auch den Raspberry Pi neu'),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/display', { method: 'PUT', body: s }), 'Anzeige-Einstellungen gespeichert.')) renderFans(); } }, 'Speichern'),
+        h('button', { class: 'btn', onclick: () => run(() => api('/display/refresh', { method: 'POST', body: {} }), 'Anzeige wird aktualisiert, sobald die Mindestpause von 3 Minuten um ist.') }, 'Jetzt aktualisieren')),
+      h('p', { class: 'muted small' }, 'Das E-Paper wird höchstens alle 3 Minuten neu aufgebaut (Herstellerempfehlung), ein Bildaufbau dauert etwa 16 Sekunden.'));
+  }
+  return h('div', { class: 'card stack' }, parts);
 }
 
 function curveInputs(curve) {
@@ -1002,11 +1068,13 @@ function fanEditor(data) {
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, 'Modus'), selectInput(cs, 'mode', [['auto', 'Automatik'], ['manual', 'Manuell']], renderCase)),
       cs.mode === 'manual' ? h('div', {}, h('label', {}, 'Drehzahl %'), numInput(cs, 'manualPercent')) : null,
-      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Messgröße'), selectInput(cs, 'sensor', [['vr', 'VR-Temperatur'], ['asic', 'ASIC-Temperatur']])) : null,
+      cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Messgröße'), selectInput(cs, 'sensor', [['vr', 'VR-Temperatur der Miner'], ['asic', 'ASIC-Temperatur der Miner'], ['case', 'Gehäusefühler (DS18B20)']], renderCase)) : null,
       cs.mode === 'auto' ? h('div', {}, h('label', {}, 'Miner ohne Daten → mind. %'), numInput(cs, 'unknownPercent')) : null),
     cs.mode === 'auto' ? h('div', { class: 'stack' },
-      h('p', { class: 'muted small' }, 'Es zählt die höchste Temperatur der ausgewählten Miner (keine Auswahl = alle).'),
-      minerChecks,
+      cs.sensor === 'case'
+        ? h('p', { class: 'muted small' }, 'Es zählt der wärmste Gehäusefühler. Ohne Fühler gilt „Miner ohne Daten → mind. %“.')
+        : h('p', { class: 'muted small' }, 'Es zählt die höchste Temperatur der ausgewählten Miner (keine Auswahl = alle).'),
+      cs.sensor === 'case' ? null : minerChecks,
       h('div', { class: 'form' }, curveInputs(cs.curve)),
       checkInput(cs, 'nightEnabled', 'Nachtbetrieb (leiser)'),
       h('div', { class: 'form' },
@@ -1022,7 +1090,7 @@ function fanEditor(data) {
   };
   return h('div', { class: 'stack' },
     h('div', { class: 'card stack' }, h('h2', {}, 'Verbindung'),
-      checkInput(f, 'enabled', 'Lüftersteuerung einschalten (Pico per USB am Server)'),
+      checkInput(f, 'enabled', 'Lüfter regeln (Pico per USB am Server; der Port gilt auch für Anzeige und Taster)'),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Port („auto“ = Pico automatisch finden)'), h('input', { value: f.port, oninput: e => { f.port = e.target.value; } }))),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: save }, 'Speichern'),
@@ -1034,7 +1102,8 @@ function fanEditor(data) {
           },
         }, 'Programm neu aufspielen'))),
     h('div', { class: 'card stack' }, h('h2', {}, 'Kanäle'), channelsBox),
-    h('div', { class: 'card stack' }, h('h2', {}, 'Gehäuselüfter (alle Kanäle mit „Gehäuse“)'), caseBox),
+    h('div', { class: 'card stack' }, h('h2', {}, 'Gehäuselüfter (alle Kanäle mit „Gehäuse“)'), caseBox,
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, 'Meldung ab Gehäusetemperatur °C'), numInput(f, 'caseTempWarn', 0.5)))),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, 'Speichern')),
     h('p', { class: 'muted small' }, 'Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.'));
 }

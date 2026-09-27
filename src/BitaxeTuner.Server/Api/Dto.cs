@@ -53,10 +53,13 @@ public static class Dto
     public static object? Fans(MinerHub hub, Role role)
     {
         var f = hub.FanStatus;
-        if (!f.Enabled) return null;
+        if (!f.Enabled && !hub.Config.Display.Enabled) return null;
         return new
         {
             connected = f.Connected,
+            @override = f.Override.ToString(),
+            caseTemps = f.CaseTemps?.ToList() ?? [],
+            caseTempWarn = hub.Config.Fans.CaseTempWarn,
             device = role == Role.Admin ? f.Device : null,
             error = f.Error,
             updated = f.Updated,

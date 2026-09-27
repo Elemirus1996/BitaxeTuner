@@ -25,6 +25,7 @@ public sealed record TokenRequest(string? Name);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
+public sealed record OverrideRequest(string Mode);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
 public static class Endpoints
@@ -88,7 +89,8 @@ public static class Endpoints
         f.Channels = f.Channels.Where(c => c.Channel is >= 1 and <= Core.Config.FanSettings.ChannelCount).OrderBy(c => c.Channel).ToList();
         CheckCurve(f.Case.Curve, "Gehäuse");
         if (f.Case.Mode is not ("auto" or "manual")) throw new InvalidOperationException("Gehäuse: unbekannter Modus.");
-        if (f.Case.Sensor is not ("vr" or "asic")) f.Case.Sensor = "vr";
+        if (f.Case.Sensor is not ("vr" or "asic" or "case")) f.Case.Sensor = "vr";
+        f.CaseTempWarn = Math.Clamp(f.CaseTempWarn, 20, 80);
         f.Case.ManualPercent = Math.Clamp(f.Case.ManualPercent, 0, 100);
         f.Case.UnknownPercent = Math.Clamp(f.Case.UnknownPercent, 0, 100);
         f.Case.NightMaxPercent = Math.Clamp(f.Case.NightMaxPercent, 0, 100);
@@ -208,6 +210,23 @@ public static class Endpoints
             Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id)).Select(Dto.Comparison).ToList())));
 
         g.MapGet("/events", (HttpContext http, EventStream events) => events.ServeAsync(http, AuthContext.Of(http).Role));
+
+        g.MapGet("/display", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            status = h.DisplayStatus,
+            settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Display) : null,
+            rebootAvailable = h.Options.SystemReboot is not null,
+        })));
+
+        // Vorschau genau so, wie die Anzeige es zeigt (auch ohne Hardware)
+        g.MapGet("/display/preview.png", async (HubService hub) =>
+        {
+            var model = await hub.RunAsync(h => h.BuildDisplayModel(DateTime.Now));
+            using var img = Core.Display.StatusRenderer.RenderImage(model);
+            var ms = new MemoryStream();
+            await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(img, ms);
+            return Results.File(ms.ToArray(), "image/png");
+        });
 
         g.MapGet("/fans", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
         {
@@ -480,6 +499,50 @@ public static class Endpoints
             if (!h.Config.Fans.Enabled) throw new InvalidOperationException("Lüftersteuerung ist ausgeschaltet.");
             await h.ApplyFanSettingsAsync(reinstallFirmware: true);
             return new { ok = h.FanStatus.Connected, status = Dto.Fans(h, Role.Admin) };
+        })));
+
+        g.MapPost("/fans/override", async (OverrideRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var mode = req.Mode switch
+            {
+                "off" => Core.Fans.FanOverride.Off,
+                "full" => Core.Fans.FanOverride.Full,
+                "auto" => Core.Fans.FanOverride.None,
+                _ => throw new InvalidOperationException("Modus: off, auto oder full."),
+            };
+            await h.SetFanOverrideAsync(mode, "Browser");
+            return new { ok = true, status = Dto.Fans(h, Role.Admin) };
+        })));
+
+        g.MapPost("/system/reboot", async (HubService hub) =>
+        {
+            // Antwort zuerst, dann neu starten
+            var message = await hub.RunAsync(h => h.Options.SystemReboot is not null && h.Config.Display.AllowSystemReboot
+                ? "Pico und Rechner werden neu gestartet – die Seite verbindet sich danach von selbst wieder."
+                : "Pico wird neu gestartet (Neustart des Rechners ist hier nicht eingerichtet).");
+            _ = hub.RunAsync(h => h.RebootAsync("Browser"));
+            return Results.Json(new { ok = true, message });
+        });
+
+        // ---------- E-Paper-Anzeige ----------
+
+        g.MapPut("/display", async (Core.Config.DisplaySettings req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
+            req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
+            req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
+            req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
+            h.Config.Display = req;
+            h.Config.Save();
+            h.RequestDisplayRefresh();
+            await h.ApplyFanSettingsAsync();
+            return new { ok = true, status = h.DisplayStatus };
+        })));
+
+        g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.RequestDisplayRefresh();
+            return new { ok = true, status = h.DisplayStatus };
         })));
 
         g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));

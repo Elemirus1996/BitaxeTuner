@@ -26,6 +26,9 @@ public sealed class MinerHubOptions
     /// <summary>Nur für Tests: Uhr für die Auswertung nach jeder Runde (Haltezeiten der Regeln).</summary>
     public Func<DateTime>? Clock { get; init; }
 
+    /// <summary>Rechner neu starten (Server auf dem Pi: systemctl reboot). Null = nicht verfügbar.</summary>
+    public Func<Task>? SystemReboot { get; init; }
+
     /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
     public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
 

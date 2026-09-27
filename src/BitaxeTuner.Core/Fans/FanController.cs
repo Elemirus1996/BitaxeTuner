@@ -7,7 +7,18 @@ namespace BitaxeTuner.Core.Fans;
 public sealed record MinerTemps(string Host, string Name, bool Online, double? VrTemp, double? AsicTemp, DateTime? LastOk);
 
 /// <summary>Sollwert eines Kanals mit Begründung für die Oberfläche.</summary>
-public sealed record FanTarget(int Channel, int Percent, string Reason);
+public sealed record FanTarget(int Channel, int Percent, string Reason, bool SafetyOverride = false);
+
+/// <summary>Vorübergehende Vorgabe per Taste oder Browser; gilt bis zum nächsten Neustart.</summary>
+public enum FanOverride
+{
+    /// <summary>Jeder Kanal nach seiner Einstellung (Automatik bzw. manuell).</summary>
+    None,
+    /// <summary>Alle Zusatzlüfter aus – Sicherheitsregeln bleiben aktiv.</summary>
+    Off,
+    /// <summary>Alle Zusatzlüfter auf 100 %.</summary>
+    Full,
+}
 
 /// <summary>
 /// Berechnet die Sollwerte der Zusatzlüfter. Reine Logik ohne Hardware:
@@ -23,6 +34,12 @@ public sealed class FanController
     public static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(30);
     private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
     private readonly Dictionary<int, int> _last = new();
+
+    /// <summary>Vorgabe per Taste („Aus“ / „100 %“); <see cref="FanOverride.None"/> = Einstellungen.</summary>
+    public FanOverride Override { get; set; }
+
+    /// <summary>Höchster Wert der Gehäusefühler (°C), null ohne Sensor.</summary>
+    public double? CaseTemperature { get; set; }
 
     public IReadOnlyList<FanTarget> Compute(FanSettings settings, IReadOnlyList<MinerTemps> miners, DateTime now)
     {
@@ -57,6 +74,14 @@ public sealed class FanController
         if (m is null) return Remember(c.Channel, 100, "kein Miner zugeordnet → 100 %");
         if (!m.Online) return Remember(c.Channel, 100, $"{m.Name} offline → 100 %");
         if (m.LastOk is not { } ok || now - ok > StaleAfter) return Remember(c.Channel, 100, "keine aktuellen Daten → 100 %");
+        if (Override == FanOverride.Full) return Remember(c.Channel, 100, "100 % (Taste)");
+        if (Override == FanOverride.Off)
+        {
+            var t = m.VrTemp is { } v and > 0 ? v : m.AsicTemp ?? 0;
+            return t >= c.Curve.FullTemp
+                ? Remember(c.Channel, 100, $"Sicherheit: {t.ToString("0.0", De)} °C trotz „Aus“ → 100 %") with { SafetyOverride = true }
+                : Remember(c.Channel, 0, "aus (Taste)");
+        }
         if (c.Mode == "manual") return Remember(c.Channel, Clamp(c.ManualPercent), $"manuell {Clamp(c.ManualPercent)} %");
 
         var (temp, label) = m.VrTemp is { } vr and > 0 ? (vr, "VR") : m.AsicTemp is { } a and > 0 ? (a, "ASIC") : (double.NaN, "");
@@ -68,8 +93,27 @@ public sealed class FanController
     private FanTarget CaseGroup(CaseFanSettings s, IReadOnlyList<MinerTemps> miners, DateTime now, int channel)
     {
         const int groupKey = 0; // Hysterese-Zustand der Gruppe
-        if (s.Mode == "manual")
+        if (Override == FanOverride.Full) return new FanTarget(channel, 100, "100 % (Taste)");
+        if (s.Mode == "manual" && Override == FanOverride.None)
             return new FanTarget(channel, Clamp(s.ManualPercent), $"Gehäuse manuell {Clamp(s.ManualPercent)} %");
+
+        if (s.Sensor == "case")
+        {
+            if (CaseTemperature is not { } ct)
+                return new FanTarget(channel, Clamp(s.UnknownPercent), $"kein Gehäusefühler → {Clamp(s.UnknownPercent)} %");
+            if (Override == FanOverride.Off)
+                return ct >= s.Curve.FullTemp
+                    ? new FanTarget(channel, 100, $"Sicherheit: Gehäuse {ct.ToString("0.0", De)} °C trotz „Aus“ → 100 %", true)
+                    : new FanTarget(channel, 0, "aus (Taste)");
+            var cp = WithHysteresis(groupKey, s.Curve, ct);
+            var why = $"Automatik: Gehäuse {ct.ToString("0.0", De)} °C → {cp} %";
+            if (s.NightEnabled && IsNight(s, now) && ct < s.Curve.FullTemp && cp > s.NightMaxPercent)
+            {
+                cp = Clamp(s.NightMaxPercent);
+                why += $", Nachtbetrieb max. {cp} %";
+            }
+            return new FanTarget(channel, cp, why);
+        }
 
         var selected = s.Miners.Count == 0
             ? miners
@@ -87,6 +131,14 @@ public sealed class FanController
         {
             pct = Clamp(s.UnknownPercent);
             reason = $"keine aktuellen Temperaturen → {pct} %";
+        }
+        else if (Override == FanOverride.Off)
+        {
+            var max = temps.Max();
+            var safety = max >= s.Curve.FullTemp || unknown.Count > 0;
+            return safety
+                ? new FanTarget(channel, 100, $"Sicherheit: {(unknown.Count > 0 ? "Miner ohne Daten" : $"{max.ToString("0.0", De)} °C")} trotz „Aus“ → 100 %", true)
+                : new FanTarget(channel, 0, "aus (Taste)");
         }
         else
         {

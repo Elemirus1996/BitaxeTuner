@@ -51,6 +51,7 @@ public sealed class HubService : IHostedService, IDisposable
             OnlineChecks = _options?.OnlineChecks ?? true,
             BenchmarkDelay = _options?.BenchmarkDelay,
             FanDeviceFactory = _options?.FanDeviceFactory,
+            SystemReboot = _options?.SystemReboot ?? DefaultReboot(),
             Clock = _options?.Clock,
         });
         if (hub.HistoryError is { } error) _log.LogError("Verlaufsdatenbank nicht verfügbar: {Error}", error);
@@ -60,6 +61,22 @@ public sealed class HubService : IHostedService, IDisposable
         };
         if (LoadPaused()) hub.SetPaused(true);
         return hub;
+    }
+
+    /// <summary>
+    /// Rechner-Neustart nur bei der Installation per install.sh/Pi-Image (systemd + Polkit-Regel für den Dienstbenutzer).
+    /// Windows-Dienst, Docker und von Hand gestartete Server starten nur den Pico neu.
+    /// </summary>
+    private Func<Task>? DefaultReboot()
+    {
+        if (!OperatingSystem.IsLinux() || ServerUpdater.DetectKind() != InstallKind.LinuxPackage) return null;
+        return async () =>
+        {
+            _log.LogWarning("Neustart des Rechners (Taste 4 / Browser).");
+            await Task.Delay(1500); // Protokoll und Antworten noch rausgeben
+            using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("systemctl", "reboot") { UseShellExecute = false });
+            p?.WaitForExit(10000);
+        };
     }
 
     /// <summary>Im Hub-Kontext ausführen (einziger erlaubter Zugriff auf Hub-Zustände von außen).</summary>

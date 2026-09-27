@@ -91,6 +91,9 @@ public sealed class AppConfig
     /// <summary>Zusatzlüfter am Server (Raspberry Pi Pico per USB).</summary>
     public FanSettings Fans { get; set; } = new();
 
+    /// <summary>E-Paper-Anzeige und Taster am Pico.</summary>
+    public DisplaySettings Display { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }

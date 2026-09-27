@@ -4,12 +4,22 @@ using System.Text;
 
 namespace BitaxeTuner.Core.Fans;
 
-/// <summary>Lüfter-Hardware: Sollwerte senden, Drehzahlen lesen.</summary>
+/// <summary>Pico-Zubehör: Lüfter, E-Paper-Anzeige, Taster.</summary>
 public interface IFanDevice : IDisposable
 {
     string Description { get; }
     /// <summary>Prozentwerte für alle Kanäle setzen (setzt auch den Watchdog im Pico zurück); liefert U/min je Kanal.</summary>
     Task<int[]> ExchangeAsync(IReadOnlyList<int> percent, CancellationToken ct = default);
+    /// <summary>Nur Drehzahlen lesen (Lebenszeichen, wenn keine Lüfter geregelt werden).</summary>
+    Task<int[]> PollAsync(CancellationToken ct = default);
+    /// <summary>Bild übertragen und anzeigen: 2 × 48 000 Byte (Schwarz-Ebene 1 = weiß, Rot-Ebene 1 = rot).</summary>
+    Task ShowImageAsync(byte[] planes, CancellationToken ct = default);
+    /// <summary>Pico neu starten.</summary>
+    Task ResetAsync(CancellationToken ct = default);
+    /// <summary>Seit dem letzten Aufruf gemeldete Ereignisse („BTN 1“, „BTN 4 LONG“, „EPD DONE“).</summary>
+    IReadOnlyList<string> DrainEvents();
+    /// <summary>Gehäusetemperaturen (DS18B20) aus der letzten Antwort, °C; leer ohne Sensor.</summary>
+    IReadOnlyList<double> Temperatures { get; }
 }
 
 /// <summary>Zeilenbasierte serielle Verbindung (austauschbar für Tests).</summary>
@@ -80,9 +90,13 @@ public sealed class SerialLineTransport : ILineTransport
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "1";
+    public const string FirmwareVersion = "3";
+    public const int ImageBytes = 2 * 800 * 480 / 8;
     private readonly ILineTransport _io;
     private readonly object _lock = new();
+    private readonly List<string> _events = new();
+
+    public IReadOnlyList<double> Temperatures { get; private set; } = [];
 
     private PicoFanDevice(ILineTransport io, string description)
     {
@@ -192,18 +206,93 @@ public sealed class PicoFanDevice : IFanDevice
         lock (_lock)
         {
             _io.Write("SET " + string.Join(' ', percent.Select(p => Math.Clamp(p, 0, 100))) + "\r\n");
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(1.5);
-            while (DateTime.UtcNow < deadline)
-            {
-                var line = _io.ReadLine(deadline - DateTime.UtcNow);
-                if (line is null) break;
-                if (line.StartsWith("RPM ", StringComparison.Ordinal))
-                    return line[4..].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => int.TryParse(v, out var r) ? r : 0).ToArray();
-                if (line.StartsWith("ERR", StringComparison.Ordinal)) throw new IOException("Pico: " + line);
-            }
-            throw new IOException("Pico antwortet nicht.");
+            return ParseRpm(Expect("RPM ", TimeSpan.FromSeconds(1.5)));
         }
     }, ct);
+
+    public Task<int[]> PollAsync(CancellationToken ct = default) => Task.Run(() =>
+    {
+        lock (_lock)
+        {
+            _io.Write("GET\r\n");
+            return ParseRpm(Expect("RPM ", TimeSpan.FromSeconds(1.5)));
+        }
+    }, ct);
+
+    public Task ShowImageAsync(byte[] planes, CancellationToken ct = default) => Task.Run(() =>
+    {
+        if (planes.Length != ImageBytes) throw new ArgumentException("Bildgröße passt nicht zur Anzeige.");
+        lock (_lock)
+        {
+            _io.Write($"IMG {planes.Length}\r\n");
+            Expect("OK IMG", TimeSpan.FromSeconds(2));
+            // 192 Byte je Zeile (256 Zeichen Base64); jede Zeile setzt auch den Watchdog im Pico zurück
+            var sb = new StringBuilder();
+            for (var i = 0; i < planes.Length; i += 192)
+            {
+                sb.Append("D ").Append(Convert.ToBase64String(planes, i, Math.Min(192, planes.Length - i))).Append("\r\n");
+                if (sb.Length > 8000)
+                {
+                    _io.Write(sb.ToString());
+                    sb.Clear();
+                }
+            }
+            if (sb.Length > 0) _io.Write(sb.ToString());
+            _io.Write("SHOW\r\n");
+            Expect("OK SHOW", TimeSpan.FromSeconds(20));
+        }
+    }, ct);
+
+    public Task ResetAsync(CancellationToken ct = default) => Task.Run(() =>
+    {
+        lock (_lock)
+        {
+            _io.Write("RESET\r\n");
+            try { Expect("OK RESET", TimeSpan.FromSeconds(1)); } catch (IOException) { /* startet ohnehin neu */ }
+        }
+    }, ct);
+
+    public IReadOnlyList<string> DrainEvents()
+    {
+        lock (_events)
+        {
+            var list = _events.ToList();
+            _events.Clear();
+            return list;
+        }
+    }
+
+    /// <summary>Zeilen lesen, bis eine mit <paramref name="prefix"/> kommt; Ereignisse unterwegs einsammeln.</summary>
+    private string Expect(string prefix, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var line = _io.ReadLine(deadline - DateTime.UtcNow);
+            if (line is null) break;
+            line = line.Trim();
+            if (line.StartsWith(prefix, StringComparison.Ordinal)) return line;
+            if (line.StartsWith("BTN ", StringComparison.Ordinal) || line == "EPD DONE")
+            {
+                lock (_events) _events.Add(line);
+                continue;
+            }
+            if (line.StartsWith("ERR", StringComparison.Ordinal)) throw new IOException("Pico: " + line[3..].Trim());
+        }
+        throw new IOException("Pico antwortet nicht.");
+    }
+
+    /// <summary>"RPM r1 .. r6 [T t1 t2 ..]" – Drehzahlen und optional Gehäusetemperaturen.</summary>
+    private int[] ParseRpm(string line)
+    {
+        var parts = line[4..].Split(" T ", 2);
+        Temperatures = parts.Length > 1
+            ? parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : double.NaN)
+                .Where(t => !double.IsNaN(t)).ToList()
+            : [];
+        return parts[0].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => int.TryParse(v, out var r) ? r : 0).ToArray();
+    }
 
     public void Dispose() => _io.Dispose();
 
@@ -253,7 +342,44 @@ public sealed class PicoFanDevice : IFanDevice
 /// <summary>Simulierter Pico für Tests und Vorführung: Drehzahl folgt dem Sollwert (≈ 60 U/min je %).</summary>
 public sealed class SimulatedFanDevice : IFanDevice
 {
+    private readonly List<string> _events = new();
     public string Description => "Simulierter Pico";
+    public List<byte[]> Images { get; } = [];
+    public int Resets { get; private set; }
+    /// <summary>Simulierter Gehäusefühler (°C); leer = kein Sensor.</summary>
+    public List<double> CaseTemps { get; } = [];
+    public IReadOnlyList<double> Temperatures => CaseTemps;
+
+    /// <summary>Tastendruck nachbilden („BTN 1“ … „BTN 4 LONG“).</summary>
+    public void Press(string evt)
+    {
+        lock (_events) _events.Add(evt);
+    }
+
+    public Task<int[]> PollAsync(CancellationToken ct = default) => ExchangeAsync(LastPercent, ct);
+
+    public Task ShowImageAsync(byte[] planes, CancellationToken ct = default)
+    {
+        if (Fail) throw new IOException("Simulierter Pico getrennt");
+        Images.Add(planes);
+        return Task.CompletedTask;
+    }
+
+    public Task ResetAsync(CancellationToken ct = default)
+    {
+        Resets++;
+        return Task.CompletedTask;
+    }
+
+    public IReadOnlyList<string> DrainEvents()
+    {
+        lock (_events)
+        {
+            var list = _events.ToList();
+            _events.Clear();
+            return list;
+        }
+    }
     public int[] LastPercent { get; private set; } = [.. Enumerable.Repeat(100, 6)];
     /// <summary>Kanäle ohne Drehzahl (für den Test „Lüfter steht“).</summary>
     public HashSet<int> Stalled { get; } = [];
