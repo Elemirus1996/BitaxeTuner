@@ -1,0 +1,49 @@
+name: Fehler melden / Bug report
+description: Etwas funktioniert nicht wie erwartet.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung! **Bitte keine persönlichen Daten** eintragen: keine IP-Adressen, Wallet-Adressen,
+        API-Tokens, Passwörter oder Push-Zugangsdaten. Sicherheitslücken bitte privat melden (siehe SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: z. B. 0.4.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Betriebsart
+      options:
+        - Desktop-App (Lokal)
+        - Desktop-App (Server-Modus)
+        - Server auf Raspberry Pi (Image)
+        - Server auf Raspberry Pi/Linux (Paket)
+        - Server als Windows-Dienst
+        - Docker
+    validations:
+      required: true
+  - type: input
+    id: miner
+    attributes:
+      label: Miner-Modell und Firmware
+      placeholder: z. B. Bitaxe Gamma, AxeOS v2.x
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert, was hast du erwartet?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Nachstellen
+  - type: textarea
+    id: log
+    attributes:
+      label: Protokollauszug (ohne persönliche Daten)
+      render: text

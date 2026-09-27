@@ -488,3 +488,6 @@ artifacts/
 
 # Das WPF-Projekt heißt "*.App" – nicht mit macOS-Bundles (*.app) verwechseln
 !/src/BitaxeTuner.App/
+
+# Quellcode der Sicherung (nicht die Visual-Studio-Backup-Ordner oben)
+!src/BitaxeTuner.Core/Backup/

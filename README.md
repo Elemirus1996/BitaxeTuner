@@ -102,7 +102,7 @@ dein PC an ist, installierst du den **BitaxeTuner-Server** auf einem Gerät, das
 
 | Gerät | Paket | Aufwand |
 |---|---|---|
-| Raspberry Pi 3/4/5, Zero 2 W – **fertiges SD-Image** | `BitaxeTuner-Server-x.y.z-raspios-arm64.img.xz` | Raspberry Pi Imager |
+| Raspberry Pi 3/4/5, Zero 2 W – **fertiges SD-Image** | `BitaxeTuner-Server-x.y.z-pi-arm64.img.xz` | Raspberry Pi Imager |
 | Raspberry Pi 3/4/5 (Pi OS 64-bit) | `BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` | 2 Befehle |
 | Raspberry Pi mit 32-bit-System | `…-linux-arm.tar.gz` | 2 Befehle |
 | Linux-PC / Mini-PC (x64) | `…-linux-x64.tar.gz` | 2 Befehle |
@@ -114,8 +114,8 @@ Datensatz pro Minute und Miner (schont die SD-Karte).
 
 **Raspberry Pi – fertiges Image (am einfachsten)**
 
-1. `…-raspios-arm64.img.xz` mit dem **Raspberry Pi Imager** schreiben („Eigenes Image“). Das Image ist Raspberry Pi
-   OS Lite (64-bit) mit vorinstalliertem Server. Der Imager bietet für eigene Images keine Einstellungen an –
+1. `…-pi-arm64.img.xz` mit dem **Raspberry Pi Imager** schreiben („Eigenes Image“). Das Image basiert auf
+   Raspberry Pi OS Lite (64-bit) und enthält den vorinstallierten Server (kein offizielles Raspberry-Pi-Produkt). Der Imager bietet für eigene Images keine Einstellungen an –
    Benutzer, WLAN und SSH trägt die Desktop-App ein (Schritt 2).
 2. SD-Karte neu einstecken, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
    Admin-Passwort festlegen, Benutzer/Passwort für den Pi und WLAN eintragen, optional *Meine Daten mitgeben*.
@@ -323,12 +323,37 @@ Gamma, Duo, GT, Hex, SupraHex) and NerdAxe-family miners (NerdAxe, NerdAxe Gamma
 It steps through frequency/core-voltage combinations, measures hashrate, power, efficiency and temperatures,
 enforces safety limits on every sample, and recommends the best setting by max hashrate, efficiency or a
 weighted balance. Multiple miners can be tuned in parallel. Download the installer from Releases.
-For 24/7 operation without a PC, run the **BitaxeTuner-Server** on a Raspberry Pi (`install.sh` + systemd),
-a Windows machine (service setup) or Docker (`ghcr.io/elemirus1996/bitaxetuner-server`); use it from any browser
-or connect the desktop app to it. Use at your own risk.
+
+For 24/7 operation without a PC, run the **BitaxeTuner-Server** on a Raspberry Pi (ready-made SD image or
+`install.sh` + systemd), a Windows machine (service setup) or Docker (`ghcr.io/elemirus1996/bitaxetuner-server`);
+use it from any browser or connect the desktop app to it. Optional: extra PWM fans, a 7.5" e-paper status display,
+buttons and DS18B20 temperature sensors via a Raspberry Pi Pico, daily verified backups (USB stick, NAS, PC),
+Home Assistant via MQTT (read-only for tuning), and an efficiency advisor. Frequency/voltage changes always require
+explicit confirmation showing old and new values. The user interface is German. Use at your own risk.
+
+## Hinweise / Disclaimer
+
+- **Keine Gewähr.** BitaxeTuner wird ohne jede Garantie bereitgestellt (GPL-3.0, Abschnitte 15–16). Übertakten,
+  höhere Spannungen und eigene Lüfterschaltungen geschehen auf eigenes Risiko.
+- **Unabhängiges Projekt.** BitaxeTuner ist nicht mit dem Bitaxe-Projekt (bitaxe.org), NerdAxe, Raspberry Pi Ltd,
+  Home Assistant oder Waveshare verbunden und wird von ihnen weder unterstützt noch geprüft. Alle genannten Namen und
+  Marken gehören ihren jeweiligen Inhabern und werden nur zur Beschreibung der Kompatibilität verwendet.
+- Das fertige Pi-Image basiert auf Raspberry Pi OS und ist **kein offizielles Raspberry-Pi-Produkt**; Lizenzen und
+  Quelltext-Hinweise dazu stehen in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+- *No warranty. Independent project, not affiliated with or endorsed by the Bitaxe project, NerdAxe, Raspberry Pi Ltd,
+  Home Assistant or Waveshare. All trademarks belong to their respective owners.*
+
+## Mitmachen, Fehler melden, Sicherheit
+
+- Fehler und Wünsche: [Issues](../../issues) (Vorlagen vorhanden). Bitte **keine** IP-Adressen, Wallet-Adressen,
+  Tokens oder Passwörter in Issues posten.
+- Beiträge: siehe [CONTRIBUTING.md](CONTRIBUTING.md). Beiträge stehen unter derselben Lizenz (GPL-3.0).
+- Sicherheitslücken bitte **nicht öffentlich**, sondern wie in [SECURITY.md](SECURITY.md) beschrieben melden.
 
 ## Lizenz
 
-GPL-3.0 – siehe [LICENSE](LICENSE). Enthaltene Komponenten anderer Urheber (u. a. .NET, SQLite, ImageSharp,
+Copyright © 2026 BitaxeTuner contributors. Lizenz: **GNU GPL v3.0** – siehe [LICENSE](LICENSE).
+Den Quelltext zu jeder veröffentlichten Version gibt es in diesem Repository (Tag `vX.Y.Z` bzw. „Source code“ auf der
+Release-Seite). Enthaltene Komponenten anderer Urheber (u. a. .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet,
 DejaVu-Schriften, WebView2-SDK) und Hinweise zum Raspberry-Pi-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
-Beide Dateien liegen jedem Paket bei.
+`LICENSE` und `THIRD-PARTY-NOTICES.txt` liegen jedem Paket bei.

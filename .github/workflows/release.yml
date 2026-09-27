@@ -80,8 +80,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download "$GITHUB_REF_NAME" --pattern 'BitaxeTuner-Server-*-linux-arm64.tar.gz' --dir pkg
       - name: Image bauen
-        run: sudo deploy/pi-image/build-image.sh pkg/BitaxeTuner-Server-*-linux-arm64.tar.gz "$PWD/BitaxeTuner-Server-${GITHUB_REF_NAME#v}-raspios-arm64.img.xz"
+        run: sudo deploy/pi-image/build-image.sh pkg/BitaxeTuner-Server-*-linux-arm64.tar.gz "$PWD/BitaxeTuner-Server-${GITHUB_REF_NAME#v}-pi-arm64.img.xz"
       - name: An das Release anhängen
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" BitaxeTuner-Server-*-raspios-arm64.img.xz BitaxeTuner-Server-*-raspios-arm64.img.xz.sha256 --clobber
+        run: gh release upload "$GITHUB_REF_NAME" BitaxeTuner-Server-*-pi-arm64.img.xz BitaxeTuner-Server-*-pi-arm64.img.xz.sha256 --clobber

@@ -31,7 +31,7 @@ tar -xzf "$PKG" -C "$WORK/pkg"
 SRC="$WORK/pkg/bitaxetuner-server"
 [ -x "$SRC/BitaxeTuner.Server" ] || chmod 755 "$SRC/BitaxeTuner.Server"
 VERSION=$(tr -d '\r\n' < "$SRC/VERSION")
-OUT=${2:-$(pwd)/BitaxeTuner-Server-$VERSION-raspios-arm64.img.xz}
+OUT=${2:-$(pwd)/BitaxeTuner-Server-$VERSION-pi-arm64.img.xz}
 echo "BitaxeTuner-Server $VERSION"
 
 echo "== Raspberry Pi OS Lite (64-bit) laden =="
@@ -94,7 +94,8 @@ install -d "$R/boot/firmware/bitaxetuner"
 # Lizenzhinweise (GPL-3.0, Drittanbieter, Quelltexte von Raspberry Pi OS) auch auf der Boot-Partition lesbar
 for f in LICENSE THIRD-PARTY-NOTICES.txt; do [ -f "$SRC/$f" ] && install -m 644 "$SRC/$f" "$R/boot/firmware/bitaxetuner/$f"; done
 cat > "$R/boot/firmware/bitaxetuner/LIESMICH.txt" <<'TXT'
-BitaxeTuner-Server – vorbereitetes Raspberry-Pi-OS-Image
+BitaxeTuner-Server – vorbereitetes Image (basiert auf Raspberry Pi OS, kein offizielles Raspberry-Pi-Produkt)
+Lizenzen und Quelltext-Hinweise: THIRD-PARTY-NOTICES.txt in diesem Ordner.
 
 Optional vor dem ersten Start: In der BitaxeTuner-Desktop-App unter "Betriebsart" -> "Raspberry Pi vorbereiten"
 diesen Ordner auswählen. Die App legt hier Zugangsdaten (nur Hashes) und auf Wunsch deine Daten ab.
