@@ -20,7 +20,8 @@ cleanup() {
     set +e
     umount "$WORK/root/boot/firmware" 2>/dev/null
     umount "$WORK/root" 2>/dev/null
-    [ -n "${LOOP:-}" ] && losetup -d "$LOOP" 2>/dev/null
+    [ -n "${LOOP_BOOT:-}" ] && losetup -d "$LOOP_BOOT" 2>/dev/null
+    [ -n "${LOOP_ROOT:-}" ] && losetup -d "$LOOP_ROOT" 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -47,12 +48,21 @@ IMG="$WORK/os.img"
 echo "== Root-Partition vergrößern =="
 truncate -s +1G "$IMG"
 parted -s "$IMG" resizepart 2 100%
-LOOP=$(losetup --show -fP "$IMG")
-e2fsck -fy "${LOOP}p2" || true
-resize2fs "${LOOP}p2"
+# Partitionen über ihre Lage im Image einbinden (ohne Partitions-Scan: auf CI-Servern erscheinen
+# /dev/loopXpN oft nicht oder zu spät)
+part_loop() {
+    set -- $(partx -g -o START,SECTORS -n "$1" "$IMG")
+    losetup --show -f -o $(( $1 * 512 )) --sizelimit $(( $2 * 512 )) "$IMG"
+}
+LOOP_BOOT=$(part_loop 1)
+LOOP_ROOT=$(part_loop 2)
+# e2fsck: 0 = sauber, 1/2 = repariert, ab 4 = Fehler
+rc=0; e2fsck -fy "$LOOP_ROOT" || rc=$?
+[ "$rc" -lt 4 ] || { echo "Dateisystem des Images defekt (e2fsck $rc)" >&2; exit 1; }
+resize2fs "$LOOP_ROOT"
 mkdir -p "$WORK/root"
-mount "${LOOP}p2" "$WORK/root"
-mount "${LOOP}p1" "$WORK/root/boot/firmware"
+mount "$LOOP_ROOT" "$WORK/root"
+mount "$LOOP_BOOT" "$WORK/root/boot/firmware"
 
 echo "== BitaxeTuner-Server installieren =="
 R="$WORK/root"
@@ -91,8 +101,8 @@ TXT
 sync
 umount "$R/boot/firmware"
 umount "$R"
-losetup -d "$LOOP"
-LOOP=
+losetup -d "$LOOP_BOOT" "$LOOP_ROOT"
+LOOP_BOOT= LOOP_ROOT=
 
 echo "== Komprimieren =="
 xz -T0 -6 -c "$IMG" > "$OUT"
