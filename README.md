@@ -293,4 +293,6 @@ or connect the desktop app to it. Use at your own risk.
 
 ## Lizenz
 
-GPL-3.0 – siehe [LICENSE](LICENSE).
+GPL-3.0 – siehe [LICENSE](LICENSE). Enthaltene Komponenten anderer Urheber (u. a. .NET, SQLite, ImageSharp,
+DejaVu-Schriften, WebView2-SDK) und Hinweise zum Raspberry-Pi-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+Beide Dateien liegen jedem Paket bei.

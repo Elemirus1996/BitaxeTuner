@@ -23,6 +23,7 @@ ENV BITAXETUNER_DATA_DIR=/data \
     TZ=Europe/Berlin
 WORKDIR /app
 COPY --from=build /app ./
+COPY LICENSE THIRD-PARTY-NOTICES.txt ./
 RUN mkdir -p /data && chown $APP_UID /data
 VOLUME /data
 EXPOSE 8484

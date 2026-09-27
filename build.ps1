@@ -40,6 +40,9 @@ dotnet publish (Join-Path $root 'src\BitaxeTuner.App\BitaxeTuner.App.csproj') `
     -p:DebugType=none -p:Version=$Version -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
 
+# Lizenztexte gehören zu jeder Weitergabe (GPL-3.0 und Drittanbieter-Hinweise)
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $publish 'LICENSE.txt')
+Copy-Item (Join-Path $root 'THIRD-PARTY-NOTICES.txt') $publish
 $zip = Join-Path $artifacts "BitaxeTuner-$Version-portable-win-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
@@ -60,11 +63,13 @@ if (-not $SkipServer) {
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
             -p:DebugType=none -p:Version=$Version -o $pkg
         if ($LASTEXITCODE -ne 0) { throw "Server publish failed ($rid)." }
-        Write-Lf (Join-Path $pkg 'install.sh') (Get-Content (Join-Path $root 'deploy\linux\install.sh') -Raw)
+        Write-Lf (Join-Path $pkg 'install.sh') (Get-Content (Join-Path $root 'deploy\linux\install.sh') -Raw -Encoding UTF8)
         foreach ($f in 'bitaxetuner.service', 'bitaxetuner-reboot.path', 'bitaxetuner-reboot.service', 'bitaxetuner-firstboot.service', 'bitaxetuner-firstboot.sh') {
-            Write-Lf (Join-Path $pkg $f) (Get-Content (Join-Path $root "deploy\linux\$f") -Raw)
+            Write-Lf (Join-Path $pkg $f) (Get-Content (Join-Path $root "deploy\linux\$f") -Raw -Encoding UTF8)
         }
         Write-Lf (Join-Path $pkg 'VERSION') "$Version`n"
+        Write-Lf (Join-Path $pkg 'LICENSE') (Get-Content (Join-Path $root 'LICENSE') -Raw -Encoding UTF8)
+        Write-Lf (Join-Path $pkg 'THIRD-PARTY-NOTICES.txt') (Get-Content (Join-Path $root 'THIRD-PARTY-NOTICES.txt') -Raw -Encoding UTF8)
         Write-Lf (Join-Path $pkg 'LIESMICH.txt') @"
 BitaxeTuner-Server $Version ($rid)
 

@@ -87,6 +87,8 @@ echo "$HOSTNAME_NEW" > "$R/etc/hostname"
 sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME_NEW/" "$R/etc/hosts"
 
 install -d "$R/boot/firmware/bitaxetuner"
+# Lizenzhinweise (GPL-3.0, Drittanbieter, Quelltexte von Raspberry Pi OS) auch auf der Boot-Partition lesbar
+for f in LICENSE THIRD-PARTY-NOTICES.txt; do [ -f "$SRC/$f" ] && install -m 644 "$SRC/$f" "$R/boot/firmware/bitaxetuner/$f"; done
 cat > "$R/boot/firmware/bitaxetuner/LIESMICH.txt" <<'TXT'
 BitaxeTuner-Server – vorbereitetes Raspberry-Pi-OS-Image
 
