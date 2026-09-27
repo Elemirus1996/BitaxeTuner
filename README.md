@@ -155,7 +155,8 @@ Ein Raspberry Pi Pico (2) per USB am Server regelt bis zu sechs 4-Pin-PWM-Lüfte
 VR-Lüfter (manuell oder automatisch nach VR-Temperatur) und eine Gehäuse-Gruppe (nach VR-, ASIC- oder
 Temperaturfühlern). Mehrere DS18B20 (z. B. Netzteil, Miner-Raum) werden automatisch erkannt und bekommen
 je einen Namen und eine eigene Warnschwelle. Optional zeigt ein 7,5"-E-Paper (rot/schwarz/weiß) die wichtigsten Werte,
-vier Taster schalten *Zusatzlüfter aus* / *Automatik* / *100 %* / *Neustart Pi + Pico* (3 s halten).
+vier Taster: *Anzeige weiter/quittieren* · *Lüfter Automatik* · *100 %* (5 s halten: *Lüfter aus*) ·
+*Neustart Pi + Pico* (3 s halten).
 Das Pico-Programm spielt der Server selbst auf. Sicherheit: Miner offline oder Daten älter als 30 s → 100 %;
 Pico ohne Befehl für 5 s → 100 %; ohne Pico läuft jeder Lüfter über die Schaltung mit voller Drehzahl.
 Einstellungen und Vorschau: Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste

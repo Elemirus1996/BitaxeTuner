@@ -963,15 +963,17 @@ async function renderFans() {
 function quickActions(fans, display) {
   const mode = fans?.override || 'None';
   const label = { None: 'nach Einstellung (Automatik)', Off: 'AUS per Taste – Sicherheitsregeln aktiv', Full: 'alle 100 %' }[mode];
+  const next = async () => { const r = await run(() => api('/display/next', { method: 'POST', body: {} }), 'Anzeige wechselt in Kürze (frühestens 30 s nach der letzten Aktualisierung).'); if (r) renderFans(); };
   const set = async m => { const r = await run(() => api('/fans/override', { method: 'POST', body: { mode: m } })); if (r) { const box = $('#fan-status'); if (box) box.replaceChildren(...fanRows(r.status)); renderFans(); } };
   return h('div', { class: 'card stack' },
     h('div', { class: 'titlebar' }, h('h2', {}, 'Schnellaktionen'), h('span', { class: 'spacer' }),
       h('span', { class: `pill ${mode === 'None' ? 'gray' : ''}` }, `Lüfter: ${label}`)),
-    h('p', { class: 'muted small' }, 'Dieselben Aktionen wie die Taster am Pico. „Aus“ und „100 %“ gelten bis zum nächsten Neustart des Servers.'),
+    h('p', { class: 'muted small' }, 'Dieselben Aktionen wie die Taster am Pico: 1 = Anzeige weiter/quittieren, 2 = Automatik, 3 = alle 100 %, 3 (5 s halten) = Lüfter aus, 4 (3 s halten) = Neustart. „Aus“ und „100 %“ gelten bis zum nächsten Neustart des Servers.'),
     h('div', { class: 'row' },
-      h('button', { class: 'btn', onclick: () => set('off') }, '1 · Lüfter aus'),
+      h('button', { class: 'btn', onclick: next }, '1 · Anzeige weiter'),
       h('button', { class: 'btn', onclick: () => set('auto') }, '2 · Automatik'),
       h('button', { class: 'btn', onclick: () => set('full') }, '3 · Alle 100 %'),
+      h('button', { class: 'btn', onclick: () => set('off') }, '3 lang · Lüfter aus'),
       h('button', {
         class: 'btn danger', onclick: async () => {
           const text = display?.rebootAvailable

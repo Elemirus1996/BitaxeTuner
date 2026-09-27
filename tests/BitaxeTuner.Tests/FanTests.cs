@@ -398,8 +398,9 @@ public class DisplayAndButtonTests
         await device.ShowImageAsync(planes);
         Assert.Equal(planes, pico.Shown);
         pico.Press("BTN 4 LONG");
+        pico.Press("BTN 3 LONG");
         await device.ExchangeAsync([50, 50, 50, 50, 50, 50]);
-        Assert.Equal(["BTN 3", "BTN 4 LONG"], device.DrainEvents());
+        Assert.Equal(["BTN 3", "BTN 4 LONG", "BTN 3 LONG"], device.DrainEvents());
         Assert.Empty(device.DrainEvents());
     }
 
@@ -431,7 +432,7 @@ public class DisplayAndButtonTests
         await hub.FanTickAsync();
         Assert.Single(sim.Images);                                     // erstes Bild sofort
 
-        sim.Press("BTN 1");
+        sim.Press("BTN 3 LONG");                                       // Taste 3, 5 s gehalten = aus
         await hub.FanTickAsync();
         Assert.Equal(FanOverride.Off, hub.FanOverride);
         await hub.FanTickAsync();
@@ -441,6 +442,23 @@ public class DisplayAndButtonTests
         now = now.AddMinutes(3).AddSeconds(1);
         await hub.FanTickAsync();
         Assert.Equal(2, sim.Images.Count);                             // Änderung („Aus“) nach der Pause angezeigt
+
+        // Taste 1: Anzeige weiter – nach 30 s statt 3 min, höchstens 10-mal pro Stunde
+        sim.Press("BTN 1");
+        now = now.AddSeconds(10);
+        await hub.FanTickAsync();
+        Assert.Equal(2, sim.Images.Count);
+        now = now.AddSeconds(25);
+        await hub.FanTickAsync();
+        Assert.Equal(3, sim.Images.Count);
+        Assert.Equal(FanOverride.Off, hub.FanOverride);                // Taste 1 ändert die Lüfter nicht mehr
+        for (var i = 0; i < 12; i++)
+        {
+            sim.Press("BTN 1");
+            now = now.AddSeconds(31);
+            await hub.FanTickAsync();
+        }
+        Assert.Equal(2 + MinerHub.DisplayUserRefreshPerHour, sim.Images.Count);   // 10 per Taste in der Stunde, dann wieder 3 min
 
         sim.Press("BTN 3");
         await hub.FanTickAsync();

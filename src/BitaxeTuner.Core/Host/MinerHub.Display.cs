@@ -11,14 +11,21 @@ public sealed record DisplayStatus(bool Enabled, bool Connected, DateTime? LastS
 /// <summary>
 /// E-Paper-Anzeige und Taster am Pico.
 /// <list type="bullet">
-/// <item>Anzeige: regelmäßig (Standard 5 min), bei neuen Warnungen oder Tastendruck früher – nie öfter als alle 3 Minuten.</item>
-/// <item>Taster: 1 = Lüfter aus (Sicherheitsregeln bleiben), 2 = Automatik, 3 = alle 100 %, 4 (3 s halten) = Neustart Pico und Rechner.</item>
+/// <item>Anzeige: regelmäßig (Standard 5 min) und bei neuen Warnungen – nie öfter als alle 3 Minuten;
+/// auf Tastendruck frühestens 30 s nach der letzten Aktualisierung (höchstens 10-mal pro Stunde).</item>
+/// <item>Taster: 1 = Anzeige weiter / quittieren, 2 = Lüfter Automatik, 3 = alle 100 %, 3 (5 s halten) = Lüfter aus
+/// (Sicherheitsregeln bleiben), 4 (3 s halten) = Neustart Pico und Rechner.</item>
 /// <item>„Aus“ und „100 %“ gelten bis zum nächsten Neustart des Servers.</item>
 /// </list>
 /// </summary>
 public sealed partial class MinerHub
 {
     private static readonly TimeSpan DisplayMinGap = TimeSpan.FromMinutes(DisplaySettings.MinIntervalMinutes);
+    /// <summary>Auf Tastendruck darf die Anzeige schneller reagieren – aber nicht beliebig oft (Panel schonen).</summary>
+    public static readonly TimeSpan DisplayUserGap = TimeSpan.FromSeconds(30);
+    public const int DisplayUserRefreshPerHour = 10;
+    private readonly Queue<DateTime> _displayUserRefreshes = new();
+    private bool _displayUserRequested;
     private DateTime? _displayShown;
     private string _displayAlarmKey = "";
     private bool _displayRequested, _displayBusy, _displayRefreshing;
@@ -64,9 +71,10 @@ public sealed partial class MinerHub
             if (!Config.Display.ButtonsEnabled) continue;
             switch (e)
             {
-                case "BTN 1": await SetFanOverrideAsync(FanOverride.Off, "Taste 1"); break;
+                case "BTN 1": DisplayNextOrAcknowledge("Taste 1"); break;
                 case "BTN 2": await SetFanOverrideAsync(FanOverride.None, "Taste 2"); break;
                 case "BTN 3": await SetFanOverrideAsync(FanOverride.Full, "Taste 3"); break;
+                case "BTN 3 LONG": await SetFanOverrideAsync(FanOverride.Off, "Taste 3 lang"); break;
                 case "BTN 4 LONG": _ = RebootAsync("Taste 4"); break;
             }
         }
@@ -118,6 +126,22 @@ public sealed partial class MinerHub
     /// <summary>Anzeige möglichst bald neu aufbauen (frühestens 3 Minuten nach dem letzten Mal).</summary>
     public void RequestDisplayRefresh() => _displayRequested = true;
 
+    /// <summary>Taste 1 / Browser: Sonderanzeige quittieren, sonst nächste Seite – mit kurzer Wartezeit statt 3 Minuten.</summary>
+    public void DisplayNextOrAcknowledge(string source)
+    {
+        AdvanceDisplayScene(source);
+        _displayUserRequested = true;
+    }
+
+    /// <summary>Frühester Zeitpunkt für die nächste Aktualisierung.</summary>
+    private DateTime DisplayEarliest(DateTime now)
+    {
+        if (_displayShown is not { } last) return now;
+        if (!_displayUserRequested) return last + DisplayMinGap;
+        while (_displayUserRefreshes.Count > 0 && now - _displayUserRefreshes.Peek() > TimeSpan.FromHours(1)) _displayUserRefreshes.Dequeue();
+        return _displayUserRefreshes.Count >= DisplayUserRefreshPerHour ? last + DisplayMinGap : last + DisplayUserGap;
+    }
+
     private async Task DisplayTickAsync(DateTime now)
     {
         var s = Config.Display;
@@ -132,8 +156,8 @@ public sealed partial class MinerHub
         var interval = TimeSpan.FromMinutes(Math.Max(DisplaySettings.MinIntervalMinutes, s.IntervalMinutes));
         var quiet = s.QuietEnabled && FanController.IsNight(new CaseFanSettings { NightFromHour = s.QuietFromHour, NightToHour = s.QuietToHour }, now);
         var routineDue = _displayShown is null || (!quiet && now - _displayShown >= interval);
-        var due = routineDue || _displayRequested || alarmKey != _displayAlarmKey;
-        var earliest = _displayShown is { } last ? last + DisplayMinGap : now;
+        var due = routineDue || _displayRequested || _displayUserRequested || alarmKey != _displayAlarmKey;
+        var earliest = DisplayEarliest(now);
         DateTime? next = due ? (earliest > now ? earliest : now) : _displayShown + interval;
         DisplayStatus = new DisplayStatus(true, _fanDevice is not null, _displayShown, next, _displayError, _displayRefreshing);
 
@@ -143,9 +167,11 @@ public sealed partial class MinerHub
         {
             var planes = await Task.Run(() => StatusRenderer.Render(model));
             await pico.ShowImageAsync(planes);
+            if (_displayUserRequested && _displayShown is not null && now < _displayShown + DisplayMinGap) _displayUserRefreshes.Enqueue(now);
             _displayShown = now;
             _displayAlarmKey = alarmKey;
             _displayRequested = false;
+            _displayUserRequested = false;
             _displayRefreshing = true;
             _displayError = null;
         }

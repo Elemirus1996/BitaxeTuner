@@ -93,7 +93,7 @@ public sealed class SerialLineTransport : ILineTransport
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "4";
+    public const string FirmwareVersion = "5";
     public const int ImageBytes = 2 * 800 * 480 / 8;
     private readonly ILineTransport _io;
     private readonly object _lock = new();

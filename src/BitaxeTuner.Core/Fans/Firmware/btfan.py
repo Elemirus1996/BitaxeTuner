@@ -17,8 +17,9 @@
 #   D <base64>           -> (no reply)
 #   SHOW                 -> OK SHOW | ERR ...  (refresh runs in the background, ~16 s)
 #   RESET                -> OK RESET, then the Pico restarts
-# Unsolicited: BTN <n> (short press), BTN 4 LONG (held 3 s), EPD DONE (refresh finished).
-# Without any command for WATCHDOG_MS all fans go to 100 %. Button 3 sets 100 % locally even without server.
+# Unsolicited: BTN <n> (short press 1-3), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s), EPD DONE (refresh finished).
+# Button 4 has no short press. Without any command for WATCHDOG_MS all fans go to 100 %.
+# Button 3 (short) sets 100 % locally even without server.
 
 import sys
 import time
@@ -27,7 +28,7 @@ import machine
 import ubinascii
 from machine import Pin, PWM
 
-VERSION = "4"
+VERSION = "5"
 PWM_PINS = (0, 2, 4, 6, 8, 10)
 TACH_PINS = (16, 17, 18, 19, 20, 21)
 BUTTON_PINS = (1, 3, 5, 7)
@@ -35,7 +36,8 @@ FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
 DEBOUNCE_US = 1500
-LONG_MS = 3000
+# Hold time for a long press per button in ms (0 = no long press): button 3 = fans off, button 4 = reboot
+LONG_MS = (0, 0, 5000, 3000)
 EPD_W = 800
 EPD_H = 480
 PLANE = EPD_W * EPD_H // 8
@@ -167,14 +169,14 @@ def poll_buttons(now):
         if pressed and btn_down[i] == 0:
             btn_down[i] = now
             btn_long_sent[i] = False
-        elif pressed and i == 3 and not btn_long_sent[i] and time.ticks_diff(now, btn_down[i]) >= LONG_MS:
+        elif pressed and LONG_MS[i] and not btn_long_sent[i] and time.ticks_diff(now, btn_down[i]) >= LONG_MS[i]:
             btn_long_sent[i] = True
             blink(1000)
-            print("BTN 4 LONG")
+            print("BTN", i + 1, "LONG")
         elif not pressed and btn_down[i] != 0:
             held = time.ticks_diff(now, btn_down[i])
             btn_down[i] = 0
-            if 30 <= held < LONG_MS and i != 3:
+            if not btn_long_sent[i] and 30 <= held and i != 3 and (not LONG_MS[i] or held < LONG_MS[i]):
                 blink()
                 if i == 2:
                     all_full()  # 100 % sofort, auch ohne Server

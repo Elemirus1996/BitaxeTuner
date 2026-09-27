@@ -555,6 +555,13 @@ public static class Endpoints
             return new { ok = true, status = h.DisplayStatus };
         })));
 
+        // Wie Taste 1: Sonderanzeige quittieren oder nächste Seite
+        g.MapPost("/display/next", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.DisplayNextOrAcknowledge("Browser");
+            return new { ok = true, status = h.DisplayStatus };
+        })));
+
         g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));
 
         // ---------- Betrieb mit der Desktop-App ----------
