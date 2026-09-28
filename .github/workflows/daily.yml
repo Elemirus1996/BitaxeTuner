@@ -1,0 +1,80 @@
+name: Täglicher Bericht
+
+# Einmal am Tag: neue Miner-Modelle suchen (tools/new-miners.txt, Meldung per ntfy) und Download-Zahlen per ntfy melden.
+# Das ntfy-Ziel steht im Repository-Secret NTFY_URL (Server + Topic, z. B. https://ntfy.sh/<topic>) – nie im Repo.
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 08:00 MESZ / 07:00 MEZ
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Neue Miner-Modelle suchen
+        id: miners
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/miner-watch.py | tee miner-watch.log
+          echo "new=$(grep -oP '^NEW=\K\d+' miner-watch.log)" >> "$GITHUB_OUTPUT"
+          echo "open=$(grep -oP '^OFFEN=\K\d+' miner-watch.log)" >> "$GITHUB_OUTPUT"
+
+      - name: Liste speichern
+        if: steps.miners.outputs.new != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/new-miners.txt
+          git commit -m "Neue Miner-Modelle gefunden (${{ steps.miners.outputs.new }}) [skip ci]"
+          git push
+
+      - name: Meldung neue Miner
+        if: steps.miners.outputs.new != '0'
+        env:
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+        run: |
+          [ -n "$NTFY_URL" ] || { echo "Secret NTFY_URL fehlt – keine Meldung."; exit 0; }
+          { grep '^NEU:' miner-watch.log | sed 's/^NEU: //' | cut -d'|' -f1,3
+            echo
+            echo "Gesammelt in tools/new-miners.txt (${{ steps.miners.outputs.open }} offen) – Übernahme beim nächsten Release."; } > body.txt
+          curl -fsS -H "Title: BitaxeTuner: ${{ steps.miners.outputs.new }} neue Miner-Modelle" -H "Tags: pick" -H "Priority: high" \
+            -H "Click: https://github.com/${{ github.repository }}/blob/main/tools/new-miners.txt" \
+            --data-binary @body.txt "$NTFY_URL" > /dev/null
+
+      - name: Stand vom Vortag laden
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: downloads-state-${{ github.run_id }}
+          restore-keys: downloads-state-
+
+      - name: Download-Zahlen melden
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+        run: |
+          python3 tools/download-report.py state/downloads.json > report.txt
+          cat report.txt
+          [ -n "$NTFY_URL" ] || { echo "Secret NTFY_URL fehlt – keine Meldung."; exit 0; }
+          tail -n +2 report.txt > body.txt
+          curl -fsS -H "Title: $(head -n 1 report.txt)" -H "Tags: bar_chart" \
+            -H "Click: https://github.com/${{ github.repository }}/releases" \
+            --data-binary @body.txt "$NTFY_URL" > /dev/null
+
+      - name: Stand speichern
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: downloads-state-${{ github.run_id }}
