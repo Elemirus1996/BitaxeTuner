@@ -99,7 +99,7 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         var pointTime = DateTimeOffset.FromUnixTimeMilliseconds(bestMs).UtcDateTime;
         var minutes = (int)Math.Round(TimeSpan.FromMilliseconds(bestDistance).TotalMinutes);
         return new PriceQuote(bestPrice.Value, pointTime,
-            $"CoinGecko Zeitreihe, Kurspunkt {pointTime:yyyy-MM-dd HH:mm} UTC ({minutes} min Abstand)");
+            L.T("CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)", pointTime, minutes));
     }
 
     /// <summary>Rückfall: Schnappschuss um 00:00 UTC des Tages.</summary>

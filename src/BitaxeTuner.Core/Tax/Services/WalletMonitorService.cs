@@ -205,7 +205,7 @@ public sealed class WalletMonitorService : IDisposable
 
             LastPollUtc = DateTime.UtcNow;
             var text = L.T("Geprüft {0:HH:mm} · {1} Adresse(n) · {2} neu", DateTime.Now, wallets.Count, found);
-            if (repaired > 0) text += $" · {repaired} Kurs(e) nachgeholt";
+            if (repaired > 0) text += L.T(" · {0} Kurs(e) nachgeholt", repaired);
             if (errors.Count > 0) text += L.T(" · Fehler: ") + string.Join("; ", errors);
             StatusChanged?.Invoke(text);
         }

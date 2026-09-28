@@ -135,7 +135,7 @@ public sealed class PicoFanDevice : IFanDevice
                 L.T("Pico antwortet nach dem Aufspielen nicht. Ist MicroPython installiert (UF2 von micropython.org)?"));
             log?.Invoke(L.T("Pico an {0}: Lüfterprogramm v{1} läuft.", portName, version));
         }
-        return new PicoFanDevice(io, $"Pico an {portName} (Programm v{version})");
+        return new PicoFanDevice(io, L.T("Pico an {0} (Programm v{1})", portName, version));
     }
 
     /// <summary>"HELLO" → "OK BTFAN &lt;version&gt; &lt;kanäle&gt;"; null, wenn unser Programm nicht läuft.</summary>
@@ -360,7 +360,7 @@ public sealed class PicoFanDevice : IFanDevice
 public sealed class SimulatedFanDevice : IFanDevice
 {
     private readonly List<string> _events = new();
-    public string Description => "Simulierter Pico";
+    public string Description => L.T("Simulierter Pico");
     public List<byte[]> Images { get; } = [];
     public int Resets { get; private set; }
     /// <summary>Simulierte Temperaturfühler; leer = kein Fühler.</summary>
@@ -377,7 +377,7 @@ public sealed class SimulatedFanDevice : IFanDevice
 
     public Task ShowImageAsync(byte[] planes, CancellationToken ct = default)
     {
-        if (Fail) throw new IOException("Simulierter Pico getrennt");
+        if (Fail) throw new IOException(L.T("Simulierter Pico getrennt"));
         Images.Add(planes);
         return Task.CompletedTask;
     }
@@ -404,7 +404,7 @@ public sealed class SimulatedFanDevice : IFanDevice
 
     public Task<int[]> ExchangeAsync(IReadOnlyList<int> percent, CancellationToken ct = default)
     {
-        if (Fail) throw new IOException("Simulierter Pico getrennt");
+        if (Fail) throw new IOException(L.T("Simulierter Pico getrennt"));
         LastPercent = percent.ToArray();
         return Task.FromResult(percent.Select((p, i) => Stalled.Contains(i + 1) || p == 0 ? 0 : 900 + p * 60).ToArray());
     }

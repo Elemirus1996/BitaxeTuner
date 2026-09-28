@@ -55,7 +55,7 @@ public sealed class AwattarPriceSource(HttpClient http, string country) : IPrice
 /// </summary>
 public sealed class TibberPriceSource(HttpClient http, string token) : IPriceSource
 {
-    public string Name => "Tibber (Endpreis)";
+    public string Name => L.T("Tibber (Endpreis)");
 
     private const string Query =
         "{ viewer { homes { currentSubscription { priceInfo { today { total startsAt } tomorrow { total startsAt } } } } } }";

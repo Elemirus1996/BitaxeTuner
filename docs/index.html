@@ -9,6 +9,8 @@
 <meta property="og:description" content="Bitaxe & NerdAxe automatisch optimieren und rund um die Uhr überwachen – kostenlos und Open Source.">
 <meta property="og:image" content="https://elemirus1996.github.io/BitaxeTuner/assets/banner.png">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="de" href="https://elemirus1996.github.io/BitaxeTuner/">
+<link rel="alternate" hreflang="en" href="https://elemirus1996.github.io/BitaxeTuner/en/">
 <style>
   :root {
     --bg: #F6F7F9; --surface: #FFFFFF; --ink: #14181F; --muted: #5B6472; --rule: #E2E5EA;
@@ -71,7 +73,7 @@
   @media (max-width: 860px) {
     .split, .epaper { grid-template-columns: 1fr; }
     .split.rev > :first-child { order: 0; }
-    nav .links a:not(.gh) { display: none; }
+    nav .links a:not(.gh):not(.lang) { display: none; }
     header.hero { padding-top: 48px; }
   }
 </style>
@@ -86,6 +88,7 @@
       <a href="#server">24/7-Server</a>
       <a href="#zubehoer">Zubehör</a>
       <a href="#loslegen">Loslegen</a>
+      <a class="lang" href="en/" hreflang="en" lang="en">English</a>
       <a class="gh" href="https://github.com/Elemirus1996/BitaxeTuner">GitHub</a>
     </div>
   </div>
@@ -106,6 +109,7 @@
       <span>Windows, Raspberry Pi, Docker</span>
       <span>Bitaxe &amp; NerdAxe</span>
       <span>Keine Cloud, keine Anmeldung</span>
+      <span>Deutsch &amp; Englisch</span>
     </div>
     <img class="shot-hero" src="assets/screen-overview.png" alt="Übersicht der Browser-Oberfläche mit drei Minern, Gesamt-Hashrate und laufendem Benchmark" width="1280" height="740">
   </div>
@@ -208,7 +212,7 @@
     <p>Unabhängiges Projekt, nicht verbunden mit dem Bitaxe-Projekt, NerdAxe, Raspberry Pi Ltd, Home Assistant oder Waveshare.
       Alle Marken gehören ihren Inhabern. Diese Seite verwendet keine Cookies, kein Tracking und lädt keine Inhalte von Drittanbietern;
       bereitgestellt über GitHub Pages (<a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>).</p>
-    <p lang="en"><i>Free, open-source tool to benchmark, tune and monitor Bitaxe &amp; NerdAxe miners (German UI). No warranty; not affiliated with the Bitaxe project.</i></p>
+    <p lang="en"><i>Free, open-source tool to benchmark, tune and monitor Bitaxe &amp; NerdAxe miners – <a href="en/">English website</a>. No warranty; not affiliated with the Bitaxe project.</i></p>
   </div>
 </footer>
 

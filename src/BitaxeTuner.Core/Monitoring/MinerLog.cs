@@ -114,7 +114,7 @@ public sealed class WebSocketLogSource(string address, Func<DateTime?>? bootTime
             ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
             try
             {
-                onStatus("Verbinde …");
+                onStatus(L.T("Verbinde …"));
                 using (var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
                     connectCts.CancelAfter(TimeSpan.FromSeconds(8));
@@ -124,7 +124,7 @@ public sealed class WebSocketLogSource(string address, Func<DateTime?>? bootTime
                 onStatus(L.T("Live verbunden"));
                 await ReceiveLoopAsync(ws, onLine, ct).ConfigureAwait(false);
                 if (ct.IsCancellationRequested) break;
-                onStatus("Verbindung vom Miner getrennt");
+                onStatus(L.T("Verbindung vom Miner getrennt"));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -198,7 +198,7 @@ public sealed class SimulatedLogSource(SimulatedMinerClient sim) : IMinerLogSour
 {
     public async Task RunAsync(Action<LogLine> onLine, Action<string> onStatus, CancellationToken ct)
     {
-        onStatus("Live (Simulation)");
+        onStatus(L.T("Live (Simulation)"));
         var start = DateTime.Now;
         var random = new Random(1);
         try

@@ -125,7 +125,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
         try
         {
             var result = await _client.ConnectAsync(b.Build(), ct);
-            if (result.ResultCode != MqttClientConnectResultCode.Success) throw new IOException($"MQTT: Verbindung abgelehnt ({result.ResultCode}).");
+            if (result.ResultCode != MqttClientConnectResultCode.Success) throw new IOException(L.T("MQTT: Verbindung abgelehnt ({0}).", result.ResultCode));
             await PublishAsync($"{Base}/status", "online", retain: true, ct);
             await _client.SubscribeAsync(new MqttClientSubscribeOptionsBuilder()
                 .WithTopicFilter(f => f.WithTopic($"{Base}/server/+/set"))
@@ -264,10 +264,10 @@ public sealed partial class MqttBridge : IAsyncDisposable
         Add("sensor", "server_hashrate", L.T("Hashrate gesamt"), st, "{{ value_json.hashrate_gh }}", serverDevice, o => Unit(o, "GH/s"));
         Add("sensor", "server_power", L.T("Leistung gesamt"), st, "{{ value_json.power_w }}", serverDevice, o => Unit(o, "W", "power"));
         Add("sensor", "server_efficiency", L.T("Effizienz gesamt"), st, "{{ value_json.efficiency_jth }}", serverDevice, o => Unit(o, "J/TH"));
-        Add("sensor", "server_online", "Miner online", st, "{{ value_json.online }}", serverDevice, o => o["state_class"] = "measurement");
+        Add("sensor", "server_online", L.T("Miner online"), st, "{{ value_json.online }}", serverDevice, o => o["state_class"] = "measurement");
         Add("sensor", "server_price", "Strompreis", st, "{{ value_json.price_ct }}", serverDevice, o => Unit(o, "ct/kWh"));
         Add("binary_sensor", "server_paused", "Pausiert", st, "{{ value_json.paused }}", serverDevice);
-        Add("button", "server_display_refresh", "Anzeige aktualisieren", st, "", serverDevice, o =>
+        Add("button", "server_display_refresh", L.T("Anzeige aktualisieren"), st, "", serverDevice, o =>
         {
             o.Remove("state_topic");
             o.Remove("value_template");

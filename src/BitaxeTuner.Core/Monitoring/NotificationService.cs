@@ -82,7 +82,7 @@ public sealed class NotificationService : IDisposable
     {
         try
         {
-            await SendRawAsync(settings, "Miner Monitor", "Testnachricht – Benachrichtigungen funktionieren.", NotifyPriority.Normal);
+            await SendRawAsync(settings, "Miner Monitor", L.T("Testnachricht – Benachrichtigungen funktionieren."), NotifyPriority.Normal);
             return null;
         }
         catch (Exception ex)

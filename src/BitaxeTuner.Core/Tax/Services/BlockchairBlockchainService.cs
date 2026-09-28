@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Tax.Services;
 
@@ -169,7 +170,7 @@ public sealed class BlockchairBlockchainService : IBlockchainService, IDisposabl
 
             using var resp = await _http.GetAsync(url, ct);
             if ((int)resp.StatusCode is 402 or 429 or 430)
-                throw new HttpRequestException($"Blockchair-Limit erreicht (HTTP {(int)resp.StatusCode})");
+                throw new HttpRequestException(L.T("Blockchair-Limit erreicht (HTTP {0})", (int)resp.StatusCode));
             resp.EnsureSuccessStatusCode();
 
             return JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));

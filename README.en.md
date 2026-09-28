@@ -1,0 +1,369 @@
+<p align="center"><a href="https://elemirus1996.github.io/BitaxeTuner/en/"><img src="docs/assets/banner.png" alt="BitaxeTuner – automatically tune Bitaxe & NerdAxe miners and monitor them around the clock" width="100%"></a></p>
+
+<p align="center">
+  <a href="https://github.com/Elemirus1996/BitaxeTuner/releases/latest"><b>⬇ Download</b></a> ·
+  <a href="https://elemirus1996.github.io/BitaxeTuner/en/"><b>Website</b></a> ·
+  <a href="https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/">Pico build guide</a> ·
+  <a href="#247-operation">24/7 server</a> ·
+  <a href="README.md">Deutsch</a>
+</p>
+
+# BitaxeTuner
+
+**Automatic overclocking, benchmarking and monitoring for Bitaxe and NerdAxe miners – as a Windows program (WPF)
+and as a [24/7 server](#247-operation) for Raspberry Pi, Windows or Docker with a browser interface.**
+
+BitaxeTuner raises your miner's frequency and core voltage step by step, measures every combination
+(hashrate, power, efficiency, temperatures, error rate) and shows you the best setting at the end –
+for **maximum hashrate**, **best efficiency (J/TH)** or a **balance** of both.
+Several devices can be tested **in parallel**.
+
+> ⚠️ **Overclocking at your own risk.** Higher frequency and voltage increase power draw and temperature
+> and can damage the hardware. Check that your power supply and cooling are sufficient.
+
+## Language
+
+The desktop app, the browser interface, push notifications, the daily report, the e-paper display and Home Assistant
+are available in **English and German**:
+
+- **Desktop app**: *Settings → Language* (Automatic = Windows language). Takes effect after a restart of the app.
+- **Browser**: the **EN/DE** button in the header – every browser keeps its own choice (default: browser language).
+- **Server** (push, daily report, e-paper, status texts): *Settings → Server language* in the browser interface.
+  A Raspberry Pi is set to English by default, so choose German there if you want German messages.
+- Numbers and dates follow your system format as long as its language matches, otherwise the usual format of the
+  language (English: en-GB, 24 h, DD/MM/YYYY).
+
+Corrections to the English texts are welcome: they all live in
+[`src/BitaxeTuner.Core/I18n/Strings.en.json`](src/BitaxeTuner.Core/I18n/Strings.en.json) (German original → English).
+
+## Features
+
+- **Automatic benchmark** per device:
+  stable → raise frequency · unstable → raise voltage · limit reached → stop immediately.
+  Optionally, the lowest stable voltage per frequency is searched as well (more efficient).
+- **Safety watchdog** on every sample: max. chip temperature, VR temperature, power, input voltage, overheat and
+  voltage errors reported by the firmware. On cancellation, error or program exit the original (or the best found)
+  settings are restored.
+- **Parallel operation** of several miners, **pause/resume** and resuming interrupted runs.
+- **Live view** with hashrate/temperature history, **heatmap** frequency × voltage, results table, CSV export.
+- **Automatic device discovery** (network scan) and matching **device profiles** with sensible limits.
+- **Simulation mode**: enter the address `sim` or `sim:<profile-id>` (e.g. `sim:nerdqaxe-plusplus`) –
+  to try it out without real hardware (runs 30× faster).
+
+### Monitoring
+
+- **Overview and single view** with 14 tiles, wallet balance (mempool.space / Blockchair), history 1 h / 24 h / 7 / 30 days
+  from `history.db`, including an **efficiency (J/TH)** chart.
+- **Network**: recently found blocks, pool ranking, solo chances BTC/BCH.
+- **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export.
+- **Push** (ntfy/Telegram), **watchdog**, **firmware check**, **best diff records**, **tray**, autostart.
+
+### Tuning ↔ monitoring
+
+- **One central poll** per miner (at most one request at a time) – monitoring and benchmark never poll twice.
+- During a tuning change, a benchmark and the following restart the **watchdog pauses** for that miner, and there are
+  **no offline alerts** for the intended restart.
+- Every frequency/voltage change is logged with time, old and new value in `history.db` (table `tuning_events`),
+  marked as a **line in all history charts** and compared in the **Before/after** tab (Ø 60 min before/after).
+- Changes only after **confirmation** showing the current and the new value; values outside the profile limits are
+  rejected. `overclockEnabled` is only set when the value is outside the AxeOS selection list – with a note in the dialog.
+- **Theme**: dark or light.
+
+### Miner logs, alerts, backups, daily report
+
+- **Miner logs** per device live (`ws://<host>/api/ws`) and as a buffer (`/api/system/logs`), with filter, levels, saving.
+- **Log alerts** (Settings → Log alerts, tick per miner): push on error lines and freely defined patterns
+  (stratum disconnected, overheat, voltage errors, fallback …), cooldown per rule, silent during tuning/restart.
+  The log tab and the alerts share one WebSocket connection; enabled alerts permanently use one slot on the miner.
+- **Pool monitoring**: push when switching to the fallback pool, on a high reject rate within the time window and on
+  slow pool responses; pool line in the monitoring view.
+- **Back up/restore settings** (device header): complete backup under `snapshots\`, automatically before every
+  benchmark and every manual change. Restore field by field with a preview old → new, profile limits are checked,
+  frequency/voltage are logged. AxeOS does not hand out pool passwords, so they stay unchanged.
+- **Daily report** via push: Ø hashrate, J/TH, temperature, availability per miner, power costs, best diff record,
+  tuning changes of the last 24 h.
+
+## Supported devices
+
+| Device | ASIC | Board / deviceModel | Firmware |
+|---|---|---|---|
+| Bitaxe Max | BM1397 | 2.2, 102 | AxeOS |
+| Bitaxe Ultra | BM1366 | 0.11, 201–205, 207 | AxeOS |
+| Bitaxe Supra | BM1368 | 400–403 | AxeOS |
+| Bitaxe Gamma | BM1370 | 600–603 | AxeOS |
+| Bitaxe Gamma Duo | 2× BM1370 | 650 | AxeOS |
+| Bitaxe GT / Gamma Turbo | 2× BM1370 | 801 | AxeOS |
+| Bitaxe Gamma Hex | 6× BM1370 | 1300 | AxeOS (limits preliminary) |
+| Bitaxe Naja Duo | 2× BM1373 | 1201 | AxeOS (limits preliminary) |
+| Bitaxe Hex / SupraHex | 6× BM1366 / BM1368 | 302–303 / 701–702 | AxeOS |
+| NerdAxe / NerdAxe Gamma | BM1366 / BM1370 | NerdAxe / NerdAxeGamma | NerdQAxe firmware |
+| NerdAxe Gaia | BM1373 | NerdAxeGaia | NerdQAxe firmware ≥ 1.1.0 |
+| NerdQAxe+ / NerdQAxe++ | 4× BM1368 / BM1370 | NerdQAxe+ / NerdQAxe++ | NerdQAxe firmware |
+| NerdHaxe-γ | 6× BM1370 | NerdHaxe-γ | NerdQAxe firmware |
+| NerdOctaxe-γ / NerdOctaxe+ | 8× BM1370 / BM1368 | NerdOCTAXE-γ / NerdOCTAXE+ | NerdQAxe firmware |
+| NerdEKO | 12× BM1370 | NerdEKO | NerdQAxe firmware |
+| NerdQX | BM1370 | NerdQX | NerdQAxe firmware |
+
+Values according to ESP-Miner `main/device_config.h` and NerdQAxePlus `main/boards/*.cpp` (as of 09/2026); the source
+of each profile is in its note. If the device reports its chip count or small cores itself, those values take precedence.
+Unknown devices with an AxeOS-compatible API run with a conservative generic profile.
+All profiles can be adjusted or extended via **“Edit profiles”** (`profiles.json` in the data folder).
+
+## Installation
+
+1. Download `BitaxeTuner-Setup-x.y.z.exe` from [Releases](https://github.com/Elemirus1996/BitaxeTuner/releases).
+2. Run the setup – the target folder is up to you, no admin rights needed.
+3. Alternatively: unpack `BitaxeTuner-x.y.z-portable-win-x64.zip` and start `BitaxeTuner.exe`.
+
+**No** separate .NET installation is required.
+
+## 24/7 operation
+
+The miners keep running without a PC – but history, push notifications, watchdog, automation rules, soak tests,
+benchmarks, the daily report and tax recording only happen while BitaxeTuner is running. To have all of that around the
+clock without keeping your PC on, install the **BitaxeTuner server** on a device that is running anyway:
+
+| Device | Package | Effort |
+|---|---|---|
+| Raspberry Pi 3/4/5, Zero 2 W – **ready-made SD image** | `BitaxeTuner-Server-x.y.z-pi-arm64.img.xz` | Raspberry Pi Imager |
+| Raspberry Pi 3/4/5 (Pi OS 64-bit) | `BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` | 2 commands |
+| Raspberry Pi with a 32-bit system | `…-linux-arm.tar.gz` | 2 commands |
+| Linux PC / mini PC (x64) | `…-linux-x64.tar.gz` | 2 commands |
+| Second Windows PC / mini PC | `BitaxeTuner-Server-Setup-x.y.z.exe` (Windows service) | Setup |
+| NAS / home server with Docker | `ghcr.io/elemirus1996/bitaxetuner-server` | `docker compose up -d` |
+
+The server needs little: about 100–150 MB RAM, hardly any CPU; a Pi 3B+ is enough. history.db writes at most one
+record per minute and miner (easy on the SD card).
+
+**Raspberry Pi – ready-made image (easiest)**
+
+1. Write `…-pi-arm64.img.xz` with **Raspberry Pi Imager** (“Use custom”). The image is based on Raspberry Pi OS Lite
+   (64-bit) and contains the pre-installed server (not an official Raspberry Pi product). The Imager offers no settings
+   for custom images – the desktop app enters user, Wi-Fi and SSH (step 2).
+2. Re-insert the SD card; in the desktop app choose *Mode … → Prepare Raspberry Pi*: select the “bootfs” drive,
+   set the admin password, enter user/password for the Pi and Wi-Fi, optionally *Include my data*.
+   The app writes the cloud-init files (`user-data`, `network-config`, `ssh`) and a setup package to the card
+   (all passwords only as hashes) and remembers address and token.
+3. Insert the card into the Pi and power it on (first boot 3–5 minutes). The Pi applies the package, deletes it from the
+   card and starts **paused**. In the app: *Test connection* → *Switch only* – only then does the Pi poll the miners.
+
+Build it yourself: `sudo deploy/pi-image/build-image.sh BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz` (Linux/WSL;
+downloads the official image and checks its SHA-256). First-boot log on the Pi: `/var/log/bitaxetuner-firstboot.log`.
+
+**Raspberry Pi / Linux (package)**
+
+```sh
+tar xzf BitaxeTuner-Server-x.y.z-linux-arm64.tar.gz
+cd bitaxetuner-server && sudo ./install.sh
+```
+
+`install.sh` creates a system user, installs to `/opt/bitaxetuner`, data to `/var/lib/bitaxetuner` and sets up the
+systemd service `bitaxetuner` (autostart, restart on crash). At the end it shows the address and the **setup code**.
+Log: `journalctl -u bitaxetuner -f`. Remove: `sudo ./install.sh --uninstall` (data is kept) or `--purge`.
+Own settings (port, HTTPS) in `/etc/default/bitaxetuner`, e.g. `BITAXETUNER_PORT=8484`.
+
+**Windows (second PC)**: run `BitaxeTuner-Server-Setup-x.y.z.exe`. It sets up the service “BitaxeTuner”
+(autostart, restart on failure) and a firewall rule **for private networks only**. Data: `C:\ProgramData\BitaxeTuner`,
+setup code in `SETUP-CODE.txt` there.
+
+**Docker**: download [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml), run `docker compose up -d`,
+get the setup code with `docker compose logs bitaxetuner`. Data in the volume `/data`.
+
+**Setup**: open `http://<IP>:8484/` in the browser, enter the setup code and set an admin password.
+Then add devices, push service etc. under *Settings* – or transfer the data from your PC (see below).
+
+### Extra fans, e-paper display and buttons (Raspberry Pi Pico)
+
+A Raspberry Pi Pico (2) on the server's USB controls up to six 4-pin PWM fans (5 V or 12 V): one VR fan per miner
+(manual or automatic by VR temperature) and one case group (by VR, ASIC or temperature sensors). Several DS18B20
+(e.g. power supply, miner room) are detected automatically and each gets a name and its own warning threshold.
+Optionally a 7.5" e-paper (red/black/white) shows the most important values, plus four buttons:
+*next screen/acknowledge* · *fans automatic* · *100 %* (hold 5 s: *fans off*) · *restart Pi + Pico* (hold 3 s).
+The server flashes the Pico program itself. Safety: miner offline or data older than 30 s → 100 %; Pico without a
+command for 5 s → 100 %; without the Pico every fan runs at full speed via the circuit.
+The e-paper rotates pages (overview, daily summary, history 24 h, soak test, pool & network) and shows special screens
+full-screen: **block found** (until button 1 or 24 h), **warnings** (until acknowledged, a new warning shows again),
+**best diff record** (once) – each can be switched on or off. Settings and a preview of each page:
+browser → *Fans & display*. Wiring diagram, solder-free breadboard build and shopping list are in the build guide
+[docs/en/pico-fans](https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/).
+
+### Home Assistant / MQTT
+
+*Settings → Home Assistant / MQTT* (browser): broker address (e.g. Home Assistant's Mosquitto add-on), user, password.
+BitaxeTuner sends hashrate, power, efficiency, temperatures, frequency/voltage (read-only), best diff, soak test,
+extra fans and temperature sensors; Home Assistant creates a device per miner and one for the server automatically
+(MQTT discovery, availability via last will). Controllable from Home Assistant: “Refresh display” and – only if
+allowed – the extra fan mode (automatic / 100 % / off). **Frequency and voltage cannot be changed via MQTT.**
+The password is kept separately in `secrets.json` and never goes into backups or transfers.
+
+### Backup
+
+Once a day (default from 3 am) BitaxeTuner backs up settings, history (history.db), tax data, benchmark results and
+miner backups as a verified archive (SHA-256 per file, integrity_check, fully unpacked and checked once before
+storing). Targets under *Settings → Backup* (browser):
+
+- **Data folder** (`auto-backups`, always; default: the last 7),
+- **Folder or USB stick** – on the Pi, an inserted stick (FAT32, exFAT, ext4) is mounted automatically at
+  `/media/bitaxetuner-usb`; on a Pi that is already set up, run `sudo sh /opt/bitaxetuner/current/install.sh --system` once,
+- **Network drive/NAS** (SMB, without mounting it in the system; password kept separately in `secrets.json`, never in backups),
+- **PC fetches**: the desktop app in “Server” mode fetches a verified backup to a folder on the PC every day (*Mode …*).
+
+Old backups are cleaned up per target (only our own files). Errors arrive as push notifications.
+
+### Browser or desktop app
+
+- **Browser** (PC, phone, tablet): overview, compare, per miner live values and history with tuning markers,
+  benchmark, results, before/after, automation rules with approval, soak test, backups, live miner logs,
+  tax (income, CSV), settings. Light/dark, phone-friendly, can be added to the home screen as an app.
+  Frequency/voltage change – just like on the desktop – only after a dialog with old and new value and the profile limits.
+- **Roles**: *Admin* (password, everything) and *View only* (PIN, without IP and wallet addresses, without logs).
+- **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
+  (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
+  interface and polls **no** miners itself. The token can be revoked at any time.
+
+### Switching and switching back (data transfer)
+
+*Mode …* in the desktop app:
+
+- **Local → Server**: *Transfer data and switch* sends `config.json`, `history.db`, tax data, benchmark results and
+  backups to the server once. Everything is verified (SHA-256 per file, `integrity_check`, row counts). If the server
+  already has data, the app asks and the server backs up its state first (`backup-…`). Your local data stays unchanged.
+- **Server → Local**: *Fetch data from the server and switch* pauses the server, downloads its state, verifies it,
+  backs up the local state and takes it over when the app restarts.
+- **Never twice**: only one side ever polls the miners. If the app starts in “Local” mode while a known server polls
+  the same miners, it asks (switch, or pause the server). A paused server shows this in its interface and can be
+  resumed there.
+
+### Security
+
+- Reachable only from private networks (home network, Docker network, VPN such as **Tailscale**/WireGuard).
+  Do **not** forward the port in your router – use a VPN when you're away.
+- Admin password as a PBKDF2 hash, lockout after 5 failed attempts, session cookies HttpOnly/SameSite=Strict,
+  CSRF protection for all changes, API tokens stored only as hashes.
+- Optional HTTPS with a self-signed certificate (`BITAXETUNER_HTTPS=1`); the desktop app asks you to confirm the
+  fingerprint when connecting for the first time.
+
+### Updates
+
+- Server: *Settings → Server update*. Raspberry Pi/Linux: the new version is placed next to the old one and switched
+  atomically (the old one stays as a fallback in `/opt/bitaxetuner/versions`). Windows: silent setup, the service restarts.
+  Docker: `docker compose pull && docker compose up -d`. Every file is checked against the published SHA-256 checksum.
+- Desktop app and server check each other's versions when connecting; if they don't match, you get a clear message.
+
+## Usage
+
+1. Enter the miner's IP address on the left (or **“Scan network”**).
+2. Check the profile (detected automatically) and adjust range, measuring time and limits in the **Benchmark** tab.
+3. **Start benchmark**. Default: 90 s warm-up + 10 min measurement per combination.
+4. In the **Results** tab choose the ranking and apply the best setting.
+
+### Automation, soak test, compare, phone view
+
+- **Presets** per miner (e.g. “Hashrate”, “Efficiency” – also directly from the last benchmark).
+- **Temperature protection**: on a sustained limit violation, lower the frequency step by step (voltage stays),
+  never below a minimum, optionally step back up when the miner is cool again.
+- **Schedule or electricity price**: preset by weekday/time or by price threshold.
+  Price sources: aWATTar DE/AT (exchange price, no account) or Tibber (final price, API token).
+- Automation rules act **only after explicit approval** per rule; any change to the rule revokes the approval.
+  At least 10 min between two automatic changes, paused during benchmark/soak test/maintenance.
+  Every change: source “Automation” in history.db, marker in the history, push.
+- **Soak test** (6–48 h) of the current setting: hashrate share, error rate, temperatures, reachability; survives app
+  restarts. On failure, a suggestion of the next lower stable setting (applied only after confirmation).
+  **For several miners at once**: overview (browser) or *Soak test …* (desktop) – selection, one duration,
+  one confirmation with the current setting per miner; “Cancel all”.
+- **Efficiency advisor** (browser → *Compare* → *Recommendations*): per miner the best tested setting for efficiency,
+  balanced or hashrate – from stable benchmark results within the profile limits; passed soak tests count more,
+  failed ones are never suggested. Shows the change in hashrate, power and power cost per month;
+  “Apply …” or “Apply + 24 h soak test …” only through the confirmation dialog (old → new).
+  Worthwhile suggestions (from 1 €/month) also appear in the daily report.
+- **Compare**: all miners side by side – current setting, 24 h average, availability, best benchmark results,
+  highest stable frequency (chip quality).
+- **Phone view** (Settings → Phone view): read-only web page on the home network, sign-in with PIN, private address
+  ranges only, lockout after failed attempts, no wallet addresses. Windows asks for firewall permission on first
+  start – allow “Private networks” only.
+
+### Data
+
+All data lives in **one** folder, default `%AppData%\BitaxeMonitor\` (the former BitaxeMonitor folder):
+`config.json` (devices and all settings), `history.db`, `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json`.
+
+- On first start the folder is backed up completely to `backup-<date>\` (history.db via the SQLite backup API).
+- Devices and results of the former standalone BitaxeTuner (`%LocalAppData%\BitaxeTuner`) are **copied** once –
+  never moved, never overwritten.
+- **Settings → Data folder → Move …**: copies everything, verifies it (integrity_check, row counts, SHA-256) and only
+  then switches over; the old folder is kept. Nothing is overwritten in the target.
+- Crash log: `crash.log` in the data folder.
+
+If the old BitaxeMonitor is still running, the program warns at startup (otherwise double polling and writes).
+
+## How is it measured?
+
+- API: `GET /api/system/info`, `GET /api/system/asic`, `PATCH /api/system` (`frequency`, `coreVoltage`),
+  `POST /api/system/restart` – see [ESP-Miner](https://github.com/bitaxeorg/ESP-Miner) and
+  [ESP-Miner-NerdQAxePlus](https://github.com/shufps/ESP-Miner-NerdQAxePlus).
+- For each combination the trimmed mean of the hashrate is calculated (outliers discarded) and compared with the
+  theoretical hashrate (`expectedHashrate` or frequency × small cores × chips).
+  Stable = at least 94 % of the target hashrate and an error rate below the limit.
+- The approach is based on [mrv777/Bitaxe-Hashrate-Benchmark](https://github.com/mrv777/Bitaxe-Hashrate-Benchmark).
+
+## Build it yourself
+
+Requirements: .NET 8 SDK, optionally [Inno Setup 6](https://jrsoftware.org/isinfo.php) (installed via winget by `build.ps1` if needed).
+
+```powershell
+dotnet test                 # tests
+dotnet run --project src/BitaxeTuner.App
+.\build.ps1                 # tests + desktop (exe, ZIP, setup) + server (Linux packages, Windows setup) in .\artifacts
+dotnet run --project src/BitaxeTuner.Server -- --data .\serverdata --port 8484
+docker build -f deploy/docker/Dockerfile -t bitaxetuner-server .
+```
+
+A release is created automatically by GitHub Actions as soon as a tag `v*` is pushed.
+
+## Project structure
+
+```
+src/BitaxeTuner.Core     API client, device profiles, benchmark engine, simulator, storage, I18n (texts DE/EN),
+                         Host/MinerHub (the engine: polling, history, alerts, watchdog, automation, benchmarks),
+                         Transfer (data transfer, server client)
+src/BitaxeTuner.App      WPF interface (MVVM) – mode “Local” (engine in-process) or “Server”
+src/BitaxeTuner.Server   ASP.NET Core service: engine + REST API /api/v1 + live events + browser interface (wwwroot)
+deploy/                  install.sh + systemd unit (Linux/Pi), Dockerfile + docker-compose.yml
+tests/                   xUnit tests (engine, hub, server API, data transfer, translations)
+installer/               Inno Setup scripts (desktop, server service)
+```
+
+## Notes / disclaimer
+
+- **No warranty.** BitaxeTuner is provided without any warranty (GPL-3.0, sections 15–16). Overclocking, higher
+  voltages and your own fan circuits are at your own risk.
+- **Independent project.** BitaxeTuner is not affiliated with, endorsed or reviewed by the Bitaxe project (bitaxe.org),
+  NerdAxe, Raspberry Pi Ltd, Home Assistant or Waveshare. All names and trademarks belong to their respective owners
+  and are only used to describe compatibility.
+- The ready-made Pi image is based on Raspberry Pi OS and is **not an official Raspberry Pi product**; licences and
+  source notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+- The tax module follows **German tax law** (§ 23 EStG: private sales, 1-year holding period, exemption limit).
+  It documents income and sales but is not tax advice; other countries have different rules.
+
+## Privacy and code signing
+
+- BitaxeTuner collects no data for the developers (no telemetry, no account, no cloud). Which services the program
+  contacts and when: [Privacy policy](https://elemirus1996.github.io/BitaxeTuner/privacy.html).
+- Code signing: the Windows setups are **not digitally signed yet** (hence the Windows warning during installation:
+  “More info” → “Run anyway”). We are working on getting the program signed. Until then you can verify authenticity
+  with the SHA-256 checksums (`SHA256SUMS.txt` in the release).
+
+## Contributing, bug reports, security
+
+- Bugs and wishes: [Issues](../../issues) (templates available). Please **don't** post IP addresses, wallet addresses,
+  tokens or passwords in issues.
+- Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are under the same licence (GPL-3.0).
+- Please report security vulnerabilities **privately**, as described in [SECURITY.md](SECURITY.md).
+
+## Licence
+
+Copyright © 2026 BitaxeTuner contributors. Licence: **GNU GPL v3.0** – see [LICENSE](LICENSE).
+The source code of every published version is in this repository (tag `vX.Y.Z` or “Source code” on the release page).
+Components by other authors (including .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet, DejaVu fonts, WebView2 SDK) and
+notes on the Raspberry Pi image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+`LICENSE` and `THIRD-PARTY-NOTICES.txt` are included in every package.

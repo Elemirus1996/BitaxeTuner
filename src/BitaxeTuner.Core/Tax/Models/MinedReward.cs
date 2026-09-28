@@ -86,7 +86,7 @@ public class MinedReward : INotifyPropertyChanged
         {
             if (Remaining <= 0) return "verkauft";
             var days = (TaxFreeFrom - DateTime.Now.Date).Days;
-            if (days <= 0) return Remaining < Amount ? "Rest haltefristfrei" : "haltefristfrei";
+            if (days <= 0) return Remaining < Amount ? L.T("Rest haltefristfrei") : L.T("haltefristfrei");
             return L.T("noch {0} Tage", days);
         }
     }

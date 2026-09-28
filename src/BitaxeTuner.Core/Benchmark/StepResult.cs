@@ -42,9 +42,9 @@ public sealed record StepResult
 
     public string OutcomeText => Outcome switch
     {
-        StepOutcome.Stable => "Stabil",
-        StepOutcome.Unstable => "Instabil",
-        StepOutcome.LimitExceeded => "Grenze",
+        StepOutcome.Stable => L.T("Stabil"),
+        StepOutcome.Unstable => L.T("Instabil"),
+        StepOutcome.LimitExceeded => L.T("Grenze"),
         StepOutcome.DeviceError => L.T("Fehler"),
         StepOutcome.Cancelled => L.T("Abgebrochen"),
         _ => Outcome.ToString(),

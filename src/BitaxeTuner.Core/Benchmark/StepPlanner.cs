@@ -79,7 +79,7 @@ public static class StepPlanner
         var freq = currentFreq + s.FrequencyStepMhz;
         if (freq > s.MaxFrequencyMhz)
         {
-            finishReason = $"Maximale Frequenz ({s.MaxFrequencyMhz} MHz) erreicht.";
+            finishReason = L.T("Maximale Frequenz ({0} MHz) erreicht.", s.MaxFrequencyMhz);
             return null;
         }
         var lowestStable = history.Where(r => r.IsStable && r.FrequencyMhz == currentFreq).Min(r => (int?)r.CoreVoltageMv)

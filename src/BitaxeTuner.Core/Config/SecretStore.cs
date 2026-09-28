@@ -72,6 +72,6 @@ public sealed class SecretStore(string dataDirectory)
             return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(stored[6..]), Entropy, DataProtectionScope.LocalMachine));
         }
         if (stored.StartsWith("plain:", StringComparison.Ordinal)) return Encoding.UTF8.GetString(Convert.FromBase64String(stored[6..]));
-        throw new FormatException("Unbekanntes Format.");
+        throw new FormatException(L.T("Unbekanntes Format."));
     }
 }

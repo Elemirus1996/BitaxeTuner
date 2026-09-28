@@ -64,7 +64,7 @@ public static class DataDirectoryMigrator
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(targets[i])!);
                 File.Copy(files[i], targets[i], overwrite: false);
-                log.Add($"Kopiert: {Path.GetRelativePath(src, files[i])}");
+                log.Add(L.T("Kopiert: {0}", Path.GetRelativePath(src, files[i])));
             }
 
             Dictionary<string, long>? expectedRows = null;
@@ -92,7 +92,7 @@ public static class DataDirectoryMigrator
                     if (!rows.TryGetValue(table, out var copied) || copied != count)
                         return new Result(false, L.T("Zeilenzahl in {0} weicht ab ({1} → {2}). Es wurde nicht umgeschaltet.", table, count, copied), log);
                 }
-                log.Add("history.db: integrity_check ok, Zeilenzahlen identisch");
+                log.Add(L.T("history.db: integrity_check ok, Zeilenzahlen identisch"));
             }
 
             // 4. Umschalten
@@ -100,7 +100,7 @@ public static class DataDirectoryMigrator
             var tmp = bootstrapFile + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(new { DataDirectory = dst }, new JsonSerializerOptions { WriteIndented = true }));
             File.Move(tmp, bootstrapFile, overwrite: true);
-            log.Add($"Datenordner umgeschaltet: {bootstrapFile}");
+            log.Add(L.T("Datenordner umgeschaltet: {0}", bootstrapFile));
 
             File.WriteAllText(Path.Combine(src, "UMGEZOGEN.txt"),
                 L.T("Die Daten wurden am {0:g} nach {1} kopiert und dort weiterverwendet.\r\n", DateTime.Now, dst) +

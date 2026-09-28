@@ -5,14 +5,14 @@
   <a href="https://elemirus1996.github.io/BitaxeTuner/"><b>Webseite</b></a> ·
   <a href="https://elemirus1996.github.io/BitaxeTuner/pico-luefter/">Pico-Bauanleitung</a> ·
   <a href="#247-betrieb">24/7-Server</a> ·
-  <a href="#english-summary">English</a>
+  <a href="README.en.md"><b>English</b></a>
 </p>
 
 # BitaxeTuner
 
 **Automatisches Übertakten, Benchmarken und Überwachen für Bitaxe- und NerdAxe-Miner – als Windows-Programm (WPF)
 und als [24/7-Server](#247-betrieb) für Raspberry Pi, Windows oder Docker mit Browser-Oberfläche.**
-*Automatic overclocking & benchmarking for Bitaxe and NerdAxe miners – English summary below.*
+*Automatic overclocking & benchmarking for Bitaxe and NerdAxe miners – [English README](README.en.md).*
 
 BitaxeTuner erhöht Frequenz und Kernspannung deines Miners Schritt für Schritt, misst jede Kombination
 (Hashrate, Leistung, Effizienz, Temperaturen, Fehlerrate) und zeigt dir am Ende die beste Einstellung –
@@ -21,6 +21,17 @@ Mehrere Geräte lassen sich **parallel** testen.
 
 > ⚠️ **Übertakten auf eigenes Risiko.** Höhere Frequenz und Spannung erhöhen Leistungsaufnahme und Temperatur
 > und können die Hardware beschädigen. Prüfe, ob Netzteil und Kühlung ausreichen.
+
+## Sprache
+
+Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige und Home Assistant gibt es auf
+**Deutsch und Englisch**:
+
+- **Desktop-App**: *Einstellungen → Sprache* (Automatisch = Windows-Sprache), wirkt nach einem Neustart der App.
+- **Browser**: Knopf **DE/EN** im Kopf – jeder Browser merkt sich seine Wahl (Standard: Browser-Sprache).
+- **Server** (Push, Tagesbericht, E-Paper, Statustexte): *Einstellungen → Sprache des Servers* in der Browser-Oberfläche.
+  Ein Raspberry Pi steht ab Werk auf Englisch – für deutsche Meldungen dort „Deutsch“ wählen.
+- Zahlen und Datum folgen dem Format des Systems, solange dessen Sprache passt.
 
 ## Funktionen
 
@@ -41,7 +52,7 @@ Mehrere Geräte lassen sich **parallel** testen.
 - **Gesamt- und Einzelansicht** mit 14 Kacheln, Wallet-Guthaben (mempool.space / Blockchair), Verlauf 1 h / 24 h / 7 / 30 Tage
   aus `history.db`, jetzt mit viertem Diagramm **Effizienz (J/TH)**.
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
-- **Steuer**: Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
+- **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
 - **Push** (ntfy/Telegram), **Watchdog**, **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
 
 ### Zusammenspiel Tuning ↔ Überwachung
@@ -315,32 +326,22 @@ Ein Release entsteht automatisch per GitHub Actions, sobald ein Tag `v*` gepusht
 ## Projektstruktur
 
 ```
-src/BitaxeTuner.Core     API-Client, Geräteprofile, Benchmark-Engine, Simulator, Speicherung,
+src/BitaxeTuner.Core     API-Client, Geräteprofile, Benchmark-Engine, Simulator, Speicherung, I18n (Texte DE/EN),
                          Host/MinerHub (der Motor: Abfrage, Verlauf, Meldungen, Watchdog, Automatik, Benchmarks),
                          Transfer (Datenübertragung, Server-Client)
 src/BitaxeTuner.App      WPF-Oberfläche (MVVM) – Betriebsart „Lokal“ (Motor im Prozess) oder „Server“
 src/BitaxeTuner.Server   ASP.NET-Core-Dienst: Motor + REST-API /api/v1 + Live-Ereignisse + Browser-Oberfläche (wwwroot)
 deploy/                  install.sh + systemd-Unit (Linux/Pi), Dockerfile + docker-compose.yml
-tests/                   xUnit-Tests (Engine, Hub, Server-API, Datenübertragung)
+tests/                   xUnit-Tests (Engine, Hub, Server-API, Datenübertragung, Übersetzungen)
 installer/               Inno-Setup-Skripte (Desktop, Server-Dienst)
 ```
 
 ---
 
-## English summary
+## English
 
-BitaxeTuner is a Windows desktop app that automatically overclocks and benchmarks Bitaxe (Max, Ultra, Supra,
-Gamma, Duo, GT, Hex, SupraHex) and NerdAxe-family miners (NerdAxe, NerdAxe Gamma, NerdQAxe+/++, NerdOctaxe).
-It steps through frequency/core-voltage combinations, measures hashrate, power, efficiency and temperatures,
-enforces safety limits on every sample, and recommends the best setting by max hashrate, efficiency or a
-weighted balance. Multiple miners can be tuned in parallel. Download the installer from Releases.
-
-For 24/7 operation without a PC, run the **BitaxeTuner-Server** on a Raspberry Pi (ready-made SD image or
-`install.sh` + systemd), a Windows machine (service setup) or Docker (`ghcr.io/elemirus1996/bitaxetuner-server`);
-use it from any browser or connect the desktop app to it. Optional: extra PWM fans, a 7.5" e-paper status display,
-buttons and DS18B20 temperature sensors via a Raspberry Pi Pico, daily verified backups (USB stick, NAS, PC),
-Home Assistant via MQTT (read-only for tuning), and an efficiency advisor. Frequency/voltage changes always require
-explicit confirmation showing old and new values. The user interface is German. Use at your own risk.
+The full English documentation is in **[README.en.md](README.en.md)**; the program itself is available in English
+(desktop: *Settings → Language*, browser: **EN** button). Website: [elemirus1996.github.io/BitaxeTuner/en/](https://elemirus1996.github.io/BitaxeTuner/en/).
 
 ## Hinweise / Disclaimer
 

@@ -58,7 +58,7 @@ public static class ConfigMigrator
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         File.Copy(source, target, overwrite: false);
-        yield return $"Kopiert: {source} → {target}";
+        yield return L.T("Kopiert: {0} → {1}", source, target);
     }
 
     /// <summary>

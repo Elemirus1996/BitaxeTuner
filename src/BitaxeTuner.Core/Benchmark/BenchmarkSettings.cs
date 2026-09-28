@@ -83,7 +83,7 @@ public sealed class BenchmarkSettings
         if (StartFrequencyMhz <= 0 || MaxFrequencyMhz < StartFrequencyMhz) errors.Add(L.T("Frequenzbereich ungültig."));
         if (StartVoltageMv <= 0 || MaxVoltageMv < StartVoltageMv || MinVoltageMv > StartVoltageMv) errors.Add(L.T("Spannungsbereich ungültig."));
         if (FrequencyStepMhz <= 0 || VoltageStepMv <= 0) errors.Add(L.T("Schrittweiten müssen größer als 0 sein."));
-        if (SampleIntervalSeconds < 2) errors.Add("Messintervall muss mindestens 2 s betragen.");
+        if (SampleIntervalSeconds < 2) errors.Add(L.T("Messintervall muss mindestens 2 s betragen."));
         if (MeasureSeconds < SampleIntervalSeconds * Math.Max(1, MinSamples)) errors.Add(L.T("Messdauer ist zu kurz für die Mindestanzahl an Messwerten."));
         if (MaxVoltageMv > 1500) errors.Add(L.T("Maximale Kernspannung über 1500 mV ist nicht erlaubt."));
         if (MaxChipTempC > 80) errors.Add(L.T("Maximale Chiptemperatur über 80 °C ist nicht erlaubt."));

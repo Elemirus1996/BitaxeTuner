@@ -390,7 +390,7 @@ function renderOverview() {
     d.automation ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
     d.benchmark?.running ? h('div', { class: 'progress', style: 'margin-top:8px' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
     d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}`, style: 'margin-top:6px' },
-      t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? ` · ${d.fan.rpm} U/min` : '', d.fan.stalled ? t(' · steht!') : '')) : null,
+      t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? t(' · {0} U/min', d.fan.rpm) : '', d.fan.stalled ? t(' · steht!') : '')) : null,
     d.suggestion ? h('div', { class: 'small warn', style: 'margin-top:6px' }, t('Vorschlag offen: {0} MHz / {1} mV', d.suggestion.frequencyMhz, d.suggestion.coreVoltageMv)) : null));
 
   mount(h('div', { class: 'stack' },

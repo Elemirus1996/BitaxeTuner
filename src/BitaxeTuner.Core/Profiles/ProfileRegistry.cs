@@ -95,7 +95,7 @@ public sealed class ProfileRegistry
             profile = Generic.Clone();
             profile.AsicModel = asic?.AsicModel ?? info.AsicModel ?? "";
             profile.AsicCount = asic?.AsicCount ?? info.AsicCount;
-            profile.Name = $"Generisch ({info.DeviceModel ?? profile.AsicModel})";
+            profile.Name = L.T("Generisch ({0})", info.DeviceModel ?? profile.AsicModel);
             if ((asic?.DefaultFrequencyMhz ?? info.DefaultFrequencyMhz) is { } df and > 0)
                 profile.DefaultFrequencyMhz = df;
             if ((asic?.DefaultVoltageMv ?? info.DefaultCoreVoltageMv) is { } dv and > 0)

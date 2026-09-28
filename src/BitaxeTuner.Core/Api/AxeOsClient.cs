@@ -148,7 +148,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             // AxeOS v2.15.3 antwortet "System will restart shortly." und startet nach 1 s neu.
             using var resp = await _http.PostAsync("api/system/restart", null, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
-                throw new MinerApiException($"{Address}: Neustart abgelehnt ({(int)resp.StatusCode})");
+                throw new MinerApiException(L.T("{0}: Neustart abgelehnt ({1})", Address, (int)resp.StatusCode));
         }
         catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException)
         {
@@ -190,7 +190,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         {
             using var resp = await _http.GetAsync(path, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
-                throw new MinerApiException($"{Address}: GET /{path} lieferte {(int)resp.StatusCode}");
+                throw new MinerApiException(L.T("{0}: GET /{1} lieferte {2}", Address, path, (int)resp.StatusCode));
             await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             return await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
         }

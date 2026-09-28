@@ -53,20 +53,20 @@ public sealed class SettingsSnapshots(string directory)
     private const int MaxAutoPerHost = 30;
 
     /// <summary>Feld, Anzeigename, Gruppe. Frequenz/Spannung werden gesondert (protokolliert) gesetzt.</summary>
-    public static readonly (string Field, string Label, SettingGroup Group)[] Restorable =
+    public static (string Field, string Label, SettingGroup Group)[] Restorable =>
     [
-        ("frequency", "Frequenz (MHz)", SettingGroup.Tuning),
-        ("coreVoltage", "Kernspannung (mV)", SettingGroup.Tuning),
-        ("overclockEnabled", "Overclocking-Modus", SettingGroup.Tuning),
+        ("frequency", L.T("Frequenz (MHz)"), SettingGroup.Tuning),
+        ("coreVoltage", L.T("Kernspannung (mV)"), SettingGroup.Tuning),
+        ("overclockEnabled", L.T("Overclocking-Modus"), SettingGroup.Tuning),
         ("autofanspeed", L.T("Lüfter automatisch"), SettingGroup.Fan),
         ("manualFanSpeed", L.T("Lüfter manuell (%)"), SettingGroup.Fan),
-        ("temptarget", "Zieltemperatur (°C)", SettingGroup.Fan),
-        ("stratumURL", "Pool-URL", SettingGroup.Pool),
-        ("stratumPort", "Pool-Port", SettingGroup.Pool),
-        ("stratumUser", "Pool-Benutzer (Wallet.Worker)", SettingGroup.Pool),
-        ("fallbackStratumURL", "Fallback-Pool-URL", SettingGroup.Pool),
-        ("fallbackStratumPort", "Fallback-Pool-Port", SettingGroup.Pool),
-        ("fallbackStratumUser", "Fallback-Pool-Benutzer", SettingGroup.Pool),
+        ("temptarget", L.T("Zieltemperatur (°C)"), SettingGroup.Fan),
+        ("stratumURL", L.T("Pool-URL"), SettingGroup.Pool),
+        ("stratumPort", L.T("Pool-Port"), SettingGroup.Pool),
+        ("stratumUser", L.T("Pool-Benutzer (Wallet.Worker)"), SettingGroup.Pool),
+        ("fallbackStratumURL", L.T("Fallback-Pool-URL"), SettingGroup.Pool),
+        ("fallbackStratumPort", L.T("Fallback-Pool-Port"), SettingGroup.Pool),
+        ("fallbackStratumUser", L.T("Fallback-Pool-Benutzer"), SettingGroup.Pool),
     ];
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
