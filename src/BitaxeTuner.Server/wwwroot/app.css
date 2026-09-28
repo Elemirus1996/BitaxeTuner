@@ -77,6 +77,8 @@ main { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px; }
 .device:hover { border-color: var(--accent); }
 .device .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .device .head b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pool-link { display: inline-flex; padding: 2px; border-radius: 6px; cursor: pointer; opacity: .85; }
+.pool-link:hover, .pool-link:focus-visible { opacity: 1; background: var(--accent-soft); outline: none; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--idle); flex: none; }
 .dot.on { background: var(--ok); } .dot.off { background: var(--danger); } .dot.maint { background: var(--warn); }
 .kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; font-size: 13px; }

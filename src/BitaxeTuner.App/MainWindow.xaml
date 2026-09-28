@@ -83,6 +83,9 @@
                                     <DockPanel>
                                         <TextBlock DockPanel.Dock="Right" Text="● läuft" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" FontSize="11"
                                                    Visibility="{Binding Device.IsRunning, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}" />
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource PoolLinkButton}" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                Tag="{Binding PoolLink}" ToolTip="{Binding PoolLinkToolTip}" Click="OnPoolLinkClick"
+                                                Visibility="{Binding PoolLink, Converter={StaticResource NullToVisibility}}" />
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="8" Height="8" Fill="{Binding Dot}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                             <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

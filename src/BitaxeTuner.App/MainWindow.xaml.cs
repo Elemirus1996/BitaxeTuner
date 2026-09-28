@@ -39,6 +39,14 @@ public partial class MainWindow : Window
         _ = vm.CheckForUpdateAsync();
     }
 
+    /// <summary>Pool-Symbol in der Geräteliste: Nutzerseite des Pools im Browser öffnen.</summary>
+    private void OnPoolLinkClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.Tag is not Core.Monitoring.PoolQuickLink link) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link.Url.AbsoluteUri) { UseShellExecute = true });
+    }
+
     private void OnNavChanged(object sender, SelectionChangedEventArgs e)
     {
         PlaceMonitor();

@@ -106,6 +106,8 @@ public static class Dto
             bestDiff = i?.bestDiff,
             errorPercent = n?.ErrorPercent,
             pool = admin ? hub.PoolText(s) : (i is null ? null : i.isUsingFallbackStratum != 0 ? "Fallback-Pool" : "Primär-Pool"),
+            // Enthält den Pool-Benutzer (Wallet-Adresse) – daher nur für Admins
+            poolLink = admin && !d.IsSimulated && PoolQuickLinks.For(i) is { } pl ? new { name = pl.Pool, url = pl.Url.AbsoluteUri } : null,
             automation = d.AutomationStatus,
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
             suggestion = d.PendingSuggestion,

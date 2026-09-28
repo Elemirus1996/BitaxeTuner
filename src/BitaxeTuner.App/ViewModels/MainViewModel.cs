@@ -8,6 +8,7 @@ using BitaxeTuner.App.Themes;
 using BitaxeTuner.App.Views;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Discovery;
+using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -41,6 +42,9 @@ public sealed partial class NavItem : ObservableObject
     [ObservableProperty] private string _title;
     [ObservableProperty] private string _sub;
     [ObservableProperty] private Brush _dot = Brushes.Gray;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(PoolLinkToolTip))] private PoolQuickLink? _poolLink;
+
+    public string? PoolLinkToolTip => PoolLink is { } p ? $"{p.Pool}: Pool-Statistik öffnen" : null;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -147,6 +151,7 @@ public sealed partial class MainViewModel : ObservableObject
                     item.Title = item.Device!.Title;
                     item.Sub = d.Sub;
                     item.Dot = d.Dot;
+                    item.PoolLink = d.PoolLink;
                     break;
             }
         }

@@ -50,6 +50,7 @@ public sealed class SystemInfo
     public double responseTime { get; set; }          // ms, mittlere Pool-Antwortzeit (AxeOS ≥ 2.x)
     public string? fallbackStratumURL { get; set; }
     public int fallbackStratumPort { get; set; }
+    public string? fallbackStratumUser { get; set; }
 
     // System
     public int blockFound { get; set; }

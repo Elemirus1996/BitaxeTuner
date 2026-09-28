@@ -27,7 +27,7 @@ public enum MonitorMode
 }
 
 /// <summary>Kurztexte und Statusfarben für die Einträge der Geräteliste im Hauptfenster.</summary>
-public sealed record MonitorSummary(string AggregateSub, Brush AggregateDot, IReadOnlyDictionary<string, (string Sub, Brush Dot)> Devices);
+public sealed record MonitorSummary(string AggregateSub, Brush AggregateDot, IReadOnlyDictionary<string, (string Sub, Brush Dot, PoolQuickLink? PoolLink)> Devices);
 
 /// <summary>
 /// Überwachung aus BitaxeMonitor: Gesamt-, Einzel-, Netzwerk- und Steueransicht, Wallets, Verlauf,
@@ -169,7 +169,7 @@ public partial class MonitorView : UserControl
         var online = _states.Count(s => s.Online);
         var totalGh = _states.Where(s => s.Online).Sum(s => s.Info!.hashRate);
 
-        var devices = new Dictionary<string, (string, Brush)>(StringComparer.OrdinalIgnoreCase);
+        var devices = new Dictionary<string, (string, Brush, PoolQuickLink?)>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in _states)
         {
             var maintenance = _host.Maintenance.IsActive(s.Config.Host);
@@ -177,7 +177,8 @@ public partial class MonitorView : UserControl
                 s.Online
                     ? $"{FormatHash(s.Info!.hashRate)} · {s.Info.temp.ToString("0", De)} °C"
                     : maintenance ? "Neustart/Tuning …" : s.Error ?? "offline",
-                s.Online ? Green : maintenance ? Gold : Red);
+                s.Online ? Green : maintenance ? Gold : Red,
+                s.Online && !MinerHub.IsSimulated(s.Config.Host) ? PoolQuickLinks.For(s.Info) : null);
         }
 
         SummaryChanged?.Invoke(new MonitorSummary(

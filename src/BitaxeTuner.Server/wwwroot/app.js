@@ -265,6 +265,20 @@ function tile(label, value, sub, cls) {
 
 function dotClass(d) { return d.online ? 'on' : d.maintenance ? 'maint' : 'off'; }
 
+/** Pool-Symbol mit Quick-Link zur Nutzerseite des Pools (wie in AxeOS). Die Karte ist selbst ein Link, daher kein <a>. */
+function poolLinkIcon(d) {
+  const link = d.poolLink;
+  if (!link) return null;
+  const open = e => {
+    e.preventDefault(); e.stopPropagation();
+    window.open(link.url, '_blank', 'noopener,noreferrer');
+  };
+  return h('span', {
+    class: 'pool-link', role: 'link', tabindex: '0', title: `${link.name}: Pool-Statistik öffnen`, 'aria-label': `${link.name}: Pool-Statistik öffnen`,
+    onclick: open, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') open(e); },
+  }, h('img', { src: 'pool.svg', alt: '', width: '18', height: '18' }));
+}
+
 function renderOverview() {
   const s = S.status;
   const t = s.totals;
@@ -273,7 +287,8 @@ function renderOverview() {
     h('div', { class: 'head' }, h('span', { class: `dot ${dotClass(d)}` }), h('b', {}, d.name),
       d.benchmark?.running ? h('span', { class: 'pill' }, 'Benchmark') : null,
       d.soak ? h('span', { class: 'pill' }, 'Dauertest') : null,
-      d.simulated ? h('span', { class: 'pill gray' }, 'Simulation') : null),
+      d.simulated ? h('span', { class: 'pill gray' }, 'Simulation') : null,
+      poolLinkIcon(d)),
     d.online
       ? h('div', { class: 'kv num' },
           h('div', {}, h('span', {}, 'Hashrate'), hash(d.hashrate)),
