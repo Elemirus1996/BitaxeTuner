@@ -221,6 +221,15 @@ public partial class MonitorView : UserControl
         _config.Save();
     }
 
+    private void PoolDashboardButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (PoolDashboardButton.Tag is not Uri uri) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri)
+        {
+            UseShellExecute = true
+        });
+    }
+
     /// <summary>Nach jeder Abfragerunde des Hubs (UI-Thread): Anzeige aktualisieren.</summary>
     private void OnHubPolled()
     {
@@ -303,6 +312,8 @@ public partial class MonitorView : UserControl
 
     private void RenderAggregate()
     {
+        PoolDashboardButton.Visibility = Visibility.Collapsed;
+        PoolDashboardButton.Tag = null;
         var online = _states.Where(s => s.Online).ToList();
         ViewTitle.Text = $"Gesamt – {online.Count} von {_states.Count} Miner online";
         var onFallback = online.Where(s => s.Info!.isUsingFallbackStratum != 0).Select(s => s.Config.Name).ToList();
@@ -395,6 +406,8 @@ public partial class MonitorView : UserControl
 
     private void RenderSingle(MinerState state)
     {
+        PoolDashboardButton.Visibility = Visibility.Collapsed;
+        PoolDashboardButton.Tag = null;
         ViewTitle.Text = state.Online
             ? $"{state.Config.Name} – {state.Config.Host}"
             : $"{state.Config.Name} – {state.Error}";
@@ -456,6 +469,10 @@ public partial class MonitorView : UserControl
             $"Pool {i.stratumURL}:{i.stratumPort}" + (i.isUsingFallbackStratum != 0 ? " (Fallback)" : ""),
             i.stratumUser ?? ""
         });
+
+        var poolDashboard = PoolDashboardLinks.ForMiner(i.stratumURL, state.WalletAddress);
+        PoolDashboardButton.Tag = poolDashboard;
+        PoolDashboardButton.Visibility = poolDashboard is null ? Visibility.Collapsed : Visibility.Visible;
 
         DrawCharts(ChartData(state.Config.Host, state.History), state.Config.Name, state.Config.Host);
         RenderWalletSingle(state);

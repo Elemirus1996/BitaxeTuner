@@ -243,12 +243,17 @@
                         </Grid>
 
                         <Border Grid.Row="3" Style="{StaticResource Tile}">
-                            <StackPanel>
-                                <TextBlock x:Name="PoolStatusText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"
-                                           TextTrimming="CharacterEllipsis" Margin="0,0,0,3"/>
-                                <TextBlock x:Name="FooterText" Text="–" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
+                            <DockPanel>
+                                <Button x:Name="PoolDashboardButton" DockPanel.Dock="Right"
+                                        Content="BTC PoW Lab öffnen" Click="PoolDashboardButton_Click"
+                                        Visibility="Collapsed" Margin="12,0,0,0" Padding="10,4"/>
+                                <StackPanel>
+                                    <TextBlock x:Name="PoolStatusText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"
+                                               TextTrimming="CharacterEllipsis" Margin="0,0,0,3"/>
+                                    <TextBlock x:Name="FooterText" Text="–" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DockPanel>
                         </Border>
                     </Grid>
 
