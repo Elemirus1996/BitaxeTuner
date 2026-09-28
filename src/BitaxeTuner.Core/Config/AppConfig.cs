@@ -85,6 +85,9 @@ public sealed class AppConfig
     /// <summary>Nur-Lese-Ansicht fürs Handy im Heimnetz.</summary>
     public WebViewSettings WebView { get; set; } = new();
 
+    /// <summary>Sprache der Oberfläche und der Meldungen: „auto“ (Systemsprache), „de“ oder „en“.</summary>
+    public string Language { get; set; } = "auto";
+
     /// <summary>Betriebsart der Desktop-App: lokal (Standard) oder mit einem BitaxeTuner-Server verbunden.</summary>
     public ServerConnectionSettings Server { get; set; } = new();
 

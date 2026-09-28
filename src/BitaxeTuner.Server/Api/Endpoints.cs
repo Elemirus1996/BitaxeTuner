@@ -138,7 +138,20 @@ public static class Endpoints
             os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             paused = hub.Hub.IsPaused,
             devices = hub.Hub.Config.Devices.Count,
+            language = Core.I18n.Loc.Current.Language,
         }));
+
+        // Übersetzungstabelle für die Browser-Oberfläche (deutscher Text → Text der Sprache); auch vor der Anmeldung
+        api.MapGet("/i18n/{lang}", (string lang, HttpContext http) =>
+        {
+            var language = Core.I18n.Loc.Resolve(lang);
+            var json = System.Text.Json.JsonSerializer.Serialize(Core.I18n.Loc.Table(language));
+            var etag = "\"" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)))[..16] + "\"";
+            http.Response.Headers.ETag = etag;
+            http.Response.Headers.CacheControl = "no-cache";
+            if (http.Request.Headers.IfNoneMatch == etag) return Results.StatusCode(304);
+            return Results.Text(json, "application/json; charset=utf-8");
+        });
 
         // Desktop-App: aus dem API-Token eine Browser-Sitzung für die eingebettete Oberfläche machen
         api.MapPost("/token-session", (HttpContext http, SessionStore sessions) =>

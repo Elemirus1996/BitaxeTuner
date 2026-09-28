@@ -61,6 +61,7 @@ public partial class App : Application
         }
 
         var config = AppConfig.Load();
+        Core.I18n.Loc.Configure(config.Language);
 
         // Betriebsart „Server“: kein eigener Motor, keine Miner-Abfrage – nur die Oberfläche des Servers
         if (config.Server.Enabled && config.Server.Url.Length > 0)

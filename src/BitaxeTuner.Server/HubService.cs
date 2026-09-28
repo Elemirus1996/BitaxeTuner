@@ -44,6 +44,7 @@ public sealed class HubService : IHostedService, IDisposable
         var file = Path.Combine(Settings.DataDirectory, "config.json");
         var config = AppConfig.Load(file);
         config.FilePath = file;
+        Core.I18n.Loc.Configure(config.Language); // Sprache für Push, Tagesbericht, E-Paper, Protokoll
         var hub = new MinerHub(config, new MinerHubOptions
         {
             DataDirectory = Settings.DataDirectory,
