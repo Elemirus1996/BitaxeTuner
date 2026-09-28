@@ -21,9 +21,12 @@ public static class NetworkScanner
             .Distinct()
             .ToList();
 
-    public static async Task<IReadOnlyList<DiscoveredMiner>> ScanAsync(IProgress<double>? progress = null, CancellationToken ct = default)
+    /// <param name="include">Nur Netze dieser eigenen Adressen durchsuchen (Server: nur private Netze).</param>
+    public static async Task<IReadOnlyList<DiscoveredMiner>> ScanAsync(IProgress<double>? progress = null, CancellationToken ct = default,
+        Func<IPAddress, bool>? include = null)
     {
         var targets = LocalIPv4Addresses()
+            .Where(ip => include is null || include(ip))
             .SelectMany(ip =>
             {
                 var b = ip.GetAddressBytes();
@@ -45,12 +48,16 @@ public static class NetworkScanner
                 {
                     await using var stream = await resp.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
                     using var doc = await System.Text.Json.JsonDocument.ParseAsync(stream, cancellationToken: token).ConfigureAwait(false);
-                    var info = AxeOsClient.Parse(doc.RootElement);
-                    if (info.FrequencyMhz > 0 || info.HashRateGh > 0 || info.AsicModel is not null)
-                        lock (found) found.Add(new DiscoveredMiner(ip, info));
+                    // Andere Geräte im Netz liefern unter demselben Pfad beliebiges JSON (z. B. eine Liste) – kein Miner
+                    if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        var info = AxeOsClient.Parse(doc.RootElement);
+                        if (info.FrequencyMhz > 0 || info.HashRateGh > 0 || info.AsicModel is not null)
+                            lock (found) found.Add(new DiscoveredMiner(ip, info));
+                    }
                 }
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException && !ct.IsCancellationRequested) { }
+            catch (Exception) when (!ct.IsCancellationRequested) { /* nicht erreichbar oder kein Miner */ }
             finally
             {
                 progress?.Report(Interlocked.Increment(ref done) / (double)targets.Count);

@@ -139,6 +139,8 @@ public static class Endpoints
         c.Hysteresis = Math.Clamp(c.Hysteresis, 0, 10);
     }
 
+    private static int _scanning;
+
     private static HubDevice Device(MinerHub hub, string id) =>
         Dto.Find(hub, id) ?? throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
@@ -300,6 +302,31 @@ public static class Endpoints
             await h.ApplySettingsChangedAsync();
             return new { id = Dto.DeviceId(host) };
         })));
+
+        // Netzwerksuche wie in der Desktop-App: nur die privaten /24-Netze des Servers, eine Suche zur Zeit
+        g.MapPost("/devices/scan", async (HubService hub, CancellationToken ct) =>
+        {
+            if (Interlocked.Exchange(ref _scanning, 1) == 1) throw new LocalizedException("Eine Suche läuft bereits.");
+            try
+            {
+                var found = await Core.Discovery.NetworkScanner.ScanAsync(ct: ct, include: NetworkRules.IsPrivate);
+                var known = await hub.RunAsync(h => h.Config.Devices.Select(d => d.Host.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                return Results.Json(new
+                {
+                    networks = Core.Discovery.NetworkScanner.LocalIPv4Addresses().Where(NetworkRules.IsPrivate)
+                        .Select(ip => { var b = ip.GetAddressBytes(); return $"{b[0]}.{b[1]}.{b[2]}.0/24"; }).Distinct(),
+                    miners = found.Select(f => new
+                    {
+                        address = f.Address,
+                        name = f.Info.Hostname,
+                        model = f.Info.DeviceModel ?? f.Info.AsicModel,
+                        hashrate = f.Info.HashRateGh,
+                        known = known.Contains(f.Address),
+                    }),
+                });
+            }
+            finally { Interlocked.Exchange(ref _scanning, 0); }
+        });
 
         g.MapPut("/devices/{id}", async (string id, DeviceRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {

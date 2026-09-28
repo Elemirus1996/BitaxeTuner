@@ -1062,6 +1062,33 @@ async function renderSettings() {
 
   // Geräte
   const devName = h('input', { placeholder: t('Name') }), devHost = h('input', { placeholder: t('IP-Adresse oder Hostname') });
+
+  // Netzwerksuche: Treffer mit „Hinzufügen“, bereits eingetragene Miner markiert
+  const scanResult = h('div', { class: 'stack' });
+  const scanBtn = h('button', {
+    class: 'btn', onclick: async () => {
+      scanBtn.disabled = true;
+      fill(scanResult, h('p', { class: 'muted small' }, t('Suche im Heimnetz läuft … (wenige Sekunden je Netz)')));
+      const r = await run(() => api('/devices/scan', { method: 'POST', body: {} }));
+      scanBtn.disabled = false;
+      if (!r) { fill(scanResult); return; }
+      const nets = r.networks.join(', ') || '–';
+      fill(scanResult, r.miners.length === 0
+        ? h('p', { class: 'muted small' }, t('Keine Miner gefunden (durchsucht: {0}). Docker: nur mit „network_mode: host“ sichtbar – sonst IP-Adresse unten eintragen.', nets))
+        : [h('p', { class: 'muted small' }, t('{0} Miner gefunden (durchsucht: {1}).', r.miners.length, nets)),
+           h('div', { class: 'table-wrap' }, h('table', {},
+             h('thead', {}, h('tr', {}, [t('Name'), t('Adresse'), t('Modell'), t('Hashrate'), ''].map(x => h('th', {}, x)))),
+             h('tbody', {}, r.miners.map(m => h('tr', {},
+               h('td', {}, m.name || '–'), h('td', { class: 'mono' }, m.address), h('td', {}, m.model || '–'),
+               h('td', { class: 'num' }, m.hashrate ? hash(m.hashrate) : '–'),
+               h('td', {}, m.known ? h('span', { class: 'pill gray' }, t('eingetragen')) : h('button', {
+                 class: 'btn small primary', onclick: async () => {
+                   if (await run(() => api('/devices', { method: 'POST', body: { name: m.name || m.address, host: m.address } }), t('Gerät hinzugefügt.'))) renderSettings();
+                 },
+               }, t('Hinzufügen'))))))))]);
+    },
+  }, t('Im Netz suchen'));
+  const scanBox = h('div', { class: 'stack' }, h('div', { class: 'row' }, scanBtn), scanResult);
   const deviceRows = status.devices.map(d => {
     const name = h('input', { value: d.name });
     return h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
@@ -1089,6 +1116,7 @@ async function renderSettings() {
   mount(h('div', { class: 'stack' },
     h('div', { class: 'card stack' }, h('h2', {}, t('Geräte')),
       h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, [t('Name'), t('Adresse'), ''].map(x => h('th', {}, x)))), h('tbody', {}, deviceRows))),
+      scanBox,
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), devName), h('div', {}, h('label', {}, t('Adresse')), devHost),
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
     h('div', { class: 'card stack' }, h('h2', {}, t('Allgemein')),
