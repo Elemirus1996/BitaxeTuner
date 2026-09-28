@@ -508,4 +508,10 @@ public sealed class ServerConnectionSettings
     public string BackupFolder { get; set; } = "";
     public int BackupKeep { get; set; } = 14;
     public string? BackupLastPickup { get; set; }
+
+    /// <summary>Benutzer für SSH auf den Pi (wie bei „Raspberry Pi vorbereiten“ angelegt).</summary>
+    public string SshUser { get; set; } = "pi";
+
+    /// <summary>Rechner für SSH; leer = Host der Server-Adresse.</summary>
+    public string SshHost { get; set; } = "";
 }

@@ -74,6 +74,55 @@ public class PiOsSetupTests
         Assert.Equal("#cloud-config\n# Vorlage\n", File.ReadAllText(boot.File("user-data")));
     }
 
+    private const string Key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOPtestKeyForBitaxeTunerOnlyXXXXXXXXXXXXXXXXXXX bitaxetuner@PC";
+
+    [Fact]
+    public void Writes_ssh_key_and_region_from_the_dialog()
+    {
+        using var boot = Boot();
+        PiOsSetup.Write(boot.Path, new PiOsOptions("admin", "pi-passwort-1", "Home", "wlan-geheim-99",
+            Country: "US", Timezone: "America/New_York", Keyboard: "us", SshKeys: [Key]));
+        var user = File.ReadAllText(boot.File("user-data"));
+        Assert.Contains("  ssh_authorized_keys:\n  - \"" + Key + "\"\n", user);
+        Assert.Contains("timezone: \"America/New_York\"", user);
+        Assert.Contains("layout: \"us\"", user);
+        Assert.Contains("do_wifi_country, \"US\"", user);
+        Assert.Contains("regulatory-domain: \"US\"", File.ReadAllText(boot.File("network-config")));
+    }
+
+    [Theory]
+    [InlineData("Europe/Berlin; rm -rf /", "de", Key)]     // Zeitzone mit Befehl
+    [InlineData("Europe/Berlin", "de\nx", Key)]             // Tastatur
+    [InlineData("Europe/Berlin", "de", "ssh-ed25519 AAAA\"\nruncmd: [evil]")] // Schlüssel mit Zeilenumbruch
+    [InlineData("Europe/Berlin", "de", "kein schlüssel")]
+    public void Rejects_unsafe_region_or_key(string tz, string kb, string key)
+    {
+        using var boot = Boot();
+        Assert.Throws<InvalidOperationException>(() => PiOsSetup.Write(boot.Path,
+            new PiOsOptions("pi", "pi-passwort-1", Timezone: tz, Keyboard: kb, SshKeys: [key])));
+    }
+
+    [Theory]
+    [InlineData("de-DE", "DE", "de")]
+    [InlineData("de-CH", "CH", "ch")]
+    [InlineData("en-US", "US", "us")]
+    [InlineData("en-GB", "GB", "gb")]
+    [InlineData("pt-BR", "BR", "br")]
+    [InlineData("nl-NL", "NL", "us")]
+    [InlineData("fr-BE", "BE", "be")]
+    public void Keyboard_layout_follows_language_and_country(string culture, string country, string expected) =>
+        Assert.Equal(expected, PiRegion.KeyboardFor(System.Globalization.CultureInfo.GetCultureInfo(culture), country));
+
+    [Fact]
+    public void Windows_timezone_is_converted_to_iana()
+    {
+        var berlin = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "W. Europe Standard Time" : "Europe/Berlin");
+        Assert.Equal("Europe/Berlin", PiRegion.IanaTimezone(berlin, "DE"));
+        var region = PiRegion.FromSystem();
+        Assert.Matches("^[A-Z]{2}$", region.Country);
+        Assert.Contains("/", region.Timezone);
+    }
+
     [Fact]
     public void Refuses_boot_partition_without_cloud_init()
     {

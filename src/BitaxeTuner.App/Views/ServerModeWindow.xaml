@@ -123,6 +123,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Margin="0,0,0,8">
                                 <TextBlock Text="{l:T 'BENUTZERNAME (FÜR SSH)'}" Style="{StaticResource Label}"/>
@@ -140,13 +142,63 @@
                                 <TextBlock Text="{l:T 'WLAN-PASSWORT'}" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiWifiPassword"/>
                             </StackPanel>
-                            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource Hint}" Margin="0"
-                                       Text="{l:T 'Pi 3: nur 2,4-GHz-WLAN. Passwörter landen nur als Hash auf der Karte. Land DE, Zeitzone Europe/Berlin, Tastatur deutsch.'}"/>
+                            <Grid Grid.Row="2" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{l:T 'LAND'}" Style="{StaticResource Label}"/>
+                                    <TextBox x:Name="PiCountry" ToolTip="{l:T 'Für die WLAN-Regeln, z. B. DE, AT, CH, US'}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{l:T 'ZEITZONE'}" Style="{StaticResource Label}"/>
+                                    <TextBox x:Name="PiTimezone" ToolTip="{l:T 'z. B. Europe/Berlin, America/New_York'}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="{l:T 'TASTATUR'}" Style="{StaticResource Label}"/>
+                                    <TextBox x:Name="PiKeyboard" ToolTip="{l:T 'z. B. de, us, gb, ch'}"/>
+                                </StackPanel>
+                            </Grid>
+                            <CheckBox Grid.Row="3" Grid.ColumnSpan="3" x:Name="PiSshKey" IsChecked="True" Margin="0,0,0,8"
+                                      Content="{l:T 'SSH-Schlüssel dieses PCs eintragen (Anmeldung ohne Passwort)'}"/>
+                            <TextBlock Grid.Row="4" Grid.ColumnSpan="3" Style="{StaticResource Hint}" Margin="0"
+                                       Text="{l:T 'Pi 3: nur 2,4-GHz-WLAN. Passwörter landen nur als Hash auf der Karte. Land, Zeitzone und Tastatur kommen aus den Windows-Einstellungen.'}"/>
                         </Grid>
                         <CheckBox x:Name="PiIncludeData" IsChecked="True" Margin="0,0,0,10"
                                   Content="{l:T 'Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)'}"/>
                         <Button Content="{l:T 'Einrichtungspaket auf die SD-Karte schreiben'}" Click="PreparePi_Click"
                                 Style="{StaticResource PrimaryButton}" Padding="12,4" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" x:Name="SshCard">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'SSH zum Pi'}"/>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="{l:T 'Konsole auf dem Pi öffnen, ohne Passwort. Der Schlüssel dieses PCs liegt in %USERPROFILE%\\.ssh\\bitaxetuner_ed25519. Wurde er nicht schon beim Vorbereiten der SD-Karte eingetragen: einmal „Schlüssel übertragen …“ (fragt einmal das Pi-Passwort ab).'}"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{l:T 'BENUTZER'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="SshUserBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{l:T 'RECHNER (LEER = AUS DER SERVER-ADRESSE)'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="SshHostBox"/>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="{l:T 'SSH-Terminal öffnen'}" Click="SshOpen_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
+                            <Button Content="{l:T 'Schlüssel übertragen …'}" Click="SshInstall_Click" Margin="8,0,0,0" Padding="12,4"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

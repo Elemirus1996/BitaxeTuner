@@ -7,10 +7,14 @@ using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
-/// <summary>Zugang zum Pi: Benutzer, WLAN, SSH – was der Raspberry Pi Imager bei eigenen Images nicht anbietet.</summary>
+/// <summary>
+/// Zugang zum Pi: Benutzer, WLAN, SSH – was der Raspberry Pi Imager bei eigenen Images nicht anbietet.
+/// <paramref name="SshKeys"/>: öffentliche SSH-Schlüssel (z. B. des PCs) für die Anmeldung ohne Passwort.
+/// </summary>
 public sealed record PiOsOptions(
     string User, string Password, string? WifiSsid = null, string? WifiPassword = null,
-    string Hostname = "bitaxetuner", string Country = "DE", string Timezone = "Europe/Berlin", string Keyboard = "de", bool Ssh = true);
+    string Hostname = "bitaxetuner", string Country = "DE", string Timezone = "Europe/Berlin", string Keyboard = "de", bool Ssh = true,
+    IReadOnlyList<string>? SshKeys = null);
 
 /// <summary>
 /// Schreibt die cloud-init-Dateien von Raspberry Pi OS (ab Trixie) auf die Boot-Partition: <c>user-data</c>
@@ -27,6 +31,12 @@ public static partial class PiOsSetup
     [GeneratedRegex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")]
     private static partial Regex HostPattern();
 
+    [GeneratedRegex(@"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+){0,2}$")]
+    private static partial Regex TimezonePattern();
+
+    [GeneratedRegex(@"^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+( [^\r\n""]*)?$")]
+    private static partial Regex SshKeyPattern();
+
     /// <summary>Ist das eine Boot-Partition mit cloud-init (Raspberry Pi OS ab Trixie)?</summary>
     public static bool Supports(string bootRoot) =>
         File.Exists(Path.Combine(bootRoot, "cmdline.txt")) && File.Exists(Path.Combine(bootRoot, "meta-data"));
@@ -38,6 +48,10 @@ public static partial class PiOsSetup
         if (o.Password.Length < 8) throw new InvalidOperationException(L.T("Das Pi-Passwort braucht mindestens 8 Zeichen."));
         if (!HostPattern().IsMatch(o.Hostname)) throw new InvalidOperationException(L.T("Hostname: Kleinbuchstaben, Ziffern und -."));
         if (!Regex.IsMatch(o.Country, "^[A-Z]{2}$")) throw new InvalidOperationException(L.T("Land als Kürzel mit 2 Großbuchstaben, z. B. DE."));
+        if (!TimezonePattern().IsMatch(o.Timezone)) throw new InvalidOperationException(L.T("Zeitzone im Format Kontinent/Stadt, z. B. Europe/Berlin."));
+        if (!Regex.IsMatch(o.Keyboard, "^[a-z]{2,3}$")) throw new InvalidOperationException(L.T("Tastatur als Kürzel mit 2–3 Kleinbuchstaben, z. B. de oder us."));
+        foreach (var key in o.SshKeys ?? [])
+            if (!SshKeyPattern().IsMatch(key.Trim())) throw new InvalidOperationException(L.T("Ungültiger SSH-Schlüssel."));
         if (o.WifiSsid is { Length: > 0 } ssid)
         {
             if (Encoding.UTF8.GetByteCount(ssid) > 32) throw new InvalidOperationException(L.T("Der WLAN-Name ist zu lang (max. 32 Zeichen)."));
@@ -68,6 +82,8 @@ public static partial class PiOsSetup
             .Append("  sudo: \"ALL=(ALL) NOPASSWD:ALL\"\n")
             .Append("  lock_passwd: false\n")
             .Append($"  passwd: {Q(Sha512Crypt(o.Password))}\n")
+            .Append(o.SshKeys is { Count: > 0 } keys
+                ? "  ssh_authorized_keys:\n" + string.Concat(keys.Select(k => $"  - {Q(k.Trim())}\n")) : "")
             .Append($"ssh_pwauth: {(o.Ssh ? "true" : "false")}\n")
             // WLAN-Land setzen (hebt die WLAN-Sperre von Raspberry Pi OS auf)
             .Append("runcmd:\n")

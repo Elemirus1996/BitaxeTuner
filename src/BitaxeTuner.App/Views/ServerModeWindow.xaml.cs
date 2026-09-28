@@ -34,6 +34,13 @@ public partial class ServerModeWindow : Window
         PickupCheck.IsChecked = config.Server.BackupPickup;
         PickupFolder.Text = Core.Backup.BackupPickup.FolderOf(config.Server);
         if (!serverMode) RefreshDrives();
+
+        var region = PiRegion.FromSystem(System.Windows.Input.InputLanguageManager.Current.CurrentInputLanguage);
+        PiCountry.Text = region.Country;
+        PiTimezone.Text = region.Timezone;
+        PiKeyboard.Text = region.Keyboard;
+        SshUserBox.Text = config.Server.SshUser;
+        SshHostBox.Text = config.Server.SshHost;
     }
 
     private void Log(string text) => Dispatcher.Invoke(() =>
@@ -304,10 +311,14 @@ public partial class ServerModeWindow : Window
         PiOsOptions? os = null;
         if (PiSetupOs.IsChecked == true)
         {
-            os = new PiOsOptions(PiUser.Text.Trim(), PiUserPassword.Password,
-                PiWifiSsid.Text.Trim() is { Length: > 0 } ssid ? ssid : null, PiWifiPassword.Password);
             try
             {
+                // SSH-Schlüssel dieses PCs (bei Bedarf einmalig erzeugen) – Anmeldung am Pi ohne Passwort
+                string[]? keys = PiSshKey.IsChecked == true ? [await SshKeyService.EnsureKeyAsync()] : null;
+                os = new PiOsOptions(PiUser.Text.Trim(), PiUserPassword.Password,
+                    PiWifiSsid.Text.Trim() is { Length: > 0 } ssid ? ssid : null, PiWifiPassword.Password,
+                    Country: PiCountry.Text.Trim().ToUpperInvariant(), Timezone: PiTimezone.Text.Trim(),
+                    Keyboard: PiKeyboard.Text.Trim().ToLowerInvariant(), SshKeys: keys);
                 PiOsSetup.Validate(os);
                 if (!PiOsSetup.Supports(drive.Root))
                     throw new InvalidOperationException(L.T("Auf dieser Karte fehlt cloud-init (meta-data). Bitte das BitaxeTuner-Image ab Version 0.3.0 verwenden."));
@@ -342,6 +353,11 @@ public partial class ServerModeWindow : Window
             {
                 await Task.Run(() => PiOsSetup.Write(drive.Root, os));
                 Log(L.T("Zugang geschrieben: Benutzer „{0}“, {1}, SSH an.", os.User, (os.WifiSsid is { } s ? L.T("WLAN „{0}“", s) : L.T("nur LAN"))));
+                if (os.SshKeys is { Count: > 0 }) Log(L.T("SSH-Schlüssel dieses PCs eingetragen – Anmeldung ohne Passwort."));
+                _config.Server.SshUser = os.User;
+                _config.Server.SshHost = "";
+                SshUserBox.Text = os.User;
+                SshHostBox.Text = "";
             }
             var token = await Task.Run(() => Provisioning.Write(drive.Root, password, withData ? _host.DataDirectory : null, withData ? _host.History : null, version));
             PiPassword1.Clear();
@@ -367,6 +383,60 @@ public partial class ServerModeWindow : Window
             MessageBox.Show(this, ex.Message, L.T("Raspberry Pi vorbereiten"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { SetBusy(false); }
+    }
+
+    // ---------- SSH zum Pi ----------
+
+    private (string User, string Host)? SshTarget()
+    {
+        var user = SshUserBox.Text.Trim();
+        var host = SshHostBox.Text.Trim() is { Length: > 0 } h ? h : SshKeyService.HostOf(UrlBox.Text.Trim()) ?? "";
+        try
+        {
+            SshKeyService.Validate(user, host);
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+        _config.Server.SshUser = user;
+        _config.Server.SshHost = SshHostBox.Text.Trim();
+        _config.Save();
+        return (user, host);
+    }
+
+    private async void SshOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (SshTarget() is not { } t) return;
+        try
+        {
+            await SshKeyService.EnsureKeyAsync();
+            SshKeyService.OpenTerminal(t.User, t.Host);
+            Log(L.T("SSH-Terminal zu {0}@{1} geöffnet.", t.User, t.Host));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException)
+        {
+            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void SshInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (SshTarget() is not { } t) return;
+        if (MessageBox.Show(this,
+                L.T("Den SSH-Schlüssel dieses PCs bei {0}@{1} eintragen?\n\nEs öffnet sich ein Konsolenfenster; dort einmal das Pi-Passwort eingeben. Danach meldet sich „SSH-Terminal öffnen“ ohne Passwort an.", t.User, t.Host),
+                L.T("SSH zum Pi"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+            return;
+        try
+        {
+            await SshKeyService.EnsureKeyAsync();
+            SshKeyService.InstallOnPi(t.User, t.Host);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException)
+        {
+            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     // ---------- Server → Lokal ----------
