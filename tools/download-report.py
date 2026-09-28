@@ -3,7 +3,8 @@
 
 Aufruf: python tools/download-report.py <state.json>
 Ausgabe: erste Zeile = Titel (nur ASCII, für den HTTP-Kopf), danach der Text. Die Zustandsdatei wird aktualisiert.
-Hinweis: Automatische Updates von Desktop-App und Server laden ebenfalls aus den Releases und zählen mit.
+Gezählt werden nur die Originaldateien (Neuinstallationen). Die eingebauten Updater laden ab 0.5.1 eigene Kopien
+(„update-…“); die stehen getrennt dabei. Updater älterer Versionen laden noch die Originaldateien und zählen daher mit.
 """
 import json
 import os
@@ -32,12 +33,15 @@ def main():
     state_file = sys.argv[1]
     releases = api(f'/repos/{REPO}/releases?per_page=100')
     per_kind = {k: 0 for k, _ in KINDS}
-    total = 0
+    total = updates = 0
     latest_tag, latest_total = None, 0
     for rel in releases:
         rel_total = 0
         for a in rel.get('assets', []):
             name, count = a['name'], a['download_count']
+            if name.startswith('update-'):
+                updates += count
+                continue
             for kind, match in KINDS:
                 if match(name):
                     per_kind[kind] += count
@@ -59,10 +63,12 @@ def main():
     for kind, _ in KINDS:
         d = per_kind[kind] - prev.get('kinds', {}).get(kind, 0) if 'kinds' in prev else None
         lines.append(f'{kind}: {per_kind[kind]}' + (f' (+{d})' if d else ''))
-    lines.append('(ohne Docker-Pulls; automatische Updates zählen mit)')
+    upd_delta = updates - prev['updates'] if 'updates' in prev else None
+    lines.append(f'Updates (nicht mitgezählt): {updates}' + (f' (+{upd_delta})' if upd_delta else ''))
+    lines.append('(ohne Docker-Pulls)')
 
     os.makedirs(os.path.dirname(os.path.abspath(state_file)), exist_ok=True)
-    json.dump({'total': total, 'kinds': per_kind}, open(state_file, 'w', encoding='utf-8'))
+    json.dump({'total': total, 'kinds': per_kind, 'updates': updates}, open(state_file, 'w', encoding='utf-8'))
     print(title)
     print('\n'.join(lines))
 

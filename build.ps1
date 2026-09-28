@@ -136,8 +136,14 @@ if (-not $SkipServer) {
     Write-Host "Server-Setup: $(Join-Path $artifacts "BitaxeTuner-Server-Setup-$Version.exe")" -ForegroundColor Green
 }
 
+# Kopien nur für die eingebauten Updater (Desktop-App, Server): GitHub zählt Downloads je Datei – so lassen sich
+# Neuinstallationen (Originaldateien) von automatischen Updates (update-…) unterscheiden.
+Get-ChildItem $artifacts -File | Where-Object {
+    $_.Name -like "BitaxeTuner-Setup-$Version.exe" -or $_.Name -like "BitaxeTuner-Server-Setup-$Version.exe" -or $_.Name -like "BitaxeTuner-Server-$Version-linux-*.tar.gz"
+} | ForEach-Object { Copy-Item $_.FullName (Join-Path $artifacts "update-$($_.Name)") -Force }
+
 # SHA-256 checksums for the in-app updater (in addition to the GitHub asset digest)
-$sums = Get-ChildItem $artifacts -File | Where-Object { $_.Name -like "BitaxeTuner-*$Version*" } | ForEach-Object {
+$sums = Get-ChildItem $artifacts -File | Where-Object { $_.Name -like "BitaxeTuner-*$Version*" -or $_.Name -like "update-BitaxeTuner-*$Version*" } | ForEach-Object {
     "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"
 }
 [IO.File]::WriteAllLines((Join-Path $artifacts 'SHA256SUMS.txt'), $sums)

@@ -107,6 +107,30 @@ public class UpdateTests
         Assert.Equal(expected, server.Update!.SetupName);
     }
 
+    [Fact]
+    public async Task Updates_use_the_update_copy_so_install_downloads_stay_countable()
+    {
+        // Reihenfolge absichtlich: Originaldatei vor und nach der Kopie – die Kopie gewinnt immer
+        var json = """
+            { "tag_name": "v0.6.0", "draft": false, "prerelease": false, "html_url": "x", "assets": [
+              { "name": "BitaxeTuner-Setup-0.6.0.exe", "browser_download_url": "https://dl/setup", "size": 1, "digest": "sha256:aa" },
+              { "name": "update-BitaxeTuner-Setup-0.6.0.exe", "browser_download_url": "https://dl/update-setup", "size": 1, "digest": "sha256:aa" },
+              { "name": "update-BitaxeTuner-Server-Setup-0.6.0.exe", "browser_download_url": "https://dl/update-srvwin", "size": 1, "digest": "sha256:bb" },
+              { "name": "update-BitaxeTuner-Server-0.6.0-linux-x64.tar.gz", "browser_download_url": "https://dl/update-x64", "size": 1, "digest": "sha256:dd" },
+              { "name": "update-BitaxeTuner-Server-0.6.0-linux-arm64.tar.gz", "browser_download_url": "https://dl/update-arm64", "size": 1, "digest": "sha256:cc" },
+              { "name": "BitaxeTuner-Server-Setup-0.6.0.exe", "browser_download_url": "https://dl/srvwin", "size": 1, "digest": "sha256:bb" },
+              { "name": "BitaxeTuner-Server-0.6.0-linux-x64.tar.gz", "browser_download_url": "https://dl/x64", "size": 1, "digest": "sha256:dd" },
+              { "name": "BitaxeTuner-Server-0.6.0-linux-arm64.tar.gz", "browser_download_url": "https://dl/arm64", "size": 1, "digest": "sha256:cc" } ] }
+            """;
+        var desktop = (await Service(_ => Ok(json)).CheckAsync(new Version(0, 5, 0))).Update!;
+        Assert.Equal("https://dl/update-setup", desktop.SetupUrl);
+
+        var server = (await new UpdateService(new HttpClient(new FakeGitHub(_ => Ok(json))), "x/y", BitaxeTuner.Server.ServerUpdater.MatchesPlatform)
+            .CheckAsync(new Version(0, 5, 0))).Update!;
+        Assert.StartsWith("https://dl/update-", server.SetupUrl);
+        Assert.StartsWith(UpdateService.UpdatePrefix + "BitaxeTuner-Server-", server.SetupName);
+    }
+
     [Theory]
     [InlineData("BitaxeTuner-Server-0.3.0-linux-arm.tar.gz", false)]      // 32-bit-Paket nie auf 64-bit
     [InlineData("BitaxeTuner-Setup-0.3.0.exe", false)]

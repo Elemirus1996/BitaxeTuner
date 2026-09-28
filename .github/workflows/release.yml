@@ -33,6 +33,7 @@ jobs:
             artifacts/BitaxeTuner-*-portable-win-x64.zip
             artifacts/BitaxeTuner-Server-Setup-*.exe
             artifacts/BitaxeTuner-Server-*-linux-*.tar.gz
+            artifacts/update-BitaxeTuner-*
             artifacts/SHA256SUMS.txt
 
   # Docker-Image für NAS/Home-Server/Raspberry Pi: ghcr.io/<owner>/bitaxetuner-server:<version> und :latest
@@ -78,9 +79,10 @@ jobs:
       - name: Server-Paket (linux-arm64) aus dem Release holen
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "$GITHUB_REF_NAME" --pattern 'BitaxeTuner-Server-*-linux-arm64.tar.gz' --dir pkg
+        # Die Update-Kopie – so zählt der Image-Bau nicht als Download (Download-Bericht zählt nur Originaldateien)
+        run: gh release download "$GITHUB_REF_NAME" --pattern 'update-BitaxeTuner-Server-*-linux-arm64.tar.gz' --dir pkg
       - name: Image bauen
-        run: sudo deploy/pi-image/build-image.sh pkg/BitaxeTuner-Server-*-linux-arm64.tar.gz "$PWD/BitaxeTuner-Server-${GITHUB_REF_NAME#v}-pi-arm64.img.xz"
+        run: sudo deploy/pi-image/build-image.sh pkg/update-BitaxeTuner-Server-*-linux-arm64.tar.gz "$PWD/BitaxeTuner-Server-${GITHUB_REF_NAME#v}-pi-arm64.img.xz"
       - name: An das Release anhängen
         env:
           GH_TOKEN: ${{ github.token }}

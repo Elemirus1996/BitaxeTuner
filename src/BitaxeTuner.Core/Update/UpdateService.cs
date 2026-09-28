@@ -33,6 +33,12 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
 {
     public const string SetupPrefix = "BitaxeTuner-Setup-";
 
+    /// <summary>
+    /// Kopien derselben Pakete nur für Updates („update-BitaxeTuner-…“): GitHub zählt Downloads je Datei, so bleiben
+    /// die Zahlen der Originaldateien Neuinstallationen. Ältere Releases ohne Kopie: Rückfall auf die Originaldatei.
+    /// </summary>
+    public const string UpdatePrefix = "update-";
+
     public static bool IsDesktopSetup(string name) =>
         name.StartsWith(SetupPrefix, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
@@ -84,8 +90,11 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
         foreach (var a in r.GetProperty("assets").EnumerateArray())
         {
             var name = a.GetProperty("name").GetString() ?? "";
-            if (_matches(name))
-                setup = a;
+            var isUpdateCopy = name.StartsWith(UpdatePrefix, StringComparison.OrdinalIgnoreCase);
+            if (_matches(isUpdateCopy ? name[UpdatePrefix.Length..] : name))
+            {
+                if (setup is null || isUpdateCopy) setup = a;
+            }
             else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
                 sumsUrl = a.GetProperty("browser_download_url").GetString();
         }
