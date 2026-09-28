@@ -12,11 +12,12 @@ public sealed record PoolQuickLink(string Pool, Uri Url);
 /// </summary>
 public static class PoolQuickLinks
 {
-    private sealed record Entry(string Pool, Regex Host, string Url);
+    /// <summary>Ports: nur bei diesen Stratum-Ports (Server, die mehrere Coins über verschiedene Ports bedienen).</summary>
+    private sealed record Entry(string Pool, Regex Host, string Url, int[]? Ports = null);
 
     /// <summary>Ganze Domain oder Subdomain davon (z. B. „stratum.ocean.xyz“ für „ocean.xyz“).</summary>
-    private static Entry Domain(string pool, string domain, string url) =>
-        new(pool, new Regex($@"^(?:.+\.)?{Regex.Escape(domain)}$", RegexOptions.CultureInvariant), url);
+    private static Entry Domain(string pool, string domain, string url, int[]? ports = null) =>
+        new(pool, new Regex($@"^(?:.+\.)?{Regex.Escape(domain)}$", RegexOptions.CultureInvariant), url, ports);
 
     // {user} = Pool-Benutzer bis zum ersten Punkt, {1} = erste Gruppe des Host-Musters
     private static readonly Entry[] Pools =
@@ -36,6 +37,12 @@ public static class PoolQuickLinks
         Domain("Atlas Pool", "atlaspool.io", "https://atlaspool.io/dashboard.html?wallet={user}"),
         new("M45Core", new Regex(@"^(eu\.|tinyminer\.)?m45core\.com$", RegexOptions.CultureInvariant), "https://{1}m45core.com/user/{user}"),
         Domain("BTC PoW Lab", "btcpowlab-pool.com", "https://btcpowlab-pool.com/miner/{user}"),
+        // Weitere Solo-Pools (Statistikseite je Adresse geprüft am 28.09.2026)
+        Domain("SoloFury", "btc.solofury.com", "https://solofury.com/miner/?coin=btc&addr={user}"),
+        Domain("NerdMiners.org", "pool.nerdminers.org", "https://pool.nerdminers.org/users/{user}"),
+        Domain("Mineshop Solo", "solo.mineshop.eu", "https://solo.mineshop.eu/miner/?wallet={user}"),
+        // SoloPool.org: dieselben Server für mehrere Coins – Bitcoin nur an den BTC-Ports
+        Domain("SoloPool.org", "solopool.org", "https://btc.solopool.org/miner/{user}", [8005, 7005, 9005]),
     ];
 
     /// <summary>Pool-Benutzer: Adressen und einfache Namen; alles andere bekommt keinen Link.</summary>
@@ -46,13 +53,15 @@ public static class PoolQuickLinks
     {
         if (info is null) return null;
         return info.isUsingFallbackStratum != 0
-            ? For(info.fallbackStratumURL, info.fallbackStratumUser)
-            : For(info.stratumURL, info.stratumUser);
+            ? For(info.fallbackStratumURL, info.fallbackStratumUser, info.fallbackStratumPort)
+            : For(info.stratumURL, info.stratumUser, info.stratumPort);
     }
 
-    public static PoolQuickLink? For(string? stratumUrl, string? stratumUser)
+    /// <param name="port">Stratum-Port, falls nicht in der Adresse enthalten (AxeOS führt ihn getrennt).</param>
+    public static PoolQuickLink? For(string? stratumUrl, string? stratumUser, int port = 0)
     {
         var host = NormalizeHost(stratumUrl);
+        if (PortOf(stratumUrl) is { } p) port = p;
         var user = (stratumUser ?? "").Split('.')[0].Trim();
         if (host.Length == 0 || !User.IsMatch(user)) return null;
 
@@ -60,6 +69,7 @@ public static class PoolQuickLinks
         {
             var match = pool.Host.Match(host);
             if (!match.Success) continue;
+            if (pool.Ports is { } ports && !ports.Contains(port)) continue;
             var url = pool.Url
                 .Replace("{1}", match.Groups.Count > 1 ? match.Groups[1].Value : "")
                 .Replace("{user}", Uri.EscapeDataString(user));
@@ -68,6 +78,18 @@ public static class PoolQuickLinks
                 : null;
         }
         return null;
+    }
+
+    /// <summary>„stratum+tcp://Host:3333/…“ → 3333, ohne Port null.</summary>
+    internal static int? PortOf(string? value)
+    {
+        var host = (value ?? "").Trim();
+        var scheme = host.IndexOf("://", StringComparison.Ordinal);
+        if (scheme >= 0) host = host[(scheme + 3)..];
+        var end = host.IndexOfAny(['/', '?', '#']);
+        if (end >= 0) host = host[..end];
+        var colon = host.LastIndexOf(':');
+        return colon >= 0 && int.TryParse(host[(colon + 1)..], out var port) ? port : null;
     }
 
     /// <summary>„stratum+tcp://Host:3333/…“ → „host“.</summary>

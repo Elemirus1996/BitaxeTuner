@@ -16,6 +16,11 @@ public class PoolQuickLinkTests
     [InlineData("eu.m45core.com", "https://eu.m45core.com/user/" + Address)]
     [InlineData("m45core.com", "https://m45core.com/user/" + Address)]
     [InlineData("STRATUM.BTCPOWLAB-POOL.COM:3333", "https://btcpowlab-pool.com/miner/" + Address)]
+    [InlineData("btc.solofury.com:6060", "https://solofury.com/miner/?coin=btc&addr=" + Address)]
+    [InlineData("pool.nerdminers.org", "https://pool.nerdminers.org/users/" + Address)]
+    [InlineData("solo.mineshop.eu", "https://solo.mineshop.eu/miner/?wallet=" + Address)]
+    [InlineData("stratum-de.solo.mineshop.eu:3335", "https://solo.mineshop.eu/miner/?wallet=" + Address)]
+    [InlineData("stratum+tcp://eu3.solopool.org:8005", "https://btc.solopool.org/miner/" + Address)]
     public void KnownPools(string stratumUrl, string expected)
     {
         var link = PoolQuickLinks.For(stratumUrl, Address + ".bitaxe1");
@@ -27,6 +32,9 @@ public class PoolQuickLinkTests
     [InlineData("public-pool.io.evil.example", Address)]
     [InlineData("evilpublic-pool.io", Address)]
     [InlineData("stratum.btcpowlab-pool.com.evil.example", Address)]
+    [InlineData("bch.solofury.com:7070", Address)]          // anderer Coin auf SoloFury
+    [InlineData("eu3.solopool.org:8002", Address)]          // SoloPool.org, aber nicht der BTC-Port
+    [InlineData("eu3.solopool.org", Address)]               // ohne Port: Coin unklar
     [InlineData("xx.ckpool.org", Address)]
     [InlineData("public-pool.io", "")]
     [InlineData("public-pool.io", "a/b")]
@@ -35,6 +43,16 @@ public class PoolQuickLinkTests
     public void NoLinkForUnknownHostsOrOddUsers(string stratumUrl, string user)
     {
         Assert.Null(PoolQuickLinks.For(stratumUrl, user));
+    }
+
+    [Theory]
+    [InlineData(8005)]
+    [InlineData(9005)]
+    public void Port_given_separately_as_in_AxeOS(int port)
+    {
+        var link = PoolQuickLinks.For("us1.solopool.org", Address, port);
+        Assert.Equal("https://btc.solopool.org/miner/" + Address, link?.Url.AbsoluteUri);
+        Assert.Null(PoolQuickLinks.For("us1.solopool.org", Address, 3333));
     }
 
     [Fact]
