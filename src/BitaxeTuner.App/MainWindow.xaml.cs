@@ -173,6 +173,9 @@ public partial class MainWindow : Window
     private void OnSoakBatchClick(object sender, RoutedEventArgs e) =>
         new SoakBatchWindow(Vm.Host) { Owner = this }.ShowDialog();
 
+    private void OnCopySettingsClick(object sender, RoutedEventArgs e) =>
+        new CopySettingsWindow(Vm.Host) { Owner = this }.ShowDialog();
+
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)
     {
