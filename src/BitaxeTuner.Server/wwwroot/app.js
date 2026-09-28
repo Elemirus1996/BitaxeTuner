@@ -231,7 +231,7 @@ function onStatus() {
   $('#statusline').textContent = `${s.totals.online}/${s.totals.count} online · ${hash(s.totals.hashrate)} · ${n(s.totals.power, 1)} W · Stand ${new Date(s.time).toLocaleTimeString('de-DE')}`;
   const v = S.route?.view;
   if (v === 'overview') renderOverview();
-  else if (v === 'compare') renderCompare();
+  else if (v === 'compare') updateCompare();
   else if (v === 'device') updateDeviceLive();
   else if (v === 'fans') updateFanTable();
 }
@@ -413,9 +413,20 @@ function drawChart(canvas, series, markers, opts = {}) {
 
 // ---------- Vergleich ----------
 
+/** Vergleichsseite: Tabelle wird bei neuen Messwerten nur ausgetauscht (kein Neuaufbau – die Scrollposition bleibt). */
 function renderCompare() {
   const s = S.status;
   if (!s) { api('/status').then(x => { S.status = x; renderCompare(); }); return; }
+  S.compareTable = h('div', { class: 'table-wrap' });
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card' }, h('h2', {}, 'Vergleich'), S.compareTable),
+    isAdmin() ? advisorCard() : null));
+  updateCompare();
+}
+
+function updateCompare() {
+  const s = S.status;
+  if (!s || !S.compareTable || !document.body.contains(S.compareTable)) return;
   const rows = [
     ['Status', d => d.online ? 'online' : d.error || 'offline'],
     ['Modell / Profil', d => `${d.model || '–'} / ${d.profile}`],
@@ -435,11 +446,9 @@ function renderCompare() {
     ['Pool', d => d.pool || '–'],
     ['Automatik', d => d.automation || '–'],
   ];
-  mount(h('div', { class: 'stack' },
-    h('div', { class: 'card' }, h('h2', {}, 'Vergleich'), h('div', { class: 'table-wrap' }, h('table', {},
-      h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
-      h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))))),
-    isAdmin() ? advisorCard() : null));
+  fill(S.compareTable, h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
+    h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))));
 }
 
 /** Effizienz-Ratgeber: beste geprüfte Einstellung je Ziel, Vergleich mit dem aktuellen Betrieb. Ändert nie selbst etwas. */
