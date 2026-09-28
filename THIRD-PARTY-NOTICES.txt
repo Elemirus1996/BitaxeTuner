@@ -43,6 +43,9 @@ DejaVu Sans Condensed (Schrift, E-Paper)     Bitstream Vera /    Copyright (c) 2
     Quelltext: https://github.com/TalAloni/SMBLibrary. Da BitaxeTuner selbst quelloffen ist, kann jeder
     die Programme mit einer geänderten SMBLibrary neu bauen.
 
+Die Liste der Pool-Statistikseiten (Pool-Quick-Links) folgt der Liste in ESP-Miner/AxeOS
+(quicklink.service.ts, GNU GPL v3.0, https://github.com/bitaxeorg/ESP-Miner) und wurde ergänzt.
+
 Hinweise zu den .NET-Komponenten von Drittanbietern (in der .NET-Runtime enthalten):
 https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT
 https://github.com/dotnet/aspnetcore/blob/main/THIRD-PARTY-NOTICES.txt
