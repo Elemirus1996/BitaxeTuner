@@ -1089,6 +1089,7 @@ async function renderSettings() {
     },
   }, t('Im Netz suchen'));
   const scanBox = h('div', { class: 'stack' }, h('div', { class: 'row' }, scanBtn), scanResult);
+  const copyCard = copySettingsCard(status.devices);
   const deviceRows = status.devices.map(d => {
     const name = h('input', { value: d.name });
     return h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
@@ -1119,6 +1120,7 @@ async function renderSettings() {
       scanBox,
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), devName), h('div', {}, h('label', {}, t('Adresse')), devHost),
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
+    copyCard,
     h('div', { class: 'card stack' }, h('h2', {}, t('Allgemein')),
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('Abfrage alle (s)')), text(s, 'intervalSeconds', 'number')),
@@ -1534,6 +1536,69 @@ function backupCard() {
   };
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Sicherung')), body);
+}
+
+/**
+ * Einstellungen eines Miners auf andere übertragen: Pool (Wallet, Worker-Name bleibt) und Lüfter/Temperatur.
+ * Frequenz/Spannung nie. Erst Vorschau alt → neu je Miner, dann Bestätigung; vorher wird jeder Ziel-Miner gesichert.
+ */
+function copySettingsCard(devices) {
+  const card = h('div', { class: 'card stack' }, h('h2', {}, t('Einstellungen übertragen')));
+  if (devices.length < 2) return null;
+  const src = h('select', {}, devices.map(d => h('option', { value: d.id }, d.name)));
+  const pool = h('input', { type: 'checkbox', checked: true }), fan = h('input', { type: 'checkbox' });
+  const targetBoxes = h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px 16px' });
+  const result = h('div', { class: 'stack' });
+  const renderTargets = () => fill(targetBoxes, devices.filter(d => d.id !== src.value).map(d =>
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', value: d.id, checked: true }), ' ', d.name)));
+  src.addEventListener('change', () => { renderTargets(); fill(result); });
+  renderTargets();
+  const request = () => ({
+    source: src.value,
+    targets: [...targetBoxes.querySelectorAll('input:checked')].map(i => i.value),
+    groups: [pool.checked ? 'pool' : null, fan.checked ? 'fan' : null].filter(Boolean),
+  });
+  const table = rows => rows.map(r => h('div', { class: 'stack' },
+    h('b', {}, r.name),
+    r.error ? h('p', { class: 'danger small' }, r.error)
+      : r.changes.length === 0 ? h('p', { class: 'muted small' }, t('Keine Unterschiede.'))
+      : h('div', { class: 'table-wrap' }, h('table', {},
+          h('thead', {}, h('tr', {}, [t('Bereich'), t('Einstellung'), t('Aktuell'), t('Neu')].map(x => h('th', {}, x)))),
+          h('tbody', {}, r.changes.map(c => h('tr', {}, h('td', {}, c.group), h('td', {}, c.label),
+            h('td', { class: 'mono' }, c.current), h('td', { class: 'mono' }, c.next))))))));
+  const apply = h('button', {
+    class: 'btn primary', disabled: true, onclick: async () => {
+      const body = request();
+      const count = result.querySelectorAll('tbody tr').length;
+      if (!await confirmBox(t('Einstellungen übertragen'),
+        t('{0} Änderung(en) an {1} Miner(n) setzen?\n\nVorher wird jeder Miner gesichert. Bei Pool-Änderungen startet der Miner neu. Frequenz und Spannung bleiben unverändert.', count, body.targets.length),
+        t('Übertragen'))) return;
+      const r = await run(() => api('/devices/copy', { method: 'POST', body }));
+      if (!r) return;
+      fill(result, table(r));
+      apply.disabled = true;
+      const failed = r.filter(x => x.error).length;
+      toast(failed ? t('Übertragen, {0} Miner mit Fehler – siehe Liste.', failed) : t('Einstellungen übertragen.'), failed ? 'error' : 'ok', 8000);
+    },
+  }, t('Übertragen …'));
+  const preview = h('button', {
+    class: 'btn', onclick: async () => {
+      const r = await run(() => api('/devices/copy/preview', { method: 'POST', body: request() }));
+      if (!r) return;
+      fill(result, table(r));
+      apply.disabled = !r.some(x => !x.error && x.changes.length);
+    },
+  }, t('Vorschau'));
+  fill(card, h('h2', {}, t('Einstellungen übertragen')),
+    h('p', { class: 'muted small' }, t('Pool und Lüfter eines Miners auf andere übernehmen. Beim Pool-Benutzer wird nur das Wallet übernommen, der Worker-Name jedes Miners bleibt. Frequenz und Spannung werden nie übertragen.')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Von')), src)),
+    h('div', { class: 'row', style: 'gap:16px' },
+      h('label', { class: 'check' }, pool, ' ', t('Pool und Fallback-Pool')),
+      h('label', { class: 'check' }, fan, ' ', t('Lüfter und Zieltemperatur'))),
+    h('div', {}, h('label', {}, t('Auf')), targetBoxes),
+    h('div', { class: 'row' }, preview, apply),
+    result);
+  return card;
 }
 
 /** Server-Update: prüfen, Hinweise je Installationsart, Installation per Klick (Pi/Linux-Paket, Windows-Dienst). */

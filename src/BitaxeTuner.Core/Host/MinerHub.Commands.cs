@@ -27,6 +27,9 @@ public sealed record TuningComparisonRow(TuningEvent Event, WindowAverage? Befor
 /// <summary>Bestätigungstext für eine Frequenz-/Spannungsänderung (alt → neu), erst danach <see cref="MinerHub.ApplyChangeAsync"/>.</summary>
 public sealed record ChangePreview(int FrequencyMhz, int CoreVoltageMv, string ConfirmText);
 
+/// <summary>Einstellungen übertragen: Änderungen je Ziel-Miner oder Grund, warum es dort nicht geht.</summary>
+public sealed record CopyPreview(HubDevice Device, IReadOnlyList<SettingChange> Changes, string? Error);
+
 /// <summary>
 /// Befehle, die Desktop und Browser gleichermaßen auslösen. Grenzprüfung und Ausführung liegen hier;
 /// die Bestätigung (alter und neuer Wert) zeigt die jeweilige Oberfläche vorher mit dem Text aus der Vorschau.
@@ -298,6 +301,58 @@ public sealed partial class MinerHub
 
         device.AddLog(L.T("Wiederhergestellt ({0}): ", snapshot.DisplayText) +
                       string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
+    }
+
+    // ---------- Einstellungen auf mehrere Miner übertragen ----------
+
+    /// <summary>Vorschau je Ziel: welche Felder sich ändern würden (oder warum es nicht geht).</summary>
+    public async Task<List<CopyPreview>> CopySettingsPreviewAsync(HubDevice source, IReadOnlyList<HubDevice> targets, IReadOnlySet<SettingGroup> groups)
+    {
+        if (groups.Count == 0) throw new InvalidOperationException(L.T("Bitte mindestens einen Bereich wählen (Pool oder Lüfter)."));
+        var sourceRaw = await source.Connection.GetRawInfoAsync();
+        var list = new List<CopyPreview>();
+        foreach (var t in targets.Where(t => t != source))
+        {
+            try
+            {
+                if (t.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
+                var changes = SettingsSnapshots.CopyDiff(sourceRaw, await t.Connection.GetRawInfoAsync(), groups);
+                list.Add(new CopyPreview(t, changes, null));
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or MinerApiException or NotSupportedException or System.Text.Json.JsonException)
+            {
+                list.Add(new CopyPreview(t, [], ex.Message));
+            }
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Bestätigte Übertragung: Vorschau neu berechnen (Stand kann sich geändert haben), je Ziel vorher sichern,
+    /// Felder setzen, bei Pool-Änderung neu starten und protokollieren. Frequenz/Spannung sind nie dabei.
+    /// </summary>
+    public async Task<List<CopyPreview>> CopySettingsAsync(HubDevice source, IReadOnlyList<HubDevice> targets, IReadOnlySet<SettingGroup> groups)
+    {
+        var previews = await CopySettingsPreviewAsync(source, targets, groups);
+        var results = new List<CopyPreview>();
+        foreach (var p in previews)
+        {
+            if (p.Error is not null || p.Changes.Count == 0) { results.Add(p); continue; }
+            try
+            {
+                await TryAutoBackupAsync(p.Device, L.T("vor Übernahme von {0}", source.Title));
+                await p.Device.Connection.PatchSettingsAsync(p.Changes.ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value)));
+                if (Config.RestartAfterApply || p.Changes.Any(c => c.Group == SettingGroup.Pool)) await p.Device.Connection.RestartAsync();
+                p.Device.AddLog(L.T("Einstellungen übernommen von {0}: ", source.Title) +
+                                string.Join(", ", p.Changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
+                results.Add(p);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or MinerApiException or NotSupportedException)
+            {
+                results.Add(p with { Error = ex.Message });
+            }
+        }
+        return results;
     }
 
     // ---------- Vorher/Nachher ----------

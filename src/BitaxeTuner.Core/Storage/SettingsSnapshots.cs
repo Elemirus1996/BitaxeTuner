@@ -132,6 +132,38 @@ public sealed class SettingsSnapshots(string directory)
         return changes;
     }
 
+    /// <summary>
+    /// Einstellungen eines Miners auf einen anderen übertragen: nur Pool und Lüfter (nie Frequenz/Spannung), nur Felder,
+    /// die beide Geräte kennen. Beim Pool-Benutzer wird nur das Wallet übernommen, der Worker-Name des Ziels bleibt.
+    /// </summary>
+    public static List<SettingChange> CopyDiff(string sourceRawInfo, string targetRawInfo, IReadOnlySet<SettingGroup> groups)
+    {
+        var source = JsonNode.Parse(sourceRawInfo) as JsonObject ?? new JsonObject();
+        var target = JsonNode.Parse(targetRawInfo) as JsonObject ?? new JsonObject();
+        var changes = new List<SettingChange>();
+        foreach (var (field, label, group) in Restorable)
+        {
+            if (group == SettingGroup.Tuning || !groups.Contains(group)) continue;
+            if (!source.TryGetPropertyValue(field, out var value) || value is null) continue;
+            if (!target.TryGetPropertyValue(field, out var now)) continue;
+            if (field is "stratumUser" or "fallbackStratumUser")
+                value = JsonValue.Create(MergeWorker(Format(value), Format(now)));
+            var newText = Format(value);
+            var nowText = Format(now);
+            if (newText == nowText) continue;
+            changes.Add(new SettingChange(group, field, label, nowText, newText, value!.DeepClone()));
+        }
+        return changes;
+    }
+
+    /// <summary>„bc1q….quelle“ + „bc1x….ziel“ → „bc1q….ziel“ (Wallet der Quelle, Worker des Ziels).</summary>
+    public static string MergeWorker(string sourceUser, string targetUser)
+    {
+        var wallet = sourceUser.Split('.', 2)[0];
+        var worker = targetUser.Split('.', 2) is [_, var w] ? w : null;
+        return worker is { Length: > 0 } ? $"{wallet}.{worker}" : wallet;
+    }
+
     /// <summary>JSON-Wert in den PATCH-Typ (Zahl → int, sonst Text).</summary>
     public static object ToPatchValue(JsonNode? value) => value switch
     {

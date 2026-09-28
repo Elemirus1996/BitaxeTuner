@@ -129,6 +129,41 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Copies_fan_settings_to_other_miners_after_preview_never_frequency()
+    {
+        var admin = await AdminAsync();
+        await Json(await admin.PostAsJsonAsync("/api/v1/devices", new { name = "Supra Büro", host = "192.168.50.11" }));
+        var devices = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices").EnumerateArray().ToList();
+        var source = devices.First(d => d.GetProperty("name").GetString() == "Gamma Wohnzimmer").GetProperty("id").GetString()!;
+        var target = devices.First(d => d.GetProperty("name").GetString() == "Supra Büro").GetProperty("id").GetString()!;
+
+        // Quelle: Lüfter manuell 80 %, andere Frequenz – die darf nie mitkommen
+        var hub = _factory.Services.GetRequiredService<HubService>();
+        await hub.RunAsync(async h =>
+        {
+            var d = h.Devices.First(x => x.Config.Host == "192.168.50.10");
+            await d.Connection.PatchSettingsAsync(new Dictionary<string, object> { ["autofanspeed"] = 0, ["manualFanSpeed"] = 80, ["frequency"] = 575 });
+        });
+
+        var body = new { source, targets = new[] { target }, groups = new[] { "fan" } };
+        var preview = (await Json(await admin.PostAsJsonAsync("/api/v1/devices/copy/preview", body)))[0];
+        var fields = preview.GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("label").GetString()).ToList();
+        Assert.Contains("Lüfter manuell (%)", fields);
+        Assert.DoesNotContain("Frequenz (MHz)", fields);
+
+        await Json(await admin.PostAsJsonAsync("/api/v1/devices/copy", body));
+        var after = await hub.RunAsync(async h => await h.Devices.First(x => x.Config.Host == "192.168.50.11").Connection.GetInfoAsync());
+        Assert.Equal(80, after.FanPercent);
+        Assert.NotEqual(575, after.FrequencyMhz);
+        // Danach keine Unterschiede mehr
+        var again = (await Json(await admin.PostAsJsonAsync("/api/v1/devices/copy/preview", body)))[0];
+        Assert.Equal(0, again.GetProperty("changes").GetArrayLength());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/devices/copy/preview",
+            new { source, targets = new[] { target }, groups = new[] { "tuning" } })).StatusCode);
+    }
+
+    [Fact]
     public async Task Fresh_server_needs_setup_code_and_locks_after_failures()
     {
         var client = _factory.CreateClient();

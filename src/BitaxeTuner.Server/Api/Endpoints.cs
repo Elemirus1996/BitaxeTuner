@@ -19,6 +19,8 @@ public sealed record PasswordRequest(string Current, string Password);
 public sealed record ChangeRequest(int Frequency, int Voltage, int? SoakHours = null);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
 public sealed record SoakRequest(int Hours);
+/// <summary>Einstellungen übertragen: Quelle, Ziele (Geräte-IDs) und Bereiche („pool“, „fan“).</summary>
+public sealed record CopySettingsRequest(string Source, string[] Targets, string[] Groups);
 public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
@@ -140,6 +142,25 @@ public static class Endpoints
     }
 
     private static int _scanning;
+
+    private static List<HubDevice> CopyTargets(MinerHub h, CopySettingsRequest req) =>
+        (req.Targets ?? []).Distinct().Select(id => Device(h, id)).ToList();
+
+    private static HashSet<Core.Storage.SettingGroup> CopyGroups(CopySettingsRequest req) =>
+        (req.Groups ?? []).Select(g => g switch
+        {
+            "pool" => Core.Storage.SettingGroup.Pool,
+            "fan" => Core.Storage.SettingGroup.Fan,
+            _ => throw new LocalizedException("Unbekannter Bereich: {0}", g),
+        }).ToHashSet();
+
+    private static object CopyResult(List<CopyPreview> list) => list.Select(p => new
+    {
+        id = Dto.DeviceId(p.Device.Host),
+        name = p.Device.Title,
+        error = p.Error,
+        changes = p.Changes.Select(c => new { group = c.GroupText, label = c.Label, current = c.Current, next = c.Saved }),
+    });
 
     private static HubDevice Device(MinerHub hub, string id) =>
         Dto.Find(hub, id) ?? throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
@@ -327,6 +348,13 @@ public static class Endpoints
             }
             finally { Interlocked.Exchange(ref _scanning, 0); }
         });
+
+        // Einstellungen (Pool, Lüfter – nie Frequenz/Spannung) von einem Miner auf andere übertragen
+        g.MapPost("/devices/copy/preview", async (CopySettingsRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+            CopyResult(await h.CopySettingsPreviewAsync(Device(h, req.Source), CopyTargets(h, req), CopyGroups(req))))));
+
+        g.MapPost("/devices/copy", async (CopySettingsRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+            CopyResult(await h.CopySettingsAsync(Device(h, req.Source), CopyTargets(h, req), CopyGroups(req))))));
 
         g.MapPut("/devices/{id}", async (string id, DeviceRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {

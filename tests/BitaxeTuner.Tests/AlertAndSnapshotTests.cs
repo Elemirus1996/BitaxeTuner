@@ -185,6 +185,58 @@ public class SnapshotTests
     }
 }
 
+public class CopySettingsTests
+{
+    private const string Source = """
+        {"frequency":600,"coreVoltage":1200,"overclockEnabled":1,"autofanspeed":0,"manualFanSpeed":80,"temptarget":60,
+         "stratumURL":"solo.ckpool.org","stratumPort":3333,"stratumUser":"bc1qquelle.gamma1",
+         "fallbackStratumURL":"pool.example","fallbackStratumPort":3334,"fallbackStratumUser":"bc1qquelle"}
+        """;
+    private const string Target = """
+        {"frequency":525,"coreVoltage":1150,"overclockEnabled":0,"autofanspeed":1,"manualFanSpeed":40,"temptarget":65,
+         "stratumURL":"public-pool.io","stratumPort":21496,"stratumUser":"bc1qziel.supra2",
+         "fallbackStratumURL":"pool.example","fallbackStratumPort":3334,"fallbackStratumUser":"bc1qziel.supra2"}
+        """;
+
+    [Fact]
+    public void Copies_pool_and_fan_but_never_frequency_or_voltage()
+    {
+        var all = SettingsSnapshots.CopyDiff(Source, Target, new HashSet<SettingGroup> { SettingGroup.Pool, SettingGroup.Fan, SettingGroup.Tuning });
+        Assert.DoesNotContain(all, c => c.Group == SettingGroup.Tuning);
+        Assert.DoesNotContain(all, c => c.Field is "frequency" or "coreVoltage" or "overclockEnabled");
+
+        var byField = all.ToDictionary(c => c.Field);
+        Assert.Equal("solo.ckpool.org", byField["stratumURL"].Saved);
+        Assert.Equal("3333", byField["stratumPort"].Saved);
+        // Wallet der Quelle, Worker-Name des Ziels bleibt
+        Assert.Equal("bc1qquelle.supra2", byField["stratumUser"].Saved);
+        Assert.Equal("bc1qquelle.supra2", byField["fallbackStratumUser"].Saved);
+        Assert.False(byField.ContainsKey("fallbackStratumURL"));        // gleich → keine Änderung
+        Assert.Equal("0", byField["autofanspeed"].Saved);
+        Assert.Equal("60", byField["temptarget"].Saved);
+    }
+
+    [Fact]
+    public void Only_selected_groups_and_fields_the_target_knows()
+    {
+        var poolOnly = SettingsSnapshots.CopyDiff(Source, Target, new HashSet<SettingGroup> { SettingGroup.Pool });
+        Assert.All(poolOnly, c => Assert.Equal(SettingGroup.Pool, c.Group));
+
+        // NerdQAxe o. Ä. ohne temptarget: Feld wird ausgelassen statt gesetzt
+        var noTemp = SettingsSnapshots.CopyDiff(Source, """{"autofanspeed":1,"manualFanSpeed":40}""", new HashSet<SettingGroup> { SettingGroup.Fan });
+        Assert.DoesNotContain(noTemp, c => c.Field == "temptarget");
+        Assert.Equal(2, noTemp.Count);
+    }
+
+    [Theory]
+    [InlineData("bc1qa.w1", "bc1qb.w2", "bc1qa.w2")]
+    [InlineData("bc1qa", "bc1qb.w2", "bc1qa.w2")]
+    [InlineData("bc1qa.w1", "bc1qb", "bc1qa")]
+    [InlineData("bc1qa.w1", "bc1qb.w.x", "bc1qa.w.x")]
+    public void Merge_worker_keeps_the_target_worker(string source, string target, string expected) =>
+        Assert.Equal(expected, SettingsSnapshots.MergeWorker(source, target));
+}
+
 public class DailyReportTests
 {
     [Fact]

@@ -152,8 +152,12 @@ public sealed class SimulatedMinerClient : IMinerClient
         return Task.CompletedTask;
     }
 
-    public async Task<string> GetRawInfoAsync(CancellationToken ct = default) =>
-        System.Text.Json.JsonSerializer.Serialize(SystemInfo.FromMinerInfo(await GetInfoAsync(ct)));
+    public async Task<string> GetRawInfoAsync(CancellationToken ct = default)
+    {
+        var node = System.Text.Json.JsonSerializer.SerializeToNode(SystemInfo.FromMinerInfo(await GetInfoAsync(ct)))!.AsObject();
+        lock (_lock) node["manualFanSpeed"] = _fanPercent; // wie AxeOS: eingestellter Wert, auch bei Automatik
+        return node.ToJsonString();
+    }
 
     public Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default)
     {
