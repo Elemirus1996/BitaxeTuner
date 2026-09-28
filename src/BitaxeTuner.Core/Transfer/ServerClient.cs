@@ -5,6 +5,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
@@ -61,10 +62,10 @@ public sealed class ServerClient : IDisposable
     public static Uri Normalize(string url)
     {
         url = url.Trim();
-        if (url.Length == 0) throw new ServerException("Server-Adresse fehlt.");
+        if (url.Length == 0) throw new ServerException(L.T("Server-Adresse fehlt."));
         if (!url.Contains("://")) url = "http://" + url;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-            throw new ServerException($"Ungültige Server-Adresse: {url}");
+            throw new ServerException(L.T("Ungültige Server-Adresse: {0}", url));
         var b = new UriBuilder(uri) { Path = "/", Query = "", Fragment = "" };
         if (uri.IsDefaultPort && !url.Contains($":{uri.Port}")) b.Port = DefaultPort;
         return b.Uri;
@@ -134,7 +135,7 @@ public sealed class ServerClient : IDisposable
             return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
         }
         catch (HttpRequestException ex) { throw Wrap(ex); }
-        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested) { throw new ServerException("Zeitüberschreitung – Server nicht erreichbar.", null, ex); }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested) { throw new ServerException(L.T("Zeitüberschreitung – Server nicht erreichbar."), null, ex); }
     }
 
     private async Task<JsonElement> SendAsync(HttpMethod method, string path, HttpContent content, CancellationToken ct, TimeSpan? timeout = null)
@@ -150,7 +151,7 @@ public sealed class ServerClient : IDisposable
             return text.Length == 0 ? default : JsonDocument.Parse(text).RootElement.Clone();
         }
         catch (HttpRequestException ex) { throw Wrap(ex); }
-        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested) { throw new ServerException("Zeitüberschreitung beim Server.", null, ex); }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested) { throw new ServerException(L.T("Zeitüberschreitung beim Server."), null, ex); }
     }
 
     // Lange Übertragungen (history.db) ohne das kurze Standard-Timeout
@@ -168,8 +169,8 @@ public sealed class ServerClient : IDisposable
 
     private ServerException Wrap(HttpRequestException ex) =>
         PresentedFingerprint is not null && ex.InnerException is System.Security.Authentication.AuthenticationException
-            ? new ServerException($"Zertifikat nicht bestätigt (Fingerabdruck {PresentedFingerprint}).", null, ex)
-            : new ServerException("Server nicht erreichbar: " + (ex.InnerException?.Message ?? ex.Message), ex.StatusCode, ex);
+            ? new ServerException(L.T("Zertifikat nicht bestätigt (Fingerabdruck {0}).", PresentedFingerprint), null, ex)
+            : new ServerException(L.T("Server nicht erreichbar: ") + (ex.InnerException?.Message ?? ex.Message), ex.StatusCode, ex);
 
     private static async Task EnsureAsync(HttpResponseMessage response, CancellationToken ct)
     {
@@ -183,9 +184,9 @@ public sealed class ServerClient : IDisposable
         catch { /* kein JSON */ }
         message ??= response.StatusCode switch
         {
-            HttpStatusCode.Unauthorized => "Token ungültig oder widerrufen.",
-            HttpStatusCode.Forbidden => "Zugriff verweigert (nur Heimnetz/VPN oder fehlende Rechte).",
-            _ => $"Server antwortet mit {(int)response.StatusCode}.",
+            HttpStatusCode.Unauthorized => L.T("Token ungültig oder widerrufen."),
+            HttpStatusCode.Forbidden => L.T("Zugriff verweigert (nur Heimnetz/VPN oder fehlende Rechte)."),
+            _ => L.T("Server antwortet mit {0}.", (int)response.StatusCode),
         };
         throw new ServerException(message, response.StatusCode);
     }

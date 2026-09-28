@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Fans;
+using BitaxeTuner.Core.I18n;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
@@ -27,7 +29,24 @@ public sealed record MqttSnapshot(double HashrateGh, double PowerW, int Online, 
 /// </summary>
 public sealed partial class MqttBridge : IAsyncDisposable
 {
-    public static readonly string[] FanModes = ["Automatik", "100 %", "Aus"];
+    /// <summary>Optionen des Auswahlfelds in Home Assistant, in der Sprache des Servers.</summary>
+    public static string[] FanModes => [L.T("Automatik"), "100 %", L.T("Aus")];
+
+    /// <summary>Befehl aus Home Assistant in einen Modus übersetzen – nimmt Deutsch und Englisch an (Sprachwechsel).</summary>
+    public static FanOverride? ParseFanMode(string payload) => payload.Trim().ToLowerInvariant() switch
+    {
+        "automatik" or "automatic" or "auto" => FanOverride.None,
+        "100 %" or "100%" or "full" => FanOverride.Full,
+        "aus" or "off" => FanOverride.Off,
+        _ => null,
+    };
+
+    public static string FanModeText(FanOverride mode) => mode switch
+    {
+        FanOverride.Full => "100 %",
+        FanOverride.Off => L.T("Aus"),
+        _ => L.T("Automatik"),
+    };
 
     private readonly IMqttClient _client = new MqttFactory().CreateMqttClient();
     private MqttSettings _settings = new();
@@ -48,7 +67,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
             var topic = e.ApplicationMessage.Topic;
             var payload = e.ApplicationMessage.ConvertPayloadToString() ?? "";
             var b = Base;
-            if (topic == $"{b}/server/fan_mode/set" && _settings.AllowFanControl && FanModes.Contains(payload))
+            if (topic == $"{b}/server/fan_mode/set" && _settings.AllowFanControl && ParseFanMode(payload) is not null)
             {
                 if (Command is { } c) await c("fan_mode", payload);
             }
@@ -94,7 +113,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
 
     private async Task ConnectCoreAsync(string? password, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_settings.Host)) throw new InvalidOperationException("MQTT: Broker-Adresse fehlt.");
+        if (string.IsNullOrWhiteSpace(_settings.Host)) throw new InvalidOperationException(L.T("MQTT: Broker-Adresse fehlt."));
         var b = new MqttClientOptionsBuilder()
             .WithTcpServer(_settings.Host.Trim(), _settings.Port is > 0 and < 65536 ? _settings.Port : 1883)
             .WithClientId("bitaxetuner-" + Key(Environment.MachineName))
@@ -242,9 +261,9 @@ public sealed partial class MqttBridge : IAsyncDisposable
         }
 
         var st = $"{b}/server/state";
-        Add("sensor", "server_hashrate", "Hashrate gesamt", st, "{{ value_json.hashrate_gh }}", serverDevice, o => Unit(o, "GH/s"));
-        Add("sensor", "server_power", "Leistung gesamt", st, "{{ value_json.power_w }}", serverDevice, o => Unit(o, "W", "power"));
-        Add("sensor", "server_efficiency", "Effizienz gesamt", st, "{{ value_json.efficiency_jth }}", serverDevice, o => Unit(o, "J/TH"));
+        Add("sensor", "server_hashrate", L.T("Hashrate gesamt"), st, "{{ value_json.hashrate_gh }}", serverDevice, o => Unit(o, "GH/s"));
+        Add("sensor", "server_power", L.T("Leistung gesamt"), st, "{{ value_json.power_w }}", serverDevice, o => Unit(o, "W", "power"));
+        Add("sensor", "server_efficiency", L.T("Effizienz gesamt"), st, "{{ value_json.efficiency_jth }}", serverDevice, o => Unit(o, "J/TH"));
         Add("sensor", "server_online", "Miner online", st, "{{ value_json.online }}", serverDevice, o => o["state_class"] = "measurement");
         Add("sensor", "server_price", "Strompreis", st, "{{ value_json.price_ct }}", serverDevice, o => Unit(o, "ct/kWh"));
         Add("binary_sensor", "server_paused", "Pausiert", st, "{{ value_json.paused }}", serverDevice);
@@ -255,7 +274,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
             o["command_topic"] = $"{b}/server/display_refresh/press";
         });
         if (_settings.AllowFanControl)
-            Add("select", "server_fan_mode", "Zusatzlüfter", st, "{{ value_json.fan_mode }}", serverDevice, o =>
+            Add("select", "server_fan_mode", L.T("Zusatzlüfter"), st, "{{ value_json.fan_mode }}", serverDevice, o =>
             {
                 o["command_topic"] = $"{b}/server/fan_mode/set";
                 o["options"] = new JsonArray(FanModes.Select(m => (JsonNode)m).ToArray());
@@ -263,12 +282,12 @@ public sealed partial class MqttBridge : IAsyncDisposable
         else
         {
             list.Add(($"{prefix}/select/bitaxetuner/server_fan_mode/config", "")); // früher freigegeben → wieder entfernen
-            Add("sensor", "server_fan_mode_state", "Zusatzlüfter", st, "{{ value_json.fan_mode }}", serverDevice);
+            Add("sensor", "server_fan_mode_state", L.T("Zusatzlüfter"), st, "{{ value_json.fan_mode }}", serverDevice);
         }
         foreach (var f in s.Fans)
         {
-            Add("sensor", $"fan_k{f.Channel}_percent", $"Lüfter K{f.Channel} {f.Name}", st, $"{{{{ value_json.fans.k{f.Channel}.percent }}}}", serverDevice, o => Unit(o, "%"));
-            Add("sensor", $"fan_k{f.Channel}_rpm", $"Lüfter K{f.Channel} Drehzahl", st, $"{{{{ value_json.fans.k{f.Channel}.rpm }}}}", serverDevice, o => Unit(o, "rpm"));
+            Add("sensor", $"fan_k{f.Channel}_percent", L.T("Lüfter K{0} {1}", f.Channel, f.Name), st, $"{{{{ value_json.fans.k{f.Channel}.percent }}}}", serverDevice, o => Unit(o, "%"));
+            Add("sensor", $"fan_k{f.Channel}_rpm", L.T("Lüfter K{0} Drehzahl", f.Channel), st, $"{{{{ value_json.fans.k{f.Channel}.rpm }}}}", serverDevice, o => Unit(o, "rpm"));
         }
         foreach (var t in s.Sensors)
             Add("sensor", $"temp_{t.Key}", t.Name, st, $"{{{{ value_json.sensors['{t.Key}'] }}}}", serverDevice, o => Unit(o, "°C", "temperature"));
@@ -294,7 +313,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
             Add("sensor", $"{id}_frequency", "Frequenz", mt, "{{ value_json.frequency_mhz }}", device, o => Unit(o, "MHz", "frequency"));
             Add("sensor", $"{id}_voltage", "Kernspannung", mt, "{{ value_json.core_voltage_mv }}", device, o => Unit(o, "mV", "voltage"));
             Add("sensor", $"{id}_best_diff", "Best Diff", mt, "{{ value_json.best_diff }}", device);
-            Add("sensor", $"{id}_fan", "VR-Lüfter", mt, "{{ value_json.fan_percent }}", device, o => Unit(o, "%"));
+            Add("sensor", $"{id}_fan", L.T("VR-Lüfter"), mt, "{{ value_json.fan_percent }}", device, o => Unit(o, "%"));
             Add("sensor", $"{id}_soak", "Dauertest", mt, "{{ value_json.soak }}", device);
         }
         return list;

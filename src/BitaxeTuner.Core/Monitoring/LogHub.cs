@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Monitoring;
 
 /// <summary>
@@ -11,7 +12,7 @@ public sealed class LogHub : IDisposable
     private readonly object _lock = new();
     private readonly List<Subscriber> _subscribers = new();
     private CancellationTokenSource? _cts;
-    private string _status = "Aus";
+    private string _status = L.T("Aus");
 
     public LogHub(Func<IMinerLogSource> createSource) => _createSource = createSource;
 
@@ -49,7 +50,7 @@ public sealed class LogHub : IDisposable
             _cts.Cancel();
             _cts.Dispose();
             _cts = null;
-            _status = "Aus";
+            _status = L.T("Aus");
         }
     }
 

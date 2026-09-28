@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Text.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Network;
 
@@ -34,7 +35,7 @@ public sealed class NetworkClient : IDisposable
             var txCount = b.TryGetProperty("tx_count", out var tc) ? tc.GetInt32() : 0;
             var size = b.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0;
 
-            var pool = "unbekannt";
+            var pool = L.T("unbekannt");
             var slug = "";
             long reward = 0;
 

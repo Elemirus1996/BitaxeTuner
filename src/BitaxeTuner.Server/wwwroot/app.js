@@ -387,7 +387,7 @@ function renderOverview() {
           h('div', {}, h('span', {}, t('Takt')), t('{0} MHz / {1} mV', d.frequency ?? '–', d.voltage ?? '–')),
           h('div', {}, h('span', {}, t('Laufzeit')), dur(d.uptimeSeconds)))
       : h('div', { class: d.maintenance ? 'warn' : 'danger' }, d.maintenance ? t('Neustart/Tuning …') : (d.error || 'offline')),
-    d.automation && d.automation !== 'keine Automatik' ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
+    d.automation ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
     d.benchmark?.running ? h('div', { class: 'progress', style: 'margin-top:8px' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
     d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}`, style: 'margin-top:6px' },
       t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? ` · ${d.fan.rpm} U/min` : '', d.fan.stalled ? t(' · steht!') : '')) : null,
@@ -533,7 +533,7 @@ function updateCompare() {
     [t('Laufzeit'), d => dur(d.uptimeSeconds)],
     [t('Firmware'), d => d.firmwareText || '–'],
     [t('Pool'), d => d.pool || '–'],
-    [t('Automatik'), d => d.automation || '–'],
+    [t('Automatik'), d => d.automation || t('keine Automatik')],
   ];
   fill(S.compareTable, h('table', {},
     h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
@@ -893,7 +893,7 @@ function tabAutomation() {
   const soakHours = h('select', {}, [6, 12, 24, 48].map(x => h('option', { value: x, selected: x === 24 }, t('{0} h', x))));
 
   return h('div', { class: 'stack' },
-    h('div', { class: 'card' }, h('b', {}, t('Status: ')), d.automation || '–'),
+    h('div', { class: 'card' }, h('b', {}, t('Status: ')), d.automation || t('keine Automatik')),
     h('div', { class: 'card stack' }, h('h3', {}, t('Voreinstellungen')), presetList,
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), pName), h('div', {}, h('label', {}, t('MHz')), pFreq), h('div', {}, h('label', {}, t('mV')), pVolt),
         h('button', {

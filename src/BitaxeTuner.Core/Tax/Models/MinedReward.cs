@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Tax.Models;
 
@@ -86,7 +87,7 @@ public class MinedReward : INotifyPropertyChanged
             if (Remaining <= 0) return "verkauft";
             var days = (TaxFreeFrom - DateTime.Now.Date).Days;
             if (days <= 0) return Remaining < Amount ? "Rest haltefristfrei" : "haltefristfrei";
-            return $"noch {days} Tage";
+            return L.T("noch {0} Tage", days);
         }
     }
 

@@ -72,7 +72,7 @@ public static class Difficulty
 
     public static string Format(double d)
     {
-        var ci = CultureInfo.GetCultureInfo("de-DE");
+        var ci = BitaxeTuner.Core.I18n.L.Culture;
         return d switch
         {
             >= 1e15 => (d / 1e15).ToString("0.00", ci) + "P",

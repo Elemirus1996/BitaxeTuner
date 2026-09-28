@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Benchmark;
 
 /// <summary>
@@ -27,11 +28,11 @@ public static class StepPlanner
                 return new Step(last.FrequencyMhz, last.CoreVoltageMv);
 
             case StepOutcome.LimitExceeded:
-                finishReason = $"Grenze erreicht bei {last.FrequencyMhz} MHz / {last.CoreVoltageMv} mV: {last.Message}";
+                finishReason = L.T("Grenze erreicht bei {0} MHz / {1} mV: {2}", last.FrequencyMhz, last.CoreVoltageMv, last.Message);
                 return null;
 
             case StepOutcome.DeviceError:
-                finishReason = $"Gerätefehler bei {last.FrequencyMhz} MHz / {last.CoreVoltageMv} mV: {last.Message}";
+                finishReason = L.T("Gerätefehler bei {0} MHz / {1} mV: {2}", last.FrequencyMhz, last.CoreVoltageMv, last.Message);
                 return null;
 
             case StepOutcome.Stable:
@@ -54,7 +55,7 @@ public static class StepPlanner
                 var higher = last.CoreVoltageMv + s.VoltageStepMv;
                 if (higher > s.MaxVoltageMv)
                 {
-                    finishReason = $"Maximale Spannung ({s.MaxVoltageMv} mV) erreicht – {last.FrequencyMhz} MHz läuft nicht stabil.";
+                    finishReason = L.T("Maximale Spannung ({0} mV) erreicht – {1} MHz läuft nicht stabil.", s.MaxVoltageMv, last.FrequencyMhz);
                     return null;
                 }
                 next = new Step(last.FrequencyMhz, higher);
@@ -66,7 +67,7 @@ public static class StepPlanner
 
         if (next is { } n && WasTested(history, n.FrequencyMhz, n.CoreVoltageMv))
         {
-            finishReason = "Alle sinnvollen Kombinationen getestet.";
+            finishReason = L.T("Alle sinnvollen Kombinationen getestet.");
             return null;
         }
         return next;

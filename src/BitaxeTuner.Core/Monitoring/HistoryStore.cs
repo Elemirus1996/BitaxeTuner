@@ -2,6 +2,7 @@ using System.IO;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Config;
 using Microsoft.Data.Sqlite;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Monitoring;
 
@@ -237,7 +238,7 @@ public sealed class HistoryStore : IDisposable
     public void BackupTo(string targetFile)
     {
         if (File.Exists(targetFile))
-            throw new IOException($"Ziel existiert bereits und wird nicht überschrieben: {targetFile}");
+            throw new IOException(L.T("Ziel existiert bereits und wird nicht überschrieben: {0}", targetFile));
         Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
         lock (_lock)
         {

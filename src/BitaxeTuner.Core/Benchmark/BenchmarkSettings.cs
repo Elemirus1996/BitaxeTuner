@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Benchmark;
 
@@ -79,15 +80,15 @@ public sealed class BenchmarkSettings
     public List<string> Validate()
     {
         var errors = new List<string>();
-        if (StartFrequencyMhz <= 0 || MaxFrequencyMhz < StartFrequencyMhz) errors.Add("Frequenzbereich ungültig.");
-        if (StartVoltageMv <= 0 || MaxVoltageMv < StartVoltageMv || MinVoltageMv > StartVoltageMv) errors.Add("Spannungsbereich ungültig.");
-        if (FrequencyStepMhz <= 0 || VoltageStepMv <= 0) errors.Add("Schrittweiten müssen größer als 0 sein.");
+        if (StartFrequencyMhz <= 0 || MaxFrequencyMhz < StartFrequencyMhz) errors.Add(L.T("Frequenzbereich ungültig."));
+        if (StartVoltageMv <= 0 || MaxVoltageMv < StartVoltageMv || MinVoltageMv > StartVoltageMv) errors.Add(L.T("Spannungsbereich ungültig."));
+        if (FrequencyStepMhz <= 0 || VoltageStepMv <= 0) errors.Add(L.T("Schrittweiten müssen größer als 0 sein."));
         if (SampleIntervalSeconds < 2) errors.Add("Messintervall muss mindestens 2 s betragen.");
-        if (MeasureSeconds < SampleIntervalSeconds * Math.Max(1, MinSamples)) errors.Add("Messdauer ist zu kurz für die Mindestanzahl an Messwerten.");
-        if (MaxVoltageMv > 1500) errors.Add("Maximale Kernspannung über 1500 mV ist nicht erlaubt.");
-        if (MaxChipTempC > 80) errors.Add("Maximale Chiptemperatur über 80 °C ist nicht erlaubt.");
-        if (MaxVrTempC > 105) errors.Add("Maximale VR-Temperatur über 105 °C ist nicht erlaubt.");
-        if (StabilityThreshold is <= 0 or > 1.2) errors.Add("Stabilitätsschwelle muss zwischen 0 und 1,2 liegen.");
+        if (MeasureSeconds < SampleIntervalSeconds * Math.Max(1, MinSamples)) errors.Add(L.T("Messdauer ist zu kurz für die Mindestanzahl an Messwerten."));
+        if (MaxVoltageMv > 1500) errors.Add(L.T("Maximale Kernspannung über 1500 mV ist nicht erlaubt."));
+        if (MaxChipTempC > 80) errors.Add(L.T("Maximale Chiptemperatur über 80 °C ist nicht erlaubt."));
+        if (MaxVrTempC > 105) errors.Add(L.T("Maximale VR-Temperatur über 105 °C ist nicht erlaubt."));
+        if (StabilityThreshold is <= 0 or > 1.2) errors.Add(L.T("Stabilitätsschwelle muss zwischen 0 und 1,2 liegen."));
         return errors;
     }
 

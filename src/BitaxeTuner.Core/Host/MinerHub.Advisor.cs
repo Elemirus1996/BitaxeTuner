@@ -1,6 +1,7 @@
 using System.Globalization;
 using BitaxeTuner.Core.Advisor;
 using BitaxeTuner.Core.Api;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -23,14 +24,14 @@ public sealed partial class MinerHub
 
             // Vergleichsbasis: 24-h-Mittel, wenn die Einstellung seit 24 h unverändert ist – sonst der aktuelle Messwert
             double? gh = i?.HashRateGh, w = i?.PowerW;
-            var basis = "aktuell";
+            var basis = L.T("aktuell");
             try
             {
                 if (i is not null && History is not null
                     && History.QueryTuningEvents(d.Host, now.AddHours(-24), now).Count == 0
                     && History.Average(d.Host, now.AddHours(-24), now) is { HashRateGh: > 0 } avg)
                 {
-                    (gh, w, basis) = (avg.HashRateGh, avg.Power, "Ø 24 h");
+                    (gh, w, basis) = (avg.HashRateGh, avg.Power, L.T("Ø 24 h"));
                 }
             }
             catch { /* Verlauf nicht lesbar – dann aktueller Wert */ }
@@ -44,18 +45,18 @@ public sealed partial class MinerHub
     /// <summary>Nach einer bestätigten Änderung einen Dauertest starten, sobald der Miner wieder läuft.</summary>
     public void ScheduleSoak(HubDevice device, int hours)
     {
-        if (hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+        if (hours is < 1 or > 168) throw new InvalidOperationException(L.T("Dauertest: 1 bis 168 Stunden."));
         device.PendingSoak = (hours, Options.Clock?.Invoke() ?? DateTime.Now);
-        device.AddLog($"Dauertest ({hours} h) startet, sobald der Miner wieder läuft.");
+        device.AddLog(L.T("Dauertest ({0} h) startet, sobald der Miner wieder läuft.", hours));
     }
 
     /// <summary>Zeilen für den Tagesbericht: Effizienz-Vorschläge ab 1 Währungseinheit Ersparnis pro Monat.</summary>
     internal IEnumerable<string> AdvisorReportLines(DateTime now)
     {
-        var de = CultureInfo.GetCultureInfo("de-DE");
+        var de = L.Culture;
         foreach (var r in Advise(AdvisorGoal.Efficiency, now))
             if (r.Recommended is { MonthlyCostDelta: <= -1 } c)
-                yield return $"Vorschlag {r.Name}: {c.FrequencyMhz} MHz / {c.CoreVoltageMv} mV → " +
-                             $"{c.Jth.ToString("0.0", de)} J/TH, spart ca. {(-c.MonthlyCostDelta).ToString("0.00", de)} {Config.Currency}/Monat ({c.Confidence})";
+                yield return L.T("Vorschlag {0}: {1} MHz / {2} mV → ", r.Name, c.FrequencyMhz, c.CoreVoltageMv) +
+                             L.T("{0} J/TH, spart ca. {1} {2}/Monat ({3})", c.Jth.ToString("0.0", de), (-c.MonthlyCostDelta).ToString("0.00", de), Config.Currency, c.Confidence);
     }
 }

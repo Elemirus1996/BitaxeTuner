@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Tax.Services;
 
@@ -145,7 +146,7 @@ public sealed class WalletMonitorService : IDisposable
             var wallets = Wallets;
             if (wallets.Count == 0)
             {
-                StatusChanged?.Invoke("Keine Wallet-Adressen eingetragen.");
+                StatusChanged?.Invoke(L.T("Keine Wallet-Adressen eingetragen."));
                 return;
             }
 
@@ -203,14 +204,14 @@ public sealed class WalletMonitorService : IDisposable
             var repaired = await RetryMissingPricesAsync(ct);
 
             LastPollUtc = DateTime.UtcNow;
-            var text = $"Geprüft {DateTime.Now:HH:mm} · {wallets.Count} Adresse(n) · {found} neu";
+            var text = L.T("Geprüft {0:HH:mm} · {1} Adresse(n) · {2} neu", DateTime.Now, wallets.Count, found);
             if (repaired > 0) text += $" · {repaired} Kurs(e) nachgeholt";
-            if (errors.Count > 0) text += " · Fehler: " + string.Join("; ", errors);
+            if (errors.Count > 0) text += L.T(" · Fehler: ") + string.Join("; ", errors);
             StatusChanged?.Invoke(text);
         }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke("Fehler: " + ex.Message);
+            StatusChanged?.Invoke(L.T("Fehler: ") + ex.Message);
         }
         finally
         {
@@ -244,7 +245,7 @@ public sealed class WalletMonitorService : IDisposable
             reward.EurPriceAtReceipt = quote.Eur;
             reward.PriceAtUtc = quote.AtUtc;
             reward.PriceSource = quote.Source;
-            reward.Note = $"Kurs nachgeholt am {DateTime.Now:dd.MM.yyyy HH:mm}";
+            reward.Note = L.T("Kurs nachgeholt am {0:g}", DateTime.Now);
             SaveReward(reward);
 
             repaired++;

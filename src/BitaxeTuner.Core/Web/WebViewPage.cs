@@ -1,12 +1,17 @@
 using System.Net;
+using System.Text.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Web;
 
-/// <summary>Seiten der Handy-Ansicht (ohne externe Abhängigkeiten, CSP-tauglich: kein Inline-Skript).</summary>
+/// <summary>
+/// Seiten der Handy-Ansicht (ohne externe Abhängigkeiten, CSP-tauglich: kein Inline-Skript).
+/// Texte in der Sprache der App; das Skript bekommt Beschriftungen und Zahlenformat als JSON.
+/// </summary>
 public static class WebViewPage
 {
-    private const string Head = """
-        <!doctype html><html lang="de"><head><meta charset="utf-8">
+    private static string Head => $"""
+        <!doctype html><html lang="{Loc.Current.Language}"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="dark light">
         <title>BitaxeTuner</title><link rel="stylesheet" href="/style.css"></head>
@@ -15,22 +20,22 @@ public static class WebViewPage
     public static string Login(string? error) => Head + $"""
         <body><main class="login">
         <h1>BitaxeTuner</h1>
-        <p class="muted">Nur-Lese-Ansicht. PIN wie in den Einstellungen der App festgelegt.</p>
+        <p class="muted">{WebUtility.HtmlEncode(L.T("Nur-Lese-Ansicht. PIN wie in den Einstellungen der App festgelegt."))}</p>
         <form method="post" action="/login">
           <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" autofocus required>
-          <button type="submit">Anmelden</button>
+          <button type="submit">{WebUtility.HtmlEncode(L.T("Anmelden"))}</button>
         </form>
         {(error is null ? "" : $"<p class=\"error\">{WebUtility.HtmlEncode(error)}</p>")}
         </main></body></html>
         """;
 
-    public const string Dashboard = Head + """
+    public static string Dashboard => Head + $"""
         <body>
-        <header><h1>BitaxeTuner</h1><span id="updated" class="muted">lädt …</span><a href="/logout">Abmelden</a></header>
+        <header><h1>BitaxeTuner</h1><span id="updated" class="muted">{WebUtility.HtmlEncode(L.T("lädt …"))}</span><a href="/logout">{WebUtility.HtmlEncode(L.T("Abmelden"))}</a></header>
         <section id="total" class="total"></section>
         <p id="price" class="muted"></p>
         <section id="miners" class="grid"></section>
-        <p class="muted small">Aktualisiert alle 10 s · nur Anzeige, Änderungen nur in der App am PC.</p>
+        <p class="muted small">{WebUtility.HtmlEncode(L.T("Aktualisiert alle 10 s · nur Anzeige, Änderungen nur in der App am PC."))}</p>
         <script src="/app.js"></script>
         </body></html>
         """;
@@ -59,9 +64,30 @@ public static class WebViewPage
         .error { color:var(--bad); }
         """;
 
-    public const string Script = """
-        const de = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
-        const hash = gh => gh >= 1000 ? (gh / 1000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TH/s' : de.format(gh) + ' GH/s';
+    /// <summary>Beschriftungen und Zahlenformat für das Skript.</summary>
+    private static string Labels => JsonSerializer.Serialize(new Dictionary<string, string>
+    {
+        ["locale"] = L.Culture.Name,
+        ["asOf"] = L.T("Stand {0}"),
+        ["hashrate"] = L.T("Hashrate"),
+        ["power"] = L.T("Leistung"),
+        ["efficiency"] = L.T("Effizienz"),
+        ["online"] = L.T("Online"),
+        ["tempMax"] = L.T("Temp max"),
+        ["price"] = L.T("Strompreis ({0}): {1} ct/kWh"),
+        ["tempVr"] = L.T("Temp / VR"),
+        ["frequency"] = L.T("Frequenz"),
+        ["voltage"] = L.T("Spannung"),
+        ["offline"] = L.T("offline"),
+        ["lastChange"] = L.T("Letzte Änderung: {0}"),
+    });
+
+    public static string Script => "const L = " + Labels + ";\n" + ScriptBody;
+
+    private const string ScriptBody = """
+        const f = (s, ...a) => s.replace(/\{(\d+)\}/g, (m, i) => a[+i] ?? '');
+        const de = new Intl.NumberFormat(L.locale, { maximumFractionDigits: 1 });
+        const hash = gh => gh >= 1000 ? (gh / 1000).toLocaleString(L.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TH/s' : de.format(gh) + ' GH/s';
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
         const tile = (k, v) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`;
         function spark(points) {
@@ -74,24 +100,24 @@ public static class WebViewPage
           const r = await fetch('/api/status', { cache: 'no-store' });
           if (r.status === 401) { location.href = '/'; return; }
           const s = await r.json();
-          document.getElementById('updated').textContent = 'Stand ' + s.time;
+          document.getElementById('updated').textContent = f(L.asOf, s.time);
           document.getElementById('total').innerHTML =
-            tile('Hashrate', hash(s.total.hashrate)) + tile('Leistung', de.format(s.total.power) + ' W') +
-            tile('Effizienz', s.total.efficiency ? de.format(s.total.efficiency) + ' J/TH' : '–') +
-            tile('Online', s.total.online + '/' + s.total.count) + tile('Temp max', de.format(s.total.maxTemp) + ' °C');
-          document.getElementById('price').textContent = s.price ? `Strompreis (${s.price.source}): ${de.format(s.price.ct)} ct/kWh` : '';
+            tile(L.hashrate, hash(s.total.hashrate)) + tile(L.power, de.format(s.total.power) + ' W') +
+            tile(L.efficiency, s.total.efficiency ? de.format(s.total.efficiency) + ' J/TH' : '–') +
+            tile(L.online, s.total.online + '/' + s.total.count) + tile(L.tempMax, de.format(s.total.maxTemp) + ' °C');
+          document.getElementById('price').textContent = s.price ? f(L.price, s.price.source, de.format(s.price.ct)) : '';
           document.getElementById('miners').innerHTML = s.miners.map(m => `
             <article class="card">
               <h2><span class="dot ${m.online ? 'ok' : 'bad'}"></span>${esc(m.name)}</h2>
               ${m.online ? `
               <div class="row">
-                ${tile('Hashrate', hash(m.hashrate))}${tile('Temp / VR', de.format(m.temp) + ' / ' + de.format(m.vrTemp) + ' °C')}
-                ${tile('Leistung', de.format(m.power) + ' W')}${tile('Effizienz', m.efficiency ? de.format(m.efficiency) + ' J/TH' : '–')}
-                ${tile('Frequenz', m.frequency + ' MHz')}${tile('Spannung', m.voltage + ' mV')}
+                ${tile(L.hashrate, hash(m.hashrate))}${tile(L.tempVr, de.format(m.temp) + ' / ' + de.format(m.vrTemp) + ' °C')}
+                ${tile(L.power, de.format(m.power) + ' W')}${tile(L.efficiency, m.efficiency ? de.format(m.efficiency) + ' J/TH' : '–')}
+                ${tile(L.frequency, m.frequency + ' MHz')}${tile(L.voltage, m.voltage + ' mV')}
               </div>
               <div class="spark">${spark(m.history)}</div>
-              <div class="small muted">${esc(m.pool)}</div>` : `<p class="muted">${esc(m.error || 'offline')}</p>`}
-              ${m.lastTuning ? `<div class="small">Letzte Änderung: ${esc(m.lastTuning)}</div>` : ''}
+              <div class="small muted">${esc(m.pool)}</div>` : `<p class="muted">${esc(m.error || L.offline)}</p>`}
+              ${m.lastTuning ? `<div class="small">${esc(f(L.lastChange, m.lastTuning))}</div>` : ''}
               ${m.automation ? `<div class="small muted">${esc(m.automation)}</div>` : ''}
               ${m.soak ? `<div class="small warn">${esc(m.soak)}</div>` : ''}
             </article>`).join('');

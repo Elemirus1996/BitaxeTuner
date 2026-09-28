@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Monitoring;
 using Microsoft.Data.Sqlite;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Config;
 
@@ -27,7 +28,7 @@ public static class ConfigMigrator
                 if (config.Devices.Any(d => string.Equals(d.Host.Trim(), address, StringComparison.OrdinalIgnoreCase)))
                     continue;
                 config.Devices.Add(new DeviceConfig { Name = address, Host = address });
-                log.Add($"Gerät aus BitaxeTuner übernommen: {address}");
+                log.Add(L.T("Gerät aus BitaxeTuner übernommen: {0}", address));
             }
             config.WarningAccepted |= legacy.WarningAccepted;
             config.CheckForUpdates = legacy.CheckForUpdates;
@@ -52,7 +53,7 @@ public static class ConfigMigrator
         if (!File.Exists(source)) yield break;
         if (File.Exists(target))
         {
-            yield return $"Übersprungen (existiert bereits): {target}";
+            yield return L.T("Übersprungen (existiert bereits): {0}", target);
             yield break;
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -100,7 +101,7 @@ public static class ConfigMigrator
                 src.BackupDatabase(dst);
             }
             var (ok, _) = HistoryStore.Verify(destDb);
-            if (!ok) throw new IOException("Sicherung von history.db ist nicht konsistent (integrity_check).");
+            if (!ok) throw new IOException(L.T("Sicherung von history.db ist nicht konsistent (integrity_check)."));
         }
 
         return target;

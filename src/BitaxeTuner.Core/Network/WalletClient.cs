@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text.Json;
 using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.Tax.Services;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Network;
 
@@ -78,7 +79,7 @@ public sealed class WalletClient : IDisposable
         using (var resp = await _http.GetAsync($"{Base}/address/{address}", ct).ConfigureAwait(false))
         {
             if (resp.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                throw new InvalidOperationException("Adresse ungültig");
+                throw new InvalidOperationException(L.T("Adresse ungültig"));
             resp.EnsureSuccessStatusCode();
 
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));

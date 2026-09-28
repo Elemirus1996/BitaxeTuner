@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
@@ -79,7 +80,7 @@ public static class Provisioning
     /// <summary>Paket schreiben. Liefert das Token für die Desktop-App (nur hier im Klartext).</summary>
     public static string Write(string targetFolder, string adminPassword, string? dataDirectory, HistoryStore? openHistory, string appVersion)
     {
-        if (adminPassword.Length < 10) throw new InvalidOperationException("Das Admin-Passwort braucht mindestens 10 Zeichen.");
+        if (adminPassword.Length < 10) throw new InvalidOperationException(L.T("Das Admin-Passwort braucht mindestens 10 Zeichen."));
         var folder = Path.Combine(targetFolder, FolderName);
         Directory.CreateDirectory(folder);
         var token = Secrets.NewToken();
@@ -101,8 +102,8 @@ public static class Provisioning
         }
         File.WriteAllText(Path.Combine(folder, AccessFile), JsonSerializer.Serialize(access, Json));
         File.WriteAllText(Path.Combine(folder, "LIESMICH.txt"),
-            "BitaxeTuner-Einrichtungspaket. Der Raspberry Pi übernimmt es beim ersten Start und löscht es danach.\r\n" +
-            "zugang.json enthält nur Hashes (kein Klartext-Passwort).\r\n");
+            L.T("BitaxeTuner-Einrichtungspaket. Der Raspberry Pi übernimmt es beim ersten Start und löscht es danach.\r\n") +
+            L.T("zugang.json enthält nur Hashes (kein Klartext-Passwort).\r\n"));
         return token;
     }
 
@@ -116,15 +117,15 @@ public static class Provisioning
         var accessFile = Path.Combine(packageFolder, AccessFile);
         if (!File.Exists(accessFile))
         {
-            log.Add("Kein Einrichtungspaket gefunden – Einrichtung später im Browser (Einrichtungs-Code).");
+            log.Add(L.T("Kein Einrichtungspaket gefunden – Einrichtung später im Browser (Einrichtungs-Code)."));
             return log;
         }
         Directory.CreateDirectory(dataDirectory);
-        var access = JsonSerializer.Deserialize<Access>(File.ReadAllText(accessFile)) ?? throw new InvalidDataException("zugang.json ist leer.");
+        var access = JsonSerializer.Deserialize<Access>(File.ReadAllText(accessFile)) ?? throw new InvalidDataException(L.T("zugang.json ist leer."));
 
         var authFile = Path.Combine(dataDirectory, "server-auth.json");
         if (File.Exists(authFile))
-            log.Add("Server ist bereits eingerichtet – Zugangsdaten werden nicht überschrieben.");
+            log.Add(L.T("Server ist bereits eingerichtet – Zugangsdaten werden nicht überschrieben."));
         else if (access.AdminHash.StartsWith("pbkdf2-sha256$", StringComparison.Ordinal))
         {
             var auth = new
@@ -134,7 +135,7 @@ public static class Provisioning
             };
             File.WriteAllText(authFile, JsonSerializer.Serialize(auth, Json));
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(authFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            log.Add($"Admin-Passwort und {access.Tokens.Count} Token übernommen.");
+            log.Add(L.T("Admin-Passwort und {0} Token übernommen.", access.Tokens.Count));
         }
 
         var data = Path.Combine(packageFolder, DataFile);
@@ -157,17 +158,17 @@ public static class Provisioning
                 config.Mqtt.Enabled = false;                 // ohne Passwort (liegt nicht im Paket) erst im Browser einschalten
                 config.Save(configFile);
             }
-            log.Add($"Daten übernommen: {manifest.Devices} Gerät(e), {manifest.HistoryRows.GetValueOrDefault("samples"):N0} Verlaufswerte.");
+            log.Add(L.T("Daten übernommen: {0} Gerät(e), {1:N0} Verlaufswerte.", manifest.Devices, manifest.HistoryRows.GetValueOrDefault("samples")));
         }
         else if (File.Exists(data))
         {
-            log.Add("Datenordner ist nicht leer – Datenarchiv wird nicht übernommen.");
+            log.Add(L.T("Datenordner ist nicht leer – Datenarchiv wird nicht übernommen."));
         }
 
         if (access.StartPaused)
         {
             File.WriteAllText(Path.Combine(dataDirectory, "server-state.json"), "{\"paused\":true}");
-            log.Add("Server startet pausiert (in der Desktop-App „Betriebsart → Nur umschalten“ setzt ihn fort).");
+            log.Add(L.T("Server startet pausiert (in der Desktop-App „Betriebsart → Nur umschalten“ setzt ihn fort)."));
         }
 
         // Geheimnisse nicht auf der Boot-Partition liegen lassen

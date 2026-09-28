@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Benchmark;
 
@@ -31,7 +32,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         {
             if (_paused == value) return;
             _paused = value;
-            Write(value ? "Pausiert – Watchdog bleibt aktiv." : "Fortgesetzt.");
+            Write(value ? L.T("Pausiert – Watchdog bleibt aktiv.") : L.T("Fortgesetzt."));
         }
     }
 
@@ -43,7 +44,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         if (errors.Count > 0)
             throw new ArgumentException(string.Join(" ", errors));
 
-        Report(BenchmarkPhase.Preparing, session, 0, 0, 0, message: "Lese aktuelle Einstellungen …");
+        Report(BenchmarkPhase.Preparing, session, 0, 0, 0, message: L.T("Lese aktuelle Einstellungen …"));
         var start = await client.GetInfoAsync(ct).ConfigureAwait(false);
         session.Hostname ??= start.Hostname;
         session.DeviceModel ??= start.DeviceModel ?? profile.Name;
@@ -51,15 +52,15 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         session.Original ??= new OriginalSettings(start.FrequencyMhz, start.CoreVoltageMv, start.AutoFanMode, start.FanPercent);
         session.FinishedAt = null;
         session.FinishReason = null;
-        Write($"Start: {start.DisplayName} ({profile.Name}), aktuell {start.FrequencyMhz} MHz / {start.CoreVoltageMv} mV. " +
-              $"Ursprüngliche Werte: {session.Original.FrequencyMhz} MHz / {session.Original.CoreVoltageMv} mV.");
+        Write(L.T("Start: {0} ({1}), aktuell {2} MHz / {3} mV. ", start.DisplayName, profile.Name, start.FrequencyMhz, start.CoreVoltageMv) +
+              L.T("Ursprüngliche Werte: {0} MHz / {1} mV.", session.Original.FrequencyMhz, session.Original.CoreVoltageMv));
 
         var finalPhase = BenchmarkPhase.Finished;
         try
         {
             if (s.FanMode == FanModeDuringBenchmark.Full)
             {
-                Write("Lüfter auf 100 % für die Dauer des Tests.");
+                Write(L.T("Lüfter auf 100 % für die Dauer des Tests."));
                 await client.SetFanAsync(0, 100, ct).ConfigureAwait(false);
             }
 
@@ -70,15 +71,15 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
                 if (next is null)
                 {
                     session.FinishReason = reason;
-                    Write($"Fertig: {reason}");
+                    Write(L.T("Fertig: {0}", reason));
                     break;
                 }
 
                 var result = await RunStepAsync(session, next.Value.FrequencyMhz, next.Value.CoreVoltageMv, ct).ConfigureAwait(false);
                 session.Results.Add(result);
-                Write($"Ergebnis {result.FrequencyMhz} MHz / {result.CoreVoltageMv} mV: {result.OutcomeText} – " +
-                      $"{result.AvgHashRateGh:F1} GH/s ({result.HashRateRatio:P1}), {result.AvgPowerW:F1} W, " +
-                      $"{result.EfficiencyJth:F2} J/TH, max. {result.MaxChipTempC:F1} °C" +
+                Write(L.T("Ergebnis {0} MHz / {1} mV: {2} – ", result.FrequencyMhz, result.CoreVoltageMv, result.OutcomeText) +
+                      L.T("{0:F1} GH/s ({1:P1}), {2:F1} W, ", result.AvgHashRateGh, result.HashRateRatio, result.AvgPowerW) +
+                      L.T("{0:F2} J/TH, max. {1:F1} °C", result.EfficiencyJth, result.MaxChipTempC) +
                       (result.Message is null ? "" : $" – {result.Message}"));
                 Progress?.Report(new BenchmarkProgress
                 {
@@ -99,14 +100,14 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         catch (OperationCanceledException)
         {
             finalPhase = BenchmarkPhase.Cancelled;
-            session.FinishReason = "Vom Benutzer abgebrochen.";
-            Write("Abgebrochen – Einstellungen werden wiederhergestellt.");
+            session.FinishReason = L.T("Vom Benutzer abgebrochen.");
+            Write(L.T("Abgebrochen – Einstellungen werden wiederhergestellt."));
         }
         catch (Exception ex)
         {
             finalPhase = BenchmarkPhase.Failed;
-            session.FinishReason = $"Fehler: {ex.Message}";
-            Write($"Fehler: {ex.Message} – Einstellungen werden wiederhergestellt.");
+            session.FinishReason = L.T("Fehler: {0}", ex.Message);
+            Write(L.T("Fehler: {0} – Einstellungen werden wiederhergestellt.", ex.Message));
         }
         finally
         {
@@ -126,7 +127,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
     private async Task<StepResult> RunStepAsync(BenchmarkSession session, int freq, int mv, CancellationToken ct)
     {
         var s = session.Settings;
-        Write($"Schritt {session.Results.Count + 1}: {freq} MHz / {mv} mV");
+        Write(L.T("Schritt {0}: {1} MHz / {2} mV", session.Results.Count + 1, freq, mv));
         Report(BenchmarkPhase.Applying, session, freq, mv, 0);
 
         try
@@ -154,7 +155,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
             var info = await TryReadAsync(ct).ConfigureAwait(false);
             if (info is null)
             {
-                if (++failures >= MaxConsecutiveReadFailures) return Error(freq, mv, "Gerät während des Aufwärmens nicht erreichbar.");
+                if (++failures >= MaxConsecutiveReadFailures) return Error(freq, mv, L.T("Gerät während des Aufwärmens nicht erreichbar."));
                 continue;
             }
             failures = 0;
@@ -173,7 +174,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
             var info = await TryReadAsync(ct).ConfigureAwait(false);
             if (info is null)
             {
-                if (++failures >= MaxConsecutiveReadFailures) return Error(freq, mv, "Gerät während der Messung nicht erreichbar.");
+                if (++failures >= MaxConsecutiveReadFailures) return Error(freq, mv, L.T("Gerät während der Messung nicht erreichbar."));
                 continue;
             }
             failures = 0;
@@ -189,16 +190,16 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
     internal StepResult Evaluate(BenchmarkSettings s, int freq, int mv, IReadOnlyList<MinerInfo> samples)
     {
         if (samples.Count < s.MinSamples)
-            return Error(freq, mv, $"Zu wenige Messwerte ({samples.Count} von mindestens {s.MinSamples}).");
+            return Error(freq, mv, L.T("Zu wenige Messwerte ({0} von mindestens {1}).", samples.Count, s.MinSamples));
 
         var result = Aggregate(freq, mv, samples, StepOutcome.Stable, null);
         var reasons = new List<string>();
         if (result.ExpectedHashRateGh > 0 && result.HashRateRatio < s.StabilityThreshold)
-            reasons.Add($"Hashrate nur {result.HashRateRatio:P1} der erwarteten (Soll ≥ {s.StabilityThreshold:P0})");
+            reasons.Add(L.T("Hashrate nur {0:P1} der erwarteten (Soll ≥ {1:P0})", result.HashRateRatio, s.StabilityThreshold));
         if (result.AvgErrorPercent is { } err && err > s.MaxErrorPercent)
-            reasons.Add($"Fehlerrate {err:F2} % > {s.MaxErrorPercent:F2} %");
+            reasons.Add(L.T("Fehlerrate {0:F2} % > {1:F2} %", err, s.MaxErrorPercent));
         if (result.AvgHashRateGh <= 0)
-            reasons.Add("keine Hashrate");
+            reasons.Add(L.T("keine Hashrate"));
 
         return reasons.Count == 0 ? result : result with { Outcome = StepOutcome.Unstable, Message = string.Join("; ", reasons) };
     }
@@ -232,29 +233,29 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
     /// <summary>Prüft alle Sicherheitsgrenzen. Liefert eine Begründung, wenn eine überschritten ist.</summary>
     public static string? CheckLimits(BenchmarkSettings s, MinerInfo info)
     {
-        if (info.MaxChipTempC is { } t && t > s.MaxChipTempC) return $"Chiptemperatur {t:F1} °C > {s.MaxChipTempC:F0} °C";
-        if (info.VrTempC is { } vr && vr > s.MaxVrTempC) return $"VR-Temperatur {vr:F1} °C > {s.MaxVrTempC:F0} °C";
-        if (info.PowerW > s.MaxPowerW) return $"Leistung {info.PowerW:F1} W > {s.MaxPowerW:F0} W";
+        if (info.MaxChipTempC is { } t && t > s.MaxChipTempC) return L.T("Chiptemperatur {0:F1} °C > {1:F0} °C", t, s.MaxChipTempC);
+        if (info.VrTempC is { } vr && vr > s.MaxVrTempC) return L.T("VR-Temperatur {0:F1} °C > {1:F0} °C", vr, s.MaxVrTempC);
+        if (info.PowerW > s.MaxPowerW) return L.T("Leistung {0:F1} W > {1:F0} W", info.PowerW, s.MaxPowerW);
         if (info.InputVoltageMv is { } vin)
         {
-            if (s.MinInputVoltageMv is { } min && vin < min) return $"Eingangsspannung {vin:F0} mV < {min:F0} mV";
-            if (s.MaxInputVoltageMv is { } max && vin > max) return $"Eingangsspannung {vin:F0} mV > {max:F0} mV";
+            if (s.MinInputVoltageMv is { } min && vin < min) return L.T("Eingangsspannung {0:F0} mV < {1:F0} mV", vin, min);
+            if (s.MaxInputVoltageMv is { } max && vin > max) return L.T("Eingangsspannung {0:F0} mV > {1:F0} mV", vin, max);
         }
-        if (info.OverheatMode) return "Gerät meldet Überhitzungsschutz";
-        if (!string.IsNullOrWhiteSpace(info.PowerFault)) return $"Spannungsfehler: {info.PowerFault}";
-        if (!string.IsNullOrWhiteSpace(info.HardwareFault)) return $"Hardwarefehler: {info.HardwareFault}";
+        if (info.OverheatMode) return L.T("Gerät meldet Überhitzungsschutz");
+        if (!string.IsNullOrWhiteSpace(info.PowerFault)) return L.T("Spannungsfehler: {0}", info.PowerFault);
+        if (!string.IsNullOrWhiteSpace(info.HardwareFault)) return L.T("Hardwarefehler: {0}", info.HardwareFault);
         return null;
     }
 
     private StepResult Limit(int freq, int mv, string reason, IReadOnlyList<MinerInfo> samples)
     {
-        Write($"⚠ {reason} – Test wird sofort beendet.");
+        Write(L.T("⚠ {0} – Test wird sofort beendet.", reason));
         return Aggregate(freq, mv, samples, StepOutcome.LimitExceeded, reason);
     }
 
     private StepResult Error(int freq, int mv, string reason)
     {
-        Write($"Fehler: {reason}");
+        Write(L.T("Fehler: {0}", reason));
         return new StepResult { FrequencyMhz = freq, CoreVoltageMv = mv, Outcome = StepOutcome.DeviceError, Message = reason };
     }
 
@@ -268,17 +269,17 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
         if (original is null) return;
 
         int freq = original.FrequencyMhz, mv = original.CoreVoltageMv;
-        var label = "ursprüngliche Einstellung";
+        var label = L.T("ursprüngliche Einstellung");
         var completed = session.IsFinished;
         if (s.RestoreMode == RestoreMode.Best && ResultRanking.Best(session.Results, s.RestoreRanking, s.BalancedHashrateWeight) is { } best)
         {
             // Bei Abbruch/Fehler nur dann die beste Einstellung nehmen, wenn sie vollständig gemessen wurde – das ist sie per Definition.
             (freq, mv) = (best.FrequencyMhz, best.CoreVoltageMv);
-            label = $"beste Einstellung ({RankingName(s.RestoreRanking)})";
+            label = L.T("beste Einstellung ({0})", RankingName(s.RestoreRanking));
         }
 
-        Report(BenchmarkPhase.Restoring, session, freq, mv, 0, message: $"Setze {label}: {freq} MHz / {mv} mV");
-        Write($"Setze {label}: {freq} MHz / {mv} mV{(completed ? "" : " (Lauf nicht abgeschlossen)")}.");
+        Report(BenchmarkPhase.Restoring, session, freq, mv, 0, message: L.T("Setze {0}: {1} MHz / {2} mV", label, freq, mv));
+        Write(L.T("Setze {0}: {1} MHz / {2} mV{3}.", label, freq, mv, (completed ? "" : L.T(" (Lauf nicht abgeschlossen)"))));
         for (var attempt = 1; attempt <= 5; attempt++)
         {
             try
@@ -292,19 +293,19 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
             }
             catch (Exception ex) when (ex is MinerApiException or TaskCanceledException)
             {
-                Write($"Wiederherstellen fehlgeschlagen (Versuch {attempt}/5): {ex.Message}");
+                Write(L.T("Wiederherstellen fehlgeschlagen (Versuch {0}/5): {1}", attempt, ex.Message));
                 if (ct.IsCancellationRequested) break;
                 try { await Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
             }
         }
-        Write("⚠ Einstellungen konnten NICHT wiederhergestellt werden – bitte manuell im AxeOS-Webinterface prüfen!");
+        Write(L.T("⚠ Einstellungen konnten NICHT wiederhergestellt werden – bitte manuell im AxeOS-Webinterface prüfen!"));
     }
 
     public static string RankingName(RankingMode mode) => mode switch
     {
-        RankingMode.MaxHashrate => "max. Hashrate",
-        RankingMode.Efficiency => "beste Effizienz",
-        _ => "Kompromiss",
+        RankingMode.MaxHashrate => L.T("max. Hashrate"),
+        RankingMode.Efficiency => L.T("beste Effizienz"),
+        _ => L.T("Kompromiss"),
     };
 
     private async Task WaitForDeviceAsync(CancellationToken ct)
@@ -315,7 +316,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
             if (await TryReadAsync(ct).ConfigureAwait(false) is not null) return;
             await Delay(RebootPollInterval, ct).ConfigureAwait(false);
         }
-        throw new MinerApiException("Gerät ist nach dem Neustart nicht wieder erreichbar.");
+        throw new MinerApiException(L.T("Gerät ist nach dem Neustart nicht wieder erreichbar."));
     }
 
     private async Task<MinerInfo?> TryReadAsync(CancellationToken ct)
@@ -334,7 +335,7 @@ public sealed class BenchmarkEngine(IMinerClient client, DeviceProfile profile)
             {
                 // Pause aufheben – die nächste Messung erkennt die Grenzverletzung und beendet den Schritt sofort.
                 _paused = false;
-                Write("⚠ Grenzwert während der Pause überschritten – Pause wird beendet.");
+                Write(L.T("⚠ Grenzwert während der Pause überschritten – Pause wird beendet."));
                 return;
             }
             await Delay(interval, ct).ConfigureAwait(false);

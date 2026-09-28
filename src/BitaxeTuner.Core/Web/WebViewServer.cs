@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Web;
 
@@ -58,7 +59,7 @@ public sealed class WebViewServer : IDisposable
         {
             _listener = null;
             LastError = ex.SocketErrorCode == SocketError.AddressAlreadyInUse
-                ? $"Port {port} ist bereits belegt."
+                ? L.T("Port {0} ist bereits belegt.", port)
                 : ex.Message;
         }
     }
@@ -111,7 +112,7 @@ public sealed class WebViewServer : IDisposable
             var stream = client.GetStream();
             if (!IsPrivate(remote))
             {
-                await WriteAsync(stream, 403, "text/plain", "Nur aus dem Heimnetz erreichbar."u8.ToArray(), timeout.Token);
+                await WriteAsync(stream, 403, "text/plain", Encoding.UTF8.GetBytes(L.T("Nur aus dem Heimnetz erreichbar.")), timeout.Token);
                 return;
             }
             var request = await ReadRequestAsync(stream, timeout.Token);
@@ -147,14 +148,14 @@ public sealed class WebViewServer : IDisposable
             case ("GET", "/api/status"):
                 return authed ? Text(200, "application/json", _statusJson()) : Text(401, "application/json", "{\"error\":\"login\"}");
             default:
-                return Text(404, "text/plain", "Nicht gefunden");
+                return Text(404, "text/plain", L.T("Nicht gefunden"));
         }
     }
 
     private Response Login(Request req, string client, DateTime now)
     {
         if (_failures.TryGetValue(client, out var f) && f.Count >= MaxFailures && f.Until > now)
-            return Text(429, "text/html", WebViewPage.Login($"Zu viele Fehlversuche – bitte {Math.Ceiling((f.Until - now).TotalMinutes)} min warten."));
+            return Text(429, "text/html", WebViewPage.Login(L.T("Zu viele Fehlversuche – bitte {0} min warten.", Math.Ceiling((f.Until - now).TotalMinutes))));
 
         var pin = FormValue(req.Body, "pin") ?? "";
         var expected = _pinHash();
@@ -164,7 +165,7 @@ public sealed class WebViewServer : IDisposable
         {
             var count = f.Until > now || f.Count < MaxFailures ? f.Count + 1 : 1;
             _failures[client] = (count, now + LockTime);
-            return Text(401, "text/html", WebViewPage.Login("Falsche PIN."));
+            return Text(401, "text/html", WebViewPage.Login(L.T("Falsche PIN.")));
         }
 
         _failures.TryRemove(client, out _);

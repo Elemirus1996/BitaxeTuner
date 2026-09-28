@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Benchmark;
 
 public enum StepOutcome
@@ -44,8 +45,8 @@ public sealed record StepResult
         StepOutcome.Stable => "Stabil",
         StepOutcome.Unstable => "Instabil",
         StepOutcome.LimitExceeded => "Grenze",
-        StepOutcome.DeviceError => "Fehler",
-        StepOutcome.Cancelled => "Abgebrochen",
+        StepOutcome.DeviceError => L.T("Fehler"),
+        StepOutcome.Cancelled => L.T("Abgebrochen"),
         _ => Outcome.ToString(),
     };
 }

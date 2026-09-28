@@ -27,7 +27,7 @@ public class I18nTests
     private static Dictionary<string, string> English() =>
         JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Root, "src", "BitaxeTuner.Core", "I18n", "Strings.en.json")))!;
 
-    private static string Unescape(string s) => Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "n" => "\n", "t" => "\t", var c => c });
+    private static string Unescape(string s) => Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "n" => "\n", "r" => "\r", "t" => "\t", var c => c });
 
     /// <summary>
     /// Alle übersetzbaren Texte im Quellcode: L.T("…")/loc.T("…"), L.N("…"), new LocalizedException("…") und new LocText("…") in C#,

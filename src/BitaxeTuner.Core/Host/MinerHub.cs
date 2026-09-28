@@ -9,6 +9,7 @@ using BitaxeTuner.Core.Storage;
 using BitaxeTuner.Core.Tax.Services;
 using BitaxeTuner.Core.Update;
 using BitaxeTuner.Core.Web;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -220,20 +221,20 @@ public sealed partial class MinerHub : IDisposable
 
     private void InitDevice(HubDevice device)
     {
-        device.AddLog($"Gerät: {device.Title} ({device.Host})");
+        device.AddLog(L.T("Gerät: {0} ({1})", device.Title, device.Host));
 
         // Manuell gewähltes Profil aus config.json, sonst Erkennung beim ersten Datenpunkt
         if (device.Config.ProfileId is { } id && Profiles.Profiles.FirstOrDefault(p => p.Id == id) is { } chosen)
         {
             device.Profile = chosen.Clone();
             device.ProfileResolved = true;
-            device.AddLog($"Profil aus den Einstellungen: „{chosen.Name}“");
+            device.AddLog(L.T("Profil aus den Einstellungen: „{0}“", chosen.Name));
         }
 
         var last = Results.LoadLatest(device.Host, null);
         if (last is not null)
-            device.AddLog($"Letzter Lauf vom {last.StartedAt:g} geladen ({last.Results.Count} Ergebnisse" +
-                          (last.IsFinished ? ")." : ", nicht abgeschlossen – kann fortgesetzt werden)."));
+            device.AddLog(L.T("Letzter Lauf vom {0:g} geladen ({1} Ergebnisse", last.StartedAt, last.Results.Count) +
+                          (last.IsFinished ? ")." : L.T(", nicht abgeschlossen – kann fortgesetzt werden).")));
     }
 
     /// <summary>Log-Alarme an Geräteliste und Einstellungen angleichen.</summary>
@@ -256,7 +257,7 @@ public sealed partial class MinerHub : IDisposable
         device.ProfileResolved = true;
         device.Config.ProfileId = profile.Id;
         Config.Save();
-        device.AddLog($"Profil gewählt: „{profile.Name}“ (gespeichert)");
+        device.AddLog(L.T("Profil gewählt: „{0}“ (gespeichert)", profile.Name));
         RaiseDeviceChanged(device);
     }
 
@@ -268,16 +269,16 @@ public sealed partial class MinerHub : IDisposable
         var matched = Profiles.Match(info, asic);
         device.MatchedProfile = matched;
         device.Profile = matched;
-        device.AddLog($"Erkannt: {info.DeviceModel ?? info.AsicModel} ({FirmwareName(info.Firmware)} {info.FirmwareVersion}) → Profil „{matched.Name}“");
+        device.AddLog(L.T("Erkannt: {0} ({1} {2}) → Profil „{3}“", info.DeviceModel ?? info.AsicModel, FirmwareName(info.Firmware), info.FirmwareVersion, matched.Name));
         RaiseDeviceChanged(device);
     }
 
     public static string FirmwareName(FirmwareKind kind) => kind switch
     {
         FirmwareKind.AxeOS => "AxeOS",
-        FirmwareKind.NerdQAxe => "NerdQAxe-Firmware",
-        FirmwareKind.Simulated => "Simulation",
-        _ => "Firmware",
+        FirmwareKind.NerdQAxe => L.T("NerdQAxe-Firmware"),
+        FirmwareKind.Simulated => L.T("Simulation"),
+        _ => L.T("Firmware"),
     };
 
     public static bool IsSimulated(string host) => SimulatedMinerClient.IsSimAddress(host);
@@ -356,7 +357,7 @@ public sealed partial class MinerHub : IDisposable
             catch (OperationCanceledException) { return; }
             if (ct.IsCancellationRequested) return;
             try { await body(); }
-            catch (Exception ex) { RaiseStatus(false, "Interner Fehler: " + ex.Message); }
+            catch (Exception ex) { RaiseStatus(false, L.T("Interner Fehler: ") + ex.Message); }
         }
     }
 
@@ -386,9 +387,9 @@ public sealed partial class MinerHub : IDisposable
         if (!w.Enabled || string.IsNullOrEmpty(w.PinHash))
         {
             WebView.Stop();
-            return w.Enabled ? "Handy-Ansicht: PIN fehlt – nicht gestartet." : "";
+            return w.Enabled ? L.T("Handy-Ansicht: PIN fehlt – nicht gestartet.") : "";
         }
-        if (WebView.IsRunning && WebView.Port == w.Port) return $"Handy-Ansicht: {string.Join(" oder ", WebViewServer.LocalUrls(w.Port))}";
+        if (WebView.IsRunning && WebView.Port == w.Port) return L.T("Handy-Ansicht: {0}", string.Join(" oder ", WebViewServer.LocalUrls(w.Port)));
         // Nur für Tests: BITAXETUNER_WEB_BIND=127.0.0.1 bindet ausschließlich lokal (kein Firewall-Dialog)
         var bind = Environment.GetEnvironmentVariable("BITAXETUNER_WEB_BIND") is { Length: > 0 } b &&
                    System.Net.IPAddress.TryParse(b, out var ip) ? ip : null;
@@ -396,8 +397,8 @@ public sealed partial class MinerHub : IDisposable
         return WebView.IsRunning
             ? bind is not null
                 ? $"Handy-Ansicht (nur lokal, Test): http://{bind}:{w.Port}/"
-                : $"Handy-Ansicht: {string.Join(" oder ", WebViewServer.LocalUrls(w.Port))}"
-            : $"Handy-Ansicht nicht gestartet: {WebView.LastError}";
+                : L.T("Handy-Ansicht: {0}", string.Join(" oder ", WebViewServer.LocalUrls(w.Port)))
+            : L.T("Handy-Ansicht nicht gestartet: {0}", WebView.LastError);
     }
 
     /// <summary>Meldung über den gemeinsamen Benachrichtigungsdienst (mit Sperrzeit je Schlüssel).</summary>

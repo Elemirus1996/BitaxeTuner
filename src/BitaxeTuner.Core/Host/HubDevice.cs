@@ -46,7 +46,8 @@ public sealed class HubDevice
     public DeviceProfile? MatchedProfile { get; internal set; }
     public bool ProfileResolved { get; internal set; }
 
-    public string AutomationStatus { get; internal set; } = "keine Automatik";
+    /// <summary>Zustand der Automatik-Regeln; leer = keine Regel eingeschaltet.</summary>
+    public string AutomationStatus { get; internal set; } = "";
     public string SoakStatus { get; internal set; } = "";
     public bool SoakActive => Config.Soak is not null;
 

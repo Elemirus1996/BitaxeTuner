@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Api;
 
 /// <summary>Herkunft einer Frequenz-/Spannungsänderung (wird in history.db protokolliert).</summary>
@@ -35,15 +36,15 @@ public interface IMinerClient
 
     /// <summary>Bisheriger Log-Puffer des Miners (AxeOS: GET /api/system/logs, Text seit dem letzten Neustart).</summary>
     Task<string> GetLogBufferAsync(CancellationToken ct = default) =>
-        throw new MinerApiException($"{Address}: Log-Puffer wird von diesem Gerät nicht unterstützt");
+        throw new MinerApiException(L.T("{0}: Log-Puffer wird von diesem Gerät nicht unterstützt", Address));
 
     /// <summary>Unveränderte JSON-Antwort von /api/system/info.</summary>
     Task<string> GetRawInfoAsync(CancellationToken ct = default) =>
-        throw new MinerApiException($"{Address}: Rohdaten werden von diesem Gerät nicht unterstützt");
+        throw new MinerApiException(L.T("{0}: Rohdaten werden von diesem Gerät nicht unterstützt", Address));
 
     /// <summary>PATCH /api/system mit beliebigen Feldern.</summary>
     Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default) =>
-        throw new MinerApiException($"{Address}: Einstellungen werden von diesem Gerät nicht unterstützt");
+        throw new MinerApiException(L.T("{0}: Einstellungen werden von diesem Gerät nicht unterstützt", Address));
 }
 
 public sealed class MinerApiException(string message, Exception? inner = null) : Exception(message, inner);

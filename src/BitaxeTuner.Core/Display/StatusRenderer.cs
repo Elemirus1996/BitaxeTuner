@@ -6,6 +6,7 @@ using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Display;
 
@@ -44,7 +45,7 @@ public static partial class StatusRenderer
 {
     public const int Width = 800;
     public const int Height = 480;
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    private static CultureInfo De => L.Culture; // Sprache kann sich zur Laufzeit ändern (Server-Einstellung)
     private static readonly Lazy<FontFamily> Regular = new(() => Load("Regular"));
     private static readonly Lazy<FontFamily> Bold = new(() => Load("Bold"));
 
@@ -55,7 +56,7 @@ public static partial class StatusRenderer
     private static FontFamily Load(string style)
     {
         using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream($"BitaxeTuner.Core.Display.{style}.ttf")
-                      ?? throw new InvalidOperationException("Schrift fehlt in der Programmdatei.");
+                      ?? throw new InvalidOperationException(L.T("Schrift fehlt in der Programmdatei."));
         return new FontCollection().Add(s);
     }
 
@@ -87,8 +88,8 @@ public static partial class StatusRenderer
         var total = FormatHash(m.TotalGh);
         TextRight(ctx, total, Bold.Value, 44, Width - 16, 4, Ink);
         var sub = $"{m.TotalW.ToString("0.0", De)} W" +
-                  (m.EfficiencyJth is { } e ? $" · {e.ToString("0.0", De)} J/TH" : "") +
-                  $" · {m.Online}/{m.Count} online";
+                  (m.EfficiencyJth is { } e ? L.T(" · {0} J/TH", e.ToString("0.0", De)) : "") +
+                  L.T(" · {0}/{1} online", m.Online, m.Count);
         TextRight(ctx, sub, Regular.Value, 22, Width - 16, 56, m.Online < m.Count ? Red : Ink);
         // Temperaturfühler unter dem Titel, jeder für sich (zu warm oder fehlend in Rot)
         if (m.Temps is { Count: > 0 } temps)
@@ -113,10 +114,10 @@ public static partial class StatusRenderer
         // Spaltenköpfe
         const int colHash = 478, colChip = 584, colVr = 688, colFan = Width - 16;
         var small = Regular.Value.CreateFont(17);
-        TextRight(ctx, "Hashrate", small, colHash, 96, Ink);
-        TextRight(ctx, "Chip", small, colChip, 96, Ink);
-        TextRight(ctx, "VR", small, colVr, 96, Ink);
-        TextRight(ctx, "Lüfter", small, colFan, 96, Ink);
+        TextRight(ctx, L.T("Hashrate"), small, colHash, 96, Ink);
+        TextRight(ctx, L.T("Chip"), small, colChip, 96, Ink);
+        TextRight(ctx, L.T("VR"), small, colVr, 96, Ink);
+        TextRight(ctx, L.T("Lüfter"), small, colFan, 96, Ink);
 
         // Miner-Zeilen
         var top = 120;
@@ -133,7 +134,7 @@ public static partial class StatusRenderer
             Text(ctx, Fit(r.Name, nameFont, 300), nameFont, 16, y, r.Online ? Ink : Red);
             if (!r.Online)
             {
-                var why = r.Maintenance ? "Neustart / Tuning …" : "offline" + (r.Error is { Length: > 0 } err ? $" ({err})" : "");
+                var why = r.Maintenance ? L.T("Neustart / Tuning …") : "offline" + (r.Error is { Length: > 0 } err ? $" ({err})" : "");
                 TextRight(ctx, Fit(why, valueFont, 480), valueFont, colFan, y, r.Maintenance ? Ink : Red);
             }
             else
@@ -141,14 +142,14 @@ public static partial class StatusRenderer
                 TextRight(ctx, FormatHash(r.HashGh ?? 0), valueFont, colHash, y, Ink);
                 TextRight(ctx, r.ChipTemp is { } c ? $"{c.ToString("0", De)} °C" : "–", valueFont, colChip, y, r.ChipHot ? Red : Ink);
                 TextRight(ctx, r.VrTemp is { } v ? $"{v.ToString("0", De)} °C" : "–", valueFont, colVr, y, r.VrHot ? Red : Ink);
-                TextRight(ctx, r.FanStalled ? "steht!" : r.FanPercent is { } f ? $"{f} %" : "–", valueFont, colFan, y, r.FanStalled ? Red : Ink);
+                TextRight(ctx, r.FanStalled ? L.T("steht!") : r.FanPercent is { } f ? $"{f} %" : "–", valueFont, colFan, y, r.FanStalled ? Red : Ink);
             }
             if (i < shown.Count - 1) ctx.Fill(Crisp, Ink, new RectangleF(16, top + (i + 1) * rowH - 1, Width - 32, 1));
         }
         if (m.Miners.Count > shown.Count)
-            Text(ctx, $"+ {m.Miners.Count - shown.Count} weitere", small, 16, bottom - 22, Ink);
+            Text(ctx, L.T("+ {0} weitere", m.Miners.Count - shown.Count), small, 16, bottom - 22, Ink);
         if (m.Miners.Count == 0)
-            Text(ctx, "Noch keine Miner eingetragen.", Regular.Value.CreateFont(26), 16, top + 20, Ink);
+            Text(ctx, L.T("Noch keine Miner eingetragen."), Regular.Value.CreateFont(26), 16, top + 20, Ink);
 
         // Warnungen in Rot
         if (m.Alerts.Count > 0)
@@ -166,15 +167,15 @@ public static partial class StatusRenderer
     {
         ctx.Fill(Crisp, Ink, new RectangleF(16, 442, Width - 32, 2));
         var foot = Regular.Value.CreateFont(21);
-        var fanText = "Lüfter: " + m.FanMode;
+        var fanText = L.T("Lüfter: ") + m.FanMode;
         var fanFont = m.FanModeAlert ? Bold.Value.CreateFont(21) : foot;
         Text(ctx, fanText, fanFont, 16, 450, m.FanModeAlert ? Red : Ink);
-        var stand = (m.ServerPaused ? "Server pausiert · " : "") + "Stand " + m.Time.ToString("dd.MM. HH:mm", De);
+        var stand = (m.ServerPaused ? L.T("Server pausiert · ") : "") + L.T("Stand ") + L.Short(m.Time);
         TextRight(ctx, stand, foot, Width - 16, 450, m.ServerPaused ? Red : Ink);
         if (m.PriceCt is { } p)
         {
             // Strompreis zwischen Lüfter und Stand – nur, wenn er ohne Überlappung passt
-            var price = $"Strom {p.ToString("0.0", De)} ct";
+            var price = L.T("Strom {0} ct", p.ToString("0.0", De));
             var left = 16 + TextMeasurer.MeasureSize(fanText, new TextOptions(fanFont)).Width + 28;
             var right = Width - 16 - TextMeasurer.MeasureSize(stand, new TextOptions(foot)).Width - 28;
             var w = TextMeasurer.MeasureSize(price, new TextOptions(foot)).Width;
@@ -213,7 +214,7 @@ public static partial class StatusRenderer
     }
 
     public static string FormatHash(double gh) =>
-        gh >= 1000 ? $"{(gh / 1000).ToString("0.00", De)} TH/s" : $"{gh.ToString("0", De)} GH/s";
+        gh >= 1000 ? L.T("{0} TH/s", (gh / 1000).ToString("0.00", De)) : L.T("{0} GH/s", gh.ToString("0", De));
 
     private static string Fit(string text, Font font, float maxWidth)
     {

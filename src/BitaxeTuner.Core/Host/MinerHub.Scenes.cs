@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Display;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -84,11 +85,11 @@ public sealed partial class MinerHub
         {
             case DisplayScene.BlockFound:
                 st.BlockFoundAcknowledged = true;
-                RaiseStatus(true, $"Blockfund-Anzeige quittiert ({source}).");
+                RaiseStatus(true, L.T("Blockfund-Anzeige quittiert ({0}).", source));
                 break;
             case DisplayScene.Alarm:
                 st.AlarmAcknowledged = AlarmKey(BuildDisplayModel(Options.Clock?.Invoke() ?? DateTime.Now).Alerts);
-                RaiseStatus(true, $"Warnungen auf der Anzeige quittiert ({source}).");
+                RaiseStatus(true, L.T("Warnungen auf der Anzeige quittiert ({0}).", source));
                 break;
             case DisplayScene.BestDiff:
                 st.BestDiffShown = true;
@@ -134,7 +135,7 @@ public sealed partial class MinerHub
         var pages = EnabledPages();
         if (nextPage && s.RotatePages) st.PageIndex++;
         var index = ((st.PageIndex % pages.Count) + pages.Count) % pages.Count;
-        return WithPage(model with { PageLabel = pages.Count > 1 ? $"Seite {index + 1}/{pages.Count}" : null }, pages[index], now);
+        return WithPage(model with { PageLabel = pages.Count > 1 ? L.T("Seite {0}/{1}", index + 1, pages.Count) : null }, pages[index], now);
     }
 
     /// <summary>Nach dem Anzeigen: gezeigte Szene merken, einmalige Anzeigen als gesehen markieren.</summary>
@@ -169,12 +170,12 @@ public sealed partial class MinerHub
             DisplayScene.Alarm => model with
             {
                 Scene = scene,
-                Alerts = model.Alerts.Count > 0 ? model.Alerts : ["Beispiel: Miner offline", "Beispiel: Lüfter K1 steht"],
+                Alerts = model.Alerts.Count > 0 ? model.Alerts : [L.T("Beispiel: Miner offline"), L.T("Beispiel: Lüfter K1 steht")],
             },
             DisplayScene.BestDiff => model with
             {
                 Scene = scene,
-                BestDiff = st.BestDiff ?? new DisplayBestDiff(Devices.FirstOrDefault()?.Title ?? "Bitaxe", "BTC", "845 M", "1,23 G", now),
+                BestDiff = st.BestDiff ?? new DisplayBestDiff(Devices.FirstOrDefault()?.Title ?? "Bitaxe", "BTC", 845.ToString(L.Culture) + " M", 1.23.ToString("0.00", L.Culture) + " G", now),
             },
             _ => WithPage(model, scene, now),
         };

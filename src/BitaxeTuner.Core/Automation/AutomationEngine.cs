@@ -2,6 +2,7 @@ using System.Globalization;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Automation;
 
@@ -94,12 +95,12 @@ public sealed class AutomationEngine
                         st.OriginalFrequency ??= info.FrequencyMhz;
                         st.OverSince = now;
                         st.LastAction = now;
-                        result.Action = new AutomationAction(host, "Temperaturschutz", target, info.CoreVoltageMv,
-                            $"Temperaturschutz: Chip {F(chip)} °C / VR {F(vr)} °C seit {guard.Minutes} min über der Grenze");
+                        result.Action = new AutomationAction(host, L.T("Temperaturschutz"), target, info.CoreVoltageMv,
+                            L.T("Temperaturschutz: Chip {0} °C / VR {1} °C seit {2} min über der Grenze", F(chip), F(vr), guard.Minutes));
                         return result;
                     }
-                    Notice(result, st, host, "Temperaturschutz",
-                        $"Minimum {guard.MinFrequencyMhz} MHz erreicht, trotzdem Chip {F(chip)} °C / VR {F(vr)} °C – bitte Kühlung prüfen.");
+                    Notice(result, st, host, L.T("Temperaturschutz"),
+                        L.T("Minimum {0} MHz erreicht, trotzdem Chip {1} °C / VR {2} °C – bitte Kühlung prüfen.", guard.MinFrequencyMhz, F(chip), F(vr)));
                 }
                 return result; // solange zu heiß, nichts anderes tun
             }
@@ -121,8 +122,8 @@ public sealed class AutomationEngine
                         st.CoolSince = now;
                         st.LastAction = now;
                         if (target >= original) st.OriginalFrequency = null;
-                        result.Action = new AutomationAction(host, "Temperaturschutz", target, info.CoreVoltageMv,
-                            $"Temperaturschutz: seit {guard.RecoverMinutes} min kühl, schrittweise zurück Richtung {original} MHz");
+                        result.Action = new AutomationAction(host, L.T("Temperaturschutz"), target, info.CoreVoltageMv,
+                            L.T("Temperaturschutz: seit {0} min kühl, schrittweise zurück Richtung {1} MHz", guard.RecoverMinutes, original));
                     }
                     return result;
                 }
@@ -144,7 +145,7 @@ public sealed class AutomationEngine
         if (!scheduleOn) return result;
         if (scheduleBlocked)
         {
-            result.Status += " · pausiert (Dauertest)";
+            result.Status += L.T(" · pausiert (Dauertest)");
             return result;
         }
 
@@ -154,11 +155,11 @@ public sealed class AutomationEngine
             var price = _prices?.PriceAt(now.ToUniversalTime());
             if (price is null)
             {
-                Notice(result, st, host, "Strompreis", "Kein aktueller Strompreis verfügbar – Voreinstellung bleibt unverändert.");
+                Notice(result, st, host, L.T("Strompreis"), L.T("Kein aktueller Strompreis verfügbar – Voreinstellung bleibt unverändert."));
                 return result;
             }
             presetName = price <= schedule.ThresholdCt ? schedule.CheapPreset : schedule.ExpensivePreset;
-            result.Status += $" · Preis {F(price.Value, "0.0")} ct/kWh";
+            result.Status += L.T(" · Preis {0} ct/kWh", F(price.Value, "0.0"));
         }
         else
         {
@@ -169,13 +170,13 @@ public sealed class AutomationEngine
         var preset = device.Presets.FirstOrDefault(p => string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
         if (preset is null)
         {
-            Notice(result, st, host, "Zeitplan", $"Voreinstellung „{presetName}“ gibt es nicht.");
+            Notice(result, st, host, L.T("Zeitplan"), L.T("Voreinstellung „{0}“ gibt es nicht.", presetName));
             return result;
         }
         if (profile is not null && (preset.FrequencyMhz < profile.MinFrequencyMhz || preset.FrequencyMhz > profile.MaxFrequencyMhz ||
                                     preset.CoreVoltageMv < profile.MinVoltageMv || preset.CoreVoltageMv > profile.MaxVoltageMv))
         {
-            Notice(result, st, host, "Zeitplan", $"„{preset}“ liegt außerhalb der Grenzen für {profile.Name} – wird nicht gesetzt.");
+            Notice(result, st, host, L.T("Zeitplan"), L.T("„{0}“ liegt außerhalb der Grenzen für {1} – wird nicht gesetzt.", preset, profile.Name));
             return result;
         }
 
@@ -189,15 +190,15 @@ public sealed class AutomationEngine
         if (sinceLast < MinGap) return result;
         if (st.Attempts >= MaxAttemptsPerTarget)
         {
-            Notice(result, st, host, "Zeitplan", $"„{preset.Name}“ wurde {MaxAttemptsPerTarget}× gesetzt, der Miner übernimmt sie nicht – pausiert bis zum nächsten Wechsel.");
+            Notice(result, st, host, L.T("Zeitplan"), L.T("„{0}“ wurde {1}× gesetzt, der Miner übernimmt sie nicht – pausiert bis zum nächsten Wechsel.", preset.Name, MaxAttemptsPerTarget));
             return result;
         }
 
         st.Attempts++;
         st.LastAction = now;
-        result.Action = new AutomationAction(host, schedule.Mode == "price" ? "Strompreis" : "Zeitplan",
+        result.Action = new AutomationAction(host, schedule.Mode == "price" ? L.T("Strompreis") : L.T("Zeitplan"),
             preset.FrequencyMhz, preset.CoreVoltageMv,
-            schedule.Mode == "price" ? $"Strompreis: „{preset.Name}“" : $"Zeitplan: „{preset.Name}“");
+            schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
         return result;
     }
 
@@ -214,16 +215,16 @@ public sealed class AutomationEngine
         var parts = new List<string>();
         if (d.ThermalGuard.Enabled)
             parts.Add(guardOn
-                ? st.OriginalFrequency is { } o ? $"Temperaturschutz aktiv (abgesenkt, ursprünglich {o} MHz)" : "Temperaturschutz bereit"
-                : "Temperaturschutz: Freigabe fehlt");
+                ? st.OriginalFrequency is { } o ? L.T("Temperaturschutz aktiv (abgesenkt, ursprünglich {0} MHz)", o) : L.T("Temperaturschutz bereit")
+                : L.T("Temperaturschutz: Freigabe fehlt"));
         if (d.Schedule.Enabled)
             parts.Add(scheduleOn
-                ? $"{(d.Schedule.Mode == "price" ? "Strompreis-Regel" : "Zeitplan")} aktiv{(st.ScheduleTarget is { } t ? $" (Ziel „{t}“)" : "")}"
-                : $"{(d.Schedule.Mode == "price" ? "Strompreis-Regel" : "Zeitplan")}: Freigabe fehlt");
-        return parts.Count == 0 ? "keine Automatik" : string.Join(" · ", parts);
+                ? L.T("{0} aktiv{1}", (d.Schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan")), (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))
+                : L.T("{0}: Freigabe fehlt", (d.Schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan"))));
+        return string.Join(" · ", parts); // leer = keine Automatik
     }
 
-    private static string F(double v, string format = "0.0") => v.ToString(format, CultureInfo.GetCultureInfo("de-DE"));
+    private static string F(double v, string format = "0.0") => v.ToString(format, L.Culture);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -261,22 +262,22 @@ public sealed class SoakMonitor
     {
         if (now >= soak.Until)
             return new SoakResult(SoakOutcome.Passed,
-                $"Dauertest bestanden: {soak.FrequencyMhz} MHz / {soak.CoreVoltageMv} mV lief {(soak.Until - soak.StartedAt).TotalHours:0} h stabil" +
-                (CurrentRatio is { } r ? $" (zuletzt {r:P1} der Soll-Hashrate)." : "."));
+                L.T("Dauertest bestanden: {0} MHz / {1} mV lief {2:0} h stabil", soak.FrequencyMhz, soak.CoreVoltageMv, (soak.Until - soak.StartedAt).TotalHours) +
+                (CurrentRatio is { } r ? L.T(" (zuletzt {0:P1} der Soll-Hashrate).", r) : "."));
 
         if (info is null)
         {
             if (maintenance) return Running(soak, now);
             _offlineSince ??= now;
             return now - _offlineSince > TimeSpan.FromMinutes(10)
-                ? new SoakResult(SoakOutcome.Failed, "Miner seit über 10 min nicht erreichbar.")
+                ? new SoakResult(SoakOutcome.Failed, L.T("Miner seit über 10 min nicht erreichbar."))
                 : Running(soak, now);
         }
         _offlineSince = null;
 
         if (info.FrequencyMhz != soak.FrequencyMhz || info.CoreVoltageMv != soak.CoreVoltageMv)
             return new SoakResult(SoakOutcome.Aborted,
-                $"Einstellung wurde geändert ({info.FrequencyMhz} MHz / {info.CoreVoltageMv} mV) – Dauertest beendet.");
+                L.T("Einstellung wurde geändert ({0} MHz / {1} mV) – Dauertest beendet.", info.FrequencyMhz, info.CoreVoltageMv));
 
         if (profile is not null)
         {
@@ -284,7 +285,7 @@ public sealed class SoakMonitor
             _hotSamples = hot ? _hotSamples + 1 : 0;
             if (_hotSamples >= 3)
                 return new SoakResult(SoakOutcome.Failed,
-                    $"Temperatur über der Grenze (Chip {info.MaxChipTempC:0.0} °C / VR {info.VrTempC:0} °C, Grenzen {profile.MaxChipTempC:0}/{profile.MaxVrTempC:0} °C).");
+                    L.T("Temperatur über der Grenze (Chip {0:0.0} °C / VR {1:0} °C, Grenzen {2:0}/{3:0} °C).", info.MaxChipTempC, info.VrTempC, profile.MaxChipTempC, profile.MaxVrTempC));
         }
 
         if (now - soak.StartedAt < Warmup) return Running(soak, now);
@@ -298,11 +299,11 @@ public sealed class SoakMonitor
         CurrentRatio = exp.Count > 0 ? exp.Average(s => s.Hash) / exp.Average(s => s.Expected) : null;
 
         if (windowFull && CurrentRatio is { } ratio && ratio < RatioThreshold)
-            return new SoakResult(SoakOutcome.Failed, $"Hashrate nur {ratio:P1} der Soll-Hashrate (Ø 15 min, Grenze {RatioThreshold:P0}).");
+            return new SoakResult(SoakOutcome.Failed, L.T("Hashrate nur {0:P1} der Soll-Hashrate (Ø 15 min, Grenze {1:P0}).", ratio, RatioThreshold));
 
         var errors = _samples.Where(s => s.Error.HasValue).Select(s => s.Error!.Value).ToList();
         if (windowFull && errors.Count > 0 && errors.Average() > MaxErrorPercent)
-            return new SoakResult(SoakOutcome.Failed, $"Fehlerrate Ø {errors.Average():0.00} % (Grenze {MaxErrorPercent:0} %).");
+            return new SoakResult(SoakOutcome.Failed, L.T("Fehlerrate Ø {0:0.00} % (Grenze {1:0} %).", errors.Average(), MaxErrorPercent));
 
         return Running(soak, now);
     }
@@ -310,9 +311,9 @@ public sealed class SoakMonitor
     private SoakResult Running(SoakTestState soak, DateTime now)
     {
         var done = (now - soak.StartedAt).TotalMinutes / Math.Max(1, (soak.Until - soak.StartedAt).TotalMinutes);
-        var phase = now - soak.StartedAt < Warmup ? "Anlaufphase" : CurrentRatio is { } r ? $"{r:P1} der Soll-Hashrate" : "misst";
+        var phase = now - soak.StartedAt < Warmup ? L.T("Anlaufphase") : CurrentRatio is { } r ? L.T("{0:P1} der Soll-Hashrate", r) : L.T("misst");
         return new SoakResult(SoakOutcome.Running,
-            $"Dauertest {soak.FrequencyMhz} MHz / {soak.CoreVoltageMv} mV · {Math.Clamp(done, 0, 1):P0} · {phase} · bis {soak.Until:dd.MM. HH:mm}");
+            L.T("Dauertest {0} MHz / {1} mV · {2:P0} · {3} · bis {4}", soak.FrequencyMhz, soak.CoreVoltageMv, Math.Clamp(done, 0, 1), phase, L.Short(soak.Until)));
     }
 
     /// <summary>Nächstniedrigere stabile Einstellung aus Benchmark-Ergebnissen (höchste Frequenz darunter, niedrigste Spannung).</summary>

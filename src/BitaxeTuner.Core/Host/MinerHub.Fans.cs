@@ -1,6 +1,7 @@
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Fans;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -121,8 +122,8 @@ public sealed partial class MinerHub
                 }
                 catch (Exception ex)
                 {
-                    _fanError = "Verbindung zum Pico verloren: " + ex.Message;
-                    RaiseStatus(false, "Lüfter: " + _fanError);
+                    _fanError = L.T("Verbindung zum Pico verloren: ") + ex.Message;
+                    RaiseStatus(false, L.T("Lüfter: ") + _fanError);
                     CloseFanDevice();
                     _fanNextConnect = now.AddSeconds(5);
                 }
@@ -165,7 +166,7 @@ public sealed partial class MinerHub
             Config.Fans.Sensors.Add(new TempSensorSettings
             {
                 Id = r.Id,
-                Name = $"Fühler {Config.Fans.Sensors.Count + 1}",
+                Name = L.T("Fühler {0}", Config.Fans.Sensors.Count + 1),
                 WarnTemp = Config.Fans.CaseTempWarn,
             });
             added = true;
@@ -173,7 +174,7 @@ public sealed partial class MinerHub
         if (added)
         {
             Config.Save();
-            RaiseStatus(true, "Neuer Temperaturfühler erkannt – Name und Warnschwelle unter „Lüfter & Anzeige“ festlegen.");
+            RaiseStatus(true, L.T("Neuer Temperaturfühler erkannt – Name und Warnschwelle unter „Lüfter & Anzeige“ festlegen."));
         }
     }
 
@@ -191,7 +192,7 @@ public sealed partial class MinerHub
         {
             n++;
             if (Current(id) is not { } t) continue;
-            list.Add(new TempSensorStatus(id, $"Fühler {n}", t, settings.CaseTempWarn, t >= settings.CaseTempWarn, true, true));
+            list.Add(new TempSensorStatus(id, L.T("Fühler {0}", n), t, settings.CaseTempWarn, t >= settings.CaseTempWarn, true, true));
         }
         return list;
     }
@@ -210,18 +211,18 @@ public sealed partial class MinerHub
     private void CheckSensorAlerts(IReadOnlyList<TempSensorStatus> sensors, DateTime now)
     {
         if (!Config.Notifications.OnOverheat) return;
-        var de = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+        var de = L.Culture;
         foreach (var s in sensors)
         {
             if (s.Hot)
-                SendAlert(new Alert($"temp-hot:{s.Id}", $"{s.Name} zu warm", $"{s.Name}: {s.Temp!.Value.ToString("0.0", de)} °C (Grenze {s.WarnTemp.ToString("0.#", de)} °C).",
+                SendAlert(new Alert($"temp-hot:{s.Id}", L.T("{0} zu warm", s.Name), L.T("{0}: {1} °C (Grenze {2} °C).", s.Name, s.Temp!.Value.ToString("0.0", de), s.WarnTemp.ToString("0.#", de)),
                     NotifyPriority.High, TimeSpan.FromMinutes(30)));
             // Fühler fehlt, obwohl der Pico seit 2 Minuten verbunden ist
             else if (s.Temp is null && !s.Id.StartsWith('#') && _fanConnectedSince is { } since && now - since >= TimeSpan.FromMinutes(2)
                      && (!_sensorSeen.TryGetValue(s.Id, out var seen) || now - seen.Seen >= TimeSpan.FromMinutes(2)))
-                SendAlert(new Alert($"temp-missing:{s.Id}", $"Temperaturfühler {s.Name} fehlt",
-                    $"{s.Name} meldet keinen Wert. Kabel prüfen – oder den Fühler unter „Lüfter & Anzeige“ entfernen." +
-                    (s.CaseFans ? " Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“." : ""),
+                SendAlert(new Alert($"temp-missing:{s.Id}", L.T("Temperaturfühler {0} fehlt", s.Name),
+                    L.T("{0} meldet keinen Wert. Kabel prüfen – oder den Fühler unter „Lüfter & Anzeige“ entfernen.", s.Name) +
+                    (s.CaseFans ? L.T(" Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“.") : ""),
                     NotifyPriority.High, TimeSpan.FromHours(6)));
         }
     }
@@ -231,7 +232,7 @@ public sealed partial class MinerHub
         if (Options.FanDeviceFactory is { } factory) return factory(port);
         if (port == "sim") return new SimulatedFanDevice(); // Vorführung/Test ohne Hardware
         var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
-        if (candidates.Count == 0) throw new IOException("Kein Pico gefunden (USB-Kabel? Datenkabel statt Ladekabel?).");
+        if (candidates.Count == 0) throw new IOException(L.T("Kein Pico gefunden (USB-Kabel? Datenkabel statt Ladekabel?)."));
         Exception? last = null;
         foreach (var name in candidates)
         {
@@ -239,7 +240,7 @@ public sealed partial class MinerHub
             try
             {
                 io = new SerialLineTransport(name);
-                return PicoFanDevice.Connect(io, name, msg => RaiseStatus(true, "Lüfter: " + msg), forceInstall);
+                return PicoFanDevice.Connect(io, name, msg => RaiseStatus(true, L.T("Lüfter: ") + msg), forceInstall);
             }
             catch (Exception ex)
             {
@@ -248,8 +249,8 @@ public sealed partial class MinerHub
             }
         }
         throw new IOException(last is UnauthorizedAccessException
-            ? "Kein Zugriff auf den seriellen Port (Linux: Benutzer in Gruppe „dialout“)."
-            : last?.Message ?? "Pico nicht erreichbar.");
+            ? L.T("Kein Zugriff auf den seriellen Port (Linux: Benutzer in Gruppe „dialout“).")
+            : last?.Message ?? L.T("Pico nicht erreichbar."));
     }
 
     /// <summary>„Lüfter steht“: Soll ≥ 20 %, Drehzahlsignal vorhanden, aber 0 U/min in 3 Messungen nach 10 s Anlaufzeit.</summary>
@@ -266,7 +267,7 @@ public sealed partial class MinerHub
         if (stalled && Config.Notifications.OnOverheat)
         {
             var name = c.Name.Length > 0 ? c.Name : DefaultFanName(c);
-            SendAlert(new Alert($"fanstall:{t.Channel}", $"Lüfter K{t.Channel} steht", $"{name}: Soll {t.Percent} %, aber keine Drehzahl. Kabel und Lüfter prüfen.",
+            SendAlert(new Alert($"fanstall:{t.Channel}", L.T("Lüfter K{0} steht", t.Channel), L.T("{0}: Soll {1} %, aber keine Drehzahl. Kabel und Lüfter prüfen.", name, t.Percent),
                 NotifyPriority.High, TimeSpan.FromHours(6)));
         }
         return stalled;
@@ -274,8 +275,8 @@ public sealed partial class MinerHub
 
     private string DefaultFanName(FanChannelSettings c) => c.Role switch
     {
-        "miner" => "VR " + (Device(c.MinerHost ?? "")?.Title ?? c.MinerHost ?? "?"),
-        "case" => "Gehäuse",
+        "miner" => L.T("VR ") + (Device(c.MinerHost ?? "")?.Title ?? c.MinerHost ?? "?"),
+        "case" => L.T("Gehäuse"),
         _ => $"K{c.Channel}",
     };
 
@@ -287,9 +288,9 @@ public sealed partial class MinerHub
             var a = before.Channel(ch);
             var b = after.Channel(ch);
             if (b.Role != "miner" || Device(b.MinerHost ?? "") is not { } device) continue;
-            if (a.Role != b.Role || a.MinerHost != b.MinerHost) device.AddLog($"Lüfter K{ch} zugeordnet ({(b.Mode == "manual" ? $"manuell {b.ManualPercent} %" : "Automatik")}).");
-            else if (a.Mode != b.Mode) device.AddLog($"Lüfter K{ch}: {(a.Mode == "manual" ? "Manuell" : "Automatik")} → {(b.Mode == "manual" ? $"Manuell {b.ManualPercent} %" : "Automatik")}");
-            else if (b.Mode == "manual" && a.ManualPercent != b.ManualPercent) device.AddLog($"Lüfter K{ch}: manuell {a.ManualPercent} % → {b.ManualPercent} %");
+            if (a.Role != b.Role || a.MinerHost != b.MinerHost) device.AddLog(L.T("Lüfter K{0} zugeordnet ({1}).", ch, (b.Mode == "manual" ? L.T("manuell {0} %", b.ManualPercent) : L.T("Automatik"))));
+            else if (a.Mode != b.Mode) device.AddLog(L.T("Lüfter K{0}: {1} → {2}", ch, (a.Mode == "manual" ? L.T("Manuell") : L.T("Automatik")), (b.Mode == "manual" ? L.T("Manuell {0} %", b.ManualPercent) : L.T("Automatik"))));
+            else if (b.Mode == "manual" && a.ManualPercent != b.ManualPercent) device.AddLog(L.T("Lüfter K{0}: manuell {1} % → {2} %", ch, a.ManualPercent, b.ManualPercent));
         }
     }
 }

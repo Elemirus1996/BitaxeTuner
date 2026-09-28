@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Tax.Services;
 
@@ -43,18 +44,18 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         atUtc = DateTime.SpecifyKind(atUtc, DateTimeKind.Utc);
 
         if (DateTime.UtcNow - atUtc > MaxAge)
-            return (null, "Älter als 365 Tage – CoinGecko liefert ohne Bezahl-Plan keine Daten, bitte Kurs manuell eintragen.");
+            return (null, L.T("Älter als 365 Tage – CoinGecko liefert ohne Bezahl-Plan keine Daten, bitte Kurs manuell eintragen."));
 
         try
         {
             var quote = await FromRangeAsync(coin, atUtc, ct) ?? await FromHistoryAsync(coin, atUtc, ct);
             if (quote is null)
-                return (null, "CoinGecko lieferte keinen Kurs – wird beim nächsten Durchlauf erneut versucht.");
+                return (null, L.T("CoinGecko lieferte keinen Kurs – wird beim nächsten Durchlauf erneut versucht."));
             return (quote, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            return (null, $"Kursabfrage fehlgeschlagen ({ex.Message}) – wird erneut versucht.");
+            return (null, L.T("Kursabfrage fehlgeschlagen ({0}) – wird erneut versucht.", ex.Message));
         }
     }
 
@@ -116,7 +117,7 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
             TryNumber(eur, out var value))
         {
             return new PriceQuote(value, atUtc.Date,
-                $"CoinGecko Tagesschnappschuss 00:00 UTC ({atUtc:dd.MM.yyyy}), Rückfallwert");
+                L.T("CoinGecko Tagesschnappschuss 00:00 UTC ({0:d}), Rückfallwert", atUtc));
         }
 
         return null;

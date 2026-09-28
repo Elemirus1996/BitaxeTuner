@@ -4,6 +4,7 @@ using BitaxeTuner.Core.Backup;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Transfer;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -61,7 +62,7 @@ public sealed partial class MinerHub
     {
         var s = Config.Backup;
         var list = new List<IBackupTarget>();
-        if (s.Folder.Enabled && s.Folder.Path.Trim() is { Length: > 0 } path) list.Add(new FolderBackupTarget("Ordner/USB", path));
+        if (s.Folder.Enabled && s.Folder.Path.Trim() is { Length: > 0 } path) list.Add(new FolderBackupTarget(L.T("Ordner/USB"), path));
         if (s.Smb.Enabled) list.Add(new SmbBackupTarget(s.Smb, Secrets.Get(SecretStore.SmbPassword) ?? ""));
         return list;
     }
@@ -80,7 +81,7 @@ public sealed partial class MinerHub
     /// <summary>Sicherung jetzt erstellen und verteilen (auch „Jetzt sichern“).</summary>
     public async Task<BackupStatus> RunBackupAsync(DateTime now, CancellationToken ct = default)
     {
-        if (_backupBusy) throw new InvalidOperationException("Eine Sicherung läuft bereits.");
+        if (_backupBusy) throw new InvalidOperationException(L.T("Eine Sicherung läuft bereits."));
         _backupBusy = true;
         var s = Config.Backup;
         var results = new List<BackupTargetStatus>();
@@ -118,8 +119,8 @@ public sealed partial class MinerHub
             foreach (var old in BackupNames.Surplus(LocalBackups().Select(f => f.Name), s.LocalKeep))
                 File.Delete(Path.Combine(BackupDirectory, old));
             var size = new FileInfo(local).Length / 1024.0 / 1024.0;
-            results.Add(new BackupTargetStatus("Datenordner", true,
-                $"{size.ToString("0.0", CultureInfo.GetCultureInfo("de-DE"))} MB, {manifest.HistoryRows.GetValueOrDefault("samples"):N0} Verlaufswerte, geprüft"));
+            results.Add(new BackupTargetStatus(L.T("Datenordner"), true,
+                L.T("{0} MB, {1:N0} Verlaufswerte, geprüft", size.ToString("0.0", L.Culture), manifest.HistoryRows.GetValueOrDefault("samples"))));
 
             foreach (var target in BackupTargets())
             {
@@ -132,21 +133,21 @@ public sealed partial class MinerHub
                         await target.DeleteAsync(old, ct);
                         removed++;
                     }
-                    results.Add(new BackupTargetStatus(target.Name, true, removed > 0 ? $"abgelegt, {removed} alte gelöscht" : "abgelegt und geprüft"));
+                    results.Add(new BackupTargetStatus(target.Name, true, removed > 0 ? L.T("abgelegt, {0} alte gelöscht", removed) : L.T("abgelegt und geprüft")));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     ok = false;
                     results.Add(new BackupTargetStatus(target.Name, false, ex.Message));
-                    SendAlert(new Alert($"backup-failed:{target.Name}", "Sicherung fehlgeschlagen", $"{target.Name}: {ex.Message}", NotifyPriority.High, TimeSpan.FromHours(20)));
+                    SendAlert(new Alert($"backup-failed:{target.Name}", L.T("Sicherung fehlgeschlagen"), $"{target.Name}: {ex.Message}", NotifyPriority.High, TimeSpan.FromHours(20)));
                 }
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             ok = false;
-            results.Add(new BackupTargetStatus("Datenordner", false, ex.Message));
-            SendAlert(new Alert("backup-failed:local", "Sicherung fehlgeschlagen", ex.Message, NotifyPriority.High, TimeSpan.FromHours(20)));
+            results.Add(new BackupTargetStatus(L.T("Datenordner"), false, ex.Message));
+            SendAlert(new Alert("backup-failed:local", L.T("Sicherung fehlgeschlagen"), ex.Message, NotifyPriority.High, TimeSpan.FromHours(20)));
             name = null;
         }
         finally
@@ -155,7 +156,7 @@ public sealed partial class MinerHub
             _backupBusy = false;
         }
         BackupStatus = new BackupStatus(now, ok, name, results, false);
-        RaiseStatus(ok, ok ? $"Sicherung erstellt: {name}" : "Sicherung mit Fehlern – siehe Einstellungen → Sicherung.");
+        RaiseStatus(ok, ok ? L.T("Sicherung erstellt: {0}", name) : L.T("Sicherung mit Fehlern – siehe Einstellungen → Sicherung."));
         return BackupStatus;
     }
 }

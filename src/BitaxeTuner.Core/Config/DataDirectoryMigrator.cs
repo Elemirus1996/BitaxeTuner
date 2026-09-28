@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Config;
 
@@ -35,14 +36,14 @@ public static class DataDirectoryMigrator
     {
         var log = new List<string>();
         if (Environment.GetEnvironmentVariable(DataPaths.EnvironmentVariable) is { Length: > 0 })
-            return new Result(false, $"Umzug nicht möglich, solange {DataPaths.EnvironmentVariable} gesetzt ist.", log);
+            return new Result(false, L.T("Umzug nicht möglich, solange {0} gesetzt ist.", DataPaths.EnvironmentVariable), log);
 
         var src = Path.GetFullPath(sourceDirectory).TrimEnd('\\');
         var dst = Path.GetFullPath(targetDirectory).TrimEnd('\\');
         if (string.Equals(src, dst, StringComparison.OrdinalIgnoreCase))
-            return new Result(false, "Quelle und Ziel sind identisch.", log);
+            return new Result(false, L.T("Quelle und Ziel sind identisch."), log);
         if (dst.StartsWith(src + "\\", StringComparison.OrdinalIgnoreCase))
-            return new Result(false, "Das Ziel darf nicht innerhalb des aktuellen Datenordners liegen.", log);
+            return new Result(false, L.T("Das Ziel darf nicht innerhalb des aktuellen Datenordners liegen."), log);
 
         var files = FilesToCopy(src).ToList();
         var targets = files.Select(f => Path.Combine(dst, Path.GetRelativePath(src, f))).ToList();
@@ -52,7 +53,7 @@ public static class DataDirectoryMigrator
         var conflicts = targets.Where(File.Exists).ToList();
         if (File.Exists(dbTarget) || File.Exists(dbTarget + "-wal")) conflicts.Add(dbTarget);
         if (conflicts.Count > 0)
-            return new Result(false, "Im Ziel liegen bereits gleichnamige Dateien – nichts wurde verändert:\n" +
+            return new Result(false, L.T("Im Ziel liegen bereits gleichnamige Dateien – nichts wurde verändert:\n") +
                                      string.Join("\n", conflicts.Take(10)), log);
 
         try
@@ -71,25 +72,25 @@ public static class DataDirectoryMigrator
             {
                 expectedRows = history.CountRows();
                 history.BackupTo(dbTarget);
-                log.Add("history.db über die SQLite-Backup-API kopiert");
+                log.Add(L.T("history.db über die SQLite-Backup-API kopiert"));
             }
 
             // 3. Prüfen
             for (var i = 0; i < files.Count; i++)
             {
                 if (!HashEquals(files[i], targets[i]))
-                    return new Result(false, $"Prüfsumme weicht ab: {targets[i]}. Es wurde nicht umgeschaltet.", log);
+                    return new Result(false, L.T("Prüfsumme weicht ab: {0}. Es wurde nicht umgeschaltet.", targets[i]), log);
             }
-            log.Add($"{files.Count} Datei(en) per SHA-256 geprüft");
+            log.Add(L.T("{0} Datei(en) per SHA-256 geprüft", files.Count));
 
             if (expectedRows is not null)
             {
                 var (ok, rows) = HistoryStore.Verify(dbTarget);
-                if (!ok) return new Result(false, "integrity_check der kopierten history.db fehlgeschlagen. Es wurde nicht umgeschaltet.", log);
+                if (!ok) return new Result(false, L.T("integrity_check der kopierten history.db fehlgeschlagen. Es wurde nicht umgeschaltet."), log);
                 foreach (var (table, count) in expectedRows)
                 {
                     if (!rows.TryGetValue(table, out var copied) || copied != count)
-                        return new Result(false, $"Zeilenzahl in {table} weicht ab ({count} → {copied}). Es wurde nicht umgeschaltet.", log);
+                        return new Result(false, L.T("Zeilenzahl in {0} weicht ab ({1} → {2}). Es wurde nicht umgeschaltet.", table, count, copied), log);
                 }
                 log.Add("history.db: integrity_check ok, Zeilenzahlen identisch");
             }
@@ -102,13 +103,13 @@ public static class DataDirectoryMigrator
             log.Add($"Datenordner umgeschaltet: {bootstrapFile}");
 
             File.WriteAllText(Path.Combine(src, "UMGEZOGEN.txt"),
-                $"Die Daten wurden am {DateTime.Now:dd.MM.yyyy HH:mm} nach {dst} kopiert und dort weiterverwendet.\r\n" +
-                "Dieser Ordner wurde nicht verändert und kann als Sicherung behalten werden.\r\n");
-            return new Result(true, $"Umzug nach {dst} abgeschlossen. Die App startet jetzt neu.", log);
+                L.T("Die Daten wurden am {0:g} nach {1} kopiert und dort weiterverwendet.\r\n", DateTime.Now, dst) +
+                L.T("Dieser Ordner wurde nicht verändert und kann als Sicherung behalten werden.\r\n"));
+            return new Result(true, L.T("Umzug nach {0} abgeschlossen. Die App startet jetzt neu.", dst), log);
         }
         catch (Exception ex)
         {
-            return new Result(false, $"Umzug abgebrochen: {ex.Message}. Es wurde nicht umgeschaltet, der alte Ordner ist unverändert.", log);
+            return new Result(false, L.T("Umzug abgebrochen: {0}. Es wurde nicht umgeschaltet, der alte Ordner ist unverändert.", ex.Message), log);
         }
     }
 

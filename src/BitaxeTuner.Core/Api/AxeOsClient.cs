@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Api;
 
@@ -106,7 +107,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         {
             using var resp = await http.GetAsync("api/system/logs", ct).ConfigureAwait(false);
             if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-                throw new MinerApiException($"{Address}: Diese Firmware bietet keinen Log-Puffer (/api/system/logs)");
+                throw new MinerApiException(L.T("{0}: Diese Firmware bietet keinen Log-Puffer (/api/system/logs)", Address));
             if (!resp.IsSuccessStatusCode)
                 throw new MinerApiException($"{Address}: GET /api/system/logs lieferte {(int)resp.StatusCode}");
             var bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
@@ -114,7 +115,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            throw new MinerApiException($"{Address}: Log-Puffer nicht abrufbar – {ex.Message}", ex);
+            throw new MinerApiException(L.T("{0}: Log-Puffer nicht abrufbar – {1}", Address, ex.Message), ex);
         }
     }
 
@@ -152,7 +153,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException)
         {
             // Keine Verbindung aufgebaut → der Neustart wurde nicht ausgelöst.
-            throw new MinerApiException($"{Address}: Neustart nicht möglich – keine Verbindung", ex);
+            throw new MinerApiException(L.T("{0}: Neustart nicht möglich – keine Verbindung", Address), ex);
         }
         catch (HttpRequestException)
         {
@@ -160,7 +161,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new MinerApiException($"{Address}: Neustart – Zeitüberschreitung", ex);
+            throw new MinerApiException(L.T("{0}: Neustart – Zeitüberschreitung", Address), ex);
         }
     }
 
@@ -174,12 +175,12 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             if (!resp.IsSuccessStatusCode)
             {
                 var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                throw new MinerApiException($"{Address}: PATCH /api/system fehlgeschlagen ({(int)resp.StatusCode}) {text}");
+                throw new MinerApiException(L.T("{0}: PATCH /api/system fehlgeschlagen ({1}) {2}", Address, (int)resp.StatusCode, text));
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            throw new MinerApiException($"{Address}: Einstellungen konnten nicht gesendet werden – {ex.Message}", ex);
+            throw new MinerApiException(L.T("{0}: Einstellungen konnten nicht gesendet werden – {1}", Address, ex.Message), ex);
         }
     }
 
@@ -195,7 +196,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            throw new MinerApiException($"{Address}: nicht erreichbar – {ex.Message}", ex);
+            throw new MinerApiException(L.T("{0}: nicht erreichbar – {1}", Address, ex.Message), ex);
         }
     }
 

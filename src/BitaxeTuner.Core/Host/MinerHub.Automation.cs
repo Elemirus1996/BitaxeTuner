@@ -3,6 +3,7 @@ using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -71,20 +72,20 @@ public sealed partial class MinerHub
         {
             // Ein Dauertest misst genau diese Einstellung – ein Eingriff beendet ihn mit Begründung
             if (device.Config.Soak is { } soak && a.Rule == "Temperaturschutz")
-                FinishSoak(device, soak, new SoakResult(SoakOutcome.Failed, $"Temperaturschutz musste eingreifen ({a.Reason})."));
+                FinishSoak(device, soak, new SoakResult(SoakOutcome.Failed, L.T("Temperaturschutz musste eingreifen ({0}).", a.Reason)));
 
             await device.Connection.ApplySettingsAsync(a.FrequencyMhz, a.CoreVoltageMv, TuningSource.Automatic, a.Reason);
             if (Config.RestartAfterApply) await device.Connection.RestartAsync();
 
-            var text = $"{before.FrequencyMhz}→{a.FrequencyMhz} MHz / {before.CoreVoltageMv}→{a.CoreVoltageMv} mV – {a.Reason}";
-            device.AddLog($"Automatik: {text}");
+            var text = L.T("{0}→{1} MHz / {2}→{3} mV – {4}", before.FrequencyMhz, a.FrequencyMhz, before.CoreVoltageMv, a.CoreVoltageMv, a.Reason);
+            device.AddLog(L.T("Automatik: {0}", text));
             if (Config.Notifications.OnMaintenance)
                 SendAlert(new Alert($"auto:{device.Host}:{a.FrequencyMhz}:{a.CoreVoltageMv}", $"{device.Title}: {a.Rule}", text,
                     a.Rule == "Temperaturschutz" ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1)));
         }
         catch (Exception ex)
         {
-            device.AddLog($"Automatik fehlgeschlagen ({a.Rule}): {ex.Message}");
+            device.AddLog(L.T("Automatik fehlgeschlagen ({0}): {1}", a.Rule, ex.Message));
         }
         finally
         {
@@ -105,7 +106,7 @@ public sealed partial class MinerHub
             else if (now - pending.Since > TimeSpan.FromMinutes(30))
             {
                 device.PendingSoak = null;
-                device.AddLog("Geplanter Dauertest nicht gestartet: Miner war 30 min nach der Änderung nicht bereit.");
+                device.AddLog(L.T("Geplanter Dauertest nicht gestartet: Miner war 30 min nach der Änderung nicht bereit."));
             }
         }
         if (device.Config.Soak is not { } soak)
@@ -140,8 +141,8 @@ public sealed partial class MinerHub
         device.SoakStatus = r.Message;
         device.AddLog(r.Message);
         if (Config.Notifications.OnMaintenance)
-            SendAlert(new Alert($"soak:{device.Host}:{soak.StartedAt:O}", $"{device.Title}: Dauertest " +
-                (r.Outcome == SoakOutcome.Passed ? "bestanden" : r.Outcome == SoakOutcome.Failed ? "fehlgeschlagen" : "beendet"),
+            SendAlert(new Alert($"soak:{device.Host}:{soak.StartedAt:O}", L.T("{0}: Dauertest ", device.Title) +
+                (r.Outcome == SoakOutcome.Passed ? L.T("bestanden") : r.Outcome == SoakOutcome.Failed ? L.T("fehlgeschlagen") : L.T("beendet")),
                 r.Message, r.Outcome == SoakOutcome.Failed ? NotifyPriority.High : NotifyPriority.Normal, TimeSpan.FromDays(1)));
 
         SoakSuggestion? suggestion = null;
@@ -150,9 +151,9 @@ public sealed partial class MinerHub
             var results = Benchmarks.LatestSession(device)?.Results ?? [];
             if (SoakMonitor.SuggestLower(results, soak.FrequencyMhz) is { } s)
                 suggestion = new SoakSuggestion(s.Frequency, s.Voltage,
-                    $"Dauertest fehlgeschlagen: {r.Message}\n\nVorschlag: nächstniedrigere stabile Einstellung aus dem letzten Benchmark.");
+                    L.T("Dauertest fehlgeschlagen: {0}\n\nVorschlag: nächstniedrigere stabile Einstellung aus dem letzten Benchmark.", r.Message));
             else
-                device.AddLog("Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz.");
+                device.AddLog(L.T("Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz."));
         }
         device.PendingSuggestion = suggestion;
         RaiseDeviceChanged(device);
@@ -190,18 +191,18 @@ public sealed partial class MinerHub
                 efficiency = i is { hashRate: > 1 } ? i.power / (i.hashRate / 1000.0) : (double?)null,
                 frequency = (int)(i?.frequency ?? 0),
                 voltage = (int)(i?.coreVoltage ?? 0),
-                pool = i is null ? "" : (i.isUsingFallbackStratum != 0 ? "Fallback-Pool" : "Primär-Pool") +
-                                        (i.responseTime > 0 ? $" · {i.responseTime.ToString("0", De)} ms" : ""),
+                pool = i is null ? "" : (i.isUsingFallbackStratum != 0 ? L.T("Fallback-Pool") : L.T("Primär-Pool")) +
+                                        (i.responseTime > 0 ? L.T(" · {0} ms", i.responseTime.ToString("0", De)) : ""),
                 history = state.History.TakeLast(60).Select(s => Math.Round(s.HashRateGh, 1)).ToArray(),
-                lastTuning = last is null ? null : $"{last.Time.ToString("dd.MM. HH:mm", De)} {last.SourceText}: {last.ChangeText}",
-                automation = device.AutomationStatus == "keine Automatik" ? null : device.AutomationStatus,
+                lastTuning = last is null ? null : $"{L.Short(last.Time)} {last.SourceText}: {last.ChangeText}",
+                automation = device.AutomationStatus.Length == 0 ? null : device.AutomationStatus,
                 soak = device.Config.Soak is null ? null : device.SoakStatus,
             });
         }
         var price = Prices.PriceAt(now.ToUniversalTime());
         return JsonSerializer.Serialize(new
         {
-            time = now.ToString("dd.MM.yyyy HH:mm:ss", De),
+            time = now.ToString("G", De),
             total = new
             {
                 hashrate = hash,

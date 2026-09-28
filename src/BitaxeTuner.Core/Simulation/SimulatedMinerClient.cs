@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Simulation;
 
@@ -58,7 +59,7 @@ public sealed class SimulatedMinerClient : IMinerClient
     public Task<MinerInfo> GetInfoAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (Offline) throw new MinerApiException($"{Address}: nicht erreichbar (simuliert)");
+        if (Offline) throw new MinerApiException(L.T("{0}: nicht erreichbar (simuliert)", Address));
         lock (_lock)
         {
             var count = Math.Max(1, _profile.AsicCount);
@@ -121,7 +122,7 @@ public sealed class SimulatedMinerClient : IMinerClient
 
     public Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, TuningSource source = TuningSource.Manual, CancellationToken ct = default)
     {
-        if (Offline) throw new MinerApiException($"{Address}: nicht erreichbar (simuliert)");
+        if (Offline) throw new MinerApiException(L.T("{0}: nicht erreichbar (simuliert)", Address));
         lock (_lock)
         {
             _frequency = frequencyMhz;
@@ -176,7 +177,7 @@ public sealed class SimulatedMinerClient : IMinerClient
             var ms = Math.Max(0, up - (20 - i) * 1000);
             sb.Append($"\u001b[0;32mI ({ms}) fan_controller: Temp: {55 + i % 3}.0°C, SetPoint: 60.0°C, Output: 40.0%\u001b[0m\n");
         }
-        sb.Append($"\u001b[0;33mW ({up}) power_management: Simulation – kein echter Miner\u001b[0m\n");
+        sb.Append($"\u001b[0;33mW ({up}) power_management: {L.T("Simulation – kein echter Miner")}\u001b[0m\n");
         return Task.FromResult(sb.ToString());
     }
 }

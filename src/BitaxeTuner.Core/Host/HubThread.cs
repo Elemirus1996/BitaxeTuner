@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -45,7 +46,7 @@ public sealed class HubThread : IDisposable
         foreach (var (callback, state) in _queue.GetConsumingEnumerable())
         {
             try { callback(state); }
-            catch (Exception ex) { Console.Error.WriteLine($"[Hub] Unbehandelter Fehler: {ex}"); }
+            catch (Exception ex) { Console.Error.WriteLine(L.T("[Hub] Unbehandelter Fehler: {0}", ex)); }
         }
     }
 

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Config;
 
@@ -67,7 +68,7 @@ public sealed class SecretStore(string dataDirectory)
     {
         if (stored.StartsWith("dpapi:", StringComparison.Ordinal))
         {
-            if (!OperatingSystem.IsWindows()) throw new CryptographicException("DPAPI nur unter Windows.");
+            if (!OperatingSystem.IsWindows()) throw new CryptographicException(L.T("DPAPI nur unter Windows."));
             return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(stored[6..]), Entropy, DataProtectionScope.LocalMachine));
         }
         if (stored.StartsWith("plain:", StringComparison.Ordinal)) return Encoding.UTF8.GetString(Convert.FromBase64String(stored[6..]));

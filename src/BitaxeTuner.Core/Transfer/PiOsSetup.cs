@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
@@ -33,15 +34,15 @@ public static partial class PiOsSetup
     public static void Validate(PiOsOptions o)
     {
         if (!UserPattern().IsMatch(o.User) || o.User is "root" or "bitaxetuner")
-            throw new InvalidOperationException("Benutzername: Kleinbuchstaben, Ziffern, - oder _ (z. B. „pi“ oder „admin“).");
-        if (o.Password.Length < 8) throw new InvalidOperationException("Das Pi-Passwort braucht mindestens 8 Zeichen.");
-        if (!HostPattern().IsMatch(o.Hostname)) throw new InvalidOperationException("Hostname: Kleinbuchstaben, Ziffern und -.");
-        if (!Regex.IsMatch(o.Country, "^[A-Z]{2}$")) throw new InvalidOperationException("Land als Kürzel mit 2 Großbuchstaben, z. B. DE.");
+            throw new InvalidOperationException(L.T("Benutzername: Kleinbuchstaben, Ziffern, - oder _ (z. B. „pi“ oder „admin“)."));
+        if (o.Password.Length < 8) throw new InvalidOperationException(L.T("Das Pi-Passwort braucht mindestens 8 Zeichen."));
+        if (!HostPattern().IsMatch(o.Hostname)) throw new InvalidOperationException(L.T("Hostname: Kleinbuchstaben, Ziffern und -."));
+        if (!Regex.IsMatch(o.Country, "^[A-Z]{2}$")) throw new InvalidOperationException(L.T("Land als Kürzel mit 2 Großbuchstaben, z. B. DE."));
         if (o.WifiSsid is { Length: > 0 } ssid)
         {
-            if (Encoding.UTF8.GetByteCount(ssid) > 32) throw new InvalidOperationException("Der WLAN-Name ist zu lang (max. 32 Zeichen).");
+            if (Encoding.UTF8.GetByteCount(ssid) > 32) throw new InvalidOperationException(L.T("Der WLAN-Name ist zu lang (max. 32 Zeichen)."));
             if (o.WifiPassword is not { Length: >= 8 and <= 63 })
-                throw new InvalidOperationException("Das WLAN-Passwort muss 8 bis 63 Zeichen haben.");
+                throw new InvalidOperationException(L.T("Das WLAN-Passwort muss 8 bis 63 Zeichen haben."));
         }
     }
 
@@ -50,11 +51,11 @@ public static partial class PiOsSetup
     {
         Validate(o);
         if (!Supports(bootRoot))
-            throw new InvalidOperationException("Diese Boot-Partition unterstützt keine Voreinstellungen (cloud-init fehlt – altes Raspberry Pi OS?).");
+            throw new InvalidOperationException(L.T("Diese Boot-Partition unterstützt keine Voreinstellungen (cloud-init fehlt – altes Raspberry Pi OS?)."));
 
         var userData = new StringBuilder()
             .Append("#cloud-config\n")
-            .Append("# Erstellt von BitaxeTuner (Raspberry Pi vorbereiten)\n")
+            .Append(L.T("# Erstellt von BitaxeTuner (Raspberry Pi vorbereiten)\n"))
             .Append($"hostname: {Q(o.Hostname)}\n")
             .Append("manage_etc_hosts: true\n")
             .Append($"timezone: {Q(o.Timezone)}\n")
@@ -74,7 +75,7 @@ public static partial class PiOsSetup
             .ToString();
 
         var net = new StringBuilder()
-            .Append("# Erstellt von BitaxeTuner (Raspberry Pi vorbereiten)\n")
+            .Append(L.T("# Erstellt von BitaxeTuner (Raspberry Pi vorbereiten)\n"))
             .Append("network:\n  version: 2\n")
             .Append("  ethernets:\n    eth0:\n      dhcp4: true\n      optional: true\n");
         if (o.WifiSsid is { Length: > 0 } ssid)

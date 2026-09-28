@@ -2,6 +2,7 @@ using System.Globalization;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Network;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -14,7 +15,7 @@ public sealed record PayoutNotice(string Address, string? MinerName, long Amount
 /// </summary>
 public sealed partial class MinerHub
 {
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    private static CultureInfo De => L.Culture; // Sprache kann sich zur Laufzeit ändern (Server-Einstellung)
 
     private readonly Watchdog _watchdog = new();
     private readonly Dictionary<string, DateTime> _lastHistoryWrite = new();
@@ -63,12 +64,12 @@ public sealed partial class MinerHub
             }
             catch (Exception ex)
             {
-                RaiseStatus(false, "Verlaufsdatenbank nicht verfügbar: " + ex.Message);
+                RaiseStatus(false, L.T("Verlaufsdatenbank nicht verfügbar: ") + ex.Message);
             }
         }
         else
         {
-            RaiseStatus(false, "Verlaufsdatenbank nicht verfügbar: " + HistoryError);
+            RaiseStatus(false, L.T("Verlaufsdatenbank nicht verfügbar: ") + HistoryError);
         }
 
         // Dokumentierter Zufluss aus dem Steuer-Modul → Push (läuft auf einem Pool-Thread)
@@ -78,8 +79,8 @@ public sealed partial class MinerHub
             if (DateTime.UtcNow - reward.ReceivedAtUtc > TimeSpan.FromHours(6)) return; // Erstimport alter Eingänge
 
             var eur = reward.EurValue is { } v ? $" ≈ {v.ToString("N2", De)} €" : "";
-            _ = Notify.SendAsync($"reward:{reward.Coin.Symbol()}:{reward.TxId}", "Zufluss dokumentiert",
-                $"{reward.Amount.ToString("0.00000000", De)} {reward.Coin.Symbol()} auf {reward.WalletLabel}{eur}",
+            _ = Notify.SendAsync($"reward:{reward.Coin.Symbol()}:{reward.TxId}", L.T("Zufluss dokumentiert"),
+                L.T("{0} {1} auf {2}{3}", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel, eur),
                 NotifyPriority.High, TimeSpan.FromDays(365));
         };
     }
@@ -105,8 +106,8 @@ public sealed partial class MinerHub
 
             var ok = States.Count(s => s.Online);
             RaiseStatus(ok > 0, ok == States.Count
-                ? $"alle {ok} Miner online – {now.ToString("HH:mm:ss", De)}"
-                : $"{ok}/{States.Count} online – {now.ToString("HH:mm:ss", De)}");
+                ? L.T("alle {0} Miner online – {1}", ok, now.ToString("HH:mm:ss", De))
+                : L.T("{0}/{1} online – {2}", ok, States.Count, now.ToString("HH:mm:ss", De)));
 
             AfterPoll(now);
             Polled?.Invoke();
@@ -184,7 +185,7 @@ public sealed partial class MinerHub
         }
         catch (Exception ex)
         {
-            RaiseStatus(false, "Verlauf konnte nicht gespeichert werden: " + ex.Message);
+            RaiseStatus(false, L.T("Verlauf konnte nicht gespeichert werden: ") + ex.Message);
         }
     }
 
@@ -216,8 +217,8 @@ public sealed partial class MinerHub
                 if (fails >= 3 && n.OnOffline)
                 {
                     _offlineNotified.Add(host);
-                    _ = Notify.SendAsync($"offline:{host}", $"{s.Config.Name} offline",
-                        $"{host} antwortet nicht ({s.Error ?? "keine Verbindung"}).",
+                    _ = Notify.SendAsync($"offline:{host}", L.T("{0} offline", s.Config.Name),
+                        L.T("{0} antwortet nicht ({1}).", host, s.Error ?? L.T("keine Verbindung")),
                         NotifyPriority.High, TimeSpan.FromHours(6));
                 }
                 continue;
@@ -227,16 +228,16 @@ public sealed partial class MinerHub
             if (_offlineNotified.Remove(host))
             {
                 Notify.Reset($"offline:{host}");
-                _ = Notify.SendAsync($"online:{host}", $"{s.Config.Name} wieder online",
-                    $"{host} antwortet wieder.", NotifyPriority.Normal, TimeSpan.FromMinutes(1));
+                _ = Notify.SendAsync($"online:{host}", L.T("{0} wieder online", s.Config.Name),
+                    L.T("{0} antwortet wieder.", host), NotifyPriority.Normal, TimeSpan.FromMinutes(1));
             }
 
             var i = s.Info!;
             if (n.OnOverheat && (i.temp >= Config.TempWarn || i.overheat_mode != 0))
             {
-                var text = $"ASIC {i.temp.ToString("0.0", De)} °C, VR {i.vrTemp.ToString("0", De)} °C" +
-                           (i.overheat_mode != 0 ? ", Overheat-Modus aktiv" : "");
-                _ = Notify.SendAsync($"hot:{host}", $"{s.Config.Name} zu heiß", text,
+                var text = L.T("ASIC {0} °C, VR {1} °C", i.temp.ToString("0.0", De), i.vrTemp.ToString("0", De)) +
+                           (i.overheat_mode != 0 ? L.T(", Overheat-Modus aktiv") : "");
+                _ = Notify.SendAsync($"hot:{host}", L.T("{0} zu heiß", s.Config.Name), text,
                     NotifyPriority.Urgent, TimeSpan.FromMinutes(30));
             }
 
@@ -245,8 +246,8 @@ public sealed partial class MinerHub
                 OnBlockFound(s.Config.Name.Length > 0 ? s.Config.Name : host, i.blockFound, Options.Clock?.Invoke() ?? DateTime.Now);
             if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.OnFinds)
             {
-                _ = Notify.SendAsync($"block:{host}:{i.blockFound}", $"BLOCK GEFUNDEN – {s.Config.Name}",
-                    $"Der Miner meldet jetzt {i.blockFound} gefundene(n) Block/Blöcke.",
+                _ = Notify.SendAsync($"block:{host}:{i.blockFound}", L.T("BLOCK GEFUNDEN – {0}", s.Config.Name),
+                    L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound),
                     NotifyPriority.Urgent, TimeSpan.FromDays(365));
             }
             _blockFoundSeen[host] = i.blockFound;
@@ -285,8 +286,8 @@ public sealed partial class MinerHub
     /// <summary>Bericht der letzten 24 h senden (auch für "Jetzt senden" in den Einstellungen). Liefert eine Fehlermeldung oder null.</summary>
     public async Task<string?> SendDailyReportAsync(DateTime now, bool markSent)
     {
-        if (History is null) return "Verlaufsdatenbank nicht verfügbar.";
-        if (!Notify.Enabled) return "Kein Push-Dienst eingerichtet (Einstellungen → Push-Benachrichtigungen).";
+        if (History is null) return L.T("Verlaufsdatenbank nicht verfügbar.");
+        if (!Notify.Enabled) return L.T("Kein Push-Dienst eingerichtet (Einstellungen → Push-Benachrichtigungen).");
         _reportBusy = true;
         try
         {
@@ -296,13 +297,13 @@ public sealed partial class MinerHub
             try
             {
                 var tips = AdvisorReportLines(now).ToList();
-                if (tips.Count > 0) text += "\n\n" + string.Join("\n", tips) + "\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)";
+                if (tips.Count > 0) text += "\n\n" + string.Join("\n", tips) + L.T("\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)");
             }
             catch { /* Ratgeber optional */ }
             // Eigener Schlüssel je Tag; "Jetzt senden" umgeht die Sperre über einen eindeutigen Schlüssel
             var key = markSent ? $"report:{now:yyyy-MM-dd}" : $"report-test:{now:O}";
             await Notify.SendAsync(key, title, text, NotifyPriority.Low, TimeSpan.FromHours(20));
-            if (Notify.LastError is { } error) return "Senden fehlgeschlagen: " + error;
+            if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
             if (markSent)
             {
                 Config.DailyReport.LastSent = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -343,8 +344,8 @@ public sealed partial class MinerHub
             if (previous.Value > 0)
                 OnBestDiffRecord(s.Config.Name.Length > 0 ? s.Config.Name : s.Config.Host, coin, previous.Raw, raw, Options.Clock?.Invoke() ?? DateTime.Now);
             if (previous.Value > 0 && Config.Notifications.OnRecord)
-                _ = Notify.SendAsync($"record:{s.Config.Host}:{coin}", $"Neuer Rekord – {s.Config.Name}",
-                    $"Best Diff {raw} ({coin}), bisher {previous.Raw}", NotifyPriority.Low, TimeSpan.FromMinutes(10));
+                _ = Notify.SendAsync($"record:{s.Config.Host}:{coin}", L.T("Neuer Rekord – {0}", s.Config.Name),
+                    L.T("Best Diff {0} ({1}), bisher {2}", raw, coin, previous.Raw), NotifyPriority.Low, TimeSpan.FromMinutes(10));
         }
 
         if (changed)
@@ -389,20 +390,20 @@ public sealed partial class MinerHub
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             // Über die gemeinsame Verbindung – öffnet auch das Wartungsfenster (keine Offline-Meldung für diesen Neustart)
             var connection = Polling.Connection(s.Config.Host)
-                             ?? throw new InvalidOperationException("Gerät nicht mehr in der Liste");
+                             ?? throw new InvalidOperationException(L.T("Gerät nicht mehr in der Liste"));
             await connection.RestartAsync(cts.Token);
-            result = "Neustart ausgelöst";
+            result = L.T("Neustart ausgelöst");
         }
         catch (Exception ex)
         {
-            result = "Neustart fehlgeschlagen: " + ex.Message;
+            result = L.T("Neustart fehlgeschlagen: ") + ex.Message;
         }
 
-        RaiseStatus(!result.Contains("fehlgeschlagen"), $"Watchdog {s.Config.Name}: {result}");
+        RaiseStatus(!result.Contains("fehlgeschlagen"), L.T("Watchdog {0}: {1}", s.Config.Name, result));
 
         if (Config.Notifications.OnMaintenance)
-            await Notify.SendAsync($"watchdog:{s.Config.Host}", $"Watchdog: {s.Config.Name}",
-                $"{Config.Watchdog.ZeroHashMinutes} min ohne Hashrate. {result}.",
+            await Notify.SendAsync($"watchdog:{s.Config.Host}", L.T("Watchdog: {0}", s.Config.Name),
+                L.T("{0} min ohne Hashrate. {1}.", Config.Watchdog.ZeroHashMinutes, result),
                 NotifyPriority.High, TimeSpan.FromMinutes(5));
     }
 
@@ -428,8 +429,8 @@ public sealed partial class MinerHub
             Config.NotifiedFirmware[repo] = fw.Latest;
             Config.Save();
 
-            await Notify.SendAsync($"fw:{repo}:{fw.Latest}", "Firmware-Update verfügbar",
-                $"{repo}: {fw.Latest} (installiert bei {s.Config.Name}: {s.Info.version})",
+            await Notify.SendAsync($"fw:{repo}:{fw.Latest}", L.T("Firmware-Update verfügbar"),
+                L.T("{0}: {1} (installiert bei {2}: {3})", repo, fw.Latest, s.Config.Name, s.Info.version),
                 NotifyPriority.Low, TimeSpan.FromDays(30));
         }
     }
@@ -440,9 +441,9 @@ public sealed partial class MinerHub
         var fw = Firmware.Evaluate(s.Config.FirmwareRepo, installed);
         return fw.Status switch
         {
-            FirmwareStatus.UpToDate => $"Firmware {installed} (aktuell)",
-            FirmwareStatus.UpdateAvailable => $"Firmware {installed} → Update {fw.Latest} verfügbar",
-            _ => $"Firmware {installed ?? "?"}"
+            FirmwareStatus.UpToDate => L.T("Firmware {0} (aktuell)", installed),
+            FirmwareStatus.UpdateAvailable => L.T("Firmware {0} → Update {1} verfügbar", installed, fw.Latest),
+            _ => L.T("Firmware {0}", installed ?? "?")
         };
     }
 
@@ -462,7 +463,7 @@ public sealed partial class MinerHub
 
         if (addresses.Count == 0)
         {
-            WalletStatusText = "keine Adresse bekannt";
+            WalletStatusText = L.T("keine Adresse bekannt");
             WalletsUpdated?.Invoke();
             return;
         }
@@ -485,7 +486,7 @@ public sealed partial class MinerHub
                 }
             }
 
-            WalletStatusText = $"geprüft {DateTime.Now.ToString("HH:mm", De)} · {addresses.Count} Adresse(n)";
+            WalletStatusText = L.T("geprüft {0} · {1} Adresse(n)", DateTime.Now.ToString("HH:mm", De), addresses.Count);
             WalletsUpdated?.Invoke();
         }
         finally

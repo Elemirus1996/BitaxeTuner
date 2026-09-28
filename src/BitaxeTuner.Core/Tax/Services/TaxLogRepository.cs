@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Tax.Services;
 
@@ -138,8 +139,8 @@ public sealed class TaxLogRepository
         foreach (var r in results.OrderBy(r => r.Disposal.SoldAtUtc))
         {
             var hint = new List<string>();
-            if (r.MissingPrice) hint.Add("Kurs fehlt bei mind. einem Zufluss");
-            if (r.UnmatchedAmount > 0) hint.Add($"{r.UnmatchedAmount.ToString("0.00000000", de)} ohne Zufluss");
+            if (r.MissingPrice) hint.Add(L.T("Kurs fehlt bei mind. einem Zufluss"));
+            if (r.UnmatchedAmount > 0) hint.Add(L.T("{0} ohne Zufluss", r.UnmatchedAmount.ToString("0.00000000", de)));
 
             sb.AppendLine(string.Join(';',
                 r.Disposal.SoldAtLocal.ToString("dd.MM.yyyy", de),
@@ -182,11 +183,11 @@ public sealed class TaxLogRepository
             }
 
             if (moved.Count > 0)
-                MigrationNote = $"Daten aus dem Prototyp übernommen ({string.Join(", ", moved)}). Der alte Ordner bleibt unverändert.";
+                MigrationNote = L.T("Daten aus dem Prototyp übernommen ({0}). Der alte Ordner bleibt unverändert.", string.Join(", ", moved));
         }
         catch (Exception ex)
         {
-            MigrationNote = "Übernahme aus dem Prototyp fehlgeschlagen: " + ex.Message;
+            MigrationNote = L.T("Übernahme aus dem Prototyp fehlgeschlagen: ") + ex.Message;
         }
     }
 

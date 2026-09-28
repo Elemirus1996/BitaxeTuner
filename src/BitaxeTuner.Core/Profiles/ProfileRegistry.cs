@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BitaxeTuner.Core.Api;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Profiles;
 
@@ -72,7 +73,7 @@ public sealed class ProfileRegistry
     public static List<DeviceProfile> LoadBuiltIn()
     {
         using var stream = typeof(ProfileRegistry).Assembly.GetManifestResourceStream("BitaxeTuner.Core.Profiles.DeviceProfiles.json")
-            ?? throw new InvalidOperationException("Eingebettete Geräteprofile fehlen.");
+            ?? throw new InvalidOperationException(L.T("Eingebettete Geräteprofile fehlen."));
         return JsonSerializer.Deserialize<List<DeviceProfile>>(stream, JsonOptions) ?? [];
     }
 

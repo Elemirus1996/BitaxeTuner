@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Config;
 using SMBLibrary;
 using SMBLibrary.Client;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Backup;
 
@@ -50,7 +51,7 @@ public sealed class FolderBackupTarget(string name, string path) : IBackupTarget
         if (!CryptographicOperations.FixedTimeEquals(original, copy))
         {
             File.Delete(tmp);
-            throw new IOException("Kopie weicht vom Original ab (SHA-256).");
+            throw new IOException(L.T("Kopie weicht vom Original ab (SHA-256)."));
         }
         File.Move(tmp, target, overwrite: true);
     }
@@ -62,7 +63,7 @@ public sealed class FolderBackupTarget(string name, string path) : IBackupTarget
 
     public Task DeleteAsync(string fileName, CancellationToken ct)
     {
-        if (!BackupNames.IsBackup(fileName)) throw new InvalidOperationException("Nur eigene Sicherungen werden gelöscht.");
+        if (!BackupNames.IsBackup(fileName)) throw new InvalidOperationException(L.T("Nur eigene Sicherungen werden gelöscht."));
         File.Delete(System.IO.Path.Combine(Path, fileName));
         return Task.CompletedTask;
     }
@@ -98,31 +99,31 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
     private Session Open()
     {
         if (string.IsNullOrWhiteSpace(settings.Server) || string.IsNullOrWhiteSpace(settings.Share))
-            throw new InvalidOperationException("Netzlaufwerk: Server und Freigabe angeben.");
+            throw new InvalidOperationException(L.T("Netzlaufwerk: Server und Freigabe angeben."));
         var client = new SMB2Client();
         var connected = IPAddress.TryParse(settings.Server.Trim(), out var ip)
             ? client.Connect(ip, SMBTransportType.DirectTCPTransport)
             : client.Connect(settings.Server.Trim(), SMBTransportType.DirectTCPTransport);
-        if (!connected) throw new IOException($"Netzlaufwerk {settings.Server} nicht erreichbar (Port 445).");
+        if (!connected) throw new IOException(L.T("Netzlaufwerk {0} nicht erreichbar (Port 445).", settings.Server));
         var login = client.Login(settings.Domain.Trim(), settings.User.Trim(), password);
         if (login != NTStatus.STATUS_SUCCESS)
         {
             client.Disconnect();
-            throw new IOException($"Anmeldung am Netzlaufwerk fehlgeschlagen ({login}).");
+            throw new IOException(L.T("Anmeldung am Netzlaufwerk fehlgeschlagen ({0}).", login));
         }
         var store = client.TreeConnect(settings.Share.Trim(), out var status);
         if (status != NTStatus.STATUS_SUCCESS)
         {
             client.Logoff();
             client.Disconnect();
-            throw new IOException($"Freigabe „{settings.Share}“ nicht verfügbar ({status}).");
+            throw new IOException(L.T("Freigabe „{0}“ nicht verfügbar ({1}).", settings.Share, status));
         }
         return new Session(client, store);
     }
 
     private static void Check(NTStatus status, string what)
     {
-        if (status != NTStatus.STATUS_SUCCESS) throw new IOException($"Netzlaufwerk: {what} fehlgeschlagen ({status}).");
+        if (status != NTStatus.STATUS_SUCCESS) throw new IOException(L.T("Netzlaufwerk: {0} fehlgeschlagen ({1}).", what, status));
     }
 
     private static void EnsureDirectory(ISMBFileStore store, string dir)
@@ -134,7 +135,7 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
             path = path.Length == 0 ? part : path + "\\" + part;
             var s = store.CreateFile(out var handle, out _, path, AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE, SMBLibrary.FileAttributes.Directory,
                 ShareAccess.Read | ShareAccess.Write, CreateDisposition.FILE_OPEN_IF, CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null);
-            Check(s, $"Ordner „{path}“ anlegen");
+            Check(s, L.T("Ordner „{0}“ anlegen", path));
             store.CloseFile(handle);
         }
     }
@@ -146,7 +147,7 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
         EnsureDirectory(store, Dir);
         var tmp = PathOf(fileName + ".tmp");
         Check(store.CreateFile(out var handle, out _, tmp, AccessMask.GENERIC_WRITE | AccessMask.SYNCHRONIZE, SMBLibrary.FileAttributes.Normal,
-            ShareAccess.None, CreateDisposition.FILE_OVERWRITE_IF, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), "Datei anlegen");
+            ShareAccess.None, CreateDisposition.FILE_OVERWRITE_IF, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), L.T("Datei anlegen"));
         long offset = 0;
         try
         {
@@ -157,8 +158,8 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
             {
                 ct.ThrowIfCancellationRequested();
                 var chunk = read == buffer.Length ? buffer : buffer[..read];
-                Check(store.WriteFile(out var written, handle, offset, chunk), "Schreiben");
-                if (written != read) throw new IOException("Netzlaufwerk: unvollständig geschrieben.");
+                Check(store.WriteFile(out var written, handle, offset, chunk), L.T("Schreiben"));
+                if (written != read) throw new IOException(L.T("Netzlaufwerk: unvollständig geschrieben."));
                 offset += written;
             }
         }
@@ -166,17 +167,17 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
         {
             store.CloseFile(handle);
         }
-        if (offset != new FileInfo(localFile).Length) throw new IOException("Netzlaufwerk: Größe stimmt nicht.");
+        if (offset != new FileInfo(localFile).Length) throw new IOException(L.T("Netzlaufwerk: Größe stimmt nicht."));
         Rename(store, tmp, PathOf(fileName));
     }, ct);
 
     private static void Rename(ISMBFileStore store, string from, string to)
     {
         Check(store.CreateFile(out var handle, out _, from, AccessMask.DELETE | AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE, SMBLibrary.FileAttributes.Normal,
-            ShareAccess.None, CreateDisposition.FILE_OPEN, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), "Öffnen zum Umbenennen");
+            ShareAccess.None, CreateDisposition.FILE_OPEN, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), L.T("Öffnen zum Umbenennen"));
         try
         {
-            Check(store.SetFileInformation(handle, new FileRenameInformationType2 { FileName = to, ReplaceIfExists = true }), "Umbenennen");
+            Check(store.SetFileInformation(handle, new FileRenameInformationType2 { FileName = to, ReplaceIfExists = true }), L.T("Umbenennen"));
         }
         finally
         {
@@ -191,7 +192,7 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
         var s = store.CreateFile(out var handle, out _, Dir, AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE, SMBLibrary.FileAttributes.Directory,
             ShareAccess.Read | ShareAccess.Write, CreateDisposition.FILE_OPEN, CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null);
         if (s == NTStatus.STATUS_OBJECT_NAME_NOT_FOUND || s == NTStatus.STATUS_OBJECT_PATH_NOT_FOUND) return [];
-        Check(s, "Ordner öffnen");
+        Check(s, L.T("Ordner öffnen"));
         try
         {
             store.QueryDirectory(out var entries, handle, "*", FileInformationClass.FileDirectoryInformation);
@@ -205,11 +206,11 @@ public sealed class SmbBackupTarget(BackupSmbTarget settings, string password) :
 
     public Task DeleteAsync(string fileName, CancellationToken ct) => Task.Run(() =>
     {
-        if (!BackupNames.IsBackup(fileName)) throw new InvalidOperationException("Nur eigene Sicherungen werden gelöscht.");
+        if (!BackupNames.IsBackup(fileName)) throw new InvalidOperationException(L.T("Nur eigene Sicherungen werden gelöscht."));
         using var session = Open();
         var store = session.Store;
         Check(store.CreateFile(out var handle, out _, PathOf(fileName), AccessMask.DELETE | AccessMask.SYNCHRONIZE, SMBLibrary.FileAttributes.Normal,
-            ShareAccess.None, CreateDisposition.FILE_OPEN, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), "Löschen");
+            ShareAccess.None, CreateDisposition.FILE_OPEN, CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT, null), L.T("Löschen"));
         store.CloseFile(handle);
     }, ct);
 }

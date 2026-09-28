@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Storage;
 
@@ -18,7 +19,7 @@ public sealed class SettingsSnapshot
     public string? FilePath { get; set; }
 
     public string DisplayText =>
-        $"{TakenAt:dd.MM.yyyy HH:mm} · {Reason} · {Value("frequency")} MHz / {Value("coreVoltage")} mV";
+        $"{TakenAt.ToString("g", L.Culture)} · {(Reason == "manuell" ? L.T("manuell") : L.T(Reason))} · {Value("frequency")} MHz / {Value("coreVoltage")} mV";
 
     public string Value(string field) => SettingsSnapshots.Format(Info[field]);
 }
@@ -36,7 +37,7 @@ public sealed record SettingChange(SettingGroup Group, string Field, string Labe
     public string GroupText => Group switch
     {
         SettingGroup.Tuning => "Tuning",
-        SettingGroup.Fan => "Lüfter/Temperatur",
+        SettingGroup.Fan => L.T("Lüfter/Temperatur"),
         _ => "Pool",
     };
 }
@@ -57,8 +58,8 @@ public sealed class SettingsSnapshots(string directory)
         ("frequency", "Frequenz (MHz)", SettingGroup.Tuning),
         ("coreVoltage", "Kernspannung (mV)", SettingGroup.Tuning),
         ("overclockEnabled", "Overclocking-Modus", SettingGroup.Tuning),
-        ("autofanspeed", "Lüfter automatisch", SettingGroup.Fan),
-        ("manualFanSpeed", "Lüfter manuell (%)", SettingGroup.Fan),
+        ("autofanspeed", L.T("Lüfter automatisch"), SettingGroup.Fan),
+        ("manualFanSpeed", L.T("Lüfter manuell (%)"), SettingGroup.Fan),
         ("temptarget", "Zieltemperatur (°C)", SettingGroup.Fan),
         ("stratumURL", "Pool-URL", SettingGroup.Pool),
         ("stratumPort", "Pool-Port", SettingGroup.Pool),
@@ -74,7 +75,7 @@ public sealed class SettingsSnapshots(string directory)
 
     public SettingsSnapshot Save(string host, string name, string rawInfo, string reason, DateTime? now = null)
     {
-        var info = JsonNode.Parse(rawInfo) as JsonObject ?? throw new JsonException("Antwort ist kein JSON-Objekt");
+        var info = JsonNode.Parse(rawInfo) as JsonObject ?? throw new JsonException(L.T("Antwort ist kein JSON-Objekt"));
         var snapshot = new SettingsSnapshot
         {
             Host = host,

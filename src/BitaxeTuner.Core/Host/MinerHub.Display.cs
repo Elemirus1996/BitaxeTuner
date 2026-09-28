@@ -3,6 +3,7 @@ using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Display;
 using BitaxeTuner.Core.Fans;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -47,13 +48,13 @@ public sealed partial class MinerHub
             FanOverride = mode;
             var text = mode switch
             {
-                FanOverride.Off => "Zusatzlüfter AUS (Sicherheitsregeln bleiben aktiv)",
-                FanOverride.Full => "alle Zusatzlüfter 100 %",
-                _ => "Zusatzlüfter wieder nach Einstellung (Automatik)",
+                FanOverride.Off => L.T("Zusatzlüfter AUS (Sicherheitsregeln bleiben aktiv)"),
+                FanOverride.Full => L.T("alle Zusatzlüfter 100 %"),
+                _ => L.T("Zusatzlüfter wieder nach Einstellung (Automatik)"),
             };
             RaiseStatus(true, $"{text} – {source}");
             foreach (var c in Config.Fans.Channels.Where(c => c.Role == "miner"))
-                Device(c.MinerHost ?? "")?.AddLog($"Lüfter K{c.Channel}: {text} ({source})");
+                Device(c.MinerHost ?? "")?.AddLog(L.T("Lüfter K{0}: {1} ({2})", c.Channel, text, source));
             _displayRequested = true;
         }
         await FanTickAsync();
@@ -71,11 +72,11 @@ public sealed partial class MinerHub
             if (!Config.Display.ButtonsEnabled) continue;
             switch (e)
             {
-                case "BTN 1": DisplayNextOrAcknowledge("Taste 1"); break;
-                case "BTN 2": await SetFanOverrideAsync(FanOverride.None, "Taste 2"); break;
-                case "BTN 3": await SetFanOverrideAsync(FanOverride.Full, "Taste 3"); break;
-                case "BTN 3 LONG": await SetFanOverrideAsync(FanOverride.Off, "Taste 3 lang"); break;
-                case "BTN 4 LONG": _ = RebootAsync("Taste 4"); break;
+                case "BTN 1": DisplayNextOrAcknowledge(L.T("Taste 1")); break;
+                case "BTN 2": await SetFanOverrideAsync(FanOverride.None, L.T("Taste 2")); break;
+                case "BTN 3": await SetFanOverrideAsync(FanOverride.Full, L.T("Taste 3")); break;
+                case "BTN 3 LONG": await SetFanOverrideAsync(FanOverride.Off, L.T("Taste 3 lang")); break;
+                case "BTN 4 LONG": _ = RebootAsync(L.T("Taste 4")); break;
             }
         }
     }
@@ -85,7 +86,7 @@ public sealed partial class MinerHub
     {
         if (FanOverride != FanOverride.Off || !Config.Notifications.OnOverheat) return;
         foreach (var t in targets.Where(t => t.SafetyOverride))
-            SendAlert(new Alert($"fan-safety:{t.Channel}", $"Lüfter K{t.Channel} läuft trotz „Aus“", t.Reason, NotifyPriority.High, TimeSpan.FromHours(1)));
+            SendAlert(new Alert($"fan-safety:{t.Channel}", L.T("Lüfter K{0} läuft trotz „Aus“", t.Channel), t.Reason, NotifyPriority.High, TimeSpan.FromHours(1)));
     }
 
     /// <summary>
@@ -94,11 +95,11 @@ public sealed partial class MinerHub
     /// </summary>
     public async Task<string> RebootAsync(string source)
     {
-        if (_rebooting) return "Neustart läuft bereits.";
+        if (_rebooting) return L.T("Neustart läuft bereits.");
         _rebooting = true;
         try
         {
-            RaiseStatus(true, $"Neustart ausgelöst ({source}) – beende Benchmarks …");
+            RaiseStatus(true, L.T("Neustart ausgelöst ({0}) – beende Benchmarks …", source));
             await Benchmarks.StopAllAsync();
             Config.Save();
             if (_fanDevice is { } pico)
@@ -109,11 +110,11 @@ public sealed partial class MinerHub
             }
             if (Config.Display.AllowSystemReboot && Options.SystemReboot is { } reboot)
             {
-                RaiseStatus(true, "Rechner wird neu gestartet …");
+                RaiseStatus(true, L.T("Rechner wird neu gestartet …"));
                 await reboot();
-                return "Pico und Rechner werden neu gestartet.";
+                return L.T("Pico und Rechner werden neu gestartet.");
             }
-            return "Pico neu gestartet (Neustart des Rechners ist hier nicht eingerichtet).";
+            return L.T("Pico neu gestartet (Neustart des Rechners ist hier nicht eingerichtet).");
         }
         finally
         {
@@ -181,7 +182,7 @@ public sealed partial class MinerHub
         }
         catch (Exception ex)
         {
-            _displayError = "Anzeige: " + ex.Message;
+            _displayError = L.T("Anzeige: ") + ex.Message;
             _displayShown = now; // nicht sofort erneut versuchen (Mindestpause)
         }
         finally
@@ -208,17 +209,17 @@ public sealed partial class MinerHub
             var maintenance = d.Connection.InMaintenance;
             miners.Add(new DisplayMiner(d.Title, s.Online, maintenance, i?.hashRate, i?.temp, i?.vrTemp > 0 ? i.vrTemp : null,
                 fan?.Percent, chipHot, vrHot, fan?.Stalled == true, s.Online ? null : s.Error));
-            if (!s.Online && !maintenance) alerts.Add($"{d.Title} offline");
-            if (chipHot) alerts.Add($"{d.Title} Chip {i!.temp.ToString("0", CultureInfo.GetCultureInfo("de-DE"))} °C");
-            if (vrHot) alerts.Add($"{d.Title} VR {i!.vrTemp.ToString("0", CultureInfo.GetCultureInfo("de-DE"))} °C");
+            if (!s.Online && !maintenance) alerts.Add(L.T("{0} offline", d.Title));
+            if (chipHot) alerts.Add(L.T("{0} Chip {1} °C", d.Title, i!.temp.ToString("0", L.Culture)));
+            if (vrHot) alerts.Add(L.T("{0} VR {1} °C", d.Title, i!.vrTemp.ToString("0", L.Culture)));
         }
-        foreach (var c in fans.Where(c => c.Stalled)) alerts.Add($"Lüfter K{c.Channel} steht");
+        foreach (var c in fans.Where(c => c.Stalled)) alerts.Add(L.T("Lüfter K{0} steht", c.Channel));
         var temps = (FanStatus.Sensors ?? []).Where(s => s.ShowOnDisplay).Select(s => new DisplayTemp(s.Name, s.Temp, s.Hot)).ToList();
         foreach (var s in (FanStatus.Sensors ?? []).Where(s => s.Hot))
-            alerts.Add($"{s.Name} {s.Temp!.Value.ToString("0.0", CultureInfo.GetCultureInfo("de-DE"))} °C");
+            alerts.Add($"{s.Name} {s.Temp!.Value.ToString("0.0", L.Culture)} °C");
         if (FanStatus.Connected)
-            foreach (var s in (FanStatus.Sensors ?? []).Where(s => s.Temp is null)) alerts.Add($"Fühler {s.Name} fehlt");
-        if (Config.Fans.Enabled && !FanStatus.Connected) alerts.Add("Pico-Lüfter getrennt");
+            foreach (var s in (FanStatus.Sensors ?? []).Where(s => s.Temp is null)) alerts.Add(L.T("Fühler {0} fehlt", s.Name));
+        if (Config.Fans.Enabled && !FanStatus.Connected) alerts.Add(L.T("Pico-Lüfter getrennt"));
 
         var online = devices.Where(d => d.State.Online && d.State.Info is not null).Select(d => d.State.Info!).ToList();
         var gh = online.Sum(x => x.hashRate);
@@ -226,9 +227,9 @@ public sealed partial class MinerHub
         var caseFan = fans.FirstOrDefault(c => c.Role == "case");
         var fanMode = FanOverride switch
         {
-            FanOverride.Off => "AUS (Taste)",
-            FanOverride.Full => "100 % (Taste)",
-            _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? $"Automatik · Gehäuse {caseFan.Percent} %" : "Automatik",
+            FanOverride.Off => L.T("AUS (Taste)"),
+            FanOverride.Full => L.T("100 % (Taste)"),
+            _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? L.T("Automatik · Gehäuse {0} %", caseFan.Percent) : L.T("Automatik"),
         };
         return new DisplayModel(Config.Display.Title, now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
             Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps);

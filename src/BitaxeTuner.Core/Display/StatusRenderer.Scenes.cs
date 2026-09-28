@@ -2,6 +2,7 @@ using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.Processing;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Display;
 
@@ -41,8 +42,8 @@ public static partial class StatusRenderer
     private static string Left(DateTime until, DateTime now)
     {
         var t = until - now;
-        if (t <= TimeSpan.Zero) return "fertig";
-        return t.TotalHours >= 2 ? $"noch {N(t.TotalHours, "0")} h" : $"noch {N(t.TotalMinutes, "0")} min";
+        if (t <= TimeSpan.Zero) return L.T("fertig");
+        return t.TotalHours >= 2 ? L.T("noch {0} h", N(t.TotalHours, "0")) : L.T("noch {0} min", N(t.TotalMinutes, "0"));
     }
 
     // ---------- Seiten ----------
@@ -50,22 +51,22 @@ public static partial class StatusRenderer
     private static void DrawDaily(IImageProcessingContext ctx, DisplayModel m)
     {
         var d = m.Daily!;
-        PageHeader(ctx, m, "Tagesbilanz · letzte 24 h");
+        PageHeader(ctx, m, L.T("Tagesbilanz · letzte 24 h"));
         var w = (Width - 32) / 4f;
-        Tile(ctx, 16, 76, w, "Ø Hashrate", FormatHash(d.Gh));
-        Tile(ctx, 16 + w, 76, w, "Ø Leistung", $"{N(d.W, "0.0")} W");
-        Tile(ctx, 16 + 2 * w, 76, w, "Effizienz", d.Gh > 1 ? $"{N(d.W / (d.Gh / 1000), "0.0")} J/TH" : "–");
-        Tile(ctx, 16 + 3 * w, 76, w, "Stromkosten", $"{N(d.Cost, "0.00")} {d.Currency}");
+        Tile(ctx, 16, 76, w, L.T("Ø Hashrate"), FormatHash(d.Gh));
+        Tile(ctx, 16 + w, 76, w, L.T("Ø Leistung"), $"{N(d.W, "0.0")} W");
+        Tile(ctx, 16 + 2 * w, 76, w, L.T("Effizienz"), d.Gh > 1 ? L.T("{0} J/TH", N(d.W / (d.Gh / 1000), "0.0")) : "–");
+        Tile(ctx, 16 + 3 * w, 76, w, L.T("Stromkosten"), $"{N(d.Cost, "0.00")} {d.Currency}");
         if (d.BestDiff is { } bd)
-            Text(ctx, Fit($"Best Diff (Rekord): {bd}" + (d.BestDiffMiner is { } bm ? $" · {bm}" : "") + $" · {N(d.Kwh, "0.00")} kWh",
+            Text(ctx, Fit(L.T("Best Diff (Rekord): {0}", bd) + (d.BestDiffMiner is { } bm ? $" · {bm}" : "") + L.T(" · {0} kWh", N(d.Kwh, "0.00")),
                 Regular.Value.CreateFont(21), Width - 32), Regular.Value.CreateFont(21), 16, 142, Ink);
         ctx.Fill(Crisp, Ink, new RectangleF(16, 174, Width - 32, 1));
 
         var small = Regular.Value.CreateFont(17);
-        TextRight(ctx, "Ø Hashrate", small, 470, 180, Ink);
+        TextRight(ctx, L.T("Ø Hashrate"), small, 470, 180, Ink);
         TextRight(ctx, "J/TH", small, 572, 180, Ink);
-        TextRight(ctx, "Temp.", small, 668, 180, Ink);
-        TextRight(ctx, "verfügbar", small, Width - 16, 180, Ink);
+        TextRight(ctx, L.T("Temp."), small, 668, 180, Ink);
+        TextRight(ctx, L.T("verfügbar"), small, Width - 16, 180, Ink);
         var rows = d.Rows.Take(6).ToList();
         var rowH = rows.Count == 0 ? 0 : Math.Min(42, 236 / rows.Count);
         var font = (rowH >= 40 ? Regular.Value.CreateFont(26) : Regular.Value.CreateFont(22));
@@ -77,7 +78,7 @@ public static partial class StatusRenderer
             Text(ctx, Fit(r.Name, bold, 330), bold, 16, y, Ink);
             if (r.Gh is null)
             {
-                TextRight(ctx, "keine Daten", font, Width - 16, y, Red);
+                TextRight(ctx, L.T("keine Daten"), font, Width - 16, y, Red);
                 continue;
             }
             TextRight(ctx, FormatHash(r.Gh.Value), font, 470, y, Ink);
@@ -92,12 +93,12 @@ public static partial class StatusRenderer
     private static void DrawChart(IImageProcessingContext ctx, DisplayModel m)
     {
         var pts = m.Chart!.Where(p => p.Gh > 0).OrderBy(p => p.Time).ToList();
-        PageHeader(ctx, m, "Hashrate · letzte 24 h");
+        PageHeader(ctx, m, L.T("Hashrate · letzte 24 h"));
         const float x0 = 96, x1 = Width - 20, y0 = 104, y1 = 400;
         var small = Regular.Value.CreateFont(17);
         if (pts.Count < 2)
         {
-            TextCenter(ctx, "Noch zu wenige Messwerte.", Regular.Value.CreateFont(26), Width / 2f, 220, Ink);
+            TextCenter(ctx, L.T("Noch zu wenige Messwerte."), Regular.Value.CreateFont(26), Width / 2f, 220, Ink);
             DrawFooter(ctx, m);
             return;
         }
@@ -121,7 +122,7 @@ public static partial class StatusRenderer
         for (var hAgo = 24; hAgo >= 0; hAgo -= 6)
         {
             var t = m.Time.AddHours(-hAgo);
-            TextCenter(ctx, hAgo == 0 ? "jetzt" : t.ToString("HH:mm", De), small, X(t), y1 + 6, Ink);
+            TextCenter(ctx, hAgo == 0 ? L.T("jetzt") : t.ToString("HH:mm", De), small, X(t), y1 + 6, Ink);
         }
 
         // Linie (Lücken > 30 min nicht verbinden)
@@ -140,18 +141,18 @@ public static partial class StatusRenderer
         }
         Flush();
         var avg = pts.Where(p => p.Time >= t0).Average(p => p.Gh);
-        TextRight(ctx, $"Ø {FormatHash(avg)} · min {FormatHash(pts.Min(p => p.Gh))} · max {FormatHash(pts.Max(p => p.Gh))}",
+        TextRight(ctx, L.T("Ø {0} · min {1} · max {2}", FormatHash(avg), FormatHash(pts.Min(p => p.Gh)), FormatHash(pts.Max(p => p.Gh))),
             Regular.Value.CreateFont(19), x1, 72, Ink);
         DrawFooter(ctx, m);
     }
 
     private static void DrawSoak(IImageProcessingContext ctx, DisplayModel m)
     {
-        PageHeader(ctx, m, "Dauertest");
+        PageHeader(ctx, m, L.T("Dauertest"));
         var list = m.Soaks!.Take(5).ToList();
         if (list.Count == 0)
         {
-            TextCenter(ctx, "Kein Dauertest aktiv.", Regular.Value.CreateFont(26), Width / 2f, 220, Ink);
+            TextCenter(ctx, L.T("Kein Dauertest aktiv."), Regular.Value.CreateFont(26), Width / 2f, 220, Ink);
             DrawFooter(ctx, m);
             return;
         }
@@ -163,7 +164,7 @@ public static partial class StatusRenderer
             var s = list[i];
             var y = 76 + i * rowH;
             Text(ctx, Fit(s.Name, bold, 360), bold, 16, y, Ink);
-            TextRight(ctx, $"{s.FrequencyMhz} MHz / {s.CoreVoltageMv} mV · {Left(s.Until, m.Time)}", font, Width - 16, y + 4, Ink);
+            TextRight(ctx, L.T("{0} MHz / {1} mV · {2}", s.FrequencyMhz, s.CoreVoltageMv, Left(s.Until, m.Time)), font, Width - 16, y + 4, Ink);
             var total = (s.Until - s.Started).TotalSeconds;
             var done = total > 0 ? Math.Clamp((m.Time - s.Started).TotalSeconds / total, 0, 1) : 0;
             var barY = y + (rowH >= 70 ? 36 : 30);
@@ -177,11 +178,11 @@ public static partial class StatusRenderer
     private static void DrawNetwork(IImageProcessingContext ctx, DisplayModel m)
     {
         var n = m.Network!;
-        PageHeader(ctx, m, "Pool & Netzwerk");
+        PageHeader(ctx, m, L.T("Pool & Netzwerk"));
         var small = Regular.Value.CreateFont(17);
-        TextRight(ctx, "Shares ok", small, 560, 70, Ink);
-        TextRight(ctx, "abgelehnt", small, 672, 70, Ink);
-        TextRight(ctx, "Best Diff", small, Width - 16, 70, Ink);
+        TextRight(ctx, L.T("Shares ok"), small, 560, 70, Ink);
+        TextRight(ctx, L.T("abgelehnt"), small, 672, 70, Ink);
+        TextRight(ctx, L.T("Best Diff"), small, Width - 16, 70, Ink);
         var rows = n.Pools.Take(6).ToList();
         var rowH = rows.Count == 0 ? 0 : Math.Min(54, 300 / rows.Count);
         var bold = Bold.Value.CreateFont(rowH >= 50 ? 24 : 20);
@@ -191,7 +192,7 @@ public static partial class StatusRenderer
             var r = rows[i];
             var y = 94 + i * rowH;
             Text(ctx, Fit(r.Name, bold, 330), bold, 16, y, r.Online ? Ink : Red);
-            if (r.Online) Text(ctx, Fit(r.Fallback ? "FALLBACK: " + r.Pool : r.Pool, font, 420), font, 16, y + (rowH >= 50 ? 28 : 22), r.Fallback ? Red : Ink);
+            if (r.Online) Text(ctx, Fit(r.Fallback ? L.T("FALLBACK: ") + r.Pool : r.Pool, font, 420), font, 16, y + (rowH >= 50 ? 28 : 22), r.Fallback ? Red : Ink);
             if (!r.Online)
             {
                 TextRight(ctx, "offline", bold, Width - 16, y, Red);
@@ -205,9 +206,9 @@ public static partial class StatusRenderer
         }
         ctx.Fill(Crisp, Ink, new RectangleF(16, 400, Width - 32, 1));
         var net = n.Height is { } h
-            ? $"Bitcoin-Netzwerk: Block {N(h, "N0")}" + (n.LastBlockPool is { } p ? $" · zuletzt von {p}" : "") +
-              (n.LastBlockTime is { } lt ? $" · vor {N(Math.Max(0, (m.Time - lt).TotalMinutes), "0")} min" : "")
-            : "Bitcoin-Netzwerk: keine Daten (mempool.space nicht erreichbar)";
+            ? L.T("Bitcoin-Netzwerk: Block {0}", N(h, "N0")) + (n.LastBlockPool is { } p ? L.T(" · zuletzt von {0}", p) : "") +
+              (n.LastBlockTime is { } lt ? L.T(" · vor {0} min", N(Math.Max(0, (m.Time - lt).TotalMinutes), "0")) : "")
+            : L.T("Bitcoin-Netzwerk: keine Daten (mempool.space nicht erreichbar)");
         Text(ctx, Fit(net, Regular.Value.CreateFont(20), Width - 32), Regular.Value.CreateFont(20), 16, 410, Ink);
         DrawFooter(ctx, m);
     }
@@ -221,21 +222,21 @@ public static partial class StatusRenderer
         ctx.Fill(Crisp, Red, new RectangleF(0, Height - 14, Width, 14));
         Cube(ctx, 170, 215, 118);
         const float x = 330;
-        Text(ctx, "BLOCK", Bold.Value, 72, x, 44, Red);
-        Text(ctx, "GEFUNDEN!", Bold.Value, 72, x, 118, Red);
+        Text(ctx, L.T("BLOCK"), Bold.Value, 72, x, 44, Red);
+        Text(ctx, L.T("GEFUNDEN!"), Bold.Value, 72, x, 118, Red);
         Text(ctx, Fit(b.Miner, Bold.Value.CreateFont(40), Width - x - 16), Bold.Value.CreateFont(40), x, 214, Ink);
-        Text(ctx, b.Time.ToString("dddd, dd.MM.yyyy · HH:mm 'Uhr'", De), Regular.Value, 24, x, 270, Ink);
-        if (b.Height is { } h) Text(ctx, $"Block {N(h, "N0")} (Netzwerkstand beim Fund)", Regular.Value, 22, x, 306, Ink);
-        Text(ctx, b.Count == 1 ? "Erster gefundener Block dieses Miners" : $"{b.Count} Blöcke insgesamt", Regular.Value, 22, x, 340, Ink);
-        TextCenter(ctx, (b.Example ? "BEISPIEL · " : "") + "Taste 1: quittieren", Regular.Value.CreateFont(20), Width / 2f, 432, Ink);
+        Text(ctx, b.Time.ToString(L.T("dddd, dd.MM.yyyy · HH:mm 'Uhr'"), L.Culture), Regular.Value, 24, x, 270, Ink);
+        if (b.Height is { } h) Text(ctx, L.T("Block {0} (Netzwerkstand beim Fund)", N(h, "N0")), Regular.Value, 22, x, 306, Ink);
+        Text(ctx, b.Count == 1 ? L.T("Erster gefundener Block dieses Miners") : L.T("{0} Blöcke insgesamt", b.Count), Regular.Value, 22, x, 340, Ink);
+        TextCenter(ctx, (b.Example ? L.T("BEISPIEL · ") : "") + L.T("Taste 1: quittieren"), Regular.Value.CreateFont(20), Width / 2f, 432, Ink);
     }
 
     private static void DrawAlarm(IImageProcessingContext ctx, DisplayModel m)
     {
         ctx.Fill(Crisp, Red, new RectangleF(0, 0, Width, 14));
         Warning(ctx, 130, 150, 100);
-        Text(ctx, "ACHTUNG", Bold.Value, 64, 270, 60, Red);
-        Text(ctx, $"{m.Alerts.Count} Warnung{(m.Alerts.Count == 1 ? "" : "en")} · {m.Time:HH:mm}", Regular.Value, 24, 272, 140, Ink);
+        Text(ctx, L.T("ACHTUNG"), Bold.Value, 64, 270, 60, Red);
+        Text(ctx, (m.Alerts.Count == 1 ? L.T("1 Warnung · {0:HH:mm}", m.Time) : L.T("{0} Warnungen · {1:HH:mm}", m.Alerts.Count, m.Time)), Regular.Value, 24, 272, 140, Ink);
         var font = Bold.Value.CreateFont(m.Alerts.Count <= 4 ? 30 : 24);
         var lineH = m.Alerts.Count <= 4 ? 44 : 34;
         var shown = m.Alerts.Take(m.Alerts.Count <= 4 ? 4 : 6).ToList();
@@ -244,10 +245,10 @@ public static partial class StatusRenderer
             ctx.Fill(Crisp, Red, new RectangleF(30, 262 + i * lineH + 8, 10, 10));
             Text(ctx, Fit(shown[i], font, Width - 80), font, 54, 256 + i * lineH, Ink);
         }
-        if (m.Alerts.Count > shown.Count) Text(ctx, $"+ {m.Alerts.Count - shown.Count} weitere", Regular.Value, 20, 54, 256 + shown.Count * lineH, Ink);
+        if (m.Alerts.Count > shown.Count) Text(ctx, L.T("+ {0} weitere", m.Alerts.Count - shown.Count), Regular.Value, 20, 54, 256 + shown.Count * lineH, Ink);
         ctx.Fill(Crisp, Ink, new RectangleF(16, 442, Width - 32, 2));
-        Text(ctx, "Taste 1: quittieren", Regular.Value, 21, 16, 450, Ink);
-        TextRight(ctx, "Lüfter: " + m.FanMode, Regular.Value.CreateFont(21), Width - 16, 450, m.FanModeAlert ? Red : Ink);
+        Text(ctx, L.T("Taste 1: quittieren"), Regular.Value, 21, 16, 450, Ink);
+        TextRight(ctx, L.T("Lüfter: ") + m.FanMode, Regular.Value.CreateFont(21), Width - 16, 450, m.FanModeAlert ? Red : Ink);
     }
 
     private static void DrawBestDiff(IImageProcessingContext ctx, DisplayModel m)
@@ -255,11 +256,11 @@ public static partial class StatusRenderer
         var b = m.BestDiff!;
         Star(ctx, 160, 200, 110);
         const float x = 320;
-        Text(ctx, "Neuer Rekord!", Bold.Value, 52, x, 40, Red);
+        Text(ctx, L.T("Neuer Rekord!"), Bold.Value, 52, x, 40, Red);
         Text(ctx, Fit(b.Miner, Bold.Value.CreateFont(36), Width - x - 16), Bold.Value.CreateFont(36), x, 110, Ink);
-        Text(ctx, $"Best Difficulty ({b.Coin})", Regular.Value, 22, x, 170, Ink);
+        Text(ctx, L.T("Best Difficulty ({0})", b.Coin), Regular.Value, 22, x, 170, Ink);
         Text(ctx, b.Current, Bold.Value, 80, x, 196, Ink);
-        Text(ctx, $"bisher {b.Previous} · {b.Time:dd.MM. HH:mm}", Regular.Value, 24, x, 300, Ink);
+        Text(ctx, L.T("bisher {0} · {1}", b.Previous, L.Short(b.Time)), Regular.Value, 24, x, 300, Ink);
         DrawFooter(ctx, m);
     }
 

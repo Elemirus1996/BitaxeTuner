@@ -1,6 +1,7 @@
 using BitaxeTuner.Core.Benchmark;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Advisor;
 
@@ -12,7 +13,7 @@ public sealed record AdvisorCandidate(
     bool SoakPassed, double DeltaW, double DeltaGh, double MonthlyCostDelta)
 {
     /// <summary>„Dauertest bestanden“ oder „nur Benchmark“.</summary>
-    public string Confidence => SoakPassed ? "Dauertest bestanden" : "nur Benchmark";
+    public string Confidence => SoakPassed ? L.T("Dauertest bestanden") : L.T("nur Benchmark");
 }
 
 public sealed record AdvisorResult(
@@ -62,19 +63,19 @@ public static class EfficiencyAdvisor
         string note;
         AdvisorCandidate? recommended = null;
         if (stable.Count == 0)
-            note = "Noch keine stabilen Benchmark-Ergebnisse – erst einen Benchmark laufen lassen.";
+            note = L.T("Noch keine stabilen Benchmark-Ergebnisse – erst einen Benchmark laufen lassen.");
         else if (pick is null || frequencyMhz is null || hashrateGh is null || powerW is null)
-            note = "Miner gerade nicht erreichbar – Vergleich nicht möglich.";
+            note = L.T("Miner gerade nicht erreichbar – Vergleich nicht möglich.");
         else if (pick.FrequencyMhz == frequencyMhz && pick.CoreVoltageMv == coreVoltageMv)
-            note = "Die aktuelle Einstellung ist für dieses Ziel bereits die beste.";
+            note = L.T("Die aktuelle Einstellung ist für dieses Ziel bereits die beste.");
         else if (!Worth(goal, pick, hashrateGh.Value, jth))
-            note = "Die beste Alternative ist kaum besser als die aktuelle Einstellung – ein Wechsel lohnt nicht.";
+            note = L.T("Die beste Alternative ist kaum besser als die aktuelle Einstellung – ein Wechsel lohnt nicht.");
         else
         {
             recommended = pick;
             note = pick.SoakPassed
-                ? "Diese Einstellung hat bereits einen Dauertest bestanden."
-                : "Nur im Benchmark geprüft – nach dem Wechsel einen Dauertest empfehlen.";
+                ? L.T("Diese Einstellung hat bereits einen Dauertest bestanden.")
+                : L.T("Nur im Benchmark geprüft – nach dem Wechsel einen Dauertest empfehlen.");
         }
         return new AdvisorResult(host, name, frequencyMhz, coreVoltageMv, hashrateGh, powerW, jth, basis, candidates, recommended, note);
     }

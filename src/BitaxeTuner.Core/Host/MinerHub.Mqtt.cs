@@ -54,8 +54,7 @@ public sealed partial class MinerHub
         switch (command)
         {
             case "fan_mode" when Config.Mqtt.AllowFanControl:
-                var mode = payload switch { "100 %" => FanOverride.Full, "Aus" => FanOverride.Off, _ => FanOverride.None };
-                await SetFanOverrideAsync(mode, "Home Assistant");
+                if (MqttBridge.ParseFanMode(payload) is { } mode) await SetFanOverrideAsync(mode, "Home Assistant");
                 break;
             case "display_refresh":
                 RequestDisplayRefresh();
@@ -85,7 +84,7 @@ public sealed partial class MinerHub
                 d.Config.Soak is not null ? d.SoakStatus : "–");
         }).ToList();
         var online = miners.Where(m => m.Online).ToList();
-        var mode = FanOverride switch { FanOverride.Full => "100 %", FanOverride.Off => "Aus", _ => "Automatik" };
+        var mode = MqttBridge.FanModeText(FanOverride);
         return new MqttSnapshot(online.Sum(m => m.HashrateGh ?? 0), online.Sum(m => m.PowerW ?? 0), online.Count, miners.Count,
             Prices.PriceAt(DateTime.UtcNow), IsPaused, mode, miners,
             fans.Select(c => new MqttFan(c.Channel, c.Name, c.Percent, c.Rpm)).ToList(),

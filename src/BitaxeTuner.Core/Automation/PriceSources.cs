@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Automation;
 
@@ -22,7 +23,7 @@ public interface IPriceSource
 /// </summary>
 public sealed class AwattarPriceSource(HttpClient http, string country) : IPriceSource
 {
-    public string Name => $"aWATTar {country.ToUpperInvariant()} (Börsenpreis netto)";
+    public string Name => L.T("aWATTar {0} (Börsenpreis netto)", country.ToUpperInvariant());
 
     public async Task<IReadOnlyList<PricePoint>> GetPricesAsync(CancellationToken ct)
     {
@@ -67,7 +68,7 @@ public sealed class TibberPriceSource(HttpClient http, string token) : IPriceSou
         };
         req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Trim());
         using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
-        if ((int)resp.StatusCode is 401 or 403) throw new InvalidOperationException("Tibber-Token ungültig");
+        if ((int)resp.StatusCode is 401 or 403) throw new InvalidOperationException(L.T("Tibber-Token ungültig"));
         resp.EnsureSuccessStatusCode();
         return Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
     }
@@ -107,7 +108,7 @@ public sealed class PriceService(Func<PriceSourceSettings> settings, HttpClient 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public string? LastError { get; private set; }
-    public string SourceName { get; private set; } = "keine";
+    public string SourceName { get; private set; } = L.T("keine");
     public IReadOnlyList<PricePoint> Prices => _prices;
 
     public static IPriceSource? Create(PriceSourceSettings s, HttpClient http) => s.Source switch
@@ -139,8 +140,8 @@ public sealed class PriceService(Func<PriceSourceSettings> settings, HttpClient 
             if (source is null)
             {
                 _prices = [];
-                SourceName = "keine";
-                LastError = s.Source == "tibber" ? "Tibber-Token fehlt" : null;
+                SourceName = L.T("keine");
+                LastError = s.Source == "tibber" ? L.T("Tibber-Token fehlt") : null;
                 return;
             }
             SourceName = source.Name;

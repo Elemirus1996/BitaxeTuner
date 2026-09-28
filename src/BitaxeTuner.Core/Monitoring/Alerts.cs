@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Monitoring;
 
@@ -41,7 +42,7 @@ public sealed class LogAlertRules
             try { if (regex.IsMatch(text)) return pattern; }
             catch (RegexMatchTimeoutException) { }
         }
-        return _onErrors && line.Level == LogLevel.Error ? "Fehlerzeile (E)" : null;
+        return _onErrors && line.Level == LogLevel.Error ? L.T("Fehlerzeile (E)") : null;
     }
 }
 
@@ -113,7 +114,7 @@ public sealed class LogAlertService : IDisposable
         Triggered?.Invoke(host, line, rule);
 
         if (!_config().Notifications.OnLogAlerts) return;
-        _send(new Alert(key, $"{name}: Log-Meldung",
+        _send(new Alert(key, L.T("{0}: Log-Meldung", name),
             $"{line.LevelText} {line.Tag}: {Shorten(line.Message, 300)}",
             line.Level == LogLevel.Error ? NotifyPriority.High : NotifyPriority.Normal, cooldown));
     }
@@ -145,7 +146,7 @@ public sealed class PoolWatch
     }
 
     private readonly Dictionary<string, HostState> _hosts = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    private static CultureInfo De => L.Culture; // Sprache kann sich zur Laufzeit ändern (Server-Einstellung)
 
     /// <summary>Ablehnungsquote im Fenster in %, null wenn zu wenige Shares.</summary>
     public double? RejectRate(string host, PoolWatchSettings s)
@@ -169,12 +170,12 @@ public sealed class PoolWatch
         var url = fallback && !string.IsNullOrWhiteSpace(info.fallbackStratumURL)
             ? $"{info.fallbackStratumURL}:{info.fallbackStratumPort}"
             : $"{info.stratumURL}:{info.stratumPort}";
-        parts.Add($"Pool: {url}");
-        parts.Add(fallback ? "FALLBACK aktiv" : "Primär-Pool");
-        if (AverageResponse(host) is { } ms && ms > 0) parts.Add($"Antwort Ø {ms.ToString("0", De)} ms");
+        parts.Add(L.T("Pool: {0}", url));
+        parts.Add(fallback ? L.T("FALLBACK aktiv") : L.T("Primär-Pool"));
+        if (AverageResponse(host) is { } ms && ms > 0) parts.Add(L.T("Antwort Ø {0} ms", ms.ToString("0", De)));
         parts.Add(RejectRate(host, s) is { } r
-            ? $"abgelehnt {s.WindowMinutes} min: {r.ToString("0.0", De)} %"
-            : $"abgelehnt {s.WindowMinutes} min: – (zu wenige Shares)");
+            ? L.T("abgelehnt {0} min: {1} %", s.WindowMinutes, r.ToString("0.0", De))
+            : L.T("abgelehnt {0} min: – (zu wenige Shares)", s.WindowMinutes));
         return string.Join(" · ", parts);
     }
 
@@ -201,23 +202,23 @@ public sealed class PoolWatch
         if (!s.Enabled || inMaintenance) return alerts;
 
         if (fallbackBefore is 0 && info.isUsingFallbackStratum != 0)
-            alerts.Add(new Alert($"pool-fallback:{host}", $"{name}: Fallback-Pool aktiv",
-                $"Der Primär-Pool ({info.stratumURL}:{info.stratumPort}) ist nicht erreichbar, {name} mined jetzt auf " +
+            alerts.Add(new Alert($"pool-fallback:{host}", L.T("{0}: Fallback-Pool aktiv", name),
+                L.T("Der Primär-Pool ({0}:{1}) ist nicht erreichbar, {2} mined jetzt auf ", info.stratumURL, info.stratumPort, name) +
                 $"{info.fallbackStratumURL}:{info.fallbackStratumPort}.", NotifyPriority.High, TimeSpan.FromHours(1)));
         else if (fallbackBefore is { } f && f != 0 && info.isUsingFallbackStratum == 0)
-            alerts.Add(new Alert($"pool-primary:{host}", $"{name}: wieder auf Primär-Pool",
+            alerts.Add(new Alert($"pool-primary:{host}", L.T("{0}: wieder auf Primär-Pool", name),
                 $"{info.stratumURL}:{info.stratumPort}", NotifyPriority.Normal, TimeSpan.FromMinutes(5)));
 
         if (RejectRate(host, s) is { } rate && rate > s.RejectPercent)
-            alerts.Add(new Alert($"pool-reject:{host}", $"{name}: viele abgelehnte Shares",
-                $"{rate.ToString("0.0", De)} % abgelehnt in den letzten {s.WindowMinutes} min (Grenze {s.RejectPercent.ToString("0.#", De)} %).",
+            alerts.Add(new Alert($"pool-reject:{host}", L.T("{0}: viele abgelehnte Shares", name),
+                L.T("{0} % abgelehnt in den letzten {1} min (Grenze {2} %).", rate.ToString("0.0", De), s.WindowMinutes, s.RejectPercent.ToString("0.#", De)),
                 NotifyPriority.High, TimeSpan.FromHours(2)));
 
         // Antwortzeit erst bewerten, wenn das Fenster zur Hälfte gefüllt ist
         if (s.ResponseMs > 0 && AverageResponse(host) is { } avg && avg > s.ResponseMs &&
             st.Response.Count > 0 && now - st.Response.Peek().Time >= window / 2)
-            alerts.Add(new Alert($"pool-slow:{host}", $"{name}: Pool antwortet langsam",
-                $"Ø {avg.ToString("0", De)} ms in den letzten {s.WindowMinutes} min (Grenze {s.ResponseMs.ToString("0", De)} ms).",
+            alerts.Add(new Alert($"pool-slow:{host}", L.T("{0}: Pool antwortet langsam", name),
+                L.T("Ø {0} ms in den letzten {1} min (Grenze {2} ms).", avg.ToString("0", De), s.WindowMinutes, s.ResponseMs.ToString("0", De)),
                 NotifyPriority.Normal, TimeSpan.FromHours(3)));
 
         return alerts;
@@ -232,7 +233,7 @@ public sealed class PoolWatch
 
 public static class DailyReport
 {
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    private static CultureInfo De => L.Culture; // Sprache kann sich zur Laufzeit ändern (Server-Einstellung)
 
     /// <summary>Soll jetzt ein Bericht gesendet werden?</summary>
     public static bool IsDue(DailyReportSettings s, DateTime now) =>
@@ -252,16 +253,16 @@ public static class DailyReport
             var availability = history.Availability(host, from);
             if (avg is null)
             {
-                lines.Add($"{name}: keine Daten{(availability is { } a0 ? $" (verfügbar {(a0 * 100).ToString("0", De)} %)" : "")}");
+                lines.Add(L.T("{0}: keine Daten{1}", name, (availability is { } a0 ? L.T(" (verfügbar {0} %)", (a0 * 100).ToString("0", De)) : "")));
                 continue;
             }
             totalHash += avg.HashRateGh;
             totalPower += avg.Power;
             var eff = avg.HashRateGh > 0 ? avg.Power / (avg.HashRateGh / 1000.0) : 0;
             var changes = history.QueryTuningEvents(host, from, now).Count(e => e.Source != TuningSource.Benchmark);
-            lines.Add($"{name}: {FormatHash(avg.HashRateGh)} · {eff.ToString("0.0", De)} J/TH · {avg.Temp.ToString("0", De)} °C" +
-                      (availability is { } a ? $" · verfügbar {(a * 100).ToString("0.0", De)} %" : "") +
-                      (changes > 0 ? $" · {changes} Tuning-Änderung(en)" : ""));
+            lines.Add(L.T("{0}: {1} · {2} J/TH · {3} °C", name, FormatHash(avg.HashRateGh), eff.ToString("0.0", De), avg.Temp.ToString("0", De)) +
+                      (availability is { } a ? L.T(" · verfügbar {0} %", (a * 100).ToString("0.0", De)) : "") +
+                      (changes > 0 ? L.T(" · {0} Tuning-Änderung(en)", changes) : ""));
         }
 
         var kwh = totalPower * 24 / 1000.0;
@@ -270,12 +271,12 @@ public static class DailyReport
             .Where(r => miners.Any(m => m.Host == r.Host))
             .OrderByDescending(r => r.Value).FirstOrDefault();
 
-        var header = $"Gesamt Ø {FormatHash(totalHash)} · {totalPower.ToString("0.0", De)} W · " +
-                     $"{kwh.ToString("0.00", De)} kWh ≈ {cost.ToString("0.00", De)} {config.Currency}";
+        var header = L.T("Gesamt Ø {0} · {1} W · ", FormatHash(totalHash), totalPower.ToString("0.0", De)) +
+                     L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency);
         if (best is not null)
-            header += $"\nBest Diff (Rekord): {best.Raw} ({miners.First(m => m.Host == best.Host).Name}, {best.AchievedAt.ToString("dd.MM.", De)})";
+            header += L.T("\nBest Diff (Rekord): {0} ({1}, {2})", best.Raw, miners.First(m => m.Host == best.Host).Name, best.AchievedAt.ToString("d", De));
 
-        return ($"Tagesbericht {now.ToString("dd.MM.yyyy", De)}", header + "\n\n" + string.Join("\n", lines));
+        return (L.T("Tagesbericht {0}", now.ToString("d", De)), header + "\n\n" + string.Join("\n", lines));
     }
 
     private static string FormatHash(double gh) =>

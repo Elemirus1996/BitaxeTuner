@@ -4,6 +4,7 @@ using System.Text.Json;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
 using Microsoft.Data.Sqlite;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
@@ -74,7 +75,7 @@ public static class DataArchive
             if (File.Exists(copy))
             {
                 var (ok, rows) = HistoryStore.Verify(copy);
-                if (!ok) throw new IOException("history.db ist nicht konsistent (integrity_check) – Übertragung abgebrochen.");
+                if (!ok) throw new IOException(L.T("history.db ist nicht konsistent (integrity_check) – Übertragung abgebrochen."));
                 manifest.HistoryRows = rows;
                 Add(zip, manifest, "history.db", copy);
             }
@@ -129,16 +130,16 @@ public static class DataArchive
     public static ArchiveManifest ExtractAndVerify(Stream archive, string stagingDirectory)
     {
         if (Directory.Exists(stagingDirectory) && Directory.EnumerateFileSystemEntries(stagingDirectory).Any())
-            throw new IOException("Bereitstellungsordner ist nicht leer.");
+            throw new IOException(L.T("Bereitstellungsordner ist nicht leer."));
         Directory.CreateDirectory(stagingDirectory);
         var root = Path.GetFullPath(stagingDirectory) + Path.DirectorySeparatorChar;
 
         using var zip = new ZipArchive(archive, ZipArchiveMode.Read, leaveOpen: true);
-        var manifestEntry = zip.GetEntry(ManifestName) ?? throw new InvalidDataException("Kein BitaxeTuner-Datenarchiv (manifest.json fehlt).");
+        var manifestEntry = zip.GetEntry(ManifestName) ?? throw new InvalidDataException(L.T("Kein BitaxeTuner-Datenarchiv (manifest.json fehlt)."));
         ArchiveManifest manifest;
         using (var s = manifestEntry.Open())
-            manifest = JsonSerializer.Deserialize<ArchiveManifest>(s) ?? throw new InvalidDataException("manifest.json ist leer.");
-        if (manifest.Format != 1) throw new InvalidDataException($"Archivformat {manifest.Format} wird nicht unterstützt – bitte beide Seiten aktualisieren.");
+            manifest = JsonSerializer.Deserialize<ArchiveManifest>(s) ?? throw new InvalidDataException(L.T("manifest.json ist leer."));
+        if (manifest.Format != 1) throw new InvalidDataException(L.T("Archivformat {0} wird nicht unterstützt – bitte beide Seiten aktualisieren.", manifest.Format));
 
         var expected = manifest.Files.ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -146,12 +147,12 @@ public static class DataArchive
         {
             if (entry.FullName == ManifestName || entry.FullName.EndsWith('/')) continue;
             if (!entry.FullName.StartsWith(DataPrefix, StringComparison.Ordinal))
-                throw new InvalidDataException($"Unerwarteter Eintrag im Archiv: {entry.FullName}");
+                throw new InvalidDataException(L.T("Unerwarteter Eintrag im Archiv: {0}", entry.FullName));
             var relative = entry.FullName[DataPrefix.Length..];
-            if (!expected.TryGetValue(relative, out var info)) throw new InvalidDataException($"Datei nicht im Manifest: {relative}");
-            if (relative != "history.db" && !IsTransferable(relative)) throw new InvalidDataException($"Datei darf nicht übertragen werden: {relative}");
+            if (!expected.TryGetValue(relative, out var info)) throw new InvalidDataException(L.T("Datei nicht im Manifest: {0}", relative));
+            if (relative != "history.db" && !IsTransferable(relative)) throw new InvalidDataException(L.T("Datei darf nicht übertragen werden: {0}", relative));
             var target = Path.GetFullPath(Path.Combine(stagingDirectory, relative));
-            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException($"Ungültiger Pfad im Archiv: {relative}");
+            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(L.T("Ungültiger Pfad im Archiv: {0}", relative));
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             using (var input = entry.Open())
@@ -159,20 +160,20 @@ public static class DataArchive
                 input.CopyTo(output);
             var bytes = new FileInfo(target).Length;
             var hash = Hash(target);
-            if (bytes != info.Size || hash != info.Sha256) throw new InvalidDataException($"Prüfsumme stimmt nicht: {relative}");
+            if (bytes != info.Size || hash != info.Sha256) throw new InvalidDataException(L.T("Prüfsumme stimmt nicht: {0}", relative));
             seen.Add(relative);
         }
         var missing = expected.Keys.Where(k => !seen.Contains(k)).ToList();
-        if (missing.Count > 0) throw new InvalidDataException("Im Archiv fehlen: " + string.Join(", ", missing));
+        if (missing.Count > 0) throw new InvalidDataException(L.T("Im Archiv fehlen: ") + string.Join(", ", missing));
 
         var db = Path.Combine(stagingDirectory, "history.db");
         if (File.Exists(db))
         {
             var (ok, rows) = HistoryStore.Verify(db);
             SqliteConnection.ClearAllPools();
-            if (!ok) throw new InvalidDataException("history.db im Archiv ist beschädigt (integrity_check).");
+            if (!ok) throw new InvalidDataException(L.T("history.db im Archiv ist beschädigt (integrity_check)."));
             foreach (var (table, count) in manifest.HistoryRows)
-                if (rows.GetValueOrDefault(table) != count) throw new InvalidDataException($"history.db: Zeilenzahl in {table} weicht ab.");
+                if (rows.GetValueOrDefault(table) != count) throw new InvalidDataException(L.T("history.db: Zeilenzahl in {0} weicht ab.", table));
         }
         return manifest;
     }

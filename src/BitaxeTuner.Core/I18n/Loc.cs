@@ -107,6 +107,9 @@ public static class L
     public static string T(string german, params object?[] args) => Loc.Current.T(german, args);
     public static CultureInfo Culture => Loc.Current.Culture;
 
+    /// <summary>Kurzes Datum mit Uhrzeit ohne Jahr (E-Paper, Push): „28.09. 15:34“ bzw. „28/09 15:34“.</summary>
+    public static string Short(DateTime time) => time.ToString(T("dd.MM. HH:mm"), Culture);
+
     /// <summary>
     /// Markiert einen Text als übersetzbar, ohne ihn zu übersetzen (wie gettext „N_“): für Meldungen, die erst bei
     /// der Ausgabe in die Sprache des Empfängers übersetzt werden (z. B. Fehlermeldungen an den Browser).

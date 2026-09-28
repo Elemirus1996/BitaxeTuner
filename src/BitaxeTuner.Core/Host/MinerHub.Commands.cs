@@ -4,6 +4,7 @@ using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Storage;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -16,11 +17,11 @@ public sealed record TuningComparisonRow(TuningEvent Event, WindowAverage? Befor
     public string BeforeText => Format(Before);
     public string AfterText => Format(After);
     public string DeltaText => Before is null || After is null ? "–"
-        : $"{After.HashRateGh - Before.HashRateGh:+0;-0;0} GH/s · {After.Temp - Before.Temp:+0.0;-0.0;0.0} °C · " +
-          (Before.EfficiencyJth is { } b && After.EfficiencyJth is { } a ? $"{a - b:+0.00;-0.00;0.00} J/TH" : "–");
+        : L.T("{0:+0;-0;0} GH/s · {1:+0.0;-0.0;0.0} °C · ", After.HashRateGh - Before.HashRateGh, After.Temp - Before.Temp) +
+          (Before.EfficiencyJth is { } b && After.EfficiencyJth is { } a ? L.T("{0:+0.00;-0.00;0.00} J/TH", a - b) : "–");
 
-    private static string Format(WindowAverage? w) => w is null ? "keine Daten"
-        : $"{w.HashRateGh:0} GH/s · {w.Temp:0.0} °C · {(w.EfficiencyJth is { } e ? $"{e:0.00} J/TH" : "–")} ({w.Minutes} min)";
+    private static string Format(WindowAverage? w) => w is null ? L.T("keine Daten")
+        : L.T("{0:0} GH/s · {1:0.0} °C · {2} ({3} min)", w.HashRateGh, w.Temp, (w.EfficiencyJth is { } e ? L.T("{0:0.00} J/TH", e) : "–"), w.Minutes);
 }
 
 /// <summary>Bestätigungstext für eine Frequenz-/Spannungsänderung (alt → neu), erst danach <see cref="MinerHub.ApplyChangeAsync"/>.</summary>
@@ -41,8 +42,8 @@ public sealed partial class MinerHub
         var p = device.Profile;
         return frequencyMhz < p.MinFrequencyMhz || frequencyMhz > p.MaxFrequencyMhz ||
                coreVoltageMv < p.MinVoltageMv || coreVoltageMv > p.MaxVoltageMv
-            ? $"{frequencyMhz} MHz / {coreVoltageMv} mV liegt außerhalb der Grenzen für {p.Name}:\n" +
-              $"Frequenz {p.MinFrequencyMhz}–{p.MaxFrequencyMhz} MHz, Spannung {p.MinVoltageMv}–{p.MaxVoltageMv} mV."
+            ? L.T("{0} MHz / {1} mV liegt außerhalb der Grenzen für {2}:\n", frequencyMhz, coreVoltageMv, p.Name) +
+              L.T("Frequenz {0}–{1} MHz, Spannung {2}–{3} mV.", p.MinFrequencyMhz, p.MaxFrequencyMhz, p.MinVoltageMv, p.MaxVoltageMv)
             : null;
     }
 
@@ -50,7 +51,7 @@ public sealed partial class MinerHub
     public async Task<ChangePreview> PreviewChangeAsync(HubDevice device, int frequencyMhz, int coreVoltageMv, string? intro = null)
     {
         if (CheckLimits(device, frequencyMhz, coreVoltageMv) is { } error) throw new InvalidOperationException(error);
-        if (device.IsBenchmarkRunning) throw new InvalidOperationException("Während eines Benchmarks nicht möglich.");
+        if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
 
         MinerInfo? now = null;
         try { now = await device.Connection.GetInfoAsync(); } catch (MinerApiException) { }
@@ -59,13 +60,13 @@ public sealed partial class MinerHub
         var restart = Config.RestartAfterApply;
         var p = device.Profile;
 
-        var text = (intro is null ? "" : intro + "\n\n") + $"Einstellung für {device.Title} ändern?\n\n" +
-                   $"Frequenz:      {(now is null ? "?" : now.FrequencyMhz.ToString())} MHz  →  {frequencyMhz} MHz\n" +
-                   $"Kernspannung:  {(now is null ? "?" : now.CoreVoltageMv.ToString())} mV  →  {coreVoltageMv} mV\n\n" +
-                   $"Grenzen {p.Name}: {p.MinFrequencyMhz}–{p.MaxFrequencyMhz} MHz, {p.MinVoltageMv}–{p.MaxVoltageMv} mV\n" +
-                   (overclock ? "Der Wert liegt außerhalb der AxeOS-Auswahlliste – „overclockEnabled“ wird eingeschaltet.\n" : "") +
-                   (restart ? "Das Gerät wird danach neu gestartet (Watchdog und Offline-Meldung pausieren).\n" : "") +
-                   "\nDie Änderung wird mit Zeitstempel in history.db protokolliert.";
+        var text = (intro is null ? "" : intro + "\n\n") + L.T("Einstellung für {0} ändern?\n\n", device.Title) +
+                   L.T("Frequenz:      {0} MHz  →  {1} MHz\n", (now is null ? "?" : now.FrequencyMhz.ToString()), frequencyMhz) +
+                   L.T("Kernspannung:  {0} mV  →  {1} mV\n\n", (now is null ? "?" : now.CoreVoltageMv.ToString()), coreVoltageMv) +
+                   L.T("Grenzen {0}: {1}–{2} MHz, {3}–{4} mV\n", p.Name, p.MinFrequencyMhz, p.MaxFrequencyMhz, p.MinVoltageMv, p.MaxVoltageMv) +
+                   (overclock ? L.T("Der Wert liegt außerhalb der AxeOS-Auswahlliste – „overclockEnabled“ wird eingeschaltet.\n") : "") +
+                   (restart ? L.T("Das Gerät wird danach neu gestartet (Watchdog und Offline-Meldung pausieren).\n") : "") +
+                   L.T("\nDie Änderung wird mit Zeitstempel in history.db protokolliert.");
         return new ChangePreview(frequencyMhz, coreVoltageMv, text);
     }
 
@@ -73,14 +74,14 @@ public sealed partial class MinerHub
     public async Task ApplyChangeAsync(HubDevice device, int frequencyMhz, int coreVoltageMv, TuningSource source = TuningSource.Manual)
     {
         if (CheckLimits(device, frequencyMhz, coreVoltageMv) is { } error) throw new InvalidOperationException(error);
-        if (device.IsBenchmarkRunning) throw new InvalidOperationException("Während eines Benchmarks nicht möglich.");
+        if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
 
-        await TryAutoBackupAsync(device, "vor manueller Änderung");
+        await TryAutoBackupAsync(device, L.T("vor manueller Änderung"));
         var before = device.Connection.Last;
         await device.Connection.ApplySettingsAsync(frequencyMhz, coreVoltageMv, source);
         if (Config.RestartAfterApply) await device.Connection.RestartAsync();
         device.PendingSuggestion = null;
-        device.AddLog($"Angewendet: {(before is null ? "?" : $"{before.FrequencyMhz} MHz / {before.CoreVoltageMv} mV")} → {frequencyMhz} MHz / {coreVoltageMv} mV");
+        device.AddLog(L.T("Angewendet: {0} → {1} MHz / {2} mV", (before is null ? "?" : L.T("{0} MHz / {1} mV", before.FrequencyMhz, before.CoreVoltageMv)), frequencyMhz, coreVoltageMv));
         RaiseDeviceChanged(device);
     }
 
@@ -96,22 +97,22 @@ public sealed partial class MinerHub
     /// <summary>Voreinstellung außerhalb der Profilgrenzen → Fehlermeldung, sonst null.</summary>
     public static string? CheckPreset(HubDevice device, TuningPreset preset) =>
         CheckLimits(device, preset.FrequencyMhz, preset.CoreVoltageMv) is null ? null
-            : $"{preset} liegt außerhalb der Grenzen für {device.Profile.Name}.";
+            : L.T("{0} liegt außerhalb der Grenzen für {1}.", preset, device.Profile.Name);
 
     public static string PresetText(HubDevice device, string name) =>
         device.Config.Presets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } p
-            ? p.ToString() : $"„{name}“ (fehlt!)";
+            ? p.ToString() : L.T("„{0}“ (fehlt!)", name);
 
     /// <summary>Text für die Freigabe des Temperaturschutzes.</summary>
     public static string ThermalGuardApprovalText(HubDevice device)
     {
         var g = device.Config.ThermalGuard;
-        return $"Temperaturschutz für {device.Title} freigeben?\n\n" +
-               $"Wenn die Chiptemperatur über {g.MaxChipTempC:0.#} °C oder die VR-Temperatur über {g.MaxVrTempC:0.#} °C liegt " +
-               $"(durchgehend {g.Minutes} min), senkt die App die Frequenz um {g.StepMhz} MHz, nie unter {g.MinFrequencyMhz} MHz. " +
-               "Die Kernspannung bleibt unverändert.\n" +
-               (g.Recover ? $"Ist der Miner {g.RecoverMinutes} min mindestens 5 °C unter den Grenzen, geht sie schrittweise zurück bis zur ursprünglichen Frequenz.\n" : "") +
-               "\nJede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet. Ändert sich die Regel, ist eine neue Freigabe nötig.";
+        return L.T("Temperaturschutz für {0} freigeben?\n\n", device.Title) +
+               L.T("Wenn die Chiptemperatur über {0:0.#} °C oder die VR-Temperatur über {1:0.#} °C liegt ", g.MaxChipTempC, g.MaxVrTempC) +
+               L.T("(durchgehend {0} min), senkt die App die Frequenz um {1} MHz, nie unter {2} MHz. ", g.Minutes, g.StepMhz, g.MinFrequencyMhz) +
+               L.T("Die Kernspannung bleibt unverändert.\n") +
+               (g.Recover ? L.T("Ist der Miner {0} min mindestens 5 °C unter den Grenzen, geht sie schrittweise zurück bis zur ursprünglichen Frequenz.\n", g.RecoverMinutes) : "") +
+               L.T("\nJede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet. Ändert sich die Regel, ist eine neue Freigabe nötig.");
     }
 
     /// <summary>Text für die Freigabe von Zeitplan bzw. Strompreis-Regel.</summary>
@@ -121,53 +122,53 @@ public sealed partial class MinerHub
         string body;
         if (s.Mode == "price")
         {
-            body = $"Strompreis ({Prices.SourceName}) ≤ {s.ThresholdCt:0.##} ct/kWh → {PresetText(device, s.CheapPreset)}\n" +
-                   $"sonst → {PresetText(device, s.ExpensivePreset)}";
+            body = L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → {2}\n", Prices.SourceName, s.ThresholdCt, PresetText(device, s.CheapPreset)) +
+                   L.T("sonst → {0}", PresetText(device, s.ExpensivePreset));
         }
         else
         {
-            body = string.Join("\n", s.Entries.Select(e => $"{e.DaysText} {e.FromHour:00}–{e.ToHour:00} Uhr → {PresetText(device, e.Preset)}")) +
-                   $"\nsonst → {(string.IsNullOrWhiteSpace(s.DefaultPreset) ? "keine Änderung" : PresetText(device, s.DefaultPreset))}";
+            body = string.Join("\n", s.Entries.Select(e => L.T("{0} {1:00}–{2:00} Uhr → {3}", e.DaysText, e.FromHour, e.ToHour, PresetText(device, e.Preset)))) +
+                   L.T("\nsonst → {0}", (string.IsNullOrWhiteSpace(s.DefaultPreset) ? L.T("keine Änderung") : PresetText(device, s.DefaultPreset)));
         }
-        return $"{(s.Mode == "price" ? "Strompreis-Regel" : "Zeitplan")} für {device.Title} freigeben?\n\n{body}\n\n" +
-               $"Zwischen zwei automatischen Änderungen liegen mindestens {AutomationEngine.MinGap.TotalMinutes:0} min. " +
-               "Während eines Benchmarks, Dauertests oder abgesenkten Temperaturschutzes pausiert die Regel. " +
-               "Jede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet.";
+        return L.T("{0} für {1} freigeben?\n\n{2}\n\n", (s.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan")), device.Title, body) +
+               L.T("Zwischen zwei automatischen Änderungen liegen mindestens {0:0} min. ", AutomationEngine.MinGap.TotalMinutes) +
+               L.T("Während eines Benchmarks, Dauertests oder abgesenkten Temperaturschutzes pausiert die Regel. ") +
+               L.T("Jede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet.");
     }
 
     /// <summary>Regel nach bestätigter Freigabe mit Prüfsumme freischalten.</summary>
     public void ApproveRule(HubDevice device, AutomationRule rule, string label)
     {
-        if (!rule.Enabled) throw new InvalidOperationException($"{label} ist nicht eingeschaltet.");
+        if (!rule.Enabled) throw new InvalidOperationException(L.T("{0} ist nicht eingeschaltet.", label));
         rule.Approve(device.Host);
         Config.Save();
-        device.AddLog($"{label} freigegeben.");
+        device.AddLog(L.T("{0} freigegeben.", label));
     }
 
     // ---------- Dauertest ----------
 
     public string SoakConfirmText(HubDevice device, int hours)
     {
-        var info = device.Info ?? throw new InvalidOperationException("Dauertest: Miner nicht erreichbar.");
-        return $"Dauertest für {device.Title} starten?\n\n" +
-               $"Beobachtet wird die aktuelle Einstellung {info.FrequencyMhz} MHz / {info.CoreVoltageMv} mV für {hours} h: " +
-               $"Hashrate (Ø 15 min, mind. {SoakMonitor.RatioThreshold:P0} der Soll-Hashrate), Fehlerrate, Temperaturen, Erreichbarkeit.\n\n" +
-               "Am Miner wird dabei nichts geändert. Zeitplan/Strompreis-Regel pausieren so lange. " +
-               "Bei einem Fehler meldet die App das und schlägt die nächstniedrigere stabile Einstellung vor (nur nach Bestätigung).";
+        var info = device.Info ?? throw new InvalidOperationException(L.T("Dauertest: Miner nicht erreichbar."));
+        return L.T("Dauertest für {0} starten?\n\n", device.Title) +
+               L.T("Beobachtet wird die aktuelle Einstellung {0} MHz / {1} mV für {2} h: ", info.FrequencyMhz, info.CoreVoltageMv, hours) +
+               L.T("Hashrate (Ø 15 min, mind. {0:P0} der Soll-Hashrate), Fehlerrate, Temperaturen, Erreichbarkeit.\n\n", SoakMonitor.RatioThreshold) +
+               L.T("Am Miner wird dabei nichts geändert. Zeitplan/Strompreis-Regel pausieren so lange. ") +
+               L.T("Bei einem Fehler meldet die App das und schlägt die nächstniedrigere stabile Einstellung vor (nur nach Bestätigung).");
     }
 
     public void StartSoak(HubDevice device, int hours)
     {
-        var info = device.Info ?? throw new InvalidOperationException("Dauertest: Miner nicht erreichbar.");
-        if (device.IsBenchmarkRunning) throw new InvalidOperationException("Dauertest: zuerst den Benchmark beenden.");
-        if (hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+        var info = device.Info ?? throw new InvalidOperationException(L.T("Dauertest: Miner nicht erreichbar."));
+        if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Dauertest: zuerst den Benchmark beenden."));
+        if (hours is < 1 or > 168) throw new InvalidOperationException(L.T("Dauertest: 1 bis 168 Stunden."));
         var now = DateTime.Now;
         device.Config.Soak = new SoakTestState(now, now.AddHours(hours), info.FrequencyMhz, info.CoreVoltageMv);
         Config.Save();
         device.SoakMonitor = null;
-        device.SoakStatus = "Dauertest gestartet – Anlaufphase";
+        device.SoakStatus = L.T("Dauertest gestartet – Anlaufphase");
         device.PendingSuggestion = null;
-        device.AddLog($"Dauertest gestartet: {info.FrequencyMhz} MHz / {info.CoreVoltageMv} mV für {hours} h");
+        device.AddLog(L.T("Dauertest gestartet: {0} MHz / {1} mV für {2} h", info.FrequencyMhz, info.CoreVoltageMv, hours));
         RaiseDeviceChanged(device);
     }
 
@@ -177,8 +178,8 @@ public sealed partial class MinerHub
         device.Config.Soak = null;
         Config.Save();
         device.SoakMonitor = null;
-        device.SoakStatus = "Dauertest abgebrochen";
-        device.AddLog("Dauertest abgebrochen.");
+        device.SoakStatus = L.T("Dauertest abgebrochen");
+        device.AddLog(L.T("Dauertest abgebrochen."));
         RaiseDeviceChanged(device);
     }
 
@@ -191,9 +192,9 @@ public sealed partial class MinerHub
     public IReadOnlyList<SoakBatchEntry> SoakBatchPreview() => Devices.Select(d =>
     {
         var info = d.Info;
-        var reason = d.Config.Soak is not null ? "Dauertest läuft bereits"
-            : d.IsBenchmarkRunning ? "Benchmark läuft"
-            : info is null ? "nicht erreichbar"
+        var reason = d.Config.Soak is not null ? L.T("Dauertest läuft bereits")
+            : d.IsBenchmarkRunning ? L.T("Benchmark läuft")
+            : info is null ? L.T("nicht erreichbar")
             : null;
         return new SoakBatchEntry(d, reason is null, reason, info?.FrequencyMhz, info?.CoreVoltageMv, d.Config.Soak is not null);
     }).ToList();
@@ -204,7 +205,7 @@ public sealed partial class MinerHub
     /// </summary>
     public IReadOnlyList<(HubDevice Device, bool Started, string Message)> StartSoakBatch(IEnumerable<string> hosts, int hours)
     {
-        if (hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+        if (hours is < 1 or > 168) throw new InvalidOperationException(L.T("Dauertest: 1 bis 168 Stunden."));
         var wanted = hosts.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var result = new List<(HubDevice, bool, string)>();
         foreach (var e in SoakBatchPreview().Where(e => wanted.Contains(e.Device.Host)))
@@ -217,14 +218,14 @@ public sealed partial class MinerHub
             try
             {
                 StartSoak(e.Device, hours);
-                result.Add((e.Device, true, $"gestartet: {e.FrequencyMhz} MHz / {e.CoreVoltageMv} mV für {hours} h"));
+                result.Add((e.Device, true, L.T("gestartet: {0} MHz / {1} mV für {2} h", e.FrequencyMhz, e.CoreVoltageMv, hours)));
             }
             catch (InvalidOperationException ex)
             {
                 result.Add((e.Device, false, ex.Message));
             }
         }
-        if (result.Count == 0) throw new InvalidOperationException("Dauertest: keinen Miner ausgewählt.");
+        if (result.Count == 0) throw new InvalidOperationException(L.T("Dauertest: keinen Miner ausgewählt."));
         return result;
     }
 
@@ -243,7 +244,7 @@ public sealed partial class MinerHub
     {
         var raw = await device.Connection.GetRawInfoAsync();
         var snap = Snapshots.Save(device.Host, device.Title, raw, reason);
-        device.AddLog(reason == "manuell" ? $"Einstellungen gesichert: {snap.DisplayText}" : $"Automatische Sicherung ({reason})");
+        device.AddLog(reason == "manuell" ? L.T("Einstellungen gesichert: {0}", snap.DisplayText) : L.T("Automatische Sicherung ({0})", reason));
         return snap;
     }
 
@@ -251,14 +252,14 @@ public sealed partial class MinerHub
     {
         if (device.IsSimulated) return;
         try { await BackupSettingsAsync(device, reason); }
-        catch (Exception ex) { device.AddLog($"Automatische Sicherung ({reason}) fehlgeschlagen: {ex.Message}"); }
+        catch (Exception ex) { device.AddLog(L.T("Automatische Sicherung ({0}) fehlgeschlagen: {1}", reason, ex.Message)); }
     }
 
     /// <summary>Unterschiede zwischen Sicherung und aktuellem Stand des Miners.</summary>
     public async Task<(IReadOnlyList<SettingsSnapshot> Snapshots, string CurrentRaw)> RestoreCandidatesAsync(HubDevice device)
     {
         var snapshots = Snapshots.List(device.Host);
-        if (snapshots.Count == 0) throw new InvalidOperationException($"Für {device.Title} gibt es noch keine Sicherung.");
+        if (snapshots.Count == 0) throw new InvalidOperationException(L.T("Für {0} gibt es noch keine Sicherung.", device.Title));
         var current = await device.Connection.GetRawInfoAsync();
         return (snapshots, current);
     }
@@ -266,7 +267,7 @@ public sealed partial class MinerHub
     /// <summary>Bestätigte, ausgewählte Felder zurückspielen. Frequenz/Spannung laufen über den protokollierten Weg.</summary>
     public async Task RestoreAsync(HubDevice device, SettingsSnapshot snapshot, IReadOnlyList<SettingChange> changes)
     {
-        if (device.IsBenchmarkRunning) throw new InvalidOperationException("Während eines Benchmarks nicht möglich.");
+        if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
         if (changes.Count == 0) return;
 
         var freq = changes.FirstOrDefault(c => c.Field == "frequency");
@@ -279,7 +280,7 @@ public sealed partial class MinerHub
             if (CheckLimits(device, f, v) is { } error) throw new InvalidOperationException(error);
         }
 
-        await TryAutoBackupAsync(device, "vor Wiederherstellung");
+        await TryAutoBackupAsync(device, L.T("vor Wiederherstellung"));
         if (freq is not null || volt is not null)
         {
             var info = await device.Connection.GetInfoAsync();
@@ -295,7 +296,7 @@ public sealed partial class MinerHub
         var restart = Config.RestartAfterApply || changes.Any(c => c.Group == SettingGroup.Pool);
         if (restart) await device.Connection.RestartAsync();
 
-        device.AddLog($"Wiederhergestellt ({snapshot.DisplayText}): " +
+        device.AddLog(L.T("Wiederhergestellt ({0}): ", snapshot.DisplayText) +
                       string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
     }
 

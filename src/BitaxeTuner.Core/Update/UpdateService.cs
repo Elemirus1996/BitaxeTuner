@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Update;
 
@@ -48,22 +49,22 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
             req.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
             if (resp.StatusCode == HttpStatusCode.NotFound)
-                return new(UpdateCheckStatus.NoRelease, null, "Kein öffentlicher Release gefunden (Repository privat oder noch kein Release).");
+                return new(UpdateCheckStatus.NoRelease, null, L.T("Kein öffentlicher Release gefunden (Repository privat oder noch kein Release)."));
             if ((int)resp.StatusCode is 403 or 429)
-                return new(UpdateCheckStatus.Failed, null, "GitHub-Abfragelimit erreicht – später erneut.");
+                return new(UpdateCheckStatus.Failed, null, L.T("GitHub-Abfragelimit erreicht – später erneut."));
             resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             var info = await ParseAsync(json, ct).ConfigureAwait(false);
             if (info is null)
-                return new(UpdateCheckStatus.NoRelease, null, "Der neueste Release enthält keine passende Datei für diese Installation.");
+                return new(UpdateCheckStatus.NoRelease, null, L.T("Der neueste Release enthält keine passende Datei für diese Installation."));
             return info.Version > current
-                ? new(UpdateCheckStatus.UpdateAvailable, info, $"Version {info.Tag} ist verfügbar.")
-                : new(UpdateCheckStatus.UpToDate, info, $"Aktuell (neuester Release {info.Tag}).");
+                ? new(UpdateCheckStatus.UpdateAvailable, info, L.T("Version {0} ist verfügbar.", info.Tag))
+                : new(UpdateCheckStatus.UpToDate, info, L.T("Aktuell (neuester Release {0}).", info.Tag));
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException && !ct.IsCancellationRequested)
         {
-            return new(UpdateCheckStatus.Failed, null, "Update-Prüfung fehlgeschlagen: " + ex.Message);
+            return new(UpdateCheckStatus.Failed, null, L.T("Update-Prüfung fehlgeschlagen: ") + ex.Message);
         }
     }
 
@@ -119,7 +120,7 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
     public async Task<string> DownloadAsync(UpdateInfo update, string targetDirectory, IProgress<double>? progress = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(update.Sha256))
-            throw new InvalidOperationException("Für diese Setup-Datei ist keine SHA-256-Prüfsumme veröffentlicht – Installation abgebrochen.");
+            throw new InvalidOperationException(L.T("Für diese Setup-Datei ist keine SHA-256-Prüfsumme veröffentlicht – Installation abgebrochen."));
 
         Directory.CreateDirectory(targetDirectory);
         var file = Path.Combine(targetDirectory, update.SetupName);
@@ -146,7 +147,7 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
         if (!string.Equals(actual, update.Sha256, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(file);
-            throw new InvalidOperationException("Prüfsumme der heruntergeladenen Datei stimmt nicht – Installation abgebrochen.");
+            throw new InvalidOperationException(L.T("Prüfsumme der heruntergeladenen Datei stimmt nicht – Installation abgebrochen."));
         }
         return file;
     }

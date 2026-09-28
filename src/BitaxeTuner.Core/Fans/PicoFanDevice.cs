@@ -1,6 +1,7 @@
 using System.IO.Ports;
 using System.Reflection;
 using System.Text;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Fans;
 
@@ -114,7 +115,7 @@ public sealed class PicoFanDevice : IFanDevice
         get
         {
             using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("BitaxeTuner.Core.Fans.btfan.py")
-                          ?? throw new InvalidOperationException("Lüfterprogramm fehlt in der Programmdatei.");
+                          ?? throw new InvalidOperationException(L.T("Lüfterprogramm fehlt in der Programmdatei."));
             using var r = new StreamReader(s);
             return r.ReadToEnd().Replace("\r\n", "\n");
         }
@@ -127,12 +128,12 @@ public sealed class PicoFanDevice : IFanDevice
         if (version != FirmwareVersion)
         {
             log?.Invoke(version is null
-                ? $"Pico an {portName}: Lüfterprogramm fehlt – wird aufgespielt …"
-                : $"Pico an {portName}: Lüfterprogramm v{version} → v{FirmwareVersion} wird aufgespielt …");
+                ? L.T("Pico an {0}: Lüfterprogramm fehlt – wird aufgespielt …", portName)
+                : L.T("Pico an {0}: Lüfterprogramm v{1} → v{2} wird aufgespielt …", portName, version, FirmwareVersion));
             Install(io, Firmware);
             version = Hello(io, TimeSpan.FromSeconds(4)) ?? throw new IOException(
-                "Pico antwortet nach dem Aufspielen nicht. Ist MicroPython installiert (UF2 von micropython.org)?");
-            log?.Invoke($"Pico an {portName}: Lüfterprogramm v{version} läuft.");
+                L.T("Pico antwortet nach dem Aufspielen nicht. Ist MicroPython installiert (UF2 von micropython.org)?"));
+            log?.Invoke(L.T("Pico an {0}: Lüfterprogramm v{1} läuft.", portName, version));
         }
         return new PicoFanDevice(io, $"Pico an {portName} (Programm v{version})");
     }
@@ -161,16 +162,16 @@ public sealed class PicoFanDevice : IFanDevice
         io.Discard();
         io.Write("\r\x01"); // Raw-REPL
         if (io.ReadUntil("raw REPL; CTRL-B to exit\r\n>", TimeSpan.FromSeconds(3)) is null)
-            throw new IOException("Kein MicroPython auf dem Pico gefunden. Bitte zuerst MicroPython installieren (BOOTSEL + UF2).");
+            throw new IOException(L.T("Kein MicroPython auf dem Pico gefunden. Bitte zuerst MicroPython installieren (BOOTSEL + UF2)."));
 
         void Exec(string code)
         {
             io.Write(code + "\x04");
-            var reply = io.ReadUntil("\x04>", TimeSpan.FromSeconds(5)) ?? throw new IOException("Pico antwortet beim Aufspielen nicht.");
+            var reply = io.ReadUntil("\x04>", TimeSpan.FromSeconds(5)) ?? throw new IOException(L.T("Pico antwortet beim Aufspielen nicht."));
             // Antwort: "OK" <Ausgabe> \x04 <Fehler> \x04>
             var parts = reply.Split('\x04');
             if (!reply.StartsWith("OK", StringComparison.Ordinal) || parts.Length < 2 || parts[1].Trim().Length > 0)
-                throw new IOException("Fehler beim Aufspielen: " + (parts.Length > 1 ? parts[1].Trim() : reply));
+                throw new IOException(L.T("Fehler beim Aufspielen: ") + (parts.Length > 1 ? parts[1].Trim() : reply));
         }
 
         Exec("f=open('main.py','w')");
@@ -224,7 +225,7 @@ public sealed class PicoFanDevice : IFanDevice
 
     public Task ShowImageAsync(byte[] planes, CancellationToken ct = default) => Task.Run(() =>
     {
-        if (planes.Length != ImageBytes) throw new ArgumentException("Bildgröße passt nicht zur Anzeige.");
+        if (planes.Length != ImageBytes) throw new ArgumentException(L.T("Bildgröße passt nicht zur Anzeige."));
         lock (_lock)
         {
             _io.Write($"IMG {planes.Length}\r\n");
@@ -282,7 +283,7 @@ public sealed class PicoFanDevice : IFanDevice
             }
             if (line.StartsWith("ERR", StringComparison.Ordinal)) throw new IOException("Pico: " + line[3..].Trim());
         }
-        throw new IOException("Pico antwortet nicht.");
+        throw new IOException(L.T("Pico antwortet nicht."));
     }
 
     /// <summary>"RPM r1 .. r6 [T id=t id=t ..]" – Drehzahlen und optional Temperaturfühler.</summary>

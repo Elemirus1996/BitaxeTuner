@@ -155,7 +155,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
             SetResults(last.Results);
         }
         if (_device.Benchmark is { } run) ApplyRunState(run);
-        AutomationStatus = _device.AutomationStatus;
+        AutomationStatus = AutomationText(_device.AutomationStatus);
         SoakStatus = _device.SoakStatus;
         RefreshComparisons();
         LoadAutomation();
@@ -169,7 +169,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         if (!ReferenceEquals(_loadedConfig, Config)) LoadAutomation(); // nach "Einstellungen speichern" neue Kopie
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(EstimatedDurationText));
-        AutomationStatus = _device.AutomationStatus;
+        AutomationStatus = AutomationText(_device.AutomationStatus);
         SoakStatus = _device.SoakStatus;
 
         var state = _device.State;
@@ -192,7 +192,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         if (!ReferenceEquals(device, _device)) return;
         Ui(() =>
         {
-            AutomationStatus = device.AutomationStatus;
+            AutomationStatus = AutomationText(device.AutomationStatus);
             SoakStatus = device.SoakStatus;
             OnPropertyChanged(nameof(SoakActive));
             if (!ReferenceEquals(Profile, device.Profile))
@@ -432,6 +432,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     // ---------- Automatik: Voreinstellungen, Regeln ----------
 
     [ObservableProperty] private string _automationStatus = L.T("keine Automatik");
+
+    private static string AutomationText(string status) => status.Length == 0 ? L.T("keine Automatik") : status;
     [ObservableProperty] private string _newPresetName = "";
     [ObservableProperty] private TuningPreset? _selectedPreset;
     [ObservableProperty] private ScheduleEntry? _selectedScheduleEntry;

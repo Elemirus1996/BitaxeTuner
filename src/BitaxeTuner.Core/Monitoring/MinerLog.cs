@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Simulation;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Monitoring;
 
@@ -120,7 +121,7 @@ public sealed class WebSocketLogSource(string address, Func<DateTime?>? bootTime
                     await ws.ConnectAsync(Uri, connectCts.Token).ConfigureAwait(false);
                 }
                 attempt = 0;
-                onStatus("Live verbunden");
+                onStatus(L.T("Live verbunden"));
                 await ReceiveLoopAsync(ws, onLine, ct).ConfigureAwait(false);
                 if (ct.IsCancellationRequested) break;
                 onStatus("Verbindung vom Miner getrennt");
@@ -132,8 +133,8 @@ public sealed class WebSocketLogSource(string address, Func<DateTime?>? bootTime
             catch (Exception ex)
             {
                 onStatus(ex is WebSocketException { WebSocketErrorCode: WebSocketError.NotAWebSocket }
-                    ? "Diese Firmware bietet keine Live-Logs über /api/ws"
-                    : "Keine Verbindung: " + ex.Message);
+                    ? L.T("Diese Firmware bietet keine Live-Logs über /api/ws")
+                    : L.T("Keine Verbindung: ") + ex.Message);
             }
             finally
             {
@@ -150,11 +151,11 @@ public sealed class WebSocketLogSource(string address, Func<DateTime?>? bootTime
             }
 
             var wait = Backoff[Math.Min(attempt++, Backoff.Length - 1)];
-            onStatus($"Getrennt – neuer Versuch in {wait.TotalSeconds:0} s");
+            onStatus(L.T("Getrennt – neuer Versuch in {0:0} s", wait.TotalSeconds));
             try { await Task.Delay(wait, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
-        onStatus("Gestoppt");
+        onStatus(L.T("Gestoppt"));
     }
 
     private async Task ReceiveLoopAsync(ClientWebSocket ws, Action<LogLine> onLine, CancellationToken ct)
@@ -217,6 +218,6 @@ public sealed class SimulatedLogSource(SimulatedMinerClient sim) : IMinerLogSour
             }
         }
         catch (OperationCanceledException) { }
-        onStatus("Gestoppt");
+        onStatus(L.T("Gestoppt"));
     }
 }

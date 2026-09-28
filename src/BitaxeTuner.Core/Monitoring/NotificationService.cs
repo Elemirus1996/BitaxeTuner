@@ -1,6 +1,7 @@
 using BitaxeTuner.Core.Config;
 using System.Net.Http;
 using System.Net.Http.Json;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Monitoring;
 
@@ -96,7 +97,7 @@ public sealed class NotificationService : IDisposable
         {
             case "ntfy":
             {
-                if (string.IsNullOrWhiteSpace(s.NtfyTopic)) throw new InvalidOperationException("ntfy-Topic fehlt");
+                if (string.IsNullOrWhiteSpace(s.NtfyTopic)) throw new InvalidOperationException(L.T("ntfy-Topic fehlt"));
 
                 // JSON-Veröffentlichung an die Server-Wurzel: UTF-8 in Titel und Text ohne Header-Kodierung
                 var server = (string.IsNullOrWhiteSpace(s.NtfyServer) ? "https://ntfy.sh" : s.NtfyServer.Trim()).TrimEnd('/');
@@ -115,7 +116,7 @@ public sealed class NotificationService : IDisposable
             case "telegram":
             {
                 if (string.IsNullOrWhiteSpace(s.TelegramBotToken) || string.IsNullOrWhiteSpace(s.TelegramChatId))
-                    throw new InvalidOperationException("Telegram-Token oder Chat-ID fehlt");
+                    throw new InvalidOperationException(L.T("Telegram-Token oder Chat-ID fehlt"));
 
                 var url = $"https://api.telegram.org/bot{s.TelegramBotToken.Trim()}/sendMessage";
                 var payload = new
@@ -130,7 +131,7 @@ public sealed class NotificationService : IDisposable
             }
 
             default:
-                throw new InvalidOperationException("Kein Dienst ausgewählt");
+                throw new InvalidOperationException(L.T("Kein Dienst ausgewählt"));
         }
     }
 

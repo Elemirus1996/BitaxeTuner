@@ -1,6 +1,7 @@
 using System.Net.Http;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Monitoring;
 
@@ -137,10 +138,10 @@ public sealed class MinerPollingService : IDisposable
     /// <summary>Kurztext wie im BitaxeMonitor.</summary>
     public static string Shorten(Exception ex) => ex switch
     {
-        TaskCanceledException or OperationCanceledException => "Zeitüberschreitung",
-        HttpRequestException => "keine Verbindung",
-        MinerApiException { InnerException: TaskCanceledException } => "Zeitüberschreitung",
-        MinerApiException { InnerException: HttpRequestException } => "keine Verbindung",
+        TaskCanceledException or OperationCanceledException => L.T("Zeitüberschreitung"),
+        HttpRequestException => L.T("keine Verbindung"),
+        MinerApiException { InnerException: TaskCanceledException } => L.T("Zeitüberschreitung"),
+        MinerApiException { InnerException: HttpRequestException } => L.T("keine Verbindung"),
         _ => ex.Message
     };
 
