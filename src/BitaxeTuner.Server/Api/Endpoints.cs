@@ -351,7 +351,7 @@ public static class Endpoints
             var d = Device(h, id);
             if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
             await d.Connection.RestartAsync(); // öffnet das Wartungsfenster: keine Offline-Meldung
-            d.AddLog("Neustart ausgelöst (Browser).");
+            d.AddLog(L.T("Neustart ausgelöst (Browser)."));
             return new { ok = true };
         })));
 
@@ -367,7 +367,7 @@ public static class Endpoints
         {
             var d = Device(h, id);
             var plan = await h.Benchmarks.PrepareAsync(d, req.Settings ?? BenchmarkSettings.FromProfile(d.Profile), req.Resume);
-            d.AddLog("Benchmark im Browser bestätigt.");
+            d.AddLog(L.T("Benchmark im Browser bestätigt."));
             _ = h.Benchmarks.RunAsync(d, plan); // läuft im Hub weiter, Fortschritt über /events
             return new { ok = true };
         })));
@@ -406,7 +406,7 @@ public static class Endpoints
                 c.Schedule = s;
             }
             h.Config.Save();
-            d.AddLog("Automatik-Einstellungen gespeichert (Browser).");
+            d.AddLog(L.T("Automatik-Einstellungen gespeichert (Browser)."));
             return new { thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host), scheduleApproved = c.Schedule.IsApproved(d.Host) };
         })));
 
@@ -663,6 +663,7 @@ public static class Endpoints
             notes = updater.Latest?.Notes,
             url = updater.Latest?.ReleaseUrl,
             lastCheck = updater.LastCheck,
+            nextCheck = updater.NextCheck,
             message = updater.LastMessage,
         }));
 

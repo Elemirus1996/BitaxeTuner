@@ -103,6 +103,7 @@ Corrections to the English texts are welcome: they all live in
 | NerdOctaxe-γ / NerdOctaxe+ | 8× BM1370 / BM1368 | NerdOCTAXE-γ / NerdOCTAXE+ | NerdQAxe firmware |
 | NerdEKO | 12× BM1370 | NerdEKO | NerdQAxe firmware |
 | NerdQX | BM1370 | NerdQX | NerdQAxe firmware |
+| Q1370 / Q1373 | 4× BM1370 / 4× BM1373 | Q1370 / Q1373 | NerdQAxe firmware (limits preliminary) |
 
 Values according to ESP-Miner `main/device_config.h` and NerdQAxePlus `main/boards/*.cpp` (as of 09/2026); the source
 of each profile is in its note. If the device reports its chip count or small cores itself, those values take precedence.

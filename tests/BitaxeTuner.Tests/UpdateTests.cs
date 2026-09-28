@@ -146,4 +146,20 @@ public class UpdateTests
     [InlineData("v1.2.3-beta", 1, 2, 3)]
     public void Parses_tags(string tag, int a, int b, int c) =>
         Assert.Equal(new Version(a, b, c), UpdateService.ParseVersion(tag));
+
+    [Fact]
+    public void Server_update_push_is_independent_of_the_desktop_app()
+    {
+        // Nach einer Datenübertragung vom PC steht dort schon die Meldung der Desktop-App für dieselbe Version (#3)
+        var config = new BitaxeTuner.Core.Config.AppConfig { NotifiedAppVersion = "v0.5.1" };
+        config.Notifications.OnMaintenance = true;
+        Assert.True(BitaxeTuner.Server.ServerUpdater.ShouldNotify(config, pushEnabled: true, "v0.5.1"));
+
+        config.NotifiedServerVersion = "v0.5.1";                       // einmal je Version
+        Assert.False(BitaxeTuner.Server.ServerUpdater.ShouldNotify(config, pushEnabled: true, "v0.5.1"));
+        Assert.True(BitaxeTuner.Server.ServerUpdater.ShouldNotify(config, pushEnabled: true, "v0.6.0"));
+        Assert.False(BitaxeTuner.Server.ServerUpdater.ShouldNotify(config, pushEnabled: false, "v0.6.0"));
+        config.Notifications.OnMaintenance = false;
+        Assert.False(BitaxeTuner.Server.ServerUpdater.ShouldNotify(config, pushEnabled: true, "v0.6.0"));
+    }
 }

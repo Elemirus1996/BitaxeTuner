@@ -135,6 +135,24 @@
     "Notes": "NerdQAxe-Firmware: Auswahlliste 500–600 MHz / 1120–1200 mV, absolut max. 800 MHz / 1400 mV, max. 100 W, 8 A."
   },
   {
+    "Id": "q1370", "Name": "Q1370 (4× BM1370)", "Family": "NerdAxe",
+    "AsicModel": "BM1370", "AsicCount": 4, "SmallCoresPerAsic": 2040,
+    "DefaultFrequencyMhz": 600, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 500, "MaxFrequencyMhz": 800, "MinVoltageMv": 1100, "MaxVoltageMv": 1300,
+    "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 150, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "Q1370" ],
+    "Notes": "Grenzen vorläufig. NerdQAxe-Firmware (Zweig develop, main/boards/q1370.cpp): Auswahlliste 500–600 MHz / 1120–1200 mV, absolut max. 1200 MHz / 1400 mV, 4 Phasen, max. 150 W. Hier wie NerdQAxe++ auf 800 MHz / 1300 mV begrenzt."
+  },
+  {
+    "Id": "q1373", "Name": "Q1373 (4× BM1373)", "Family": "NerdAxe",
+    "AsicModel": "BM1373", "AsicCount": 4, "SmallCoresPerAsic": 6860,
+    "DefaultFrequencyMhz": 425, "DefaultVoltageMv": 1010,
+    "MinFrequencyMhz": 350, "MaxFrequencyMhz": 550, "MinVoltageMv": 980, "MaxVoltageMv": 1100,
+    "MaxChipTempC": 65, "MaxVrTempC": 80, "MaxPowerW": 180, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
+    "DeviceModelMatches": [ "Q1373" ],
+    "Notes": "Grenzen vorläufig. NerdQAxe-Firmware (Zweig develop, main/boards/q1373.cpp): Auswahlliste 250–550 MHz / 980–1080 mV, absolut max. 730 MHz / 1200 mV, 4 Phasen max. 180 W (6-Phasen-Variante mehr). Begrenzt auf die Auswahlliste, weil BM1373-Spannungsregler bei höheren Werten ausfallen können (vgl. NerdAxe Gaia)."
+  },
+  {
     "Id": "nerdhaxe-gamma", "Name": "NerdHaxe-γ (6× BM1370)", "Family": "NerdAxe",
     "AsicModel": "BM1370", "AsicCount": 6, "SmallCoresPerAsic": 2040,
     "DefaultFrequencyMhz": 600, "DefaultVoltageMv": 1150,

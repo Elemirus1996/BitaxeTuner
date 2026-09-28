@@ -269,6 +269,20 @@ function started() {
   document.querySelectorAll('[data-admin]').forEach(e => { e.hidden = !isAdmin(); });
   startEvents();
   route();
+  if (isAdmin()) refreshUpdateInfo();
+}
+
+/** Update-Stand für den Hinweis in der Übersicht – höchstens alle 30 min vom Server holen (Übersicht zeichnet oft neu). */
+let updateTimer = null;
+async function refreshUpdateInfo() {
+  clearTimeout(updateTimer);
+  try {
+    const u = await api('/admin/update');
+    const changed = (S.update?.latest ?? null) !== (u.latest ?? null);
+    S.update = u;
+    if (changed && S.route?.view === 'overview' && S.status) renderOverview();
+  } catch { /* Hinweis ist nur Komfort */ }
+  updateTimer = setTimeout(refreshUpdateInfo, 30 * 60 * 1000);
 }
 
 // ---------- Live-Ereignisse ----------
@@ -403,6 +417,9 @@ function renderOverview() {
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
+    isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
+      h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
+      h('a', { class: 'btn primary small', href: '#/settings' }, t('Zum Update'))) : null,
     !s.running ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Der Motor ist pausiert – der Server fragt keine Miner ab (z. B. weil die Desktop-App im Modus „Lokal“ läuft oder Daten übertragen werden).')),
       isAdmin() ? h('button', {
@@ -1502,6 +1519,8 @@ function updateCard() {
   };
   const render = u => fill(body, 
     h('p', {}, t('Installiert: {0}', u.current) + (u.latest ? t(' · verfügbar: {0}', u.latest) : '') + (u.message ? ` · ${u.message}` : '')),
+    h('p', { class: 'muted small' }, t('Zuletzt geprüft: {0} · nächste automatische Prüfung: {1}', u.lastCheck ? time(u.lastCheck) : t('noch nie'),
+      u.nextCheck ? time(u.nextCheck) : t('ausgeschaltet'))),
     h('p', { class: 'muted small' }, kinds[u.kind] || ''),
     u.notes ? h('div', { class: 'log', style: 'height:auto;max-height:180px' }, u.notes) : null,
     h('div', { class: 'row' },
@@ -1513,7 +1532,7 @@ function updateCard() {
           if (r) toast(r.message, 'ok', 15000);
         },
       }, t('Update {0} installieren', u.latest)) : null));
-  const load = () => api('/admin/update').then(render).catch(e => toast(e.message, 'error'));
+  const load = () => api('/admin/update').then(u => { S.update = u; render(u); }).catch(e => toast(e.message, 'error'));
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Server-Update')), body);
 }

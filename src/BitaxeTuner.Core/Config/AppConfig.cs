@@ -62,6 +62,12 @@ public sealed class AppConfig
     /// <summary>Für diese Version wurde bereits per Push auf ein Update hingewiesen.</summary>
     public string? NotifiedAppVersion { get; set; }
 
+    /// <summary>
+    /// Zuletzt per Push gemeldete Server-Version – getrennt von <see cref="NotifiedAppVersion"/> (Desktop-App), weil nach
+    /// einer Datenübertragung vom PC sonst die Meldung des Servers für dieselbe Version ausbliebe.
+    /// </summary>
+    public string? NotifiedServerVersion { get; set; }
+
     /// <summary>Nach einer Frequenz-/Spannungsänderung neu starten (Standard; Wirkung ohne Neustart ist firmwareabhängig).</summary>
     public bool RestartAfterApply { get; set; } = true;
 

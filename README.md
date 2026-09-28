@@ -101,6 +101,7 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 | NerdOctaxe-γ / NerdOctaxe+ | 8× BM1370 / BM1368 | NerdOCTAXE-γ / NerdOCTAXE+ | NerdQAxe-Firmware |
 | NerdEKO | 12× BM1370 | NerdEKO | NerdQAxe-Firmware |
 | NerdQX | BM1370 | NerdQX | NerdQAxe-Firmware |
+| Q1370 / Q1373 | 4× BM1370 / 4× BM1373 | Q1370 / Q1373 | NerdQAxe-Firmware (Grenzen vorläufig) |
 
 Werte laut ESP-Miner `main/device_config.h` und NerdQAxePlus `main/boards/*.cpp` (Stand 09/2026); Quelle je Profil
 steht in dessen Notiz. Meldet das Gerät Chipanzahl oder Small-Cores selbst, haben diese Angaben Vorrang.

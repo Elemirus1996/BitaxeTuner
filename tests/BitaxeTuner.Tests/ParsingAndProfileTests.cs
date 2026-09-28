@@ -65,6 +65,8 @@ public class ParsingAndProfileTests
     [InlineData("""{"ASICModel":"BM1370","boardVersion":"801","asicCount":2}""", "bitaxe-gt")]
     [InlineData("""{"ASICModel":"BM1368","boardVersion":"702","asicCount":6}""", "bitaxe-suprahex")]
     [InlineData("""{"deviceModel":"NerdQAxe++","asicCount":4,"jobInterval":1}""", "nerdqaxe-plusplus")]
+    [InlineData("""{"deviceModel":"Q1370","ASICModel":"BM1370","asicCount":4}""", "q1370")]
+    [InlineData("""{"deviceModel":"Q1373","ASICModel":"BM1373","asicCount":4}""", "q1373")]
     [InlineData("""{"deviceModel":"NerdQAxe+","asicCount":4,"jobInterval":1}""", "nerdqaxe-plus")]
     [InlineData("""{"deviceModel":"NerdAxeGamma","asicCount":1,"jobInterval":1}""", "nerdaxe-gamma")]
     [InlineData("""{"deviceModel":"NerdAxe","asicCount":1,"jobInterval":1}""", "nerdaxe")]

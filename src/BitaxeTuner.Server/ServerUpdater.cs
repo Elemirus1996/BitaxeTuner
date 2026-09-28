@@ -33,8 +33,13 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
     private UpdateInfo? _latest;
     private int _installing;
 
+    /// <summary>Abstand der automatischen Prüfungen.</summary>
+    public static readonly TimeSpan Interval = TimeSpan.FromHours(6);
+
     public string? LastMessage { get; private set; }
     public DateTime? LastCheck { get; private set; }
+    /// <summary>Nächste automatische Prüfung (null: ausgeschaltet oder Dienst beendet).</summary>
+    public DateTime? NextCheck { get; private set; }
     public UpdateInfo? Latest => _latest;
     public Version Current => Version.TryParse(Api.Endpoints.Version.Split('-')[0], out var v) ? v : new Version(0, 0, 0);
 
@@ -78,13 +83,39 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try { await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); } catch (OperationCanceledException) { return; }
+        var delay = TimeSpan.FromMinutes(1);
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (hub.Hub.Config.CheckForUpdates) await CheckAsync(notify: true, stoppingToken);
-            try { await Task.Delay(TimeSpan.FromHours(6), stoppingToken); } catch (OperationCanceledException) { return; }
+            NextCheck = DateTime.Now + delay;
+            try { await Task.Delay(delay, stoppingToken); } catch (OperationCanceledException) { break; }
+            delay = Interval;
+            try
+            {
+                // Einstellung auf dem Hub-Thread lesen (Config gehört dem Hub)
+                if (!await hub.RunAsync(h => h.Config.CheckForUpdates))
+                {
+                    log.LogInformation("Automatische Update-Prüfung ausgeschaltet (Einstellungen → Nach neuen Versionen suchen).");
+                    continue;
+                }
+                var result = await CheckAsync(notify: true, stoppingToken);
+                log.LogInformation("Update-Prüfung: {Status} – {Message} Nächste Prüfung {Next:g}.",
+                    result.Status, result.Message, DateTime.Now + Interval);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (Exception ex)
+            {
+                // Nie den Dienst beenden (in .NET 8 würde eine Ausnahme hier den ganzen Server stoppen)
+                LastCheck = DateTime.Now;
+                LastMessage = ex.Message;
+                log.LogError(ex, "Update-Prüfung fehlgeschlagen – nächster Versuch in {Hours} h.", Interval.TotalHours);
+            }
         }
+        NextCheck = null;
     }
+
+    /// <summary>Push nur einmal je Version, nur mit eingerichtetem Push-Dienst und „Wartung“ an.</summary>
+    internal static bool ShouldNotify(Core.Config.AppConfig config, bool pushEnabled, string tag) =>
+        config.NotifiedServerVersion != tag && pushEnabled && config.Notifications.OnMaintenance;
 
     public async Task<UpdateCheckResult> CheckAsync(bool notify, CancellationToken ct = default)
     {
@@ -96,11 +127,11 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
         {
             await hub.RunAsync(h =>
             {
-                if (h.Config.NotifiedAppVersion == u.Tag || !h.Notify.Enabled || !h.Config.Notifications.OnMaintenance) return false;
-                h.Config.NotifiedAppVersion = u.Tag;
+                if (!ShouldNotify(h.Config, h.Notify.Enabled, u.Tag)) return false;
+                h.Config.NotifiedServerVersion = u.Tag;
                 h.Config.Save();
-                h.SendAlert(new Alert($"server-update:{u.Tag}", $"BitaxeTuner-Server {u.Tag} verfügbar",
-                    CanInstall ? "Installation per Klick in der Server-Oberfläche (Einstellungen)." : "Update: docker compose pull && docker compose up -d",
+                h.SendAlert(new Alert($"server-update:{u.Tag}", L.T("BitaxeTuner-Server {0} verfügbar", u.Tag),
+                    CanInstall ? L.T("Installation per Klick in der Server-Oberfläche (Einstellungen).") : "Update: docker compose pull && docker compose up -d",
                     NotifyPriority.Low, TimeSpan.FromDays(30)));
                 return true;
             });
