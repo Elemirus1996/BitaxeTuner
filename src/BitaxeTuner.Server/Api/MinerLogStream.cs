@@ -29,7 +29,7 @@ public static class MinerLogStream
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            channel.Writer.TryWrite(Frame("status", new { text = "Puffer nicht verfügbar: " + ex.Message }));
+            channel.Writer.TryWrite(Frame("status", new { text = Endpoints.LangOf(http).T("Puffer nicht verfügbar: {0}", ex.Message) }));
         }
 
         using var subscription = connection.Logs.Subscribe(

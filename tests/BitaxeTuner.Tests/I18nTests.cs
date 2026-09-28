@@ -29,13 +29,16 @@ public class I18nTests
 
     private static string Unescape(string s) => Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "n" => "\n", "t" => "\t", var c => c });
 
-    /// <summary>Alle übersetzbaren Texte im Quellcode: L.T("…")/loc.T("…") in C#, {l:T '…'} in XAML, t('…') in JavaScript.</summary>
+    /// <summary>
+    /// Alle übersetzbaren Texte im Quellcode: L.T("…")/loc.T("…"), L.N("…"), new LocalizedException("…") und new LocText("…") in C#,
+    /// {l:T '…'} in XAML, t('…') in JavaScript.
+    /// </summary>
     internal static SortedSet<string> SourceTexts()
     {
         var texts = new SortedSet<string>(StringComparer.Ordinal);
         var src = Path.Combine(Root, "src");
         foreach (var f in Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories).Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
-            foreach (Match m in Regex.Matches(File.ReadAllText(f), @"\bT\(\s*""((?:[^""\\]|\\.)*)"""))
+            foreach (Match m in Regex.Matches(File.ReadAllText(f), @"(?:\b[TN]\(|\b(?:LocalizedException|LocText)\()\s*""((?:[^""\\]|\\.)*)"""))
                 texts.Add(Unescape(m.Groups[1].Value));
         foreach (var f in Directory.EnumerateFiles(src, "*.xaml", SearchOption.AllDirectories).Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
             foreach (Match m in Regex.Matches(File.ReadAllText(f), @"\{l:T\s+'((?:[^'\\]|\\.)*)'"))
@@ -87,5 +90,24 @@ public class I18nTests
         Assert.Equal("1.5", en.T("{0:0.0}", 1.5));
         Assert.Equal("en", Loc.For("en-US,en;q=0.9").Language);
         Assert.Equal("de", Loc.For("de-AT").Language);
+    }
+
+    [Fact]
+    public void Request_language_falls_back_to_the_program_language()
+    {
+        Assert.Equal("en", Loc.ForRequest("en-US,en;q=0.9").Language);
+        Assert.Equal("de", Loc.ForRequest("").Language);          // keine Angabe → Programm (Tests: Deutsch)
+        Assert.Equal("de", Loc.ForRequest("fr-FR,fr").Language);  // nicht unterstützt → Programm
+    }
+
+    [Fact]
+    public void Nested_texts_and_exceptions_are_translated_in_the_outer_language()
+    {
+        var ex = new LocalizedException("{0}: Volllast-Temperatur muss über der Start-Temperatur liegen.", new LocText("Gehäuse"));
+        Assert.Equal("Gehäuse: Volllast-Temperatur muss über der Start-Temperatur liegen.", ex.Message); // Protokoll: Deutsch
+        Assert.Equal("Case: the full-speed temperature must be above the start temperature.", ex.In(Loc.For("en")));
+        var channel = new LocalizedException("{0}: Temperaturen zwischen 20 und 110 °C.", new LocText("K{0}", 3));
+        Assert.Equal("Ch3: temperatures between 20 and 110 °C.", channel.In(Loc.For("en")));
+        Assert.Equal("K3: Temperaturen zwischen 20 und 110 °C.", channel.In(Loc.For("de")));
     }
 }

@@ -98,6 +98,37 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Error_messages_follow_the_language_of_the_request()
+    {
+        var client = _factory.CreateClient();
+        async Task<string> SetupError(string? language, string password)
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/setup") { Content = JsonContent.Create(new { code = Auth.SetupCode, password }) };
+            if (language is not null) req.Headers.AcceptLanguage.ParseAdd(language);
+            var r = await client.SendAsync(req);
+            Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+            return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString()!;
+        }
+
+        // Platzhalter in einem übersetzten Text (Mindestlänge) – ohne Angabe gilt die Sprache des Servers (Tests: Deutsch)
+        Assert.Equal("The password needs at least 10 characters.", await SetupError("en", "kurz"));
+        Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError("de", "kurz"));
+        Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError(null, "kurz"));
+        Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError("fr-FR", "kurz"));
+
+        // Ohne Anmeldung: feste Meldung
+        var status = new HttpRequestMessage(HttpMethod.Get, "/api/v1/status");
+        status.Headers.AcceptLanguage.ParseAdd("en-US");
+        var unauth = await client.SendAsync(status);
+        Assert.Equal("Please sign in.", (await unauth.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+
+        // Übersetzungstabelle für die Browser-Oberfläche: öffentlich, mit ETag
+        var table = await client.GetAsync("/api/v1/i18n/en");
+        Assert.Equal("Sign in", (await Json(table)).GetProperty("Anmelden").GetString());
+        Assert.NotNull(table.Headers.ETag);
+    }
+
+    [Fact]
     public async Task Fresh_server_needs_setup_code_and_locks_after_failures()
     {
         var client = _factory.CreateClient();

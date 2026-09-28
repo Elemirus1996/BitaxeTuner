@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Server.Api;
 
@@ -21,7 +22,7 @@ public static class MqttEndpoints
 
         g.MapPut("/mqtt", async (MqttRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            var s = req.Settings ?? throw new InvalidOperationException("Einstellungen fehlen.");
+            var s = req.Settings ?? throw new InvalidOperationException(L.N("Einstellungen fehlen."));
             s.Host = (s.Host ?? "").Trim();
             s.User = (s.User ?? "").Trim();
             s.Port = s.Port is > 0 and < 65536 ? s.Port : 1883;
@@ -31,8 +32,8 @@ public static class MqttEndpoints
             if (s.BaseTopic.Length == 0) s.BaseTopic = "bitaxetuner";
             if (s.DiscoveryPrefix.Length == 0) s.DiscoveryPrefix = "homeassistant";
             if (s.BaseTopic.IndexOfAny(['#', '+']) >= 0 || s.DiscoveryPrefix.IndexOfAny(['#', '+']) >= 0)
-                throw new InvalidOperationException("MQTT: Topics dürfen kein # oder + enthalten.");
-            if (s.Enabled && s.Host.Length == 0) throw new InvalidOperationException("MQTT: Broker-Adresse angeben (z. B. IP von Home Assistant).");
+                throw new InvalidOperationException(L.N("MQTT: Topics dürfen kein # oder + enthalten."));
+            if (s.Enabled && s.Host.Length == 0) throw new InvalidOperationException(L.N("MQTT: Broker-Adresse angeben (z. B. IP von Home Assistant)."));
             h.Config.Mqtt = s;
             if (req.ClearPassword) h.Secrets.Set(SecretStore.MqttPassword, null);
             else if (!string.IsNullOrEmpty(req.Password)) h.Secrets.Set(SecretStore.MqttPassword, req.Password);

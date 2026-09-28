@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Backup;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Server.Api;
 
@@ -45,22 +46,22 @@ public static class BackupEndpoints
 
         g.MapPut("/backup", async (BackupRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
-            var s = req.Settings ?? throw new InvalidOperationException("Einstellungen fehlen.");
+            var s = req.Settings ?? throw new InvalidOperationException(L.N("Einstellungen fehlen."));
             s.Hour = Math.Clamp(s.Hour, 0, 23);
             s.Keep = Math.Clamp(s.Keep, 1, 365);
             s.LocalKeep = Math.Clamp(s.LocalKeep, 1, 60);
             s.Folder ??= new BackupFolderTarget();
             s.Smb ??= new BackupSmbTarget();
             s.Folder.Path = (s.Folder.Path ?? "").Trim();
-            if (s.Folder.Enabled && s.Folder.Path.Length == 0) throw new InvalidOperationException("Ordner/USB: Zielordner angeben.");
-            if (s.Folder.Enabled && !Path.IsPathFullyQualified(s.Folder.Path)) throw new InvalidOperationException("Ordner/USB: vollständigen Pfad angeben.");
+            if (s.Folder.Enabled && s.Folder.Path.Length == 0) throw new InvalidOperationException(L.N("Ordner/USB: Zielordner angeben."));
+            if (s.Folder.Enabled && !Path.IsPathFullyQualified(s.Folder.Path)) throw new InvalidOperationException(L.N("Ordner/USB: vollständigen Pfad angeben."));
             s.Smb.Server = (s.Smb.Server ?? "").Trim();
             s.Smb.Share = (s.Smb.Share ?? "").Trim().Trim('\\', '/');
             s.Smb.Folder = (s.Smb.Folder ?? "").Trim();
             s.Smb.User = (s.Smb.User ?? "").Trim();
             s.Smb.Domain = (s.Smb.Domain ?? "").Trim();
-            if (s.Smb.Enabled && (s.Smb.Server.Length == 0 || s.Smb.Share.Length == 0)) throw new InvalidOperationException("Netzlaufwerk: Server und Freigabe angeben.");
-            if (s.Smb.Folder.Contains("..")) throw new InvalidOperationException("Netzlaufwerk: ungültiger Unterordner.");
+            if (s.Smb.Enabled && (s.Smb.Server.Length == 0 || s.Smb.Share.Length == 0)) throw new InvalidOperationException(L.N("Netzlaufwerk: Server und Freigabe angeben."));
+            if (s.Smb.Folder.Contains("..")) throw new InvalidOperationException(L.N("Netzlaufwerk: ungültiger Unterordner."));
             s.LastRun = h.Config.Backup.LastRun; // nur der Server setzt das
             h.Config.Backup = s;
             if (req.ClearSmbPassword) h.Secrets.Set(SecretStore.SmbPassword, null);
@@ -71,10 +72,10 @@ public static class BackupEndpoints
 
         g.MapPost("/backup/run", async (HubService hub) => Results.Json(await hub.RunAsync(h => h.RunBackupAsync(DateTime.Now))));
 
-        g.MapPost("/backup/test", async (BackupTestRequest req, HubService hub) =>
+        g.MapPost("/backup/test", async (BackupTestRequest req, HubService hub, HttpContext http) =>
         {
             var target = await hub.RunAsync(h => h.BackupTargets().FirstOrDefault(t => req.Target == "smb" ? t is SmbBackupTarget : t is FolderBackupTarget));
-            if (target is null) return Endpoints.Error(400, "Dieses Ziel ist nicht eingeschaltet (erst speichern).");
+            if (target is null) return Endpoints.Error(400, L.N("Dieses Ziel ist nicht eingeschaltet (erst speichern)."));
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -87,21 +88,21 @@ public static class BackupEndpoints
                     await File.WriteAllTextAsync(probe, "ok", cts.Token);
                     File.Delete(probe);
                 }
-                return Results.Json(new { ok = true, message = $"{target.Name}: erreichbar, {files.Count(BackupNames.IsBackup)} Sicherung(en) vorhanden." });
+                return Results.Json(new { ok = true, message = Endpoints.LangOf(http).T("{0}: erreichbar, {1} Sicherung(en) vorhanden.", target.Name, files.Count(BackupNames.IsBackup)) });
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
             {
-                return Results.Json(new { ok = false, message = $"{target.Name}: {ex.Message}" });
+                return Results.Json(new { ok = false, message = $"{target.Name}: {Endpoints.LangOf(http).T(ex.Message)}" });
             }
         });
 
         g.MapGet("/backup/files/{name}", async (string name, HubService hub) =>
         {
-            if (!BackupNames.IsBackup(name)) return Endpoints.Error(404, "Sicherung nicht gefunden.");
+            if (!BackupNames.IsBackup(name)) return Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
             var file = await hub.RunAsync(h => Path.Combine(h.BackupDirectory, name));
             return File.Exists(file)
                 ? Results.File(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read), "application/zip", name)
-                : Endpoints.Error(404, "Sicherung nicht gefunden.");
+                : Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
         });
     }
 }

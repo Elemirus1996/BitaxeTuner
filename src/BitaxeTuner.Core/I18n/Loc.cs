@@ -71,6 +71,16 @@ public sealed class Loc
         return CultureInfo.GetCultureInfo(language == "de" ? "de-DE" : "en-GB");
     }
 
+    /// <summary>
+    /// Sprache einer Anfrage (Accept-Language, die Browser-Oberfläche schickt ihre gewählte Sprache);
+    /// ohne bzw. mit nicht unterstützter Sprache die des Programms.
+    /// </summary>
+    public static Loc ForRequest(string? acceptLanguage)
+    {
+        var s = (acceptLanguage ?? "").Trim().ToLowerInvariant();
+        return s.Length >= 2 && Languages.Contains(s[..2]) ? For(s[..2]) : Current;
+    }
+
     /// <summary>Text in dieser Sprache.</summary>
     public string T(string german) =>
         Language == "de" || !English.Value.TryGetValue(german, out var text) || text.Length == 0 ? german : text;
@@ -96,4 +106,10 @@ public static class L
     public static string T(string german) => Loc.Current.T(german);
     public static string T(string german, params object?[] args) => Loc.Current.T(german, args);
     public static CultureInfo Culture => Loc.Current.Culture;
+
+    /// <summary>
+    /// Markiert einen Text als übersetzbar, ohne ihn zu übersetzen (wie gettext „N_“): für Meldungen, die erst bei
+    /// der Ausgabe in die Sprache des Empfängers übersetzt werden (z. B. Fehlermeldungen an den Browser).
+    /// </summary>
+    public static string N(string german) => german;
 }

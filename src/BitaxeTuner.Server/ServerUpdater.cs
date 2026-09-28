@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Update;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Server;
 
@@ -110,9 +111,9 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
     /// <summary>Update laden, prüfen und installieren. Der Dienst startet danach neu.</summary>
     public async Task InstallAsync()
     {
-        if (_latest is not { } u) throw new InvalidOperationException("Kein Update verfügbar – zuerst nach Updates suchen.");
-        if (!CanInstall) throw new InvalidOperationException("Diese Installation aktualisiert sich nicht selbst (Docker: „docker compose pull“, sonst neues Paket installieren).");
-        if (Interlocked.Exchange(ref _installing, 1) == 1) throw new InvalidOperationException("Update läuft bereits.");
+        if (_latest is not { } u) throw new InvalidOperationException(L.N("Kein Update verfügbar – zuerst nach Updates suchen."));
+        if (!CanInstall) throw new InvalidOperationException(L.N("Diese Installation aktualisiert sich nicht selbst (Docker: „docker compose pull“, sonst neues Paket installieren)."));
+        if (Interlocked.Exchange(ref _installing, 1) == 1) throw new InvalidOperationException(L.N("Update läuft bereits."));
         try
         {
             var work = Path.Combine(Path.GetTempPath(), "bitaxetuner-update");
@@ -148,7 +149,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
     [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     private static void SwapLinuxVersion(string archive, string version)
     {
-        var (root, running) = LinuxLayout() ?? throw new InvalidOperationException("Installationslayout nicht erkannt.");
+        var (root, running) = LinuxLayout() ?? throw new InvalidOperationException(L.N("Installationslayout nicht erkannt."));
         var versionsDir = Path.Combine(root, "versions");
         var target = Path.Combine(versionsDir, version);
         var staging = target + ".new";

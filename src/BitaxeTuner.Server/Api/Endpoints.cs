@@ -4,6 +4,7 @@ using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Benchmark;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Host;
+using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Storage;
 using BitaxeTuner.Core.Transfer;
@@ -56,9 +57,9 @@ public static class Endpoints
     private static Func<EndpointFilterInvocationContext, EndpointFilterDelegate, ValueTask<object?>> Require(Role role) => async (ctx, next) =>
     {
         var auth = AuthContext.Of(ctx.HttpContext);
-        if (auth.Role == Role.None) return Error(401, "Bitte anmelden.");
-        if (auth.Role < role) return Error(403, "Dafür sind Admin-Rechte nötig.");
-        if (!auth.CsrfOk(ctx.HttpContext.Request)) return Error(403, "CSRF-Prüfung fehlgeschlagen – Seite neu laden.");
+        if (auth.Role == Role.None) return Error(401, L.N("Bitte anmelden."));
+        if (auth.Role < role) return Error(403, L.N("Dafür sind Admin-Rechte nötig."));
+        if (!auth.CsrfOk(ctx.HttpContext.Request)) return Error(403, L.N("CSRF-Prüfung fehlgeschlagen – Seite neu laden."));
         return await next(ctx);
     };
 
@@ -68,12 +69,30 @@ public static class Endpoints
         {
             return await next(ctx);
         }
+        catch (LocalizedException ex) { return Error(ex.Status, ex.Text, ex.Args); }
         catch (InvalidOperationException ex) { return Error(400, ex.Message); }
         catch (MinerApiException ex) { return Error(502, ex.Message); }
         catch (KeyNotFoundException ex) { return Error(404, ex.Message); }
     }
 
-    public static IResult Error(int status, string message) => Results.Json(new { error = message }, statusCode: status);
+    /// <summary>Sprache der Anfrage (die Browser-Oberfläche schickt ihre Wahl als Accept-Language).</summary>
+    public static Loc LangOf(HttpContext http) => Loc.ForRequest(http.Request.Headers.AcceptLanguage.ToString());
+
+    /// <summary>
+    /// Fehlermeldung {"error": …}, erst beim Senden in die Sprache der Anfrage übersetzt. Der deutsche Text ist der
+    /// Schlüssel; unbekannte Texte (z. B. Meldungen eines Miners) bleiben, wie sie sind.
+    /// </summary>
+    public static IResult Error(int status, string message, params object?[] args) => new TranslatedError(status, message, args);
+
+    private sealed class TranslatedError(int status, string message, object?[] args) : IResult
+    {
+        public Task ExecuteAsync(HttpContext http)
+        {
+            var loc = LangOf(http);
+            var text = args.Length == 0 ? loc.T(message) : loc.T(message, args);
+            return Results.Json(new { error = text }, statusCode: status).ExecuteAsync(http);
+        }
+    }
 
     internal static void ValidateFans(Core.Config.FanSettings f, MinerHub hub)
     {
@@ -81,16 +100,16 @@ public static class Endpoints
         for (var ch = 1; ch <= Core.Config.FanSettings.ChannelCount; ch++)
         {
             var c = f.Channel(ch);
-            if (c.Role is not ("none" or "miner" or "case")) throw new InvalidOperationException($"K{ch}: unbekannte Rolle.");
-            if (c.Mode is not ("auto" or "manual")) throw new InvalidOperationException($"K{ch}: unbekannter Modus.");
-            if (c.Role == "miner" && hub.Device(c.MinerHost ?? "") is null) throw new InvalidOperationException($"K{ch}: Miner auswählen.");
-            CheckCurve(c.Curve, $"K{ch}");
+            if (c.Role is not ("none" or "miner" or "case")) throw new LocalizedException("K{0}: unbekannte Rolle.", ch);
+            if (c.Mode is not ("auto" or "manual")) throw new LocalizedException("K{0}: unbekannter Modus.", ch);
+            if (c.Role == "miner" && hub.Device(c.MinerHost ?? "") is null) throw new LocalizedException("K{0}: Miner auswählen.", ch);
+            CheckCurve(c.Curve, L.N("K{0}"), ch);
             c.ManualPercent = Math.Clamp(c.ManualPercent, 0, 100);
             c.Name = (c.Name ?? "").Trim();
         }
         f.Channels = f.Channels.Where(c => c.Channel is >= 1 and <= Core.Config.FanSettings.ChannelCount).OrderBy(c => c.Channel).ToList();
-        CheckCurve(f.Case.Curve, "Gehäuse");
-        if (f.Case.Mode is not ("auto" or "manual")) throw new InvalidOperationException("Gehäuse: unbekannter Modus.");
+        CheckCurve(f.Case.Curve, L.N("Gehäuse"));
+        if (f.Case.Mode is not ("auto" or "manual")) throw new InvalidOperationException(L.N("Gehäuse: unbekannter Modus."));
         if (f.Case.Sensor is not ("vr" or "asic" or "case")) f.Case.Sensor = "vr";
         f.CaseTempWarn = Math.Clamp(f.CaseTempWarn, 20, 80);
         f.Sensors = (f.Sensors ?? []).Where(s => s.Id is { Length: > 0 } id && !id.StartsWith('#'))
@@ -99,7 +118,7 @@ public static class Endpoints
         {
             s.Id = s.Id.Trim().ToLowerInvariant();
             s.Name = (s.Name ?? "").Trim();
-            if (s.Name.Length == 0) throw new InvalidOperationException("Jeder Temperaturfühler braucht einen Namen.");
+            if (s.Name.Length == 0) throw new InvalidOperationException(L.N("Jeder Temperaturfühler braucht einen Namen."));
             if (s.Name.Length > 24) s.Name = s.Name[..24];
             s.WarnTemp = Math.Clamp(s.WarnTemp, 20, 100);
         }
@@ -110,17 +129,18 @@ public static class Endpoints
         f.Case.NightToHour = Math.Clamp(f.Case.NightToHour, 0, 23);
     }
 
-    private static void CheckCurve(Core.Config.FanCurve c, string label)
+    /// <param name="label">Übersetzbarer Name der Kurve (Platzhalter {0} = <paramref name="channel"/>).</param>
+    private static void CheckCurve(Core.Config.FanCurve c, string label, int channel = 0)
     {
-        if (c.FullTemp <= c.StartTemp) throw new InvalidOperationException($"{label}: Volllast-Temperatur muss über der Start-Temperatur liegen.");
-        if (c.StartTemp < 20 || c.FullTemp > 110) throw new InvalidOperationException($"{label}: Temperaturen zwischen 20 und 110 °C.");
+        if (c.FullTemp <= c.StartTemp) throw new LocalizedException("{0}: Volllast-Temperatur muss über der Start-Temperatur liegen.", new LocText(label, channel));
+        if (c.StartTemp < 20 || c.FullTemp > 110) throw new LocalizedException("{0}: Temperaturen zwischen 20 und 110 °C.", new LocText(label, channel));
         c.StartPercent = Math.Clamp(c.StartPercent, 0, 100);
         c.MinPercent = Math.Clamp(c.MinPercent, 0, 100);
         c.Hysteresis = Math.Clamp(c.Hysteresis, 0, 10);
     }
 
     private static HubDevice Device(MinerHub hub, string id) =>
-        Dto.Find(hub, id) ?? throw new KeyNotFoundException("Gerät nicht gefunden.");
+        Dto.Find(hub, id) ?? throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
     private static string Client(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "?";
 
@@ -157,7 +177,7 @@ public static class Endpoints
         api.MapPost("/token-session", (HttpContext http, SessionStore sessions) =>
         {
             var auth = AuthContext.Of(http);
-            if (!auth.ViaToken || auth.Role != Role.Admin) return Error(401, "Nur mit API-Token.");
+            if (!auth.ViaToken || auth.Role != Role.Admin) return Error(401, L.N("Nur mit API-Token."));
             var session = sessions.Create(Role.Admin, DateTime.UtcNow);
             return Results.Json(new { session = session.Id, csrf = session.Csrf, expiresUtc = session.ExpiresUtc });
         });
@@ -165,11 +185,11 @@ public static class Endpoints
         api.MapPost("/setup", (SetupRequest req, HttpContext http, AuthStore auth, SessionStore sessions, Lockout lockout) =>
         {
             var client = Client(http);
-            if (lockout.IsLocked(client, DateTime.UtcNow)) return Error(429, "Zu viele Fehlversuche – bitte 5 Minuten warten.");
+            if (lockout.IsLocked(client, DateTime.UtcNow)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
             if (auth.Setup(req.Code ?? "", req.Password ?? "") is { } error)
             {
-                if (error.Contains("Code")) lockout.Fail(client, DateTime.UtcNow);
-                return Error(400, error);
+                if (error.German.Contains("Code")) lockout.Fail(client, DateTime.UtcNow);
+                return Error(400, "{0}", error);
             }
             lockout.Success(client);
             return StartSession(http, sessions, Role.Admin);
@@ -179,12 +199,12 @@ public static class Endpoints
         {
             var client = Client(http);
             var now = DateTime.UtcNow;
-            if (lockout.IsLocked(client, now)) return Error(429, "Zu viele Fehlversuche – bitte 5 Minuten warten.");
+            if (lockout.IsLocked(client, now)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
             var role = auth.Login(req.Password ?? "");
             if (role == Role.None)
             {
                 lockout.Fail(client, now);
-                return Error(401, "Passwort oder PIN falsch.");
+                return Error(401, L.N("Passwort oder PIN falsch."));
             }
             lockout.Success(client);
             return StartSession(http, sessions, role);
@@ -272,9 +292,9 @@ public static class Endpoints
         g.MapPost("/devices", async (DeviceRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var host = req.Host?.Trim() ?? "";
-            if (host.Length == 0) throw new InvalidOperationException("Adresse fehlt.");
+            if (host.Length == 0) throw new InvalidOperationException(L.N("Adresse fehlt."));
             if (h.Config.Devices.Any(d => string.Equals(d.Host.Trim(), host, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("Dieser Host ist bereits eingetragen.");
+                throw new InvalidOperationException(L.N("Dieser Host ist bereits eingetragen."));
             h.Config.Devices.Add(new DeviceConfig { Name = string.IsNullOrWhiteSpace(req.Name) ? host : req.Name.Trim(), Host = host });
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
@@ -297,7 +317,7 @@ public static class Endpoints
         g.MapDelete("/devices/{id}", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var d = Device(h, id);
-            if (d.IsBenchmarkRunning) throw new InvalidOperationException("Bitte zuerst den laufenden Benchmark stoppen.");
+            if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Bitte zuerst den laufenden Benchmark stoppen."));
             h.Config.Devices.RemoveAll(c => string.Equals(c.Host.Trim(), d.Config.Host.Trim(), StringComparison.OrdinalIgnoreCase));
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
@@ -307,8 +327,8 @@ public static class Endpoints
         g.MapPost("/devices/{id}/profile", async (string id, IdRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             var d = Device(h, id);
-            if (d.IsBenchmarkRunning) throw new InvalidOperationException("Während eines Benchmarks nicht möglich.");
-            var profile = h.ProfilesFor(d).FirstOrDefault(p => p.Id == req.Id) ?? throw new KeyNotFoundException("Profil unbekannt.");
+            if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
+            var profile = h.ProfilesFor(d).FirstOrDefault(p => p.Id == req.Id) ?? throw new KeyNotFoundException(L.N("Profil unbekannt."));
             h.SetProfile(d, profile);
             return new { ok = true };
         })));
@@ -320,7 +340,7 @@ public static class Endpoints
         g.MapPost("/devices/{id}/change", async (string id, ChangeRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var d = Device(h, id);
-            if (req.SoakHours is { } hours && hours is < 1 or > 168) throw new InvalidOperationException("Dauertest: 1 bis 168 Stunden.");
+            if (req.SoakHours is { } hours && hours is < 1 or > 168) throw new InvalidOperationException(L.N("Dauertest: 1 bis 168 Stunden."));
             await h.ApplyChangeAsync(d, req.Frequency, req.Voltage);
             if (req.SoakHours is { } soakHours) h.ScheduleSoak(d, soakHours);
             return new { ok = true };
@@ -329,7 +349,7 @@ public static class Endpoints
         g.MapPost("/devices/{id}/restart", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var d = Device(h, id);
-            if (d.IsBenchmarkRunning) throw new InvalidOperationException("Während eines Benchmarks nicht möglich.");
+            if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
             await d.Connection.RestartAsync(); // öffnet das Wartungsfenster: keine Offline-Meldung
             d.AddLog("Neustart ausgelöst (Browser).");
             return new { ok = true };
@@ -484,7 +504,7 @@ public static class Endpoints
         {
             var d = Device(h, id);
             var (snaps, current) = await h.RestoreCandidatesAsync(d);
-            var snap = snaps.FirstOrDefault(s => Path.GetFileName(s.FilePath) == req.File) ?? throw new KeyNotFoundException("Sicherung nicht gefunden.");
+            var snap = snaps.FirstOrDefault(s => Path.GetFileName(s.FilePath) == req.File) ?? throw new KeyNotFoundException(L.N("Sicherung nicht gefunden."));
             return SettingsSnapshots.Diff(snap, current).Select(c => new { c.Field, c.Label, group = c.GroupText, c.Current, c.Saved }).ToList();
         })));
 
@@ -492,10 +512,10 @@ public static class Endpoints
         {
             var d = Device(h, id);
             var (snaps, current) = await h.RestoreCandidatesAsync(d);
-            var snap = snaps.FirstOrDefault(s => Path.GetFileName(s.FilePath) == req.File) ?? throw new KeyNotFoundException("Sicherung nicht gefunden.");
+            var snap = snaps.FirstOrDefault(s => Path.GetFileName(s.FilePath) == req.File) ?? throw new KeyNotFoundException(L.N("Sicherung nicht gefunden."));
             var fields = req.Fields ?? [];
             var changes = SettingsSnapshots.Diff(snap, current).Where(c => fields.Contains(c.Field)).ToList();
-            if (changes.Count == 0) throw new InvalidOperationException("Keine Felder ausgewählt.");
+            if (changes.Count == 0) throw new InvalidOperationException(L.N("Keine Felder ausgewählt."));
             await h.RestoreAsync(d, snap, changes);
             return new { ok = true, restored = changes.Count };
         })));
@@ -520,6 +540,7 @@ public static class Endpoints
         {
             req.ApplyTo(h.Config);
             h.Config.Save();
+            Loc.Configure(h.Config.Language);
             h.SyncLogAlerts();
             await h.ApplySettingsChangedAsync();
             return new { ok = true };
@@ -539,7 +560,7 @@ public static class Endpoints
 
         g.MapPost("/password", (PasswordRequest req, AuthStore auth, SessionStore sessions) =>
         {
-            if (auth.ChangePassword(req.Current ?? "", req.Password ?? "") is { } error) return Error(400, error);
+            if (auth.ChangePassword(req.Current ?? "", req.Password ?? "") is { } error) return Error(400, "{0}", error);
             sessions.Clear();
             return Results.Ok(new { ok = true, note = "Alle Browser-Sitzungen wurden abgemeldet." });
         });
@@ -553,7 +574,7 @@ public static class Endpoints
         });
 
         g.MapDelete("/tokens/{tokenId}", (string tokenId, AuthStore auth) =>
-            auth.RevokeToken(tokenId) ? Results.Ok(new { ok = true }) : Error(404, "Token nicht gefunden."));
+            auth.RevokeToken(tokenId) ? Results.Ok(new { ok = true }) : Error(404, L.N("Token nicht gefunden.")));
 
         // ---------- Zusatzlüfter (Pico) ----------
 
@@ -570,7 +591,7 @@ public static class Endpoints
 
         g.MapPost("/fans/firmware", async (HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            if (!h.Config.Fans.Enabled) throw new InvalidOperationException("Lüftersteuerung ist ausgeschaltet.");
+            if (!h.Config.Fans.Enabled) throw new InvalidOperationException(L.N("Lüftersteuerung ist ausgeschaltet."));
             await h.ApplyFanSettingsAsync(reinstallFirmware: true);
             return new { ok = h.FanStatus.Connected, status = Dto.Fans(h, Role.Admin) };
         })));
@@ -582,20 +603,20 @@ public static class Endpoints
                 "off" => Core.Fans.FanOverride.Off,
                 "full" => Core.Fans.FanOverride.Full,
                 "auto" => Core.Fans.FanOverride.None,
-                _ => throw new InvalidOperationException("Modus: off, auto oder full."),
+                _ => throw new InvalidOperationException(L.N("Modus: off, auto oder full.")),
             };
             await h.SetFanOverrideAsync(mode, "Browser");
             return new { ok = true, status = Dto.Fans(h, Role.Admin) };
         })));
 
-        g.MapPost("/system/reboot", async (HubService hub) =>
+        g.MapPost("/system/reboot", async (HubService hub, HttpContext http) =>
         {
             // Antwort zuerst, dann neu starten
             var message = await hub.RunAsync(h => h.Options.SystemReboot is not null && h.Config.Display.AllowSystemReboot
-                ? "Pico und Rechner werden neu gestartet – die Seite verbindet sich danach von selbst wieder."
-                : "Pico wird neu gestartet (Neustart des Rechners ist hier nicht eingerichtet).");
+                ? L.N("Pico und Rechner werden neu gestartet – die Seite verbindet sich danach von selbst wieder.")
+                : L.N("Pico wird neu gestartet (Neustart des Rechners ist hier nicht eingerichtet)."));
             _ = hub.RunAsync(h => h.RebootAsync("Browser"));
-            return Results.Json(new { ok = true, message });
+            return Results.Json(new { ok = true, message = LangOf(http).T(message) });
         });
 
         // ---------- E-Paper-Anzeige ----------
@@ -651,16 +672,16 @@ public static class Endpoints
             return Results.Json(new { available = r.Status == Core.Update.UpdateCheckStatus.UpdateAvailable, latest = r.Update?.Tag, message = r.Message });
         });
 
-        g.MapPost("/admin/update/install", (ServerUpdater updater, ILogger<ServerUpdater> log) =>
+        g.MapPost("/admin/update/install", (ServerUpdater updater, ILogger<ServerUpdater> log, HttpContext http) =>
         {
-            if (updater.Latest is null) return Error(400, "Kein Update verfügbar – zuerst nach Updates suchen.");
-            if (!updater.CanInstall) return Error(400, "Diese Installation aktualisiert sich nicht selbst. Docker: „docker compose pull && docker compose up -d“.");
+            if (updater.Latest is null) return Error(400, L.N("Kein Update verfügbar – zuerst nach Updates suchen."));
+            if (!updater.CanInstall) return Error(400, L.N("Diese Installation aktualisiert sich nicht selbst. Docker: „docker compose pull && docker compose up -d“."));
             _ = Task.Run(async () =>
             {
                 try { await updater.InstallAsync(); }
                 catch (Exception ex) { log.LogError(ex, "Update fehlgeschlagen"); }
             });
-            return Results.Json(new { ok = true, message = "Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute)." });
+            return Results.Json(new { ok = true, message = LangOf(http).T("Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute).") });
         });
 
         g.MapPost("/admin/pause", async (PauseRequest req, HubService hub) =>
@@ -688,7 +709,7 @@ public static class Endpoints
             if (http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
                 limit.MaxRequestBodySize = 2L * 1024 * 1024 * 1024;
             if (!await hub.IsEmptyAsync() && replace != true)
-                return Error(409, "Der Server enthält bereits Daten (Geräte, Verlauf oder Steuerdaten). Übernahme nur nach ausdrücklicher Bestätigung – der Server sichert seinen Stand vorher.");
+                return Error(409, L.N("Der Server enthält bereits Daten (Geräte, Verlauf oder Steuerdaten). Übernahme nur nach ausdrücklicher Bestätigung – der Server sichert seinen Stand vorher."));
 
             var dir = hub.Settings.DataDirectory;
             var upload = Path.Combine(dir, $"transfer-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.zip");
@@ -702,14 +723,14 @@ public static class Endpoints
                     await using var zip = File.OpenRead(upload);
                     manifest = DataArchive.ExtractAndVerify(zip, staging);
                 }
-                catch (InvalidDataException ex) { return Error(400, "Archiv abgelehnt: " + ex.Message); }
+                catch (InvalidDataException ex) { return Error(400, L.N("Archiv abgelehnt: {0}"), ex.Message); }
                 var backup = await hub.ReplaceDataAsync(staging);
                 var samples = manifest.HistoryRows.GetValueOrDefault("samples");
                 return Results.Json(new
                 {
                     ok = true,
-                    message = $"Übernommen: {manifest.Devices} Gerät(e), {samples:N0} Verlaufswerte, {manifest.Files.Count} Dateien (Quelle {manifest.Source}, {manifest.CreatedUtc.ToLocalTime():g}). " +
-                              $"Vorheriger Server-Stand gesichert in {Path.GetFileName(backup)}.",
+                    message = LangOf(http).T("Übernommen: {0} Gerät(e), {1:N0} Verlaufswerte, {2} Dateien (Quelle {3}, {4:g}). Vorheriger Server-Stand gesichert in {5}.",
+                        manifest.Devices, samples, manifest.Files.Count, manifest.Source, manifest.CreatedUtc.ToLocalTime(), Path.GetFileName(backup)),
                 });
             }
             finally

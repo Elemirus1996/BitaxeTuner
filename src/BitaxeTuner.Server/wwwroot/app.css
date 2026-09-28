@@ -56,6 +56,7 @@ h3 { font-size: 15px; }
 .live { width: 10px; height: 10px; border-radius: 50%; background: var(--idle); }
 .live.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .icon-btn { background: none; border: 0; color: #C9D3E3; font-size: 18px; cursor: pointer; padding: 4px 6px; }
+.lang-btn { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
 
 main { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px; }
 .status {
@@ -104,6 +105,7 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 input[type=checkbox] { width: auto; margin-right: 6px; accent-color: var(--accent); }
+input.invalid { border-color: var(--danger); }
 .check { display: flex; align-items: center; color: var(--text); font-size: 14px; margin: 4px 0; }
 .form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); align-items: end; }
 .form .wide { grid-column: 1 / -1; }

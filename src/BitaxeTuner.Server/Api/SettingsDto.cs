@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Server.Api;
 
@@ -18,6 +19,8 @@ public sealed class SettingsDto
     public double TempWarn { get; set; }
     public bool RestartAfterApply { get; set; }
     public bool CheckForUpdates { get; set; }
+    /// <summary>Sprache des Servers („auto“, „de“, „en“): Push, Tagesbericht, E-Paper, Statustexte.</summary>
+    public string Language { get; set; } = "auto";
     public string BlockchairApiKey { get; set; } = "";
     public string CoinGeckoApiKey { get; set; } = "";
     public NotificationSettings Notifications { get; set; } = new();
@@ -45,6 +48,7 @@ public sealed class SettingsDto
         TempWarn = c.TempWarn,
         RestartAfterApply = c.RestartAfterApply,
         CheckForUpdates = c.CheckForUpdates,
+        Language = c.Language,
         BlockchairApiKey = c.BlockchairApiKey,
         CoinGeckoApiKey = c.CoinGeckoApiKey,
         Notifications = c.Notifications,
@@ -61,7 +65,7 @@ public sealed class SettingsDto
         if (NewViewerPin is { Length: > 0 } pin)
         {
             if (pin == "-") c.WebView.PinHash = "";
-            else if (pin.Length < 4 || !pin.All(char.IsDigit)) throw new InvalidOperationException("Die PIN braucht mindestens 4 Ziffern.");
+            else if (pin.Length < 4 || !pin.All(char.IsDigit)) throw new InvalidOperationException(L.N("Die PIN braucht mindestens 4 Ziffern."));
             else c.WebView.PinHash = WebViewSettings.HashPin(pin);
         }
         c.IntervalSeconds = Math.Clamp(IntervalSeconds, 1, 300);
@@ -74,6 +78,7 @@ public sealed class SettingsDto
         c.TempWarn = Math.Clamp(TempWarn, 30, 120);
         c.RestartAfterApply = RestartAfterApply;
         c.CheckForUpdates = CheckForUpdates;
+        c.Language = Language is "de" or "en" ? Language : "auto";
         c.BlockchairApiKey = BlockchairApiKey.Trim();
         c.CoinGeckoApiKey = CoinGeckoApiKey.Trim();
         c.Notifications = Notifications;

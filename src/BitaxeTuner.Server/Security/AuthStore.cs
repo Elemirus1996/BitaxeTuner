@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Server.Security;
 
@@ -78,13 +79,13 @@ public sealed class AuthStore
         get { lock (_lock) return _data.Tokens.ToList(); }
     }
 
-    /// <summary>Erste Einrichtung: Code prüfen, Admin-Passwort setzen.</summary>
-    public string? Setup(string code, string password)
+    /// <summary>Erste Einrichtung: Code prüfen, Admin-Passwort setzen. Ergebnis: Fehlermeldung oder null.</summary>
+    public LocText? Setup(string code, string password)
     {
         lock (_lock)
         {
-            if (IsSetUp) return "Der Server ist bereits eingerichtet.";
-            if (SetupCode is null || !FixedEquals(code.Trim(), SetupCode)) return "Einrichtungs-Code falsch.";
+            if (IsSetUp) return new LocText(L.N("Der Server ist bereits eingerichtet."));
+            if (SetupCode is null || !FixedEquals(code.Trim(), SetupCode)) return new LocText(L.N("Einrichtungs-Code falsch."));
             if (ValidatePassword(password) is { } error) return error;
             _data.AdminHash = HashPassword(password);
             Save();
@@ -94,11 +95,11 @@ public sealed class AuthStore
         }
     }
 
-    public string? ChangePassword(string current, string password)
+    public LocText? ChangePassword(string current, string password)
     {
         lock (_lock)
         {
-            if (!VerifyPassword(current, _data.AdminHash)) return "Aktuelles Passwort falsch.";
+            if (!VerifyPassword(current, _data.AdminHash)) return new LocText(L.N("Aktuelles Passwort falsch."));
             if (ValidatePassword(password) is { } error) return error;
             _data.AdminHash = HashPassword(password);
             Save();
@@ -165,8 +166,8 @@ public sealed class AuthStore
         }
     }
 
-    public static string? ValidatePassword(string password) =>
-        password.Length < MinPasswordLength ? $"Das Passwort braucht mindestens {MinPasswordLength} Zeichen." : null;
+    public static LocText? ValidatePassword(string password) =>
+        password.Length < MinPasswordLength ? new LocText("Das Passwort braucht mindestens {0} Zeichen.", MinPasswordLength) : null;
 
     // Gleiche Hashes wie das Einrichtungspaket der Desktop-App (Core/Transfer/Provisioning.cs)
     public static string HashPassword(string password) => Core.Transfer.Secrets.HashPassword(password);
