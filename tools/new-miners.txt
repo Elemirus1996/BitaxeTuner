@@ -1,0 +1,5 @@
+# Neue Miner-Modelle ohne Geräteprofil – gesammelt vom täglichen Check (.github/workflows/daily.yml).
+# Werden beim nächsten Release geprüft, in DeviceProfiles.json übernommen und hier gelöscht.
+# Format: <Kennung> | <Quelle> | <Eckdaten aus der Quelle> | gefunden am
+NerdQAxe deviceModel Q1370 | shufps/ESP-Miner-NerdQAxePlus | BM1370 × 4 · Spannung Standard 1150 mV (max. 1400) · Eingang 52.0–150.0 W · Datei q1370.cpp · derzeit generisches Profil | 2026-09-28
+NerdQAxe deviceModel Q1373 | shufps/ESP-Miner-NerdQAxePlus | BM1373 × 4 · Spannung Standard 1010 mV (max. 1200) · Eingang 50.0–180.0 W · Datei q1373.cpp · derzeit generisches Profil | 2026-09-28
