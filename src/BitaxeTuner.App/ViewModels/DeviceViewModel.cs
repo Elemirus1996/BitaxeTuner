@@ -14,6 +14,7 @@ using BitaxeTuner.Core.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.ViewModels;
 
@@ -56,7 +57,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private void OnLogAlert(string host, LogLine line, string rule)
     {
         if (!string.Equals(host, Address, StringComparison.OrdinalIgnoreCase)) return;
-        AddLog($"Log-Alarm ({rule}): {line.Tag} {line.Message}");
+        AddLog(L.T("Log-Alarm ({0}): {1} {2}", rule, line.Tag, line.Message));
     }
 
     private void OnLogAdded(string line) => Ui(() =>
@@ -91,7 +92,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private MinerInfo? _info;
 
     [ObservableProperty] private bool _isOnline;
-    [ObservableProperty] private string _status = "Verbinde …";
+    [ObservableProperty] private string _status = L.T("Verbinde …");
     [ObservableProperty] private BenchmarkSettings _settings;
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ProfileNotes))]
@@ -104,7 +105,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private bool _isRunning;
 
     [ObservableProperty] private bool _isPaused;
-    [ObservableProperty] private string _phaseText = "Bereit";
+    [ObservableProperty] private string _phaseText = L.T("Bereit");
     [ObservableProperty] private string _stepText = "";
     [ObservableProperty] private double _phaseProgress;
     [ObservableProperty] private double _overallProgress;
@@ -138,8 +139,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public string EfficiencyText => Info?.EfficiencyJth is { } e ? $"{e:F2}" : "–";
 
     public string BestSummary => BestResult is { } b
-        ? $"{b.FrequencyMhz} MHz / {b.CoreVoltageMv} mV → {b.AvgHashRateGh:F1} GH/s · {b.AvgPowerW:F1} W · {b.EfficiencyJth:F2} J/TH · max. {b.MaxChipTempC:F1} °C"
-        : "Noch keine stabilen Ergebnisse.";
+        ? L.T("{0} MHz / {1} mV → {2:F1} GH/s · {3:F1} W · {4:F2} J/TH · max. {5:F1} °C", b.FrequencyMhz, b.CoreVoltageMv, b.AvgHashRateGh, b.AvgPowerW, b.EfficiencyJth, b.MaxChipTempC)
+        : L.T("Noch keine stabilen Ergebnisse.");
 
     public string EstimatedDurationText => BenchmarkManager.EstimatedDurationText(Settings);
 
@@ -181,7 +182,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         else
         {
             IsOnline = false;
-            Status = _device.Connection.InMaintenance ? "Neustart/Tuning …" : state.Error ?? "Offline";
+            Status = _device.Connection.InMaintenance ? L.T("Neustart/Tuning …") : state.Error ?? L.T("Offline");
         }
     }
 
@@ -252,7 +253,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         catch (MinerApiException ex)
         {
             IsOnline = false;
-            Status = "Offline";
+            Status = L.T("Offline");
             AddLog(ex.Message);
         }
         finally
@@ -283,23 +284,23 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show(ex.Message, "Benchmark", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, L.T("Benchmark"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         // Einmalige Bestätigung für den ganzen Lauf (jeder einzelne Schritt wird in history.db protokolliert)
-        if (MessageBox.Show(plan.ConfirmText, "Benchmark", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(plan.ConfirmText, L.T("Benchmark"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         if (!resume) SetResults([]);
 
         try
         {
             await _hub.Benchmarks.RunAsync(_device, plan);
-            if (_device.Benchmark?.PhaseText == "Fertig") Status = "Benchmark fertig";
+            if (_device.Benchmark?.Completed == true) Status = L.T("Benchmark fertig");
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show(ex.Message, "Benchmark", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, L.T("Benchmark"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -391,7 +392,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     {
         if (!int.TryParse(ManualFrequency.Trim(), out var f) || !int.TryParse(ManualVoltage.Trim(), out var mv))
         {
-            MessageBox.Show("Bitte Frequenz (MHz) und Kernspannung (mV) als ganze Zahlen eingeben.", "Manuell einstellen",
+            MessageBox.Show(L.T("Bitte Frequenz (MHz) und Kernspannung (mV) als ganze Zahlen eingeben."), L.T("Manuell einstellen"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return Task.CompletedTask;
         }
@@ -411,10 +412,10 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show(ex.Message, "Grenzwerte", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, L.T("Grenzwerte"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (MessageBox.Show(preview.ConfirmText, "Einstellung anwenden", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(preview.ConfirmText, L.T("Einstellung anwenden"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 
         try
@@ -424,13 +425,13 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)
         {
-            MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, L.T("Fehler"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
     // ---------- Automatik: Voreinstellungen, Regeln ----------
 
-    [ObservableProperty] private string _automationStatus = "keine Automatik";
+    [ObservableProperty] private string _automationStatus = L.T("keine Automatik");
     [ObservableProperty] private string _newPresetName = "";
     [ObservableProperty] private TuningPreset? _selectedPreset;
     [ObservableProperty] private ScheduleEntry? _selectedScheduleEntry;
@@ -477,8 +478,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void AddPresetFromCurrent()
     {
-        if (Info is null) { AddLog("Kein aktueller Wert – Miner nicht erreichbar."); return; }
-        var name = string.IsNullOrWhiteSpace(NewPresetName) ? $"{Info.FrequencyMhz} MHz" : NewPresetName.Trim();
+        if (Info is null) { AddLog(L.T("Kein aktueller Wert – Miner nicht erreichbar.")); return; }
+        var name = string.IsNullOrWhiteSpace(NewPresetName) ? L.T("{0} MHz", Info.FrequencyMhz) : NewPresetName.Trim();
         UpsertPreset(new TuningPreset(name, Info.FrequencyMhz, Info.CoreVoltageMv));
         NewPresetName = "";
     }
@@ -491,26 +492,26 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         var eff = ResultRanking.Best(Results, RankingMode.Efficiency);
         if (hash is null || eff is null)
         {
-            MessageBox.Show("Es gibt noch keine stabilen Benchmark-Ergebnisse für dieses Gerät.", "Voreinstellungen",
+            MessageBox.Show(L.T("Es gibt noch keine stabilen Benchmark-Ergebnisse für dieses Gerät."), L.T("Voreinstellungen"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        UpsertPreset(new TuningPreset("Hashrate", hash.FrequencyMhz, hash.CoreVoltageMv));
-        UpsertPreset(new TuningPreset("Effizienz", eff.FrequencyMhz, eff.CoreVoltageMv));
+        UpsertPreset(new TuningPreset(L.T("Hashrate"), hash.FrequencyMhz, hash.CoreVoltageMv));
+        UpsertPreset(new TuningPreset(L.T("Effizienz"), eff.FrequencyMhz, eff.CoreVoltageMv));
     }
 
     private void UpsertPreset(TuningPreset preset)
     {
         if (MinerHub.CheckPreset(_device, preset) is { } error)
         {
-            MessageBox.Show(error, "Voreinstellungen", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(error, L.T("Voreinstellungen"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         var existing = Presets.FirstOrDefault(x => string.Equals(x.Name, preset.Name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null) Presets[Presets.IndexOf(existing)] = preset;
         else Presets.Add(preset);
         StoreAutomation();
-        AddLog($"Voreinstellung gespeichert: {preset}");
+        AddLog(L.T("Voreinstellung gespeichert: {0}", preset));
     }
 
     [RelayCommand]
@@ -538,30 +539,30 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private void SaveAutomation()
     {
         StoreAutomation();
-        AddLog("Automatik-Einstellungen gespeichert" +
+        AddLog(L.T("Automatik-Einstellungen gespeichert") +
                (ThermalGuard.Enabled && !ThermalGuard.IsApproved(Address) || Schedule.Enabled && !Schedule.IsApproved(Address)
-                   ? " – Freigabe erforderlich." : "."));
+                   ? L.T(" – Freigabe erforderlich.") : "."));
     }
 
     [RelayCommand]
     private void ApproveThermalGuard()
     {
         StoreAutomation();
-        Approve(ThermalGuard, MinerHub.ThermalGuardApprovalText(_device), "Temperaturschutz");
+        Approve(ThermalGuard, MinerHub.ThermalGuardApprovalText(_device), L.T("Temperaturschutz"));
     }
 
     [RelayCommand]
     private void ApproveSchedule()
     {
         StoreAutomation();
-        Approve(Schedule, _hub.ScheduleApprovalText(_device), "Zeitplan");
+        Approve(Schedule, _hub.ScheduleApprovalText(_device), L.T("Zeitplan"));
     }
 
     private void Approve(AutomationRule rule, string text, string label)
     {
         if (!rule.Enabled)
         {
-            MessageBox.Show($"{label} ist nicht eingeschaltet.", label, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(L.T("{0} ist nicht eingeschaltet.", label), label, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         if (MessageBox.Show(text, label + " freigeben", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
@@ -579,12 +580,12 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void StartSoak()
     {
-        if (Info is null) { AddLog("Dauertest: Miner nicht erreichbar."); return; }
-        if (IsRunning) { AddLog("Dauertest: zuerst den Benchmark beenden."); return; }
+        if (Info is null) { AddLog(L.T("Dauertest: Miner nicht erreichbar.")); return; }
+        if (IsRunning) { AddLog(L.T("Dauertest: zuerst den Benchmark beenden.")); return; }
         string text;
         try { text = _hub.SoakConfirmText(_device, SoakHours); }
         catch (InvalidOperationException ex) { AddLog(ex.Message); return; }
-        if (MessageBox.Show(text, "Dauertest", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(text, L.T("Dauertest"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         try { _hub.StartSoak(_device, SoakHours); }
         catch (InvalidOperationException ex) { AddLog(ex.Message); }
@@ -615,13 +616,13 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         try
         {
             var snap = await _hub.BackupSettingsAsync(_device);
-            MessageBox.Show($"Einstellungen von {Title} gesichert:\n{snap.DisplayText}\n\n{snap.FilePath}\n\n" +
-                            "Hinweis: Die Datei enthält auch Pool-Benutzer (Wallet-Adresse). Pool-Passwörter liefert AxeOS nicht aus.",
-                "Einstellungen sichern", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(L.T("Einstellungen von {0} gesichert:\n{1}\n\n{2}\n\n", Title, snap.DisplayText, snap.FilePath) +
+                            L.T("Hinweis: Die Datei enthält auch Pool-Benutzer (Wallet-Adresse). Pool-Passwörter liefert AxeOS nicht aus."),
+                L.T("Einstellungen sichern"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex) when (ex is MinerApiException or System.Text.Json.JsonException or IOException)
         {
-            MessageBox.Show("Sichern fehlgeschlagen: " + ex.Message, "Einstellungen sichern", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(L.T("Sichern fehlgeschlagen: ") + ex.Message, L.T("Einstellungen sichern"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -639,12 +640,12 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show(ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(ex.Message, L.T("Wiederherstellen"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         catch (MinerApiException ex)
         {
-            MessageBox.Show(ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, L.T("Wiederherstellen"), MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
@@ -661,7 +662,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)
         {
-            MessageBox.Show("Wiederherstellen fehlgeschlagen: " + ex.Message, "Wiederherstellen", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(L.T("Wiederherstellen fehlgeschlagen: ") + ex.Message, L.T("Wiederherstellen"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -678,7 +679,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            AddLog("Vorher/Nachher nicht verfügbar: " + ex.Message);
+            AddLog(L.T("Vorher/Nachher nicht verfügbar: ") + ex.Message);
         }
     }
 
@@ -687,18 +688,18 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     {
         if (Session is null || Session.Results.Count == 0)
         {
-            MessageBox.Show("Es gibt noch keine Ergebnisse zum Exportieren.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(L.T("Es gibt noch keine Ergebnisse zum Exportieren."), L.T("Export"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         var dlg = new SaveFileDialog
         {
-            Filter = "CSV-Datei (*.csv)|*.csv",
+            Filter = L.T("CSV-Datei (*.csv)|*.csv"),
             FileName = $"{Session.Hostname ?? "bitaxe"}_{Session.StartedAt:yyyyMMdd-HHmm}.csv",
         };
         if (dlg.ShowDialog() == true)
         {
             ResultStore.ExportCsv(Session, dlg.FileName);
-            AddLog($"Exportiert: {dlg.FileName}");
+            AddLog(L.T("Exportiert: {0}", dlg.FileName));
         }
     }
 
@@ -718,7 +719,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(ManualVoltage) && info.CoreVoltageMv > 0) ManualVoltage = info.CoreVoltageMv.ToString();
         Push(HashHistory, info.HashRateGh);
         if (info.MaxChipTempC is { } t) Push(TempHistory, t);
-        Status = IsRunning ? $"Benchmark · {info.HashRateGh:F0} GH/s" : $"{info.HashRateGh:F0} GH/s · {info.MaxChipTempC:F0} °C";
+        Status = IsRunning ? L.T("Benchmark · {0:F0} GH/s", info.HashRateGh) : L.T("{0:F0} GH/s · {1:F0} °C", info.HashRateGh, info.MaxChipTempC);
     }
 
     private static void Push(ObservableCollection<double> list, double value)

@@ -1,4 +1,5 @@
-<UserControl x:Class="BitaxeTuner.App.Tax.Views.TaxPanel"
+<UserControl xmlns:l="clr-namespace:BitaxeTuner.App.I18n"
+        x:Class="BitaxeTuner.App.Tax.Views.TaxPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BitaxeTuner.App.Tax.ViewModels"
@@ -35,17 +36,17 @@
         <!-- Adresse hinzufügen -->
         <Border Grid.Row="0" Style="{StaticResource Tile}">
             <StackPanel>
-                <TextBlock Text="WALLET-ADRESSE HINZUFÜGEN" Style="{StaticResource TileLabel}"/>
+                <TextBlock Text="{l:T 'WALLET-ADRESSE HINZUFÜGEN'}" Style="{StaticResource TileLabel}"/>
                 <StackPanel Orientation="Horizontal">
                     <TextBox Width="340" Text="{Binding NewAddress, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="bc1…, 1…, bitcoincash:q… oder q…"/>
+                             ToolTip="{l:T 'bc1…, 1…, bitcoincash:q… oder q…'}"/>
                     <ComboBox Width="110" Margin="8,0,0,0" ItemsSource="{Binding AvailableCoins}"
                               SelectedItem="{Binding NewCoin}"/>
                     <TextBox Width="180" Margin="8,0,0,0" Text="{Binding NewLabel, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Anzeigename, z. B. Gamma 603"/>
-                    <Button Content="Hinzufügen" Margin="8,0,0,0" Command="{Binding AddWalletCommand}"/>
-                    <Button Content="Aus Minern übernehmen" Margin="8,0,0,0" Command="{Binding ImportFromMinersCommand}"
-                            ToolTip="Adressen aus Einstellungen bzw. Stratum-User aller Miner übernehmen"/>
+                             ToolTip="{l:T 'Anzeigename, z. B. Gamma 603'}"/>
+                    <Button Content="{l:T 'Hinzufügen'}" Margin="8,0,0,0" Command="{Binding AddWalletCommand}"/>
+                    <Button Content="{l:T 'Aus Minern übernehmen'}" Margin="8,0,0,0" Command="{Binding ImportFromMinersCommand}"
+                            ToolTip="{l:T 'Adressen aus Einstellungen bzw. Stratum-User aller Miner übernehmen'}"/>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -53,9 +54,9 @@
         <!-- Überwachte Wallets -->
         <Border Grid.Row="1" Style="{StaticResource Tile}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="ÜBERWACHTE WALLETS (Label und Coin sind editierbar)"
+                <TextBlock DockPanel.Dock="Top" Text="{l:T 'ÜBERWACHTE WALLETS (Label und Coin sind editierbar)'}"
                            Style="{StaticResource TileLabel}"/>
-                <Button DockPanel.Dock="Right" Content="Entfernen" VerticalAlignment="Top" Margin="8,0,0,0"
+                <Button DockPanel.Dock="Right" Content="{l:T 'Entfernen'}" VerticalAlignment="Top" Margin="8,0,0,0"
                         Command="{Binding RemoveWalletCommand}"/>
                 <DataGrid x:Name="WalletGrid" MaxHeight="140" ItemsSource="{Binding Wallets}"
                           SelectedItem="{Binding SelectedWallet}" RowEditEnding="WalletGrid_RowEditEnding">
@@ -63,8 +64,8 @@
                         <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="180"/>
                         <DataGridComboBoxColumn Header="Coin" SelectedItemBinding="{Binding Coin}" Width="90"
                                                 x:Name="CoinColumn"/>
-                        <DataGridTextColumn Header="Adresse" Binding="{Binding Address}" Width="*" IsReadOnly="True"/>
-                        <DataGridTextColumn Header="Quelle" Binding="{Binding SourceDeviceHost}" Width="130" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="{l:T 'Adresse'}" Binding="{Binding Address}" Width="*" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="{l:T 'Quelle'}" Binding="{Binding SourceDeviceHost}" Width="130" IsReadOnly="True"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -74,29 +75,29 @@
         <Border Grid.Row="2" Style="{StaticResource Tile}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                    <Button Content="Zuflüsse" Command="{Binding ShowRewardsCommand}" Padding="12,4"/>
-                    <Button Content="Verkäufe / Haltefrist" Command="{Binding ShowSalesCommand}" Padding="12,4" Margin="6,0,0,0"/>
+                    <Button Content="{l:T 'Zuflüsse'}" Command="{Binding ShowRewardsCommand}" Padding="12,4"/>
+                    <Button Content="{l:T 'Verkäufe / Haltefrist'}" Command="{Binding ShowSalesCommand}" Padding="12,4" Margin="6,0,0,0"/>
                 </StackPanel>
 
                 <Grid>
                     <!-- Zuflüsse -->
                     <DockPanel Visibility="{Binding ShowRewards, Converter={StaticResource BoolToVis}}">
-                        <TextBlock DockPanel.Dock="Top" Text="DOKUMENTIERTE ZUFLÜSSE (EUR-Kurs und Notiz editierbar)"
+                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'DOKUMENTIERTE ZUFLÜSSE (EUR-Kurs und Notiz editierbar)'}"
                                    Style="{StaticResource TileLabel}"/>
                         <DataGrid x:Name="RewardGrid" ItemsSource="{Binding Rewards}" SelectedItem="{Binding SelectedReward}"
                                   RowEditEnding="RewardGrid_RowEditEnding">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Datum/Zeit" Binding="{Binding ReceivedAtLocal, StringFormat='dd.MM.yyyy HH:mm', ConverterCulture='de-DE'}" Width="120" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Datum/Zeit'}" Binding="{Binding ReceivedAtLocal, StringFormat='g', ConverterCulture='de-DE'}" Width="120" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Coin" Binding="{Binding CoinSymbol}" Width="50" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Wallet" Binding="{Binding WalletLabel}" Width="120" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Menge" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="EUR-Kurs" Binding="{Binding EurPriceAtReceipt, StringFormat='N2', ConverterCulture='de-DE', TargetNullValue=''}" Width="90"/>
-                                <DataGridTextColumn Header="EUR-Wert" Binding="{Binding EurValue, StringFormat='N2', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Rest" Binding="{Binding Remaining, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Frei ab" Binding="{Binding TaxFreeFrom, StringFormat='dd.MM.yyyy', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Haltefrist" Binding="{Binding HoldingStatus}" Width="120" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Kursquelle" Binding="{Binding PriceSource}" Width="180" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Notiz" Binding="{Binding Note}" Width="180"/>
+                                <DataGridTextColumn Header="{l:T 'Menge'}" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'EUR-Kurs'}" Binding="{Binding EurPriceAtReceipt, StringFormat='N2', ConverterCulture='de-DE', TargetNullValue=''}" Width="90"/>
+                                <DataGridTextColumn Header="{l:T 'EUR-Wert'}" Binding="{Binding EurValue, StringFormat='N2', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Rest'}" Binding="{Binding Remaining, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Frei ab'}" Binding="{Binding TaxFreeFrom, StringFormat='d', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Haltefrist'}" Binding="{Binding HoldingStatus}" Width="120" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Kursquelle'}" Binding="{Binding PriceSource}" Width="180" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Notiz'}" Binding="{Binding Note}" Width="180"/>
                                 <DataGridTextColumn Header="TXID" Binding="{Binding TxId}" Width="*" IsReadOnly="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
@@ -104,39 +105,39 @@
 
                     <!-- Verkäufe -->
                     <DockPanel Visibility="{Binding ShowSales, Converter={StaticResource BoolToVis}}">
-                        <TextBlock DockPanel.Dock="Top" Text="VERKAUF ERFASSEN (FIFO, älteste Zuflüsse zuerst)"
+                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'VERKAUF ERFASSEN (FIFO, älteste Zuflüsse zuerst)'}"
                                    Style="{StaticResource TileLabel}"/>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
                             <DatePicker Width="120" SelectedDate="{Binding NewSaleDate}"/>
                             <ComboBox Width="110" Margin="8,0,0,0" ItemsSource="{Binding AvailableCoins}"
                                       SelectedItem="{Binding NewSaleCoin}"/>
                             <TextBox Width="130" Margin="8,0,0,0" Text="{Binding NewSaleAmount, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Menge in BTC bzw. BCH, z. B. 0,125"/>
+                                     ToolTip="{l:T 'Menge in BTC bzw. BCH, z. B. 0,125'}"/>
                             <TextBox Width="110" Margin="8,0,0,0" Text="{Binding NewSaleProceeds, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Erlös in EUR; bei Tausch der Marktwert der Gegenleistung"/>
+                                     ToolTip="{l:T 'Erlös in EUR; bei Tausch der Marktwert der Gegenleistung'}"/>
                             <TextBox Width="200" Margin="8,0,0,0" Text="{Binding NewSaleNote, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Notiz, z. B. Börse oder Zweck"/>
-                            <Button Content="Erfassen" Margin="8,0,0,0" Command="{Binding AddDisposalCommand}"/>
+                                     ToolTip="{l:T 'Notiz, z. B. Börse oder Zweck'}"/>
+                            <Button Content="{l:T 'Erfassen'}" Margin="8,0,0,0" Command="{Binding AddDisposalCommand}"/>
                         </StackPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Felder: Datum · Coin · Menge · Erlös in EUR · Notiz"
+                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'Felder: Datum · Coin · Menge · Erlös in EUR · Notiz'}"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,-6,0,8"/>
 
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                            <Button Content="Verkauf löschen" Command="{Binding RemoveDisposalCommand}"/>
-                            <Button Content="Verkäufe exportieren" Margin="8,0,0,0" Command="{Binding ExportDisposalsCommand}"/>
+                            <Button Content="{l:T 'Verkauf löschen'}" Command="{Binding RemoveDisposalCommand}"/>
+                            <Button Content="{l:T 'Verkäufe exportieren'}" Margin="8,0,0,0" Command="{Binding ExportDisposalsCommand}"/>
                         </StackPanel>
 
                         <DataGrid ItemsSource="{Binding Disposals}" SelectedItem="{Binding SelectedDisposal}" IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Datum" Binding="{Binding SoldAtLocal, StringFormat='dd.MM.yyyy', ConverterCulture='de-DE'}" Width="90"/>
+                                <DataGridTextColumn Header="{l:T 'Datum'}" Binding="{Binding SoldAtLocal, StringFormat='d', ConverterCulture='de-DE'}" Width="90"/>
                                 <DataGridTextColumn Header="Coin" Binding="{Binding CoinSymbol}" Width="50"/>
-                                <DataGridTextColumn Header="Menge" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
-                                <DataGridTextColumn Header="Erlös €" Binding="{Binding ProceedsEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="90"/>
-                                <DataGridTextColumn Header="Anschaffung €" Binding="{Binding CostBasisEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="100"/>
-                                <DataGridTextColumn Header="Haltefristfrei" Binding="{Binding TaxFreeAmount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
-                                <DataGridTextColumn Header="Steuerpfl. Gewinn €" Binding="{Binding TaxableGainEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="130"/>
-                                <DataGridTextColumn Header="Hinweis" Binding="{Binding Hint}" Width="220"/>
-                                <DataGridTextColumn Header="Notiz" Binding="{Binding Note}" Width="*"/>
+                                <DataGridTextColumn Header="{l:T 'Menge'}" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
+                                <DataGridTextColumn Header="{l:T 'Erlös €'}" Binding="{Binding ProceedsEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="90"/>
+                                <DataGridTextColumn Header="{l:T 'Anschaffung €'}" Binding="{Binding CostBasisEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="100"/>
+                                <DataGridTextColumn Header="{l:T 'Haltefristfrei'}" Binding="{Binding TaxFreeAmount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
+                                <DataGridTextColumn Header="{l:T 'Steuerpfl. Gewinn €'}" Binding="{Binding TaxableGainEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="130"/>
+                                <DataGridTextColumn Header="{l:T 'Hinweis'}" Binding="{Binding Hint}" Width="220"/>
+                                <DataGridTextColumn Header="{l:T 'Notiz'}" Binding="{Binding Note}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -148,10 +149,10 @@
         <Border Grid.Row="3" Style="{StaticResource Tile}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Content="Eintrag entfernen" Command="{Binding RemoveRewardCommand}"
-                            ToolTip="Nur für Eingänge, die kein Mining-Ertrag sind. Die TXID wird danach ignoriert."/>
-                    <Button Content="Jetzt prüfen" Margin="8,0,0,0" Command="{Binding RefreshNowCommand}"/>
-                    <Button Content="CSV exportieren" Margin="8,0,0,0" Command="{Binding ExportCsvCommand}"/>
+                    <Button Content="{l:T 'Eintrag entfernen'}" Command="{Binding RemoveRewardCommand}"
+                            ToolTip="{l:T 'Nur für Eingänge, die kein Mining-Ertrag sind. Die TXID wird danach ignoriert.'}"/>
+                    <Button Content="{l:T 'Jetzt prüfen'}" Margin="8,0,0,0" Command="{Binding RefreshNowCommand}"/>
+                    <Button Content="{l:T 'CSV exportieren'}" Margin="8,0,0,0" Command="{Binding ExportCsvCommand}"/>
                 </StackPanel>
                 <StackPanel>
                     <TextBlock Text="{Binding YearSummary}" Foreground="{DynamicResource WarnBrush}" FontSize="13" FontWeight="SemiBold"/>

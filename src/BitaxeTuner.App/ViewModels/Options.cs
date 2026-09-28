@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Benchmark;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.ViewModels;
 
@@ -8,28 +9,28 @@ public static class Options
 {
     public static IReadOnlyList<Option<RankingMode>> Ranking { get; } =
     [
-        new(RankingMode.Balanced, "Kompromiss (Hashrate + Effizienz)"),
-        new(RankingMode.MaxHashrate, "Maximale Hashrate"),
-        new(RankingMode.Efficiency, "Beste Effizienz (J/TH)"),
+        new(RankingMode.Balanced, L.T("Kompromiss (Hashrate + Effizienz)")),
+        new(RankingMode.MaxHashrate, L.T("Maximale Hashrate")),
+        new(RankingMode.Efficiency, L.T("Beste Effizienz (J/TH)")),
     ];
 
     public static IReadOnlyList<Option<RestoreMode>> Restore { get; } =
     [
-        new(RestoreMode.Best, "Beste Einstellung anwenden"),
-        new(RestoreMode.Original, "Ursprüngliche Einstellung wiederherstellen"),
+        new(RestoreMode.Best, L.T("Beste Einstellung anwenden")),
+        new(RestoreMode.Original, L.T("Ursprüngliche Einstellung wiederherstellen")),
     ];
 
     public static IReadOnlyList<Option<FanModeDuringBenchmark>> Fan { get; } =
     [
-        new(FanModeDuringBenchmark.KeepCurrent, "Lüfter unverändert lassen"),
-        new(FanModeDuringBenchmark.Full, "Lüfter auf 100 % während des Tests"),
+        new(FanModeDuringBenchmark.KeepCurrent, L.T("Lüfter unverändert lassen")),
+        new(FanModeDuringBenchmark.Full, L.T("Lüfter auf 100 % während des Tests")),
     ];
 
     public static IReadOnlyList<Option<string>> HeatmapMetrics { get; } =
     [
-        new("hashrate", "Hashrate (GH/s)"),
-        new("efficiency", "Effizienz (J/TH)"),
-        new("temp", "Max. Chiptemperatur (°C)"),
-        new("power", "Leistung (W)"),
+        new("hashrate", L.T("Hashrate (GH/s)")),
+        new("efficiency", L.T("Effizienz (J/TH)")),
+        new("temp", L.T("Max. Chiptemperatur (°C)")),
+        new("power", L.T("Leistung (W)")),
     ];
 }

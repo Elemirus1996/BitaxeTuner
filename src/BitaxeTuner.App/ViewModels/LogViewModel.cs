@@ -11,6 +11,7 @@ using BitaxeTuner.Core.Monitoring;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.ViewModels;
 
@@ -40,7 +41,7 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     public ICollectionView View { get; }
 
     [ObservableProperty] private bool _isLive;
-    [ObservableProperty] private string _statusText = "Aus";
+    [ObservableProperty] private string _statusText = L.T("Aus");
     [ObservableProperty] private bool _autoScroll = true;
     [ObservableProperty] private bool _paused;
     [ObservableProperty] private string _filterText = "";
@@ -97,7 +98,7 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
         _subscription = _connection.Logs.Subscribe(
             line => _incoming.Enqueue(line),
             status => Application.Current?.Dispatcher.BeginInvoke(() => StatusText = status));
-        AddAppLine("Live-Mitlesen gestartet");
+        AddAppLine(L.T("Live-Mitlesen gestartet"));
     }
 
     private void StopLive()
@@ -106,8 +107,8 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
         IsLive = false;
         _subscription?.Dispose();
         _subscription = null;
-        StatusText = _connection.Logs.IsRunning ? "Aus (Verbindung bleibt für Log-Alarme offen)" : "Aus";
-        AddAppLine("Live-Mitlesen beendet");
+        StatusText = _connection.Logs.IsRunning ? L.T("Aus (Verbindung bleibt für Log-Alarme offen)") : L.T("Aus");
+        AddAppLine(L.T("Live-Mitlesen beendet"));
     }
 
     /// <summary>Bisherigen Puffer des Miners laden (letzte 3.000 Zeilen, vor die Live-Zeilen).</summary>
@@ -115,7 +116,7 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     private async Task LoadBuffer()
     {
         LoadingBuffer = true;
-        StatusText = "Lade Log-Puffer …";
+        StatusText = L.T("Lade Log-Puffer …");
         try
         {
             var text = await _connection.GetLogBufferAsync();
@@ -123,10 +124,10 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
             var existing = Lines.ToList();
             Lines.Clear();
             foreach (var l in lines) Lines.Add(l);
-            Lines.Add(new LogLine(DateTime.Now, LogLevel.App, null, "", $"── Ende des Puffers ({lines.Count} Zeilen) ──"));
+            Lines.Add(new LogLine(DateTime.Now, LogLevel.App, null, "", L.T("── Ende des Puffers ({0} Zeilen) ──", lines.Count)));
             foreach (var l in existing) Lines.Add(l);
             Trim();
-            StatusText = IsLive ? "Live verbunden" : $"{lines.Count} Zeilen aus dem Puffer";
+            StatusText = IsLive ? L.T("Live verbunden") : L.T("{0} Zeilen aus dem Puffer", lines.Count);
             LinesAppended?.Invoke();
         }
         catch (MinerApiException ex)
@@ -149,14 +150,14 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "Textdatei (*.txt)|*.txt",
+            Filter = L.T("Textdatei (*.txt)|*.txt"),
             FileName = $"{_connection.Address.Replace(':', '_')}_log_{DateTime.Now:yyyyMMdd-HHmm}.txt",
         };
         if (dialog.ShowDialog() != true) return;
         var sb = new StringBuilder();
         foreach (var l in View.Cast<LogLine>()) sb.AppendLine(l.ToString());
         File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
-        StatusText = $"Gespeichert: {dialog.FileName} (enthält ggf. Wallet-Adresse aus den Stratum-Zeilen)";
+        StatusText = L.T("Gespeichert: {0} (enthält ggf. Wallet-Adresse aus den Stratum-Zeilen)", dialog.FileName);
     }
 
     /// <summary>Tuning-Änderung als Markierung in den Log einfügen (thread-sicher).</summary>

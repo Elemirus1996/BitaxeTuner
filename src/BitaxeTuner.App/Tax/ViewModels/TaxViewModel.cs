@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.Tax.Services;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Tax.ViewModels;
 
@@ -15,7 +16,8 @@ public record MinerAddressCandidate(string DeviceName, string Host, string Addre
 
 public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 {
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    /// <summary>Zahlen-/Datumsformat der gewählten Sprache.</summary>
+    private static CultureInfo De => L.Culture;
 
     private readonly WalletMonitorService _monitor;
     private readonly TaxLogRepository _repository;
@@ -58,7 +60,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     private WalletAddress? _selectedWallet;
     public WalletAddress? SelectedWallet { get => _selectedWallet; set { _selectedWallet = value; Raise(); } }
 
-    private string _statusText = "Bereit.";
+    private string _statusText = L.T("Bereit.");
     public string StatusText { get => _statusText; set { _statusText = value; Raise(); } }
 
     /// <summary>Summe aller EUR-Werte im laufenden Kalenderjahr — relevant für die 256-€-Freigrenze.</summary>
@@ -70,8 +72,8 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             var inYear = Rewards.Where(r => r.ReceivedAtUtc.ToLocalTime().Year == year).ToList();
             var sum = inYear.Sum(r => r.EurValue ?? 0);
             var missing = inYear.Count(r => r.EurValue is null);
-            var text = $"{year}: {inYear.Count} Zuflüsse · {sum.ToString("N2", De)} €";
-            if (missing > 0) text += $" · {missing} ohne Kurs";
+            var text = L.T("{0}: {1} Zuflüsse · {2} €", year, inYear.Count, sum.ToString("N2", De));
+            if (missing > 0) text += L.T(" · {0} ohne Kurs", missing);
             return text;
         }
     }
@@ -83,12 +85,12 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         {
             var year = DateTime.Now.Year;
             var inYear = _results.Where(r => r.Disposal.SoldAtLocal.Year == year).ToList();
-            if (inYear.Count == 0) return $"{year}: keine Verkäufe erfasst";
+            if (inYear.Count == 0) return L.T("{0}: keine Verkäufe erfasst", year);
 
             var gain = inYear.Sum(r => r.TaxableGainEur);
-            var text = $"{year}: {inYear.Count} Verkäufe · steuerpflichtiger Gewinn {gain.ToString("N2", De)} € (Freigrenze 1.000 €)";
-            if (inYear.Any(r => r.MissingPrice)) text += " · Kurs fehlt";
-            if (inYear.Any(r => r.UnmatchedAmount > 0)) text += " · Menge ohne Zufluss";
+            var text = L.T("{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze 1.000 €)", year, inYear.Count, gain.ToString("N2", De));
+            if (inYear.Any(r => r.MissingPrice)) text += L.T(" · Kurs fehlt");
+            if (inYear.Any(r => r.UnmatchedAmount > 0)) text += L.T(" · Menge ohne Zufluss");
             return text;
         }
     }
@@ -177,7 +179,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         var address = NewAddress.Trim();
         if (_monitor.Contains(address))
         {
-            StatusText = "Adresse ist bereits eingetragen.";
+            StatusText = L.T("Adresse ist bereits eingetragen.");
             return;
         }
 
@@ -185,26 +187,26 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         {
             Address = address,
             Coin = NewCoin,
-            Label = string.IsNullOrWhiteSpace(NewLabel) ? $"{NewCoin.Symbol()}-Wallet" : NewLabel.Trim()
+            Label = string.IsNullOrWhiteSpace(NewLabel) ? L.T("{0}-Wallet", NewCoin.Symbol()) : NewLabel.Trim()
         };
 
         if (_monitor.AddWallet(wallet)) Wallets.Add(wallet);
 
         NewAddress = string.Empty;
         NewLabel = string.Empty;
-        StatusText = $"'{wallet.Label}' hinzugefügt.";
+        StatusText = L.T("'{0}' hinzugefügt.", wallet.Label);
     }
 
     private void RemoveSelectedWallet()
     {
         if (SelectedWallet is null) return;
-        if (MessageBox.Show($"'{SelectedWallet.Label}' aus der Überwachung entfernen?\nBereits dokumentierte Zuflüsse bleiben erhalten.",
-                            "Wallet entfernen", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(L.T("'{0}' aus der Überwachung entfernen?\nBereits dokumentierte Zuflüsse bleiben erhalten.", SelectedWallet.Label),
+                            L.T("Wallet entfernen"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         _monitor.RemoveWallet(SelectedWallet.Id);
         Wallets.Remove(SelectedWallet);
-        StatusText = "Wallet entfernt.";
+        StatusText = L.T("Wallet entfernt.");
     }
 
     /// <summary>Nach Bearbeitung von Label oder Coin in der Tabelle.</summary>
@@ -243,11 +245,11 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             }
         }
 
-        var text = $"{added} Adresse(n) übernommen, {skipped} bereits vorhanden.";
+        var text = L.T("{0} Adresse(n) übernommen, {1} bereits vorhanden.", added, skipped);
         if (ambiguous.Count > 0)
-            text += $" Coin bei {string.Join(", ", ambiguous)} bitte prüfen (Legacy-Adresse, BCH angenommen).";
+            text += L.T(" Coin bei {0} bitte prüfen (Legacy-Adresse, BCH angenommen).", string.Join(", ", ambiguous));
         if (added == 0 && skipped == 0)
-            text = "Keine Adresse gefunden. Miner müssen online sein oder eine Wallet-Adresse in den Einstellungen haben.";
+            text = L.T("Keine Adresse gefunden. Miner müssen online sein oder eine Wallet-Adresse in den Einstellungen haben.");
         StatusText = text;
     }
 
@@ -255,7 +257,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task RefreshNowAsync()
     {
-        StatusText = "Prüfe Wallets …";
+        StatusText = L.T("Prüfe Wallets …");
         await _monitor.PollOnceAsync();
     }
 
@@ -271,12 +273,12 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             // Die gehören in die Liste, aber nicht als 50 Hinweisfenster.
             if (DateTime.UtcNow - reward.ReceivedAtUtc > NotifyWindow) return;
 
-            var text = $"{reward.Amount.ToString("0.00000000", De)} {reward.Coin.Symbol()} auf {reward.WalletLabel}\n" +
-                       $"Zeitpunkt: {reward.ReceivedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}\n" +
+            var text = L.T("{0} {1} auf {2}\n", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel) +
+                       L.T("Zeitpunkt: {0:g}\n", reward.ReceivedAtUtc.ToLocalTime()) +
                        (reward.EurValue is { } eur
-                           ? $"Wert: {eur.ToString("N2", De)} € (Kurs {reward.EurPriceAtReceipt!.Value.ToString("N2", De)} €)"
-                           : "EUR-Kurs konnte nicht ermittelt werden – bitte nachtragen.");
-            MessageBox.Show(text, "Neuer Zufluss dokumentiert", MessageBoxButton.OK, MessageBoxImage.Information);
+                           ? L.T("Wert: {0} € (Kurs {1} €)", eur.ToString("N2", De), reward.EurPriceAtReceipt!.Value.ToString("N2", De))
+                           : L.T("EUR-Kurs konnte nicht ermittelt werden – bitte nachtragen."));
+            MessageBox.Show(text, L.T("Neuer Zufluss dokumentiert"), MessageBoxButton.OK, MessageBoxImage.Information);
         });
     }
 
@@ -289,7 +291,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         var stored = _monitor.LoadRewards().FirstOrDefault(r => r.Id == reward.Id);
         if (stored is null || stored.EurPriceAtReceipt != reward.EurPriceAtReceipt)
         {
-            reward.PriceSource = $"manuell eingetragen am {DateTime.Now:dd.MM.yyyy}";
+            reward.PriceSource = L.T("manuell eingetragen am {0:d}", DateTime.Now);
             reward.PriceAtUtc = null;
         }
 
@@ -323,31 +325,31 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     {
         if (SelectedReward is not { } reward) return;
 
-        var text = $"Eintrag vom {reward.ReceivedAtLocal:dd.MM.yyyy HH:mm} über " +
-                   $"{reward.Amount.ToString("0.00000000", De)} {reward.Coin.Symbol()} entfernen?\n\n" +
-                   "Nur für Eingänge, die kein Mining-Ertrag sind. Die Transaktion wird danach dauerhaft ignoriert.";
-        if (MessageBox.Show(text, "Eintrag entfernen", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        var text = L.T("Eintrag vom {0:g} über ", reward.ReceivedAtLocal) +
+                   L.T("{0} {1} entfernen?\n\n", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol()) +
+                   L.T("Nur für Eingänge, die kein Mining-Ertrag sind. Die Transaktion wird danach dauerhaft ignoriert.");
+        if (MessageBox.Show(text, L.T("Eintrag entfernen"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         _monitor.RemoveReward(reward);
         Rewards.Remove(reward);
         Raise(nameof(YearSummary));
         Recalculate();
-        StatusText = "Eintrag entfernt, Transaktion wird künftig ignoriert.";
+        StatusText = L.T("Eintrag entfernt, Transaktion wird künftig ignoriert.");
     }
 
     private void ExportCsv()
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "CSV-Datei (*.csv)|*.csv",
+            Filter = L.T("CSV-Datei (*.csv)|*.csv"),
             FileName = $"Mining-Zufluesse_{DateTime.Now:yyyy-MM-dd}.csv"
         };
 
         if (dialog.ShowDialog() != true) return;
 
         _repository.ExportCsv(dialog.FileName, Rewards);
-        StatusText = $"Export gespeichert: {dialog.FileName}";
+        StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
     }
 
     // ---------- Verkäufe und Haltefrist ----------
@@ -368,21 +370,21 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!TryParseDecimal(NewSaleAmount, out var amount) || amount <= 0)
         {
-            StatusText = "Menge ungültig.";
+            StatusText = L.T("Menge ungültig.");
             return;
         }
         if (!TryParseDecimal(NewSaleProceeds, out var proceeds) || proceeds < 0)
         {
-            StatusText = "Erlös ungültig.";
+            StatusText = L.T("Erlös ungültig.");
             return;
         }
 
         var available = Rewards.Where(r => r.Coin == NewSaleCoin).Sum(r => r.Remaining);
         if (amount > available &&
-            MessageBox.Show($"Verkauft werden sollen {amount.ToString("0.00000000", De)} {NewSaleCoin.Symbol()}, " +
-                            $"dokumentiert sind nur {available.ToString("0.00000000", De)} im Bestand.\n\n" +
-                            "Trotzdem erfassen? Der Überhang wird als \"ohne dokumentierten Zufluss\" markiert.",
-                            "Verkauf erfassen", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            MessageBox.Show(L.T("Verkauft werden sollen {0} {1}, ", amount.ToString("0.00000000", De), NewSaleCoin.Symbol()) +
+                            L.T("dokumentiert sind nur {0} im Bestand.\n\n", available.ToString("0.00000000", De)) +
+                            L.T("Trotzdem erfassen? Der Überhang wird als \"ohne dokumentierten Zufluss\" markiert."),
+                            L.T("Verkauf erfassen"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         // Uhrzeit 12:00 lokal, damit ein Verkauf am Zuflusstag nicht vor dem Zufluss einsortiert wird
@@ -401,33 +403,33 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         NewSaleProceeds = string.Empty;
         NewSaleNote = string.Empty;
         Recalculate();
-        StatusText = "Verkauf erfasst.";
+        StatusText = L.T("Verkauf erfasst.");
     }
 
     private void RemoveSelectedDisposal()
     {
         if (SelectedDisposal is not { } row) return;
-        if (MessageBox.Show($"Verkauf vom {row.SoldAtLocal:dd.MM.yyyy} über {row.Amount.ToString("0.00000000", De)} {row.CoinSymbol} löschen?",
-                            "Verkauf löschen", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(L.T("Verkauf vom {0:d} über {1} {2} löschen?", row.SoldAtLocal, row.Amount.ToString("0.00000000", De), row.CoinSymbol),
+                            L.T("Verkauf löschen"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         _disposals.RemoveAll(d => d.Id == row.Disposal.Id);
         _repository.SaveDisposals(_disposals);
         Recalculate();
-        StatusText = "Verkauf gelöscht.";
+        StatusText = L.T("Verkauf gelöscht.");
     }
 
     private void ExportDisposals()
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "CSV-Datei (*.csv)|*.csv",
+            Filter = L.T("CSV-Datei (*.csv)|*.csv"),
             FileName = $"Verkaeufe_{DateTime.Now:yyyy-MM-dd}.csv"
         };
         if (dialog.ShowDialog() != true) return;
 
         _repository.ExportDisposalsCsv(dialog.FileName, _results);
-        StatusText = $"Export gespeichert: {dialog.FileName}";
+        StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
     }
 
     /// <summary>Mit Komma deutsch, ohne Komma mit Punkt als Dezimaltrenner.</summary>

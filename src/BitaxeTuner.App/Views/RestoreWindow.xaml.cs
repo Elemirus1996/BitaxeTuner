@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using BitaxeTuner.Core.Profiles;
 using BitaxeTuner.Core.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Views;
 
@@ -35,7 +36,7 @@ public partial class RestoreWindow : Window
         InitializeComponent();
         _diff = diff;
         _profile = profile;
-        HeaderText.Text = $"Einstellungen von {deviceName} wiederherstellen";
+        HeaderText.Text = L.T("Einstellungen von {0} wiederherstellen", deviceName);
         SnapshotBox.ItemsSource = snapshots;
         SnapshotBox.SelectedIndex = 0;
     }
@@ -59,9 +60,9 @@ public partial class RestoreWindow : Window
         var value = SettingsSnapshots.ToPatchValue(c.Value) is int i ? i : -1;
         return c.Field == "frequency"
             ? value < _profile.MinFrequencyMhz || value > _profile.MaxFrequencyMhz
-                ? $"außerhalb der Grenzen {_profile.MinFrequencyMhz}–{_profile.MaxFrequencyMhz} MHz ({_profile.Name})" : null
+                ? L.T("außerhalb der Grenzen {0}–{1} MHz ({2})", _profile.MinFrequencyMhz, _profile.MaxFrequencyMhz, _profile.Name) : null
             : value < _profile.MinVoltageMv || value > _profile.MaxVoltageMv
-                ? $"außerhalb der Grenzen {_profile.MinVoltageMv}–{_profile.MaxVoltageMv} mV ({_profile.Name})" : null;
+                ? L.T("außerhalb der Grenzen {0}–{1} mV ({2})", _profile.MinVoltageMv, _profile.MaxVoltageMv, _profile.Name) : null;
     }
 
     private void OnOk(object sender, RoutedEventArgs e)
@@ -69,11 +70,11 @@ public partial class RestoreWindow : Window
         Selected = _rows.Where(r => r.IsAllowed && r.IsSelected).Select(r => r.Change).ToList();
         if (Selected.Count == 0)
         {
-            MessageBox.Show(this, "Kein Feld ausgewählt.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, L.T("Kein Feld ausgewählt."), Title, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         var text = string.Join("\n", Selected.Select(c => $"{c.Label}: {c.Current} → {c.Saved}"));
-        if (MessageBox.Show(this, $"Diese Werte an den Miner senden?\n\n{text}", Title,
+        if (MessageBox.Show(this, L.T("Diese Werte an den Miner senden?\n\n{0}", text), Title,
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         DialogResult = true;

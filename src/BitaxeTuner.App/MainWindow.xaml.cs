@@ -5,6 +5,7 @@ using BitaxeTuner.App.Themes;
 using BitaxeTuner.App.ViewModels;
 using BitaxeTuner.App.Views;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App;
 
@@ -124,6 +125,7 @@ public partial class MainWindow : Window
     private async void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         var host = Vm.Host;
+        var language = host.Config.Language;
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
             () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false)) { Owner = this };
         if (dialog.ShowDialog() != true) return;
@@ -133,6 +135,16 @@ public partial class MainWindow : Window
         if (host.ApplyWebView() is { Length: > 0 } web) Vm.StatusText = web;
         await _monitor.ApplySettingsChangedAsync();
         PlaceMonitor();
+
+        // Sprache: gilt ab dem nächsten Start (alle Fenster und Texte werden beim Start aufgebaut)
+        if (host.Config.Language != language)
+        {
+            if (Vm.AnyRunning)
+                MessageBox.Show(this, L.T("Die Sprache wird beim nächsten Start der App umgestellt."), L.T("Sprache"), MessageBoxButton.OK, MessageBoxImage.Information);
+            else if (MessageBox.Show(this, L.T("Die Sprache wird nach einem Neustart der App umgestellt. Jetzt neu starten?"), L.T("Sprache"),
+                         MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                Services.ServerTransfer.Restart();
+        }
     }
 
     private void OnModeClick(object sender, RoutedEventArgs e) =>
@@ -143,19 +155,19 @@ public partial class MainWindow : Window
     {
         var dir = AppContext.BaseDirectory;
         var notices = System.IO.Path.Combine(dir, "THIRD-PARTY-NOTICES.txt");
-        var text = $"BitaxeTuner {ViewModels.MainViewModel.CurrentVersion.ToString(3)}\n" +
-                   "Copyright © 2026 BitaxeTuner contributors\n\n" +
-                   "Dieses Programm ist freie Software: Du kannst es unter den Bedingungen der GNU General Public License v3.0 " +
-                   "weitergeben und/oder verändern.\n\n" +
-                   "Es wird OHNE JEDE GEWÄHR bereitgestellt, auch ohne die Gewähr der Marktreife oder der Eignung für einen " +
-                   "bestimmten Zweck. Übertakten geschieht auf eigenes Risiko.\n\n" +
+        var text = L.T("BitaxeTuner {0}\n", ViewModels.MainViewModel.CurrentVersion.ToString(3)) +
+                   L.T("Copyright © 2026 BitaxeTuner contributors\n\n") +
+                   L.T("Dieses Programm ist freie Software: Du kannst es unter den Bedingungen der GNU General Public License v3.0 ") +
+                   L.T("weitergeben und/oder verändern.\n\n") +
+                   L.T("Es wird OHNE JEDE GEWÄHR bereitgestellt, auch ohne die Gewähr der Marktreife oder der Eignung für einen ") +
+                   L.T("bestimmten Zweck. Übertakten geschieht auf eigenes Risiko.\n\n") +
                    "Quelltext: https://github.com/Elemirus1996/BitaxeTuner\n" +
-                   "Lizenztext: LICENSE.txt · Enthaltene Komponenten anderer Urheber: THIRD-PARTY-NOTICES.txt (im Programmordner)\n\n" +
-                   "Hinweise zu den enthaltenen Komponenten jetzt öffnen?";
-        if (MessageBox.Show(this, text, "Lizenz", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes) return;
+                   L.T("Lizenztext: LICENSE.txt · Enthaltene Komponenten anderer Urheber: THIRD-PARTY-NOTICES.txt (im Programmordner)\n\n") +
+                   L.T("Hinweise zu den enthaltenen Komponenten jetzt öffnen?");
+        if (MessageBox.Show(this, text, L.T("Lizenz"), MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes) return;
         var target = System.IO.File.Exists(notices) ? notices : "https://github.com/Elemirus1996/BitaxeTuner/blob/main/THIRD-PARTY-NOTICES.txt";
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true }); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Lizenz"); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, L.T("Lizenz")); }
     }
 
     private void OnSoakBatchClick(object sender, RoutedEventArgs e) =>
@@ -166,7 +178,7 @@ public partial class MainWindow : Window
     {
         var host = Vm.Host;
         if (Vm.AnyRunning)
-            return new DataDirectoryMigrator.Result(false, "Bitte zuerst alle Benchmarks stoppen.", []);
+            return new DataDirectoryMigrator.Result(false, L.T("Bitte zuerst alle Benchmarks stoppen."), []);
 
         // Miner-, Wallet- und Netzwerkabfragen ruhen. Schreibt der Steuer-Monitor zufällig während des Kopierens,
         // erkennt die SHA-256-Prüfung die Abweichung und es wird nicht umgeschaltet.
@@ -185,12 +197,12 @@ public partial class MainWindow : Window
         {
             e.Cancel = true;
             var answer = MessageBox.Show(this,
-                "Es laufen noch Benchmarks. Beenden und die Einstellungen der Geräte wiederherstellen?",
-                "BitaxeTuner beenden", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                L.T("Es laufen noch Benchmarks. Beenden und die Einstellungen der Geräte wiederherstellen?"),
+                L.T("BitaxeTuner beenden"), MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer != MessageBoxResult.Yes) return;
 
             IsEnabled = false;
-            Title = "BitaxeTuner – stelle Einstellungen wieder her …";
+            Title = L.T("BitaxeTuner – stelle Einstellungen wieder her …");
             await vm.StopAllAndWaitAsync();
             _closingConfirmed = true;
             _visibleLogs?.SetVisible(false);

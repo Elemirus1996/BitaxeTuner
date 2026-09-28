@@ -39,6 +39,8 @@ public sealed class ServerClient : IDisposable
         };
         _http = new HttpClient(handler) { BaseAddress = BaseUri, Timeout = timeout ?? TimeSpan.FromSeconds(20) };
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner-Desktop");
+        // Fehlermeldungen des Servers in der Sprache der App
+        _http.DefaultRequestHeaders.AcceptLanguage.ParseAdd(I18n.Loc.Current.Language);
         if (!string.IsNullOrWhiteSpace(token)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
     }
 

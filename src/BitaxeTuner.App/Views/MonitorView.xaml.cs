@@ -14,6 +14,7 @@ using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Network;
 using BitaxeTuner.Core.Tax.Services;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Views;
 
@@ -64,7 +65,8 @@ public partial class MonitorView : UserControl
     private MonitorMode _mode = MonitorMode.Aggregate;
     private string? _selectedHost;
 
-    private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    /// <summary>Zahlen-/Datumsformat der gewählten Sprache (Name aus der Zeit, als es fest Deutsch war).</summary>
+    private static CultureInfo De => L.Culture;
     // Farben aus dem aktiven Design (dunkel wie BitaxeMonitor oder hell)
     private static Brush Green => ThemeManager.Brush("OkBrush");
     private static Brush Red => ThemeManager.Brush("DangerBrush");
@@ -176,13 +178,13 @@ public partial class MonitorView : UserControl
             devices[s.Config.Host] = (
                 s.Online
                     ? $"{FormatHash(s.Info!.hashRate)} · {s.Info.temp.ToString("0", De)} °C"
-                    : maintenance ? "Neustart/Tuning …" : s.Error ?? "offline",
+                    : maintenance ? L.T("Neustart/Tuning …") : s.Error ?? "offline",
                 s.Online ? Green : maintenance ? Gold : Red,
                 s.Online && !MinerHub.IsSimulated(s.Config.Host) ? PoolQuickLinks.For(s.Info) : null);
         }
 
         SummaryChanged?.Invoke(new MonitorSummary(
-            $"{online}/{_states.Count} online · {FormatHash(totalGh)}",
+            L.T("{0}/{1} online · {2}", online, _states.Count, FormatHash(totalGh)),
             _states.Count == 0 ? Grey : online == _states.Count ? Green : online == 0 ? Red : Gold,
             devices));
     }
@@ -232,8 +234,8 @@ public partial class MonitorView : UserControl
 
     private static string Shorten(Exception ex) => ex switch
     {
-        TaskCanceledException => "Zeitüberschreitung",
-        HttpRequestException => "keine Verbindung",
+        TaskCanceledException => L.T("Zeitüberschreitung"),
+        HttpRequestException => L.T("keine Verbindung"),
         _ => ex.Message
     };
 
@@ -256,12 +258,12 @@ public partial class MonitorView : UserControl
     {
         OwnerWindow.Activate();
         MessageBox.Show(OwnerWindow,
-            $"Eingang auf {ShortAddress(p.Address)}" +
+            L.T("Eingang auf {0}", ShortAddress(p.Address)) +
             (p.MinerName is not null ? $" ({p.MinerName})" : "") + "\n\n" +
-            $"Betrag: {FormatBtc(p.AmountSat)}\n" +
-            $"Status: {(p.Confirmed ? "bestätigt" : "unbestätigt (Mempool)")}\n" +
-            $"TXID: {p.TxId}",
-            "Auszahlung eingegangen", MessageBoxButton.OK, MessageBoxImage.Information);
+            L.T("Betrag: {0}\n", FormatBtc(p.AmountSat)) +
+            L.T("Status: {0}\n", (p.Confirmed ? L.T("bestätigt") : L.T("unbestätigt (Mempool)"))) +
+            L.T("TXID: {0}", p.TxId),
+            L.T("Auszahlung eingegangen"), MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     // ---------- Rendering ----------
@@ -278,13 +280,13 @@ public partial class MonitorView : UserControl
 
         if (network)
         {
-            ViewTitle.Text = "Netzwerk – Blöcke, Pools und Solo-Chancen";
+            ViewTitle.Text = L.T("Netzwerk – Blöcke, Pools und Solo-Chancen");
             RenderSoloOdds();
             return;
         }
         if (tax)
         {
-            ViewTitle.Text = "Steuer – Dokumentation der Zuflüsse";
+            ViewTitle.Text = L.T("Steuer – Dokumentation der Zuflüsse");
             return;
         }
 
@@ -305,19 +307,19 @@ public partial class MonitorView : UserControl
     private void RenderAggregate()
     {
         var online = _states.Where(s => s.Online).ToList();
-        ViewTitle.Text = $"Gesamt – {online.Count} von {_states.Count} Miner online";
+        ViewTitle.Text = L.T("Gesamt – {0} von {1} Miner online", online.Count, _states.Count);
         var onFallback = online.Where(s => s.Info!.isUsingFallbackStratum != 0).Select(s => s.Config.Name).ToList();
         PoolStatusText.Text = online.Count == 0 ? "" : onFallback.Count == 0
-            ? "Pools: alle Miner auf dem Primär-Pool"
-            : $"Pools: FALLBACK aktiv bei {string.Join(", ", onFallback)}";
+            ? L.T("Pools: alle Miner auf dem Primär-Pool")
+            : L.T("Pools: FALLBACK aktiv bei {0}", string.Join(", ", onFallback));
 
         if (online.Count == 0)
         {
             foreach (var (l, v, s) in Tiles()) SetTile(l, v, s, l.Text, "–", "", Normal);
             T1Value.Foreground = Green;
             T10Value.Foreground = Gold;
-            FooterText.Text = "kein Miner erreichbar";
-            DrawCharts(ChartData(HistoryStore.AggregateHost, _aggHistory), "Gesamt", HistoryStore.AggregateHost);
+            FooterText.Text = L.T("kein Miner erreichbar");
+            DrawCharts(ChartData(HistoryStore.AggregateHost, _aggHistory), L.T("Gesamt"), HistoryStore.AggregateHost);
             RenderWalletAggregate();
             return;
         }
@@ -328,39 +330,39 @@ public partial class MonitorView : UserControl
         var power = infos.Sum(i => i.power);
         var th = hash / 1000.0;
 
-        SetTile(T1Label, T1Value, T1Sub, "HASHRATE GESAMT", FormatHash(hash),
-                expected > 0 ? $"erwartet {FormatHash(expected)}" : "", Green);
+        SetTile(T1Label, T1Value, T1Sub, L.T("HASHRATE GESAMT"), FormatHash(hash),
+                expected > 0 ? L.T("erwartet {0}", FormatHash(expected)) : "", Green);
 
-        SetTile(T2Label, T2Value, T2Sub, "ASIC TEMP MAX", infos.Max(i => i.temp).ToString("0.0", De) + " °C",
+        SetTile(T2Label, T2Value, T2Sub, L.T("ASIC TEMP MAX"), infos.Max(i => i.temp).ToString("0.0", De) + " °C",
                 $"Ø {infos.Average(i => i.temp).ToString("0.0", De)} °C", TempBrush(infos.Max(i => i.temp)));
 
         var vr = infos.Where(i => i.vrTemp > 0).Select(i => i.vrTemp).ToList();
-        SetTile(T3Label, T3Value, T3Sub, "VR TEMP MAX",
+        SetTile(T3Label, T3Value, T3Sub, L.T("VR TEMP MAX"),
                 vr.Count > 0 ? vr.Max().ToString("0", De) + " °C" : "–",
-                infos.Any(i => i.overheat_mode != 0) ? "OVERHEAT AKTIV" : "", Normal);
+                infos.Any(i => i.overheat_mode != 0) ? L.T("OVERHEAT AKTIV") : "", Normal);
 
-        SetTile(T4Label, T4Value, T4Sub, "LEISTUNG GESAMT", power.ToString("0.0", De) + " W",
-                $"Ø {(power / online.Count).ToString("0.0", De)} W je Miner", Normal);
+        SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG GESAMT"), power.ToString("0.0", De) + " W",
+                L.T("Ø {0} W je Miner", (power / online.Count).ToString("0.0", De)), Normal);
 
-        SetTile(T5Label, T5Value, T5Sub, "EFFIZIENZ",
-                th > 0.01 ? (power / th).ToString("0.0", De) : "–", "J/TH gesamt", Normal);
+        SetTile(T5Label, T5Value, T5Sub, L.T("EFFIZIENZ"),
+                th > 0.01 ? (power / th).ToString("0.0", De) : "–", L.T("J/TH gesamt"), Normal);
 
         var offline = _states.Where(s => !s.Online).Select(s => s.Config.Name).ToList();
-        SetTile(T6Label, T6Value, T6Sub, "MINER ONLINE", $"{online.Count}/{_states.Count}",
-                offline.Count > 0 ? "offline: " + string.Join(", ", offline) : "alle erreichbar",
+        SetTile(T6Label, T6Value, T6Sub, L.T("MINER ONLINE"), $"{online.Count}/{_states.Count}",
+                offline.Count > 0 ? "offline: " + string.Join(", ", offline) : L.T("alle erreichbar"),
                 offline.Count > 0 ? Red : Green);
 
         var acc = infos.Sum(i => i.sharesAccepted);
         var rej = infos.Sum(i => i.sharesRejected);
-        SetTile(T7Label, T7Value, T7Sub, "SHARES GESAMT", acc.ToString("N0", De),
-                acc + rej > 0 ? $"{(rej / (acc + rej) * 100).ToString("0.00", De)} % abgelehnt" : "", Normal);
+        SetTile(T7Label, T7Value, T7Sub, L.T("SHARES GESAMT"), acc.ToString("N0", De),
+                acc + rej > 0 ? L.T("{0} % abgelehnt", (rej / (acc + rej) * 100).ToString("0.00", De)) : "", Normal);
 
-        SetTile(T8Label, T8Value, T8Sub, "STROM PRO TAG",
-                (power * 24 / 1000.0).ToString("0.00", De) + " kWh", "bei aktueller Last", Normal);
+        SetTile(T8Label, T8Value, T8Sub, L.T("STROM PRO TAG"),
+                (power * 24 / 1000.0).ToString("0.00", De) + " kWh", L.T("bei aktueller Last"), Normal);
 
 
         var fans = infos.Where(i => i.fanrpm > 0).ToList();
-        SetTile(T9Label, T9Value, T9Sub, "LÜFTER MAX",
+        SetTile(T9Label, T9Value, T9Sub, L.T("LÜFTER MAX"),
                 fans.Count > 0 ? fans.Max(i => i.fanrpm).ToString("N0", De) + " rpm" : "–",
                 fans.Count > 0 ? $"Ø {fans.Average(i => i.fanspeed).ToString("0", De)} %" : "", Normal);
 
@@ -369,28 +371,28 @@ public partial class MonitorView : UserControl
             .OrderByDescending(x => x.Value)
             .FirstOrDefault();
         var record = AggregateRecord();
-        SetTile(T10Label, T10Value, T10Sub, "BEST DIFF",
+        SetTile(T10Label, T10Value, T10Sub, L.T("BEST DIFF"),
                 best.Value > 0 ? Difficulty.Format(best.Value) : "–",
                 record.Sub.Length > 0 ? $"{record.Value} · {record.Sub}" : (best.Value > 0 ? best.Name : ""), Gold);
 
         var longest = online.OrderByDescending(s => s.Info!.uptimeSeconds).First();
         var availability = AggregateAvailabilityText();
-        SetTile(T11Label, T11Value, T11Sub, "LÄNGSTE UPTIME", FormatUptime(longest.Info!.uptimeSeconds),
+        SetTile(T11Label, T11Value, T11Sub, L.T("LÄNGSTE UPTIME"), FormatUptime(longest.Info!.uptimeSeconds),
                 availability.Length > 0 ? $"{longest.Config.Name} · {availability}" : longest.Config.Name, Normal);
 
-        SetTile(T12Label, T12Value, T12Sub, "BLÖCKE GEFUNDEN",
-                infos.Sum(i => i.blockFound).ToString("N0", De), "alle Miner zusammen",
+        SetTile(T12Label, T12Value, T12Sub, L.T("BLÖCKE GEFUNDEN"),
+                infos.Sum(i => i.blockFound).ToString("N0", De), L.T("alle Miner zusammen"),
                 infos.Sum(i => i.blockFound) > 0 ? Green : Normal);
 
-        SetCostTiles(power, "gesamt");
+        SetCostTiles(power, L.T("gesamt"));
 
         FooterText.Text = string.Join("   |   ", online.Select(s =>
             $"{s.Config.Name}: {FormatHash(s.Info!.hashRate)} / {s.Info.power.ToString("0", De)} W / {s.Info.temp.ToString("0", De)} °C"));
 
         BlockFoundValue.Text = infos.Sum(i => i.blockFound).ToString("N0", De);
-        BlockFoundSub.Text = "alle Miner";
+        BlockFoundSub.Text = L.T("alle Miner");
 
-        DrawCharts(ChartData(HistoryStore.AggregateHost, _aggHistory), "Gesamt", HistoryStore.AggregateHost);
+        DrawCharts(ChartData(HistoryStore.AggregateHost, _aggHistory), L.T("Gesamt"), HistoryStore.AggregateHost);
         RenderWalletAggregate();
     }
 
@@ -404,8 +406,8 @@ public partial class MonitorView : UserControl
         {
             foreach (var (l, v, s) in Tiles()) SetTile(l, v, s, l.Text, "–", "", Normal);
             FooterText.Text = state.LastOk is null
-                ? "noch nie erreicht"
-                : $"zuletzt erreicht: {state.LastOk:dd.MM.yyyy HH:mm:ss}";
+                ? L.T("noch nie erreicht")
+                : L.T("zuletzt erreicht: {0:G}", state.LastOk);
             PoolStatusText.Text = "";
             DrawCharts(ChartData(state.Config.Host, state.History), state.Config.Name, state.Config.Host);
             RenderWalletSingle(state);
@@ -417,44 +419,44 @@ public partial class MonitorView : UserControl
         var i = state.Info!;
         var th = i.hashRate / 1000.0;
 
-        SetTile(T1Label, T1Value, T1Sub, "HASHRATE", FormatHash(i.hashRate),
-                i.expectedHashrate > 0 ? $"erwartet {FormatHash(i.expectedHashrate)}" : "", Green);
-        SetTile(T2Label, T2Value, T2Sub, "ASIC TEMP", i.temp.ToString("0.0", De) + " °C",
-                i.temptarget > 0 ? $"Ziel {i.temptarget} °C" : "", TempBrush(i.temp));
-        SetTile(T3Label, T3Value, T3Sub, "VR TEMP", i.vrTemp > 0 ? i.vrTemp.ToString("0", De) + " °C" : "–",
-                i.overheat_mode != 0 ? "OVERHEAT AKTIV" : "", i.overheat_mode != 0 ? Red : Normal);
-        SetTile(T4Label, T4Value, T4Sub, "LEISTUNG", i.power.ToString("0.0", De) + " W",
+        SetTile(T1Label, T1Value, T1Sub, L.T("HASHRATE"), FormatHash(i.hashRate),
+                i.expectedHashrate > 0 ? L.T("erwartet {0}", FormatHash(i.expectedHashrate)) : "", Green);
+        SetTile(T2Label, T2Value, T2Sub, L.T("ASIC TEMP"), i.temp.ToString("0.0", De) + " °C",
+                i.temptarget > 0 ? L.T("Ziel {0} °C", i.temptarget) : "", TempBrush(i.temp));
+        SetTile(T3Label, T3Value, T3Sub, L.T("VR TEMP"), i.vrTemp > 0 ? i.vrTemp.ToString("0", De) + " °C" : "–",
+                i.overheat_mode != 0 ? L.T("OVERHEAT AKTIV") : "", i.overheat_mode != 0 ? Red : Normal);
+        SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG"), i.power.ToString("0.0", De) + " W",
                 $"{(i.voltage / 1000.0).ToString("0.00", De)} V / {(i.current / 1000.0).ToString("0.00", De)} A", Normal);
-        SetTile(T5Label, T5Value, T5Sub, "EFFIZIENZ", th > 0.01 ? (i.power / th).ToString("0.0", De) : "–", "J/TH", Normal);
-        SetTile(T6Label, T6Value, T6Sub, "FREQUENZ", i.frequency.ToString("0", De) + " MHz", i.AsicModel ?? "", Normal);
-        SetTile(T7Label, T7Value, T7Sub, "CORE VOLTAGE", i.coreVoltageActual.ToString("0", De) + " mV",
-                $"Soll {i.coreVoltage.ToString("0", De)} mV", Normal);
-        SetTile(T8Label, T8Value, T8Sub, "LÜFTER", i.fanrpm > 0 ? i.fanrpm.ToString("N0", De) + " rpm" : "–",
-                $"{i.fanspeed.ToString("0", De)} %" + (i.autofanspeed != 0 ? " (auto)" : " (manuell)"), Normal);
+        SetTile(T5Label, T5Value, T5Sub, L.T("EFFIZIENZ"), th > 0.01 ? (i.power / th).ToString("0.0", De) : "–", "J/TH", Normal);
+        SetTile(T6Label, T6Value, T6Sub, L.T("FREQUENZ"), i.frequency.ToString("0", De) + " MHz", i.AsicModel ?? "", Normal);
+        SetTile(T7Label, T7Value, T7Sub, L.T("CORE VOLTAGE"), i.coreVoltageActual.ToString("0", De) + " mV",
+                L.T("Soll {0} mV", i.coreVoltage.ToString("0", De)), Normal);
+        SetTile(T8Label, T8Value, T8Sub, L.T("LÜFTER"), i.fanrpm > 0 ? i.fanrpm.ToString("N0", De) + " rpm" : "–",
+                $"{i.fanspeed.ToString("0", De)} %" + (i.autofanspeed != 0 ? L.T(" (auto)") : L.T(" (manuell)")), Normal);
 
         var total = i.sharesAccepted + i.sharesRejected;
-        SetTile(T9Label, T9Value, T9Sub, "SHARES", i.sharesAccepted.ToString("N0", De),
-                total > 0 ? $"{(i.sharesRejected / total * 100).ToString("0.00", De)} % abgelehnt" : "keine", Normal);
+        SetTile(T9Label, T9Value, T9Sub, L.T("SHARES"), i.sharesAccepted.ToString("N0", De),
+                total > 0 ? L.T("{0} % abgelehnt", (i.sharesRejected / total * 100).ToString("0.00", De)) : L.T("keine"), Normal);
         var recordText = RecordText(state.Config.Host);
-        SetTile(T10Label, T10Value, T10Sub, "BEST DIFF", i.bestDiff ?? "–",
-                recordText.Length > 0 ? recordText : $"Session {i.bestSessionDiff ?? "–"}", Gold);
+        SetTile(T10Label, T10Value, T10Sub, L.T("BEST DIFF"), i.bestDiff ?? "–",
+                recordText.Length > 0 ? recordText : L.T("Session {0}", i.bestSessionDiff ?? "–"), Gold);
         var availabilityText = AvailabilityText(state.Config.Host);
-        SetTile(T11Label, T11Value, T11Sub, "UPTIME", FormatUptime(i.uptimeSeconds),
-                availabilityText.Length > 0 ? availabilityText : (i.freeHeap > 0 ? $"{i.freeHeap / 1024} KB frei" : ""), Normal);
-        SetTile(T12Label, T12Value, T12Sub, "WLAN", i.wifiRSSI != 0 ? i.wifiRSSI + " dBm" : "–", i.wifiStatus ?? "", Normal);
+        SetTile(T11Label, T11Value, T11Sub, L.T("UPTIME"), FormatUptime(i.uptimeSeconds),
+                availabilityText.Length > 0 ? availabilityText : (i.freeHeap > 0 ? L.T("{0} KB frei", i.freeHeap / 1024) : ""), Normal);
+        SetTile(T12Label, T12Value, T12Sub, L.T("WLAN"), i.wifiRSSI != 0 ? i.wifiRSSI + " dBm" : "–", i.wifiStatus ?? "", Normal);
 
         SetCostTiles(i.power, "");
 
         BlockFoundValue.Text = i.blockFound.ToString("N0", De);
-        BlockFoundSub.Text = "laut Miner";
+        BlockFoundSub.Text = L.T("laut Miner");
         BlockFoundValue.Foreground = i.blockFound > 0 ? Green : Normal;
 
         FooterText.Text = string.Join("   |   ", new[]
         {
             i.hostname ?? "-",
-            $"Board {i.boardVersion ?? "?"}",
+            L.T("Board {0}", i.boardVersion ?? "?"),
             FirmwareText(state),
-            $"Pool {i.stratumURL}:{i.stratumPort}" + (i.isUsingFallbackStratum != 0 ? " (Fallback)" : ""),
+            L.T("Pool {0}:{1}", i.stratumURL, i.stratumPort) + (i.isUsingFallbackStratum != 0 ? L.T(" (Fallback)") : ""),
             i.stratumUser ?? ""
         });
 
@@ -484,12 +486,12 @@ public partial class MonitorView : UserControl
 
     private void RenderWalletSingle(MinerState state)
     {
-        WalletBoxLabel.Text = "WALLET-ADRESSE (leer = aus Stratum-User)";
+        WalletBoxLabel.Text = L.T("WALLET-ADRESSE (leer = aus Stratum-User)");
         var address = state.WalletAddress;
 
         if (string.IsNullOrWhiteSpace(address))
         {
-            ShowWallet("–", "keine Adresse", "–", "", "–", "");
+            ShowWallet("–", L.T("keine Adresse"), "–", "", "–", "");
             return;
         }
 
@@ -507,19 +509,19 @@ public partial class MonitorView : UserControl
 
         ShowWallet(
             FormatBtc(w.BalanceSat),
-            w.UnconfirmedSat != 0 ? $"unbestätigt {FormatBtc(w.UnconfirmedSat)}" : ShortAddress(w.Address),
-            w.LastIncomingSat is null ? "keine" : FormatBtc(w.LastIncomingSat.Value),
-            w.LastIncomingSat is null ? "noch kein Eingang"
+            w.UnconfirmedSat != 0 ? L.T("unbestätigt {0}", FormatBtc(w.UnconfirmedSat)) : ShortAddress(w.Address),
+            w.LastIncomingSat is null ? L.T("keine") : FormatBtc(w.LastIncomingSat.Value),
+            w.LastIncomingSat is null ? L.T("noch kein Eingang")
                 : w.LastIncomingConfirmed
-                    ? (w.LastIncomingTime?.ToString("dd.MM.yyyy HH:mm", De) ?? "bestätigt")
-                    : "im Mempool, unbestätigt",
+                    ? (w.LastIncomingTime?.ToString("g", De) ?? L.T("bestätigt"))
+                    : L.T("im Mempool, unbestätigt"),
             w.TxCount.ToString("N0", De),
-            "ein- und ausgehend");
+            L.T("ein- und ausgehend"));
     }
 
     private void RenderWalletAggregate()
     {
-        WalletBoxLabel.Text = "WALLET-ADRESSE (nur bei Einzelauswahl)";
+        WalletBoxLabel.Text = L.T("WALLET-ADRESSE (nur bei Einzelauswahl)");
         WalletBox.IsEnabled = false;
 
         var infos = _states
@@ -533,7 +535,7 @@ public partial class MonitorView : UserControl
 
         if (infos.Count == 0)
         {
-            ShowWallet("–", "keine Daten", "–", "", "–", "");
+            ShowWallet("–", L.T("keine Daten"), "–", "", "–", "");
             return;
         }
 
@@ -544,14 +546,14 @@ public partial class MonitorView : UserControl
 
         ShowWallet(
             FormatBtc(infos.Sum(w => w.BalanceSat)),
-            $"{infos.Count} Adresse(n)",
-            latest?.LastIncomingSat is null ? "keine" : FormatBtc(latest.LastIncomingSat.Value),
-            latest?.LastIncomingSat is null ? "noch kein Eingang"
+            L.T("{0} Adresse(n)", infos.Count),
+            latest?.LastIncomingSat is null ? L.T("keine") : FormatBtc(latest.LastIncomingSat.Value),
+            latest?.LastIncomingSat is null ? L.T("noch kein Eingang")
                 : latest.LastIncomingConfirmed
-                    ? (latest.LastIncomingTime?.ToString("dd.MM.yyyy HH:mm", De) ?? "bestätigt")
-                    : "im Mempool, unbestätigt",
+                    ? (latest.LastIncomingTime?.ToString("g", De) ?? L.T("bestätigt"))
+                    : L.T("im Mempool, unbestätigt"),
             infos.Sum(w => w.TxCount).ToString("N0", De),
-            "ein- und ausgehend");
+            L.T("ein- und ausgehend"));
     }
 
     private void ShowWallet(string balance, string balanceSub, string payout, string payoutSub,
@@ -599,14 +601,14 @@ public partial class MonitorView : UserControl
     private void DrawCharts(IReadOnlyList<Sample> history, string scope, string host)
     {
         var markers = history.Count >= 2 ? MarkersFor(host, history[0].Time, history[^1].Time) : [];
-        DrawChart(HashChart, $"Hashrate {scope} (TH/s)", history, s => s.HashRateGh / 1000.0,
+        DrawChart(HashChart, L.T("Hashrate {0} (TH/s)", scope), history, s => s.HashRateGh / 1000.0,
                   ThemeManager.Color("ChartHashColor"), "0.00", markers, labels: true);
-        DrawChart(TempChart, scope == "Gesamt" ? "ASIC-Temperatur max (°C)" : "ASIC-Temperatur (°C)",
+        DrawChart(TempChart, host == HistoryStore.AggregateHost ? L.T("ASIC-Temperatur max (°C)") : L.T("ASIC-Temperatur (°C)"),
                   history, s => s.Temp, ThemeManager.Color("ChartTempColor"), "0.0", markers);
-        DrawChart(PowerChart, $"Leistung {scope} (W)", history, s => s.Power,
+        DrawChart(PowerChart, L.T("Leistung {0} (W)", scope), history, s => s.Power,
                   ThemeManager.Color("ChartPowerColor"), "0.0", markers);
         // Effizienz aus Hashrate und Leistung (Minuten ohne Hashrate, z. B. nach einem Neustart, ausgelassen)
-        DrawChart(EffChart, $"Effizienz {scope} (J/TH)", history.Where(s => s.HashRateGh >= 1).ToList(),
+        DrawChart(EffChart, L.T("Effizienz {0} (J/TH)", scope), history.Where(s => s.HashRateGh >= 1).ToList(),
                   s => s.Power / (s.HashRateGh / 1000.0), ThemeManager.Color("ChartEffColor"), "0.0", markers);
     }
 
@@ -623,7 +625,7 @@ public partial class MonitorView : UserControl
 
         if (history.Count < 2)
         {
-            canvas.Children.Add(Text("warte auf Daten…", 2, 18, 11, muted));
+            canvas.Children.Add(Text(L.T("warte auf Daten…"), 2, 18, 11, muted));
             return;
         }
 
@@ -673,7 +675,7 @@ public partial class MonitorView : UserControl
                                  new SolidColorBrush(color)));
 
         var span = history[^1].Time - history[0].Time;
-        canvas.Children.Add(Text($"{SpanText(span)} · {data.Count} Werte",
+        canvas.Children.Add(Text(L.T("{0} · {1} Werte", SpanText(span), data.Count),
                                  left, bottom + 1, 9, muted));
 
         DrawMarkers(canvas, history, markers, X, top, bottom, labels);
@@ -723,7 +725,7 @@ public partial class MonitorView : UserControl
                 StrokeThickness = strong ? 1.6 : 1,
                 Opacity = strong ? 0.95 : 0.35,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
-                ToolTip = $"{e.Time.ToString("dd.MM. HH:mm", De)} · {e.SourceText}\n{e.ChangeText}" +
+                ToolTip = $"{e.Time.ToString("g", De)} · {e.SourceText}\n{e.ChangeText}" +
                           (e.Host != "*" && _states.FirstOrDefault(s => s.Config.Host == e.Host) is { } st ? $"\n{st.Config.Name}" : ""),
             };
             canvas.Children.Add(line);
@@ -735,7 +737,7 @@ public partial class MonitorView : UserControl
             });
 
             if (labels && strong)
-                canvas.Children.Add(Text($"{e.NewFrequencyMhz} MHz / {e.NewCoreVoltageMv} mV", px + 3, top, 9, brush));
+                canvas.Children.Add(Text(L.T("{0} MHz / {1} mV", e.NewFrequencyMhz, e.NewCoreVoltageMv), px + 3, top, 9, brush));
         }
     }
 
@@ -775,11 +777,11 @@ public partial class MonitorView : UserControl
                 var blocks = await _networkClient.GetBlocksAsync(cts.Token);
                 ShowBlocks(blocks);
                 _blocksFetched = DateTime.Now;
-                BlocksStatus.Text = $"Stand {DateTime.Now.ToString("HH:mm:ss", De)} · Quelle mempool.space";
+                BlocksStatus.Text = L.T("Stand {0} · Quelle mempool.space", DateTime.Now.ToString("HH:mm:ss", De));
             }
             catch (Exception ex)
             {
-                BlocksStatus.Text = "Blöcke: " + Shorten(ex);
+                BlocksStatus.Text = L.T("Blöcke: ") + Shorten(ex);
             }
 
             try
@@ -789,7 +791,7 @@ public partial class MonitorView : UserControl
             }
             catch (Exception ex)
             {
-                PoolStatus.Text = "Pools: " + Shorten(ex);
+                PoolStatus.Text = L.T("Pools: ") + Shorten(ex);
             }
         }
         finally
@@ -805,15 +807,15 @@ public partial class MonitorView : UserControl
         {
             var age = DateTime.Now - b.Time;
             var ageText = age.TotalMinutes < 60
-                ? $"vor {Math.Max(0, (int)age.TotalMinutes)} min"
-                : $"vor {(int)age.TotalHours} h";
+                ? L.T("vor {0} min", Math.Max(0, (int)age.TotalMinutes))
+                : L.T("vor {0} h", (int)age.TotalHours);
 
             _blockRows.Add(new BlockRow
             {
                 Height = b.Height.ToString("N0", De),
                 Time = $"{b.Time.ToString("HH:mm", De)}\n{ageText}",
                 Pool = b.Pool,
-                Details = $"{b.TxCount.ToString("N0", De)} TX · {FormatBtc(b.RewardSat)} · {(b.SizeBytes / 1_000_000.0).ToString("0.00", De)} MB",
+                Details = L.T("{0} TX · {1} · {2} MB", b.TxCount.ToString("N0", De), FormatBtc(b.RewardSat), (b.SizeBytes / 1_000_000.0).ToString("0.00", De)),
                 PoolBrush = IsOwnPool(b.Pool, b.PoolSlug) ? Gold : Normal
             });
         }
@@ -824,7 +826,7 @@ public partial class MonitorView : UserControl
         _poolRows.Clear();
         if (pools.Count == 0)
         {
-            PoolStatus.Text = "keine Daten";
+            PoolStatus.Text = L.T("keine Daten");
             return;
         }
 
@@ -847,17 +849,17 @@ public partial class MonitorView : UserControl
             });
         }
 
-        PoolStatus.Text = $"{PeriodLabel(_poolPeriod)} · {total.ToString("N0", De)} Blöcke gesamt · " +
-                          $"{pools.Count} Pools · gelb = dein Pool";
+        PoolStatus.Text = L.T("{0} · {1} Blöcke gesamt · ", PeriodLabel(_poolPeriod), total.ToString("N0", De)) +
+                          L.T("{0} Pools · gelb = dein Pool", pools.Count);
     }
 
     private static string PeriodLabel(string p) => p switch
     {
-        "24h" => "letzte 24 Stunden",
-        "1w" => "letzte Woche",
-        "1m" => "letzter Monat",
-        "1y" => "letztes Jahr",
-        "all" => "gesamter Zeitraum",
+        "24h" => L.T("letzte 24 Stunden"),
+        "1w" => L.T("letzte Woche"),
+        "1m" => L.T("letzter Monat"),
+        "1y" => L.T("letztes Jahr"),
+        "all" => L.T("gesamter Zeitraum"),
         _ => p
     };
 
@@ -911,10 +913,10 @@ public partial class MonitorView : UserControl
     private void SetCostTiles(double watt, string scope)
     {
         var day = CostPerDay(watt);
-        SetTile(T13Label, T13Value, T13Sub, "STROMKOSTEN/TAG", Money(day),
-                $"{(watt * 24 / 1000.0).ToString("0.00", De)} kWh {scope}", Normal);
-        SetTile(T14Label, T14Value, T14Sub, "STROMKOSTEN/MONAT", Money(day * 30.44),
-                $"{_config.ElectricityCtPerKwh.ToString("0.##", De)} ct/kWh · Jahr {Money(day * 365)}", Normal);
+        SetTile(T13Label, T13Value, T13Sub, L.T("STROMKOSTEN/TAG"), Money(day),
+                L.T("{0} kWh {1}", (watt * 24 / 1000.0).ToString("0.00", De), scope), Normal);
+        SetTile(T14Label, T14Value, T14Sub, L.T("STROMKOSTEN/MONAT"), Money(day * 30.44),
+                L.T("{0} ct/kWh · Jahr {1}", _config.ElectricityCtPerKwh.ToString("0.##", De), Money(day * 365)), Normal);
     }
 
     // ---------- Steuer-Modul ----------

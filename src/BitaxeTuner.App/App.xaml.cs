@@ -8,6 +8,7 @@ using BitaxeTuner.App.Services;
 using BitaxeTuner.App.Themes;
 using BitaxeTuner.App.ViewModels;
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App;
 
@@ -18,10 +19,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // WPF formatiert sonst mit en-US (Dezimalpunkt) – Systemkultur verwenden.
-        var language = XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
-        FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(language));
-        FrameworkContentElement.LanguageProperty.OverrideMetadata(typeof(System.Windows.Documents.TextElement), new FrameworkPropertyMetadata(language));
+        // Meldungen vor dem Laden der Einstellungen: Systemsprache
+        Loc.Configure("auto");
         DispatcherUnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) => WriteCrashLog(args.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, args) => { WriteCrashLog(args.Exception); args.SetObserved(); };
@@ -36,8 +35,8 @@ public partial class App : Application
         // 1. Läuft der alte BitaxeMonitor noch? Dann würden beide pollen und in dieselbe history.db schreiben.
         if (Process.GetProcessesByName("BitaxeMonitor").Length > 0 &&
             MessageBox.Show(
-                "BitaxeMonitor läuft noch.\n\nBeide Programme würden die Miner doppelt abfragen und gleichzeitig in history.db schreiben. " +
-                "Bitte BitaxeMonitor zuerst beenden.\n\nTrotzdem starten?",
+                L.T("BitaxeMonitor läuft noch.\n\nBeide Programme würden die Miner doppelt abfragen und gleichzeitig in history.db schreiben. ") +
+                L.T("Bitte BitaxeMonitor zuerst beenden.\n\nTrotzdem starten?"),
                 "BitaxeTuner", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
             Shutdown();
@@ -56,12 +55,12 @@ public partial class App : Application
         catch (Exception ex)
         {
             WriteCrashLog(ex);
-            MessageBox.Show($"Die Daten vom Server konnten nicht übernommen werden:\n{ex.Message}\n\nDer bisherige lokale Stand ist unverändert bzw. gesichert (backup-…).",
+            MessageBox.Show(L.T("Die Daten vom Server konnten nicht übernommen werden:\n{0}\n\nDer bisherige lokale Stand ist unverändert bzw. gesichert (backup-…).", ex.Message),
                 "BitaxeTuner", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         var config = AppConfig.Load();
-        Core.I18n.Loc.Configure(config.Language);
+        ApplyLanguage(config.Language);
 
         // Betriebsart „Server“: kein eigener Motor, keine Miner-Abfrage – nur die Oberfläche des Servers
         if (config.Server.Enabled && config.Server.Url.Length > 0)
@@ -80,13 +79,13 @@ public partial class App : Application
             try
             {
                 var backup = ConfigMigrator.BackupDataDirectory(dataDir);
-                notes.Add($"Sicherung angelegt: {backup}");
+                notes.Add(L.T("Sicherung angelegt: {0}", backup));
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Die Sicherung des Datenordners ist fehlgeschlagen:\n{ex.Message}\n\n" +
-                    "Zum Schutz deiner Daten (history.db, Steuerdaten) wird das Programm nicht gestartet. Es wurde nichts verändert.",
+                    L.T("Die Sicherung des Datenordners ist fehlgeschlagen:\n{0}\n\n", ex.Message) +
+                    L.T("Zum Schutz deiner Daten (history.db, Steuerdaten) wird das Programm nicht gestartet. Es wurde nichts verändert."),
                     "BitaxeTuner", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
                 return;
@@ -101,7 +100,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            notes.Add("Übernahme der BitaxeTuner-Daten fehlgeschlagen: " + ex.Message);
+            notes.Add(L.T("Übernahme der BitaxeTuner-Daten fehlgeschlagen: ") + ex.Message);
         }
         config.Save();
 
@@ -109,12 +108,12 @@ public partial class App : Application
         if (!config.WarningAccepted)
         {
             var result = MessageBox.Show(
-                "BitaxeTuner verändert Frequenz und Kernspannung deiner Miner.\n\n" +
-                "• Übertakten erhöht Leistungsaufnahme und Temperatur und kann die Hardware beschädigen.\n" +
-                "• Prüfe, ob Netzteil und Kühlung für höhere Leistung ausgelegt sind.\n" +
-                "• Das Programm überwacht Temperatur- und Leistungsgrenzen, eine Garantie gibt es trotzdem nicht.\n\n" +
-                "Nutzung auf eigenes Risiko. Fortfahren?",
-                "BitaxeTuner – Hinweis", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                L.T("BitaxeTuner verändert Frequenz und Kernspannung deiner Miner.\n\n") +
+                L.T("• Übertakten erhöht Leistungsaufnahme und Temperatur und kann die Hardware beschädigen.\n") +
+                L.T("• Prüfe, ob Netzteil und Kühlung für höhere Leistung ausgelegt sind.\n") +
+                L.T("• Das Programm überwacht Temperatur- und Leistungsgrenzen, eine Garantie gibt es trotzdem nicht.\n\n") +
+                L.T("Nutzung auf eigenes Risiko. Fortfahren?"),
+                L.T("BitaxeTuner – Hinweis"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (result != MessageBoxResult.Yes)
             {
                 Shutdown();
@@ -157,12 +156,12 @@ public partial class App : Application
             if (shared.Count == 0) return;
 
             var answer = MessageBox.Show(owner,
-                $"Der BitaxeTuner-Server {client.BaseUri} fragt gerade dieselben Miner ab ({shared.Count}).\n" +
-                "Beide gleichzeitig würden die Miner doppelt abfragen, doppelt melden und zwei getrennte Verläufe schreiben.\n\n" +
-                "Ja: auf „Server“ umschalten (App startet neu, ohne Daten zu übertragen)\n" +
-                "Nein: Server pausieren – diese App fragt ab\n" +
-                "Abbrechen: beide laufen lassen (nicht empfohlen)",
-                "Doppelbetrieb", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+                L.T("Der BitaxeTuner-Server {0} fragt gerade dieselben Miner ab ({1}).\n", client.BaseUri, shared.Count) +
+                L.T("Beide gleichzeitig würden die Miner doppelt abfragen, doppelt melden und zwei getrennte Verläufe schreiben.\n\n") +
+                L.T("Ja: auf „Server“ umschalten (App startet neu, ohne Daten zu übertragen)\n") +
+                L.T("Nein: Server pausieren – diese App fragt ab\n") +
+                L.T("Abbrechen: beide laufen lassen (nicht empfohlen)"),
+                L.T("Doppelbetrieb"), MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
             if (answer == MessageBoxResult.Yes)
             {
                 host.Config.Server.Enabled = true;
@@ -180,6 +179,21 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Sprache und Zahlen-/Datumsformat für die ganze App (Format folgt Windows, solange die Sprache passt).
+    /// Einmal beim Start, bevor ein Fenster entsteht; ein Wechsel wirkt nach dem Neustart.
+    /// </summary>
+    private static void ApplyLanguage(string setting)
+    {
+        Loc.Configure(setting);
+        var culture = Loc.Current.Culture;
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture = culture;
+        // WPF formatiert Bindungen sonst mit en-US (Dezimalpunkt)
+        var language = XmlLanguage.GetLanguage(culture.IetfLanguageTag);
+        FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(language));
+        FrameworkContentElement.LanguageProperty.OverrideMetadata(typeof(System.Windows.Documents.TextElement), new FrameworkPropertyMetadata(language));
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _host?.Dispose();
@@ -189,7 +203,7 @@ public partial class App : Application
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         WriteCrashLog(e.Exception);
-        MessageBox.Show(e.Exception.Message, "Unerwarteter Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show(e.Exception.Message, L.T("Unerwarteter Fehler"), MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 

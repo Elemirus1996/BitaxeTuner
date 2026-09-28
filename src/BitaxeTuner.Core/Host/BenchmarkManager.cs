@@ -11,6 +11,8 @@ public sealed class BenchmarkRun
     public BenchmarkSession Session { get; }
     public bool IsRunning { get; internal set; }
     public bool IsPaused { get; internal set; }
+    /// <summary>Lauf regulär abgeschlossen (nicht abgebrochen, kein Fehler).</summary>
+    public bool Completed { get; internal set; }
     public DateTime Started { get; } = DateTime.Now;
     public string PhaseText { get; internal set; } = "Vorbereitung";
     public string StepText { get; internal set; } = "";
@@ -127,6 +129,7 @@ public sealed class BenchmarkManager
         try
         {
             await task;
+            run.Completed = true;
             run.PhaseText = "Fertig";
         }
         catch (OperationCanceledException)

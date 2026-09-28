@@ -1,4 +1,5 @@
 using System.IO;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Services;
 
@@ -18,8 +19,8 @@ public static class AutostartService
 
     public static void Enable()
     {
-        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("Programmpfad unbekannt");
-        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell nicht verfügbar");
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException(L.T("Programmpfad unbekannt"));
+        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException(L.T("WScript.Shell nicht verfügbar"));
         dynamic shell = Activator.CreateInstance(shellType)!;
         try
         {

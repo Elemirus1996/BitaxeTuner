@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Config;
 
@@ -391,31 +392,39 @@ public sealed class ScheduleEntry
     public ScheduleEntry Clone() => (ScheduleEntry)MemberwiseClone();
 
     private static readonly string[] DayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+    private static readonly string[] EnglishDayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-    /// <summary>Lesbare Form der Wochentage für die Bearbeitung: "täglich", "Mo-Fr", "Sa,So", "Mo,Mi,Fr".</summary>
+    /// <summary>Lesbare Form der Wochentage für die Bearbeitung: "täglich", "Mo-Fr", "Sa,So", "Mo,Mi,Fr" (in der Sprache der App).</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string DaysText
     {
         get
         {
-            if ((Days & 127) == 127) return "täglich";
-            if ((Days & 127) == 0b0111110) return "Mo-Fr";
-            if ((Days & 127) == 0b1000001) return "Sa,So";
-            return string.Join(",", Enumerable.Range(1, 7).Select(i => i % 7).Where(d => (Days & (1 << d)) != 0).Select(d => DayNames[d]));
+            var names = Loc.Current.Language == "en" ? EnglishDayNames : DayNames;
+            if ((Days & 127) == 127) return L.T("täglich");
+            if ((Days & 127) == 0b0111110) return $"{names[1]}-{names[5]}";
+            if ((Days & 127) == 0b1000001) return $"{names[6]},{names[0]}";
+            return string.Join(",", Enumerable.Range(1, 7).Select(i => i % 7).Where(d => (Days & (1 << d)) != 0).Select(d => names[d]));
         }
         set => Days = ParseDays(value) ?? Days;
     }
 
+    /// <summary>Deutsche und englische Kürzel („Mo-Fr“, „Sa,So“, „Sa,Su“, „täglich“, „daily“); null = nicht erkannt.</summary>
     public static int? ParseDays(string? text)
     {
         var t = (text ?? "").Trim().ToLowerInvariant().Replace(" ", "");
-        if (t is "" or "täglich" or "taeglich" or "alle" or "mo-so") return 127;
+        if (t is "" or "täglich" or "taeglich" or "alle" or "mo-so" or "daily" or "everyday" or "all" or "mo-su") return 127;
+        static int Day(string name)
+        {
+            var i = Array.FindIndex(DayNames, n => n.Equals(name, StringComparison.OrdinalIgnoreCase));
+            return i >= 0 ? i : Array.FindIndex(EnglishDayNames, n => n.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
         var mask = 0;
         foreach (var part in t.Split(',', ';'))
         {
             var range = part.Split('-');
-            var a = Array.FindIndex(DayNames, n => n.Equals(range[0], StringComparison.OrdinalIgnoreCase));
-            var b = range.Length > 1 ? Array.FindIndex(DayNames, n => n.Equals(range[1], StringComparison.OrdinalIgnoreCase)) : a;
+            var a = Day(range[0]);
+            var b = range.Length > 1 ? Day(range[1]) : a;
             if (a < 0 || b < 0) return null;
             for (var d = a; ; d = (d + 1) % 7)
             {

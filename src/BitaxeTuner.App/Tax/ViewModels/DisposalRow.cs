@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.Tax.Services;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Tax.ViewModels;
 
@@ -25,8 +26,8 @@ public sealed class DisposalRow
         get
         {
             var parts = new List<string>();
-            if (Result.MissingPrice) parts.Add("Kurs fehlt bei einem Zufluss");
-            if (Result.UnmatchedAmount > 0) parts.Add($"{Result.UnmatchedAmount:0.00000000} ohne dokumentierten Zufluss");
+            if (Result.MissingPrice) parts.Add(L.T("Kurs fehlt bei einem Zufluss"));
+            if (Result.UnmatchedAmount > 0) parts.Add(L.T("{0:0.00000000} ohne dokumentierten Zufluss", Result.UnmatchedAmount));
             return string.Join(" · ", parts);
         }
     }

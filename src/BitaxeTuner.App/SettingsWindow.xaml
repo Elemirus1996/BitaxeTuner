@@ -1,7 +1,8 @@
-<Window x:Class="BitaxeTuner.App.SettingsWindow"
+<Window xmlns:l="clr-namespace:BitaxeTuner.App.I18n"
+        x:Class="BitaxeTuner.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Einstellungen" Height="860" Width="680" MinHeight="560" MinWidth="600"
+        Title="{l:T 'Einstellungen'}" Height="860" Width="680" MinHeight="560" MinWidth="600"
         WindowStartupLocation="CenterOwner" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
         TextOptions.TextFormattingMode="Display" FontFamily="Segoe UI">
 
@@ -38,7 +39,7 @@
         <!-- Miner -->
         <Border Style="{StaticResource Card}" Height="450">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Miner" Style="{StaticResource Section}"/>
+                <TextBlock DockPanel.Dock="Top" Text="{l:T 'Miner'}" Style="{StaticResource Section}"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -48,8 +49,8 @@
 
                     <DockPanel Grid.Column="0" Margin="0,0,12,0">
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="Neu" Click="AddDevice_Click" Padding="10,4"/>
-                            <Button Content="Löschen" Click="RemoveDevice_Click" Padding="10,4" Margin="6,0,0,0"/>
+                            <Button Content="{l:T 'Neu'}" Click="AddDevice_Click" Padding="10,4"/>
+                            <Button Content="{l:T 'Löschen'}" Click="RemoveDevice_Click" Padding="10,4" Margin="6,0,0,0"/>
                         </StackPanel>
                         <ListBox x:Name="DeviceList" Background="{DynamicResource FieldBrush}" BorderThickness="0"
                                  DisplayMemberPath="Name" SelectionChanged="DeviceList_SelectionChanged"/>
@@ -59,24 +60,24 @@
                         <TextBlock Text="NAME" Style="{StaticResource Label}"/>
                         <TextBox x:Name="NameBox" Margin="0,0,0,10"/>
 
-                        <TextBlock Text="HOST ODER IP" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'HOST ODER IP'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="HostBox" Margin="0,0,0,10"/>
 
-                        <TextBlock Text="WALLET-ADRESSE (leer = aus Stratum-User)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'WALLET-ADRESSE (leer = aus Stratum-User)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="WalletBox" Margin="0,0,0,10"/>
 
-                        <TextBlock Text="COIN" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'COIN'}" Style="{StaticResource Label}"/>
                         <ComboBox x:Name="CoinBox" Margin="0,0,0,10" Width="140" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Auto (aus Adresse)" Tag="Auto"/>
+                            <ComboBoxItem Content="{l:T 'Auto (aus Adresse)'}" Tag="Auto"/>
                             <ComboBoxItem Content="BTC" Tag="BTC"/>
                             <ComboBoxItem Content="BCH" Tag="BCH"/>
                         </ComboBox>
 
-                        <TextBlock Text="FIRMWARE-REPOSITORY (GITHUB, LEER = KEIN CHECK)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'FIRMWARE-REPOSITORY (GITHUB, LEER = KEIN CHECK)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="RepoBox" Margin="0,0,0,10"/>
 
                         <CheckBox x:Name="DeviceLogAlertsBox" Margin="0,0,0,10">
-                            <TextBlock TextWrapping="Wrap" Text="Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)"/>
+                            <TextBlock TextWrapping="Wrap" Text="{l:T 'Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'}"/>
                         </CheckBox>
 
                         <TextBlock x:Name="DeviceHint" Text="" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap"/>
@@ -88,7 +89,7 @@
         <!-- Strom und Abfrage -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Strom und Abfrage" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Strom und Abfrage'}" Style="{StaticResource Section}"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -103,36 +104,36 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="STROMPREIS (CT/KWH)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'STROMPREIS (CT/KWH)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="PriceBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
-                        <TextBlock Text="WÄHRUNGSZEICHEN" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'WÄHRUNGSZEICHEN'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="CurrencyBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
-                        <TextBlock Text="ABFRAGEINTERVALL (S)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'ABFRAGEINTERVALL (S)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="IntervalBox"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,0">
-                        <TextBlock Text="VERLAUF (MINUTEN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'VERLAUF (MINUTEN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="HistoryBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,10,0">
-                        <TextBlock Text="WALLET-ABFRAGE (MINUTEN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'WALLET-ABFRAGE (MINUTEN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="WalletIntervalBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="2" VerticalAlignment="Bottom">
-                        <CheckBox x:Name="MinimizedBox" Content="Minimiert starten" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="MinimizedBox" Content="{l:T 'Minimiert starten'}" Margin="0,0,0,6"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,10,10,0">
-                        <TextBlock Text="STEUER-ABFRAGE (MINUTEN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'STEUER-ABFRAGE (MINUTEN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="TaxIntervalBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,10,0,0">
-                        <TextBlock Text="BLOCKCHAIR-API-KEY (OPTIONAL)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'BLOCKCHAIR-API-KEY (OPTIONAL)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="BlockchairKeyBox"/>
                     </StackPanel>
                 </Grid>
@@ -142,7 +143,7 @@
         <!-- Anzeige und Automatik -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Anzeige und Automatik" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Anzeige und Automatik'}" Style="{StaticResource Section}"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -156,35 +157,35 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="TEMPERATUR-WARNUNG (°C)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'TEMPERATUR-WARNUNG (°C)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="TempWarnBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
-                        <TextBlock Text="VERLAUF AUFBEWAHREN (TAGE)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'VERLAUF AUFBEWAHREN (TAGE)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="HistoryDaysBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,16">
-                        <CheckBox x:Name="TrayBox" Content="In Infobereich minimieren"/>
+                        <CheckBox x:Name="TrayBox" Content="{l:T 'In Infobereich minimieren'}"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,10,16">
-                        <CheckBox x:Name="WatchdogBox" Content="Watchdog aktiv"/>
+                        <CheckBox x:Name="WatchdogBox" Content="{l:T 'Watchdog aktiv'}"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,10,10">
-                        <TextBlock Text="NEUSTART NACH (MIN OHNE HASH)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'NEUSTART NACH (MIN OHNE HASH)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="WatchdogMinutesBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
-                        <TextBlock Text="SPERRZEIT (MIN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'SPERRZEIT (MIN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="WatchdogCooldownBox"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                        <TextBlock Text="COINGECKO-DEMO-KEY (OPTIONAL)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'COINGECKO-DEMO-KEY (OPTIONAL)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="CoinGeckoKeyBox"/>
                     </StackPanel>
                 </Grid>
-                <TextBlock Text="Watchdog: startet einen erreichbaren Miner neu, der die eingestellte Zeit unter 1 GH/s liegt. API-Keys wirken nach einem Neustart der Anwendung."
+                <TextBlock Text="{l:T 'Watchdog: startet einen erreichbaren Miner neu, der die eingestellte Zeit unter 1 GH/s liegt. API-Keys wirken nach einem Neustart der Anwendung.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
             </StackPanel>
         </Border>
@@ -192,26 +193,32 @@
         <!-- Programm und Tuning (neu durch die Zusammenführung mit BitaxeTuner) -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Programm und Tuning" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Programm und Tuning'}" Style="{StaticResource Section}"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                        <TextBlock Text="DESIGN" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'DESIGN'}" Style="{StaticResource Label}"/>
                         <ComboBox x:Name="ThemeBox" Width="160" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Dunkel" Tag="dark"/>
-                            <ComboBoxItem Content="Hell" Tag="light"/>
+                            <ComboBoxItem Content="{l:T 'Dunkel'}" Tag="dark"/>
+                            <ComboBoxItem Content="{l:T 'Hell'}" Tag="light"/>
+                        </ComboBox>
+                        <TextBlock Text="{l:T 'SPRACHE / LANGUAGE'}" Style="{StaticResource Label}" Margin="0,10,0,0"/>
+                        <ComboBox x:Name="LanguageBox" Width="160" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="{l:T 'Automatisch (Windows)'}" Tag="auto"/>
+                            <ComboBoxItem Content="Deutsch" Tag="de"/>
+                            <ComboBoxItem Content="English" Tag="en"/>
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <CheckBox x:Name="RestartAfterApplyBox" Content="Nach Frequenz-/Spannungsänderung neu starten" Margin="0,0,0,6"/>
-                        <CheckBox x:Name="UpdateCheckBox" Content="Beim Start auf neue Version prüfen" Margin="0,0,0,6"/>
-                        <CheckBox x:Name="AutostartBox" Content="Mit Windows starten"/>
+                        <CheckBox x:Name="RestartAfterApplyBox" Content="{l:T 'Nach Frequenz-/Spannungsänderung neu starten'}" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="UpdateCheckBox" Content="{l:T 'Beim Start auf neue Version prüfen'}" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="AutostartBox" Content="{l:T 'Mit Windows starten'}"/>
                     </StackPanel>
                 </Grid>
-                <TextBlock Text="Ob AxeOS Frequenz und Spannung ohne Neustart übernimmt, ist firmwareabhängig. Mit Neustart sind die Messwerte danach sauber."
+                <TextBlock Text="{l:T 'Ob AxeOS Frequenz und Spannung ohne Neustart übernimmt, ist firmwareabhängig. Mit Neustart sind die Messwerte danach sauber.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
             </StackPanel>
         </Border>
@@ -219,13 +226,13 @@
         <!-- Datenordner -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Datenordner" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Datenordner'}" Style="{StaticResource Section}"/>
                 <TextBlock x:Name="DataDirText" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Ordner öffnen" Click="OpenDataDir_Click" Padding="10,4"/>
-                    <Button x:Name="MoveDataDirButton" Content="Umziehen …" Click="MoveDataDir_Click" Padding="10,4" Margin="8,0,0,0"/>
+                    <Button Content="{l:T 'Ordner öffnen'}" Click="OpenDataDir_Click" Padding="10,4"/>
+                    <Button x:Name="MoveDataDirButton" Content="{l:T 'Umziehen …'}" Click="MoveDataDir_Click" Padding="10,4" Margin="8,0,0,0"/>
                 </StackPanel>
-                <TextBlock Text="Umzug: Alles wird kopiert und geprüft (SQLite integrity_check, Zeilenzahlen, SHA-256). Erst danach wird umgeschaltet. Der alte Ordner bleibt vollständig erhalten, im Ziel wird nichts überschrieben."
+                <TextBlock Text="{l:T 'Umzug: Alles wird kopiert und geprüft (SQLite integrity_check, Zeilenzahlen, SHA-256). Erst danach wird umgeschaltet. Der alte Ordner bleibt vollständig erhalten, im Ziel wird nichts überschrieben.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
             </StackPanel>
         </Border>
@@ -233,39 +240,39 @@
         <!-- Strompreis und Handy-Ansicht -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Strompreis" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Strompreis'}" Style="{StaticResource Section}"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="2*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Margin="0,0,10,0">
-                        <TextBlock Text="QUELLE" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'QUELLE'}" Style="{StaticResource Label}"/>
                         <ComboBox x:Name="PriceSourceBox" SelectionChanged="PriceSourceBox_SelectionChanged">
-                            <ComboBoxItem Content="Keine (nur Zeitplan)" Tag="none"/>
-                            <ComboBoxItem Content="aWATTar Deutschland" Tag="awattar-de"/>
-                            <ComboBoxItem Content="aWATTar Österreich" Tag="awattar-at"/>
+                            <ComboBoxItem Content="{l:T 'Keine (nur Zeitplan)'}" Tag="none"/>
+                            <ComboBoxItem Content="{l:T 'aWATTar Deutschland'}" Tag="awattar-de"/>
+                            <ComboBoxItem Content="{l:T 'aWATTar Österreich'}" Tag="awattar-at"/>
                             <ComboBoxItem Content="Tibber" Tag="tibber"/>
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="1" x:Name="TibberPanel">
-                        <TextBlock Text="TIBBER-API-TOKEN (developer.tibber.com)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'TIBBER-API-TOKEN (developer.tibber.com)'}" Style="{StaticResource Label}"/>
                         <PasswordBox x:Name="TibberTokenBox" Padding="6,4"/>
                     </StackPanel>
                 </Grid>
-                <TextBlock Text="aWATTar: stündlicher Börsenpreis ohne Konto, ohne Netzentgelte und Steuern. Tibber: Endpreis inkl. Steuern. Genutzt von der Strompreis-Regel (Gerät → Automatik) und in der Handy-Ansicht."
+                <TextBlock Text="{l:T 'aWATTar: stündlicher Börsenpreis ohne Konto, ohne Netzentgelte und Steuern. Tibber: Endpreis inkl. Steuern. Genutzt von der Strompreis-Regel (Gerät → Automatik) und in der Handy-Ansicht.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
 
-                <TextBlock Text="Handy-Ansicht (nur ansehen)" Style="{StaticResource Section}" Margin="0,16,0,8"/>
+                <TextBlock Text="{l:T 'Handy-Ansicht (nur ansehen)'}" Style="{StaticResource Section}" Margin="0,16,0,8"/>
                 <StackPanel Orientation="Horizontal">
-                    <CheckBox x:Name="WebEnabledBox" Content="Im Heimnetz bereitstellen" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <CheckBox x:Name="WebEnabledBox" Content="{l:T 'Im Heimnetz bereitstellen'}" VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <TextBlock Text="PORT" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <TextBox x:Name="WebPortBox" Width="70" Margin="0,0,16,0"/>
-                    <TextBlock Text="NEUE PIN (4–12 ZIFFERN)" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="{l:T 'NEUE PIN (4–12 ZIFFERN)'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <PasswordBox x:Name="WebPinBox" Width="110" Padding="6,4"/>
                 </StackPanel>
                 <TextBlock x:Name="WebUrlText" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                <TextBlock Text="Nur Anzeige, keine Änderungen möglich. Erreichbar nur aus privaten Netzen, Anmeldung per PIN (gespeichert nur als Prüfsumme), nach 5 Fehlversuchen 5 min Sperre. Keine Wallet-Adressen. Windows fragt beim ersten Start nach der Firewall-Freigabe – dort nur „Private Netzwerke“ erlauben."
+                <TextBlock Text="{l:T 'Nur Anzeige, keine Änderungen möglich. Erreichbar nur aus privaten Netzen, Anmeldung per PIN (gespeichert nur als Prüfsumme), nach 5 Fehlversuchen 5 min Sperre. Keine Wallet-Adressen. Windows fragt beim ersten Start nach der Firewall-Freigabe – dort nur „Private Netzwerke“ erlauben.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
@@ -273,19 +280,19 @@
         <!-- Log-Alarme, Pool-Überwachung, Tagesbericht -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Log-Alarme" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Log-Alarme'}" Style="{StaticResource Section}"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <CheckBox x:Name="LogErrorsBox" Content="Jede Fehlerzeile (E) melden" VerticalAlignment="Center" Margin="0,0,20,0"/>
-                    <TextBlock Text="SPERRZEIT JE REGEL (MIN)" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <CheckBox x:Name="LogErrorsBox" Content="{l:T 'Jede Fehlerzeile (E) melden'}" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                    <TextBlock Text="{l:T 'SPERRZEIT JE REGEL (MIN)'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBox x:Name="LogCooldownBox" Width="60"/>
                 </StackPanel>
-                <TextBlock Text="WEITERE MUSTER (EIN REGULÄRER AUSDRUCK JE ZEILE, GROSS-/KLEINSCHREIBUNG EGAL)" Style="{StaticResource Label}"/>
+                <TextBlock Text="{l:T 'WEITERE MUSTER (EIN REGULÄRER AUSDRUCK JE ZEILE, GROSS-/KLEINSCHREIBUNG EGAL)'}" Style="{StaticResource Label}"/>
                 <TextBox x:Name="LogPatternsBox" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"
                          FontFamily="Consolas" TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
-                <TextBlock Text="Aktiv nur für Miner mit Haken „Log-Alarme“ (oben bei Miner). Während Tuning und gewollten Neustarts wird nichts gemeldet."
+                <TextBlock Text="{l:T 'Aktiv nur für Miner mit Haken „Log-Alarme“ (oben bei Miner). Während Tuning und gewollten Neustarts wird nichts gemeldet.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
 
-                <TextBlock Text="Pool- und Share-Überwachung" Style="{StaticResource Section}" Margin="0,16,0,8"/>
+                <TextBlock Text="{l:T 'Pool- und Share-Überwachung'}" Style="{StaticResource Section}" Margin="0,16,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -293,31 +300,31 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="PoolEnabledBox" Content="Aktiv" VerticalAlignment="Bottom" Margin="0,0,10,6"/>
+                    <CheckBox x:Name="PoolEnabledBox" Content="{l:T 'Aktiv'}" VerticalAlignment="Bottom" Margin="0,0,10,6"/>
                     <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                        <TextBlock Text="MAX. ABGELEHNT (%)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'MAX. ABGELEHNT (%)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="PoolRejectBox"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,10,0">
-                        <TextBlock Text="ZEITFENSTER (MIN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'ZEITFENSTER (MIN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="PoolWindowBox"/>
                     </StackPanel>
                     <StackPanel Grid.Column="3">
-                        <TextBlock Text="MAX. ANTWORTZEIT (MS, 0 = AUS)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'MAX. ANTWORTZEIT (MS, 0 = AUS)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="PoolResponseBox"/>
                     </StackPanel>
                 </Grid>
 
-                <TextBlock Text="Tagesbericht" Style="{StaticResource Section}" Margin="0,16,0,8"/>
+                <TextBlock Text="{l:T 'Tagesbericht'}" Style="{StaticResource Section}" Margin="0,16,0,8"/>
                 <StackPanel Orientation="Horizontal">
-                    <CheckBox x:Name="ReportEnabledBox" Content="Täglich senden ab" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <CheckBox x:Name="ReportEnabledBox" Content="{l:T 'Täglich senden ab'}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBox x:Name="ReportHourBox" Width="50"/>
-                    <TextBlock Text="Uhr (letzte 24 h)" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="8,0,16,0"/>
-                    <Button x:Name="ReportNowButton" Content="Jetzt senden" Click="ReportNow_Click" Padding="10,4"/>
+                    <TextBlock Text="{l:T 'Uhr (letzte 24 h)'}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="8,0,16,0"/>
+                    <Button x:Name="ReportNowButton" Content="{l:T 'Jetzt senden'}" Click="ReportNow_Click" Padding="10,4"/>
                     <TextBlock x:Name="ReportResultText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center"
                                Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="220"/>
                 </StackPanel>
-                <TextBlock Text="Ø Hashrate, J/TH, Temperatur und Verfügbarkeit je Miner, Stromkosten, bester Best-Diff-Rekord, Tuning-Änderungen. Versand über den Push-Dienst unten."
+                <TextBlock Text="{l:T 'Ø Hashrate, J/TH, Temperatur und Verfügbarkeit je Miner, Stromkosten, bester Best-Diff-Rekord, Tuning-Änderungen. Versand über den Push-Dienst unten.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
@@ -325,16 +332,16 @@
         <!-- Benachrichtigungen -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
-                <TextBlock Text="Push-Benachrichtigungen" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Push-Benachrichtigungen'}" Style="{StaticResource Section}"/>
 
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="DIENST" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="{l:T 'DIENST'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <ComboBox x:Name="ProviderBox" Width="160" SelectionChanged="ProviderBox_SelectionChanged">
-                        <ComboBoxItem Content="Aus" Tag="none"/>
+                        <ComboBoxItem Content="{l:T 'Aus'}" Tag="none"/>
                         <ComboBoxItem Content="ntfy" Tag="ntfy"/>
                         <ComboBoxItem Content="Telegram" Tag="telegram"/>
                     </ComboBox>
-                    <Button Content="Test senden" Click="TestNotify_Click" Padding="10,4" Margin="10,0,0,0"/>
+                    <Button Content="{l:T 'Test senden'}" Click="TestNotify_Click" Padding="10,4" Margin="10,0,0,0"/>
                     <TextBlock x:Name="TestResultText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center"
                                Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="260"/>
                 </StackPanel>
@@ -345,11 +352,11 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="NTFY-SERVER" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'NTFY-SERVER'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="NtfyServerBox"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,0,10">
-                        <TextBlock Text="TOPIC (SCHWER ZU ERRATEN WÄHLEN)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'TOPIC (SCHWER ZU ERRATEN WÄHLEN)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="NtfyTopicBox"/>
                     </StackPanel>
                 </Grid>
@@ -360,23 +367,23 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="BOT-TOKEN" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'BOT-TOKEN'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="TelegramTokenBox"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,0,10">
-                        <TextBlock Text="CHAT-ID" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'CHAT-ID'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="TelegramChatBox"/>
                     </StackPanel>
                 </Grid>
 
                 <WrapPanel>
-                    <CheckBox x:Name="NotifyOfflineBox" Content="Miner offline" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyOverheatBox" Content="Überhitzung" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyFindsBox" Content="Blockfund und Zufluss" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyMaintenanceBox" Content="Watchdog, Firmware, Automatik" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyRecordBox" Content="Neuer Best-Diff-Rekord" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyLogBox" Content="Treffer in Miner-Logs" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyPoolBox" Content="Pool (Fallback, Ablehnungen, langsam)" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyOfflineBox" Content="{l:T 'Miner offline'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyOverheatBox" Content="{l:T 'Überhitzung'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyFindsBox" Content="{l:T 'Blockfund und Zufluss'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyMaintenanceBox" Content="{l:T 'Watchdog, Firmware, Automatik'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyRecordBox" Content="{l:T 'Neuer Best-Diff-Rekord'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyLogBox" Content="{l:T 'Treffer in Miner-Logs'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyPoolBox" Content="{l:T 'Pool (Fallback, Ablehnungen, langsam)'}" Margin="0,0,16,6"/>
                 </WrapPanel>
             </StackPanel>
         </Border>
@@ -386,8 +393,8 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <Button Content="Abbrechen" Click="Cancel_Click" IsCancel="True" Padding="14,6"/>
-            <Button Content="Speichern" Click="Save_Click" Padding="14,6" Margin="8,0,0,0" Background="{DynamicResource SaveBrush}" Foreground="White"/>
+            <Button Content="{l:T 'Abbrechen'}" Click="Cancel_Click" IsCancel="True" Padding="14,6"/>
+            <Button Content="{l:T 'Speichern'}" Click="Save_Click" Padding="14,6" Margin="8,0,0,0" Background="{DynamicResource SaveBrush}" Foreground="White"/>
         </StackPanel>
     </Grid>
 </Window>

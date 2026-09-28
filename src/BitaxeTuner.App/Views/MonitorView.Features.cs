@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using BitaxeTuner.App.Services;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Views;
 
@@ -65,7 +66,7 @@ public partial class MonitorView
     {
         if (_chartRange == "1h" || _history is null)
         {
-            ChartRangeText.Text = _history is null ? "nur live (Datenbank nicht verfügbar)" : "live";
+            ChartRangeText.Text = _history is null ? L.T("nur live (Datenbank nicht verfügbar)") : "live";
             return live;
         }
 
@@ -85,15 +86,15 @@ public partial class MonitorView
             }
             catch (Exception ex)
             {
-                ChartRangeText.Text = "Datenbankfehler: " + ex.Message;
+                ChartRangeText.Text = L.T("Datenbankfehler: ") + ex.Message;
                 return live;
             }
             _chartCache[key] = cached;
         }
 
         ChartRangeText.Text = cached.Data.Count == 0
-            ? "noch keine Daten in diesem Zeitraum"
-            : $"{cached.Data.Count} Punkte aus der Datenbank";
+            ? L.T("noch keine Daten in diesem Zeitraum")
+            : L.T("{0} Punkte aus der Datenbank", cached.Data.Count);
         return cached.Data;
     }
 
@@ -112,20 +113,20 @@ public partial class MonitorView
     }
 
     private string AvailabilityText(string host)
-        => Availability(host) is { } a ? $"verfügbar 7 T: {(a * 100).ToString("0.0", De)} %" : "";
+        => Availability(host) is { } a ? L.T("verfügbar 7 T: {0} %", (a * 100).ToString("0.0", De)) : "";
 
     /// <summary>Mittlere Verfügbarkeit aller Miner.</summary>
     private string AggregateAvailabilityText()
     {
         var values = _states.Select(s => Availability(s.Config.Host)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
-        return values.Count == 0 ? "" : $"Ø verfügbar 7 T: {(values.Average() * 100).ToString("0.0", De)} %";
+        return values.Count == 0 ? "" : L.T("Ø verfügbar 7 T: {0} %", (values.Average() * 100).ToString("0.0", De));
     }
 
     /// <summary>Beschriftung der Zeitachse: Minuten, Stunden oder Tage.</summary>
     private static string SpanText(TimeSpan span)
-        => span.TotalHours < 2 ? $"{span.TotalMinutes.ToString("0", De)} min"
+        => span.TotalHours < 2 ? L.T("{0} min", span.TotalMinutes.ToString("0", De))
          : span.TotalDays < 2 ? $"{span.TotalHours.ToString("0", De)} h"
-         : $"{span.TotalDays.ToString("0", De)} Tage";
+         : L.T("{0} Tage", span.TotalDays.ToString("0", De));
 
     private string PoolText(MinerState s) => _host.Hub.PoolText(s);
 
@@ -133,7 +134,7 @@ public partial class MonitorView
         => _bestDiffs.Where(r => r.Host == host).OrderByDescending(r => r.Value).FirstOrDefault();
 
     private string RecordText(string host)
-        => RecordFor(host) is { } r ? $"Rekord {r.Raw} ({r.Coin}, {r.AchievedAt.ToString("dd.MM.yy", De)})" : "";
+        => RecordFor(host) is { } r ? L.T("Rekord {0} ({1}, {2})", r.Raw, r.Coin, r.AchievedAt.ToString("d", De)) : "";
 
     /// <summary>Höchster Rekord über alle aktuell eingetragenen Miner.</summary>
     private (string Value, string Sub) AggregateRecord()
@@ -143,7 +144,7 @@ public partial class MonitorView
         if (top is null) return ("–", "");
 
         var name = _states.FirstOrDefault(s => s.Config.Host == top.Host)?.Config.Name ?? top.Host;
-        return (top.Raw, $"Rekord: {name}, {top.Coin}, {top.AchievedAt.ToString("dd.MM.yy", De)}");
+        return (top.Raw, L.T("Rekord: {0}, {1}, {2}", name, top.Coin, top.AchievedAt.ToString("d", De)));
     }
 
     private string FirmwareText(MinerState s) => _host.Hub.FirmwareText(s);
@@ -174,7 +175,7 @@ public partial class MonitorView
             if (r.Difficulty is null)
             {
                 value.Text = "–";
-                sub.Text = "Netzwerk-Difficulty wird geladen …";
+                sub.Text = L.T("Netzwerk-Difficulty wird geladen …");
                 sub2.Text = "";
                 continue;
             }
@@ -182,14 +183,14 @@ public partial class MonitorView
             if (r.ChancePerYear is null)
             {
                 value.Text = "–";
-                sub.Text = $"kein Miner auf {coin.Symbol()} · Difficulty {Difficulty.Format(r.Difficulty.Value)}";
-                sub2.Text = "Coin je Miner: Einstellungen oder Wallet-Adresse";
+                sub.Text = L.T("kein Miner auf {0} · Difficulty {1}", coin.Symbol(), Difficulty.Format(r.Difficulty.Value));
+                sub2.Text = L.T("Coin je Miner: Einstellungen oder Wallet-Adresse");
                 continue;
             }
 
-            value.Text = $"{Percent(r.ChancePerYear.Value)} pro Jahr";
-            sub.Text = $"{Percent(r.ChancePerDay!.Value)} pro Tag · {FormatHash(gh)} auf {miners.Count} Miner";
-            sub2.Text = $"im Mittel ein Block alle {DurationText(r.ExpectedDays!.Value)} · Difficulty {Difficulty.Format(r.Difficulty.Value)}";
+            value.Text = L.T("{0} pro Jahr", Percent(r.ChancePerYear.Value));
+            sub.Text = L.T("{0} pro Tag · {1} auf {2} Miner", Percent(r.ChancePerDay!.Value), FormatHash(gh), miners.Count);
+            sub2.Text = L.T("im Mittel ein Block alle {0} · Difficulty {1}", DurationText(r.ExpectedDays!.Value), Difficulty.Format(r.Difficulty.Value));
         }
     }
 
@@ -199,7 +200,7 @@ public partial class MonitorView
          : "1 : " + (1 / p).ToString("N0", De);
 
     private static string DurationText(double days)
-        => days < 365 ? $"{days.ToString("N0", De)} Tage" : $"{(days / 365).ToString("N0", De)} Jahre";
+        => days < 365 ? L.T("{0} Tage", days.ToString("N0", De)) : L.T("{0} Jahre", (days / 365).ToString("N0", De));
 
     // ---------- Tray ----------
 
@@ -217,14 +218,14 @@ public partial class MonitorView
                   : online < total || hot ? TrayState.Warning
                   : TrayState.Ok;
 
-        _tray.Update(state, $"Miner {online}/{total} · {FormatHash(gh)}");
+        _tray.Update(state, L.T("Miner {0}/{1} · {2}", online, total, FormatHash(gh)));
     }
 
     private void HideToTray()
     {
         OwnerWindow.Hide();
         if (_trayHintShown) return;
-        _tray?.Balloon("BitaxeTuner", "Läuft im Infobereich weiter. Doppelklick öffnet das Fenster.");
+        _tray?.Balloon("BitaxeTuner", L.T("Läuft im Infobereich weiter. Doppelklick öffnet das Fenster."));
         _trayHintShown = true;
     }
 

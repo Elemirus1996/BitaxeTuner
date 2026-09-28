@@ -293,6 +293,9 @@ public class ScheduleDaysTests
     [InlineData("sa,so", 0b1000001, "Sa,So")]
     [InlineData("Fr-Mo", 0b1100011, "Mo,Fr,Sa,So")]
     [InlineData("Mi", 0b0001000, "Mi")]
+    [InlineData("daily", 127, "täglich")]               // englische Eingabe, Anzeige in der App-Sprache (Tests: Deutsch)
+    [InlineData("sa,su", 0b1000001, "Sa,So")]
+    [InlineData("Tu,Th", 0b0010100, "Di,Do")]
     public void Parses_and_formats_weekdays(string input, int mask, string text)
     {
         var e = new ScheduleEntry { DaysText = input };

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Services;
 
@@ -34,9 +35,9 @@ public sealed class TrayService : IDisposable
         _icons[TrayState.Unknown] = CreateIcon(Drawing.Color.FromArgb(0x5A, 0x64, 0x78));
 
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Öffnen", null, (_, _) => OpenRequested?.Invoke());
+        menu.Items.Add(L.T("Öffnen"), null, (_, _) => OpenRequested?.Invoke());
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Beenden", null, (_, _) => ExitRequested?.Invoke());
+        menu.Items.Add(L.T("Beenden"), null, (_, _) => ExitRequested?.Invoke());
 
         _icon = new Forms.NotifyIcon
         {
@@ -46,7 +47,7 @@ public sealed class TrayService : IDisposable
         };
         _icon.DoubleClick += (_, _) => OpenRequested?.Invoke();
 
-        Update(TrayState.Unknown, "BitaxeTuner – startet");
+        Update(TrayState.Unknown, L.T("BitaxeTuner – startet"));
     }
 
     public void Update(TrayState state, string tooltip)

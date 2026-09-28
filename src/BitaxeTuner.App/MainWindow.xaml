@@ -1,4 +1,5 @@
-<Window x:Class="BitaxeTuner.App.MainWindow"
+<Window xmlns:l="clr-namespace:BitaxeTuner.App.I18n"
+        x:Class="BitaxeTuner.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:BitaxeTuner.App.ViewModels"
@@ -23,28 +24,28 @@
                     </Border>
                     <TextBlock Text="BitaxeTuner" Foreground="White" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding VersionText}" Foreground="#9CA3AF" Margin="8,4,0,0" VerticalAlignment="Center"
-                               ToolTip="Copyright © 2026 BitaxeTuner contributors · Freie Software unter der GNU GPL v3.0, ohne jede Gewähr · Quelltext, Lizenz (LICENSE.txt) und Drittanbieter-Hinweise (THIRD-PARTY-NOTICES.txt) im Programmordner und auf github.com/Elemirus1996/BitaxeTuner" />
+                               ToolTip="{l:T 'Copyright © 2026 BitaxeTuner contributors · Freie Software unter der GNU GPL v3.0, ohne jede Gewähr · Quelltext, Lizenz (LICENSE.txt) und Drittanbieter-Hinweise (THIRD-PARTY-NOTICES.txt) im Programmordner und auf github.com/Elemirus1996/BitaxeTuner'}" />
                     <Button Content="{Binding UpdateText}" Command="{Binding InstallUpdateCommand}" Style="{StaticResource PrimaryButton}"
                             Margin="14,0,6,0" Padding="10,3" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}}" />
-                    <Button Content="Was ist neu?" Command="{Binding OpenUpdateCommand}" Style="{StaticResource LinkButton}"
+                    <Button Content="{l:T 'Was ist neu?'}" Command="{Binding OpenUpdateCommand}" Style="{StaticResource LinkButton}"
                             Foreground="#9CA3AF" Margin="0,4,0,0" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}}" />
-                    <Button Content="Nach Updates suchen" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource LinkButton}"
+                    <Button Content="{l:T 'Nach Updates suchen'}" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource LinkButton}"
                             Foreground="#9CA3AF" Margin="14,4,0,0" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}, ConverterParameter=invert}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="Einstellungen" Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" />
-                    <Button Content="Betriebsart …" Click="OnModeClick"
-                            ToolTip="Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb" />
-                    <Button Content="Dauertest …" Click="OnSoakBatchClick"
-                            ToolTip="Dauertest für mehrere Miner auf einmal starten oder alle abbrechen" />
-                    <Button Content="Profile bearbeiten" Command="{Binding EditProfilesCommand}" />
-                    <Button Content="Datenordner öffnen" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
+                    <Button Content="{l:T 'Einstellungen'}" Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" />
+                    <Button Content="{l:T 'Betriebsart …'}" Click="OnModeClick"
+                            ToolTip="{l:T 'Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb'}" />
+                    <Button Content="{l:T 'Dauertest …'}" Click="OnSoakBatchClick"
+                            ToolTip="{l:T 'Dauertest für mehrere Miner auf einmal starten oder alle abbrechen'}" />
+                    <Button Content="{l:T 'Profile bearbeiten'}" Command="{Binding EditProfilesCommand}" />
+                    <Button Content="{l:T 'Datenordner öffnen'}" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
                     <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />
-                    <Button Content="Lizenz" Click="OnLicenseClick" ToolTip="Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten" />
-                    <Button Content="■ Alle stoppen" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="0" />
+                    <Button Content="{l:T 'Lizenz'}" Click="OnLicenseClick" ToolTip="{l:T 'Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten'}" />
+                    <Button Content="{l:T '■ Alle stoppen'}" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="0" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -59,20 +60,20 @@
             <!-- Geräteliste: Gesamt · Miner · Netzwerk · Steuer (eine gemeinsame Liste aus config.json) -->
             <Border Style="{StaticResource Card}" Margin="0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Geräte" Style="{StaticResource SectionTitle}" />
+                    <TextBlock DockPanel.Dock="Top" Text="{l:T 'Geräte'}" Style="{StaticResource SectionTitle}" />
 
                     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                        <TextBlock Text="Neues Gerät" Style="{StaticResource Muted}" Margin="0,0,0,4" />
-                        <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Name (optional)" />
+                        <TextBlock Text="{l:T 'Neues Gerät'}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="{l:T 'Name (optional)'}" />
                         <DockPanel Margin="0,0,0,6">
                             <Button DockPanel.Dock="Right" Content="+" Command="{Binding AddDeviceCommand}" Margin="6,0,0,0" Width="34"
-                                    Style="{StaticResource PrimaryButton}" IsDefault="True" ToolTip="Gerät hinzufügen" />
+                                    Style="{StaticResource PrimaryButton}" IsDefault="True" ToolTip="{l:T 'Gerät hinzufügen'}" />
                             <TextBox Text="{Binding NewAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Host oder IP, z. B. 192.168.1.50 – zum Ausprobieren: sim oder sim:nerdqaxe-plusplus" />
+                                     ToolTip="{l:T 'Host oder IP, z. B. 192.168.1.50 – zum Ausprobieren: sim oder sim:nerdqaxe-plusplus'}" />
                         </DockPanel>
-                        <Button Content="Netzwerk durchsuchen" Command="{Binding ScanNetworkCommand}" Margin="0,0,0,6" />
+                        <Button Content="{l:T 'Netzwerk durchsuchen'}" Command="{Binding ScanNetworkCommand}" Margin="0,0,0,6" />
                         <ProgressBar Value="{Binding ScanProgress}" Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,6" />
-                        <Button Content="Ausgewähltes Gerät entfernen" Command="{Binding RemoveDeviceCommand}" />
+                        <Button Content="{l:T 'Ausgewähltes Gerät entfernen'}" Command="{Binding RemoveDeviceCommand}" />
                     </StackPanel>
 
                     <ListBox x:Name="NavList" ItemsSource="{Binding NavItems}" SelectedItem="{Binding SelectedNav}"
@@ -81,7 +82,7 @@
                             <DataTemplate DataType="{x:Type vm:NavItem}">
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock DockPanel.Dock="Right" Text="● läuft" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" FontSize="11"
+                                        <TextBlock DockPanel.Dock="Right" Text="{l:T '● läuft'}" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" FontSize="11"
                                                    Visibility="{Binding Device.IsRunning, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}" />
                                         <Button DockPanel.Dock="Right" Style="{StaticResource PoolLinkButton}" Margin="0,0,6,0" VerticalAlignment="Center"
                                                 Tag="{Binding PoolLink}" ToolTip="{Binding PoolLinkToolTip}" Click="OnPoolLinkClick"
@@ -114,15 +115,15 @@
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Profil:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="{l:T 'Profil:'}" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <ComboBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding Profile}" Width="260"
                                       DisplayMemberPath="Name" IsEnabled="{Binding IsIdle}" Margin="0,0,8,0" VerticalContentAlignment="Center" />
-                            <Button Content="Sichern" Command="{Binding BackupSettingsCommand}"
-                                    ToolTip="Aktuelle Einstellungen des Miners sichern (Frequenz, Spannung, Lüfter, Pool)" />
-                            <Button Content="Wiederherstellen …" Command="{Binding RestoreSettingsCommand}"
-                                    ToolTip="Gesicherte Einstellungen auswählen und zurückspielen" />
-                            <Button Content="Aktualisieren" Command="{Binding RefreshCommand}" />
-                            <Button Content="Weboberfläche" Command="{Binding OpenWebUiCommand}" Margin="0" />
+                            <Button Content="{l:T 'Sichern'}" Command="{Binding BackupSettingsCommand}"
+                                    ToolTip="{l:T 'Aktuelle Einstellungen des Miners sichern (Frequenz, Spannung, Lüfter, Pool)'}" />
+                            <Button Content="{l:T 'Wiederherstellen …'}" Command="{Binding RestoreSettingsCommand}"
+                                    ToolTip="{l:T 'Gesicherte Einstellungen auswählen und zurückspielen'}" />
+                            <Button Content="{l:T 'Aktualisieren'}" Command="{Binding RefreshCommand}" />
+                            <Button Content="{l:T 'Weboberfläche'}" Command="{Binding OpenWebUiCommand}" Margin="0" />
                         </StackPanel>
                         <StackPanel>
                             <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" />
@@ -135,7 +136,7 @@
 
                 <TabControl x:Name="DeviceTabs" SelectionChanged="OnDeviceTabChanged" Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" Padding="14">
                     <!-- ÜBERWACHUNG (BitaxeMonitor) -->
-                    <TabItem Header="Überwachung">
+                    <TabItem Header="{l:T 'Überwachung'}">
                         <ContentControl x:Name="MonitorSlot" />
                     </TabItem>
 
@@ -147,59 +148,59 @@
                                     <Border Style="{StaticResource Metric}"><StackPanel>
                                         <TextBlock Text="Hashrate" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.HashRateGh, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" GH/s" FontSize="13" /></TextBlock>
-                                        <TextBlock Style="{StaticResource Muted}"><Run Text="erwartet " /><Run Text="{Binding Info.ExpectedHashRateGh, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text=" GH/s" /></TextBlock>
+                                        <TextBlock Style="{StaticResource Muted}"><Run Text="{l:T 'erwartet '}" /><Run Text="{Binding Info.ExpectedHashRateGh, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text=" GH/s" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
-                                        <TextBlock Text="Leistung / Effizienz" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Leistung / Effizienz'}" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.PowerW, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" W" FontSize="13" /></TextBlock>
-                                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding EfficiencyText, Mode=OneWay}" /><Run Text=" J/TH" /></TextBlock>
+                                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding EfficiencyText, Mode=OneWay}" /><Run Text="{l:T ' J/TH'}" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
-                                        <TextBlock Text="Chip / VR-Temperatur" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Chip / VR-Temperatur'}" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.MaxChipTempC, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" °C" FontSize="13" /></TextBlock>
                                         <TextBlock Style="{StaticResource Muted}"><Run Text="VR " /><Run Text="{Binding Info.VrTempC, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" °C" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}" Margin="0,0,0,10"><StackPanel>
-                                        <TextBlock Text="Frequenz / Kernspannung" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.FrequencyMhz, Mode=OneWay}" /><Run Text=" MHz" FontSize="13" /></TextBlock>
-                                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding Info.CoreVoltageMv, Mode=OneWay}" /><Run Text=" mV (ist " /><Run Text="{Binding Info.CoreVoltageActualMv, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text=" mV)" /></TextBlock>
+                                        <TextBlock Text="{l:T 'Frequenz / Kernspannung'}" Style="{StaticResource Muted}" />
+                                        <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.FrequencyMhz, Mode=OneWay}" /><Run Text="{l:T ' MHz'}" FontSize="13" /></TextBlock>
+                                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding Info.CoreVoltageMv, Mode=OneWay}" /><Run Text="{l:T ' mV (ist '}" /><Run Text="{Binding Info.CoreVoltageActualMv, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text="{l:T ' mV)'}" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
-                                        <TextBlock Text="Eingangsspannung" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.InputVoltageMv, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text=" mV" FontSize="12" /></TextBlock>
+                                        <TextBlock Text="{l:T 'Eingangsspannung'}" Style="{StaticResource Muted}" />
+                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.InputVoltageMv, Converter={StaticResource Num}, ConverterParameter=F0, Mode=OneWay}" /><Run Text="{l:T ' mV'}" FontSize="12" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
-                                        <TextBlock Text="Lüfter" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.FanPercent, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" % · " FontSize="12" /><Run Text="{Binding Info.FanRpm, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" U/min" FontSize="12" /></TextBlock>
+                                        <TextBlock Text="{l:T 'Lüfter'}" Style="{StaticResource Muted}" />
+                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.FanPercent, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" % · " FontSize="12" /><Run Text="{Binding Info.FanRpm, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text="{l:T ' U/min'}" FontSize="12" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
-                                        <TextBlock Text="Shares (akzeptiert / abgelehnt)" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Shares (akzeptiert / abgelehnt)'}" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.SharesAccepted, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding Info.SharesRejected, Mode=OneWay}" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}" Margin="0,0,0,10"><StackPanel>
-                                        <TextBlock Text="Fehlerrate (ASIC)" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Fehlerrate (ASIC)'}" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.ErrorPercent, Converter={StaticResource Num}, ConverterParameter=F2, Mode=OneWay}" /><Run Text=" %" FontSize="12" /></TextBlock>
                                     </StackPanel></Border>
                                 </UniformGrid>
                                 <Border Style="{StaticResource Card}">
                                     <StackPanel>
-                                        <TextBlock Text="Manuell einstellen" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="{l:T 'Manuell einstellen'}" Style="{StaticResource SectionTitle}" />
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Frequenz (MHz)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Text="{l:T 'Frequenz (MHz)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Text="{Binding ManualFrequency, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldBox}" Width="80" Margin="0,3,16,3" />
-                                            <TextBlock Text="Kernspannung (mV)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Text="{l:T 'Kernspannung (mV)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Text="{Binding ManualVoltage, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldBox}" Width="80" Margin="0,3,16,3" />
-                                            <Button Content="Anwenden …" Command="{Binding ApplyManualCommand}" Style="{StaticResource PrimaryButton}" />
+                                            <Button Content="{l:T 'Anwenden …'}" Command="{Binding ApplyManualCommand}" Style="{StaticResource PrimaryButton}" />
                                         </StackPanel>
                                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
-                                                   Text="Vor dem Senden zeigt ein Dialog den aktuellen und den neuen Wert. Werte außerhalb der Profilgrenzen werden abgelehnt. Jede Änderung wird in history.db protokolliert und im Verlauf markiert." />
+                                                   Text="{l:T 'Vor dem Senden zeigt ein Dialog den aktuellen und den neuen Wert. Werte außerhalb der Profilgrenzen werden abgelehnt. Jede Änderung wird in history.db protokolliert und im Verlauf markiert.'}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource Card}">
                                     <controls:LineChart Values="{Binding HashHistory}" Title="Hashrate" Unit="GH/s" Height="200" Stroke="{DynamicResource AccentBrush}" />
                                 </Border>
                                 <Border Style="{StaticResource Card}">
-                                    <controls:LineChart Values="{Binding TempHistory}" Title="Chiptemperatur" Unit="°C" Height="160" Stroke="{DynamicResource TempBrush}" />
+                                    <controls:LineChart Values="{Binding TempHistory}" Title="{l:T 'Chiptemperatur'}" Unit="°C" Height="160" Stroke="{DynamicResource TempBrush}" />
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
@@ -227,24 +228,24 @@
                                             <Grid.RowDefinitions>
                                                 <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Text="Suchbereich" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="4" />
-                                            <TextBlock Grid.Row="1" Text="Frequenz Start / Max (MHz)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Text="{l:T 'Suchbereich'}" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="4" />
+                                            <TextBlock Grid.Row="1" Text="{l:T 'Frequenz Start / Max (MHz)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Settings.StartFrequencyMhz}" Style="{StaticResource FieldBox}" Width="70" Margin="0,3,6,3" />
                                             <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Settings.MaxFrequencyMhz}" Style="{StaticResource FieldBox}" Width="70" />
-                                            <TextBlock Grid.Row="2" Text="Frequenz-Schritt (MHz)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="2" Text="{l:T 'Frequenz-Schritt (MHz)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Settings.FrequencyStepMhz}" Style="{StaticResource FieldBox}" Width="70" />
-                                            <TextBlock Grid.Row="3" Text="Spannung Start / Max (mV)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="3" Text="{l:T 'Spannung Start / Max (mV)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Settings.StartVoltageMv}" Style="{StaticResource FieldBox}" Width="70" Margin="0,3,6,3" />
                                             <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding Settings.MaxVoltageMv}" Style="{StaticResource FieldBox}" Width="70" />
-                                            <TextBlock Grid.Row="4" Text="Spannung Minimum (mV)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="4" Text="{l:T 'Spannung Minimum (mV)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.MinVoltageMv}" Style="{StaticResource FieldBox}" Width="70" />
-                                            <TextBlock Grid.Row="5" Text="Spannungs-Schritt (mV)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="5" Text="{l:T 'Spannungs-Schritt (mV)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Settings.VoltageStepMv}" Style="{StaticResource FieldBox}" Width="70" />
                                             <CheckBox Grid.Row="6" Grid.ColumnSpan="4" Margin="0,6,0,0" IsChecked="{Binding Settings.TryLowerVoltage}">
-                                                <TextBlock TextWrapping="Wrap" Text="Pro Frequenz auch niedrigere Spannung testen (effizienter, dauert länger)" />
+                                                <TextBlock TextWrapping="Wrap" Text="{l:T 'Pro Frequenz auch niedrigere Spannung testen (effizienter, dauert länger)'}" />
                                             </CheckBox>
                                             <Button Grid.Row="7" Grid.ColumnSpan="4" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                                    Content="Auf Profilwerte zurücksetzen" Command="{Binding ResetToProfileCommand}" />
+                                                    Content="{l:T 'Auf Profilwerte zurücksetzen'}" Command="{Binding ResetToProfileCommand}" />
                                         </Grid>
                                     </Border>
 
@@ -257,21 +258,21 @@
                                             <Grid.RowDefinitions>
                                                 <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Text="Messung &amp; Stabilität" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="2" />
-                                            <TextBlock Grid.Row="1" Text="Aufwärmzeit pro Schritt (s)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Text="{l:T 'Messung &amp; Stabilität'}" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="2" />
+                                            <TextBlock Grid.Row="1" Text="{l:T 'Aufwärmzeit pro Schritt (s)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Settings.WarmupSeconds}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="2" Text="Messdauer pro Schritt (s)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="2" Text="{l:T 'Messdauer pro Schritt (s)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Settings.MeasureSeconds}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="3" Text="Messintervall (s)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="3" Text="{l:T 'Messintervall (s)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Settings.SampleIntervalSeconds}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="4" Text="Mindestanzahl Messwerte" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="4" Text="{l:T 'Mindestanzahl Messwerte'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.MinSamples}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="5" Text="Stabil ab Anteil der Soll-Hashrate (0,94 = 94 %)" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="5" Text="{l:T 'Stabil ab Anteil der Soll-Hashrate (0,94 = 94 %)'}" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
                                             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Settings.StabilityThreshold}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="6" Text="Max. Fehlerrate (%)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="6" Text="{l:T 'Max. Fehlerrate (%)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Settings.MaxErrorPercent}" Style="{StaticResource FieldBox}" />
                                             <CheckBox Grid.Row="7" Grid.ColumnSpan="2" Margin="0,6,0,0" IsChecked="{Binding Settings.RestartAfterApply}"
-                                                      Content="Nach jeder Änderung neu starten (sauberere Messwerte)" />
+                                                      Content="{l:T 'Nach jeder Änderung neu starten (sauberere Messwerte)'}" />
                                         </Grid>
                                     </Border>
 
@@ -284,29 +285,29 @@
                                             <Grid.RowDefinitions>
                                                 <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Text="Sicherheitsgrenzen" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="2" />
-                                            <TextBlock Grid.Row="1" Text="Max. Chiptemperatur (°C)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Text="{l:T 'Sicherheitsgrenzen'}" Style="{StaticResource SectionTitle}" Grid.ColumnSpan="2" />
+                                            <TextBlock Grid.Row="1" Text="{l:T 'Max. Chiptemperatur (°C)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Settings.MaxChipTempC}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="2" Text="Max. VR-Temperatur (°C)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="2" Text="{l:T 'Max. VR-Temperatur (°C)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Settings.MaxVrTempC}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="3" Text="Max. Leistung (W)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="3" Text="{l:T 'Max. Leistung (W)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Settings.MaxPowerW}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="4" Text="Min. Eingangsspannung (mV, leer = aus)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="4" Text="{l:T 'Min. Eingangsspannung (mV, leer = aus)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.MinInputVoltageMv, TargetNullValue=''}" Style="{StaticResource FieldBox}" />
-                                            <TextBlock Grid.Row="5" Text="Max. Eingangsspannung (mV, leer = aus)" Style="{StaticResource FieldLabel}" />
+                                            <TextBlock Grid.Row="5" Text="{l:T 'Max. Eingangsspannung (mV, leer = aus)'}" Style="{StaticResource FieldLabel}" />
                                             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Settings.MaxInputVoltageMv, TargetNullValue=''}" Style="{StaticResource FieldBox}" />
                                         </Grid>
                                     </Border>
 
                                     <Border Style="{StaticResource Card}">
                                         <StackPanel>
-                                            <TextBlock Text="Lüfter &amp; Abschluss" Style="{StaticResource SectionTitle}" />
+                                            <TextBlock Text="{l:T 'Lüfter &amp; Abschluss'}" Style="{StaticResource SectionTitle}" />
                                             <ComboBox ItemsSource="{x:Static vm:Options.Fan}" DisplayMemberPath="Label" SelectedValuePath="Value"
                                                       SelectedValue="{Binding Settings.FanMode}" Margin="0,0,0,8" />
-                                            <TextBlock Text="Nach dem Benchmark:" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+                                            <TextBlock Text="{l:T 'Nach dem Benchmark:'}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
                                             <ComboBox ItemsSource="{x:Static vm:Options.Restore}" DisplayMemberPath="Label" SelectedValuePath="Value"
                                                       SelectedValue="{Binding Settings.RestoreMode}" Margin="0,0,0,8" />
-                                            <TextBlock Text="„Beste Einstellung“ bedeutet:" Style="{StaticResource Muted}" Margin="0,0,0,4" />
+                                            <TextBlock Text="{l:T '„Beste Einstellung“ bedeutet:'}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
                                             <ComboBox ItemsSource="{x:Static vm:Options.Ranking}" DisplayMemberPath="Label" SelectedValuePath="Value"
                                                       SelectedValue="{Binding Settings.RestoreRanking}" />
                                         </StackPanel>
@@ -317,38 +318,38 @@
                             <DockPanel Grid.Column="2">
                                 <Border Style="{StaticResource Card}" DockPanel.Dock="Top">
                                     <StackPanel>
-                                        <TextBlock Text="Ablauf" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="{l:T 'Ablauf'}" Style="{StaticResource SectionTitle}" />
                                         <TextBlock Text="{Binding EstimatedDurationText}" Style="{StaticResource Muted}" Margin="0,0,0,12" />
                                         <WrapPanel Margin="0,0,0,14">
-                                            <Button Content="▶ Benchmark starten" Command="{Binding StartBenchmarkCommand}" Style="{StaticResource PrimaryButton}" />
-                                            <Button Content="⏯ Pause / Weiter" Command="{Binding TogglePauseCommand}" />
-                                            <Button Content="■ Stopp" Command="{Binding StopBenchmarkCommand}" Style="{StaticResource DangerButton}" />
-                                            <Button Content="Letzten Lauf fortsetzen" Command="{Binding ResumeBenchmarkCommand}" />
+                                            <Button Content="{l:T '▶ Benchmark starten'}" Command="{Binding StartBenchmarkCommand}" Style="{StaticResource PrimaryButton}" />
+                                            <Button Content="{l:T '⏯ Pause / Weiter'}" Command="{Binding TogglePauseCommand}" />
+                                            <Button Content="{l:T '■ Stopp'}" Command="{Binding StopBenchmarkCommand}" Style="{StaticResource DangerButton}" />
+                                            <Button Content="{l:T 'Letzten Lauf fortsetzen'}" Command="{Binding ResumeBenchmarkCommand}" />
                                         </WrapPanel>
                                         <TextBlock Text="{Binding PhaseText}" FontSize="18" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding StepText}" TextWrapping="Wrap" Margin="0,2,0,8" />
-                                        <TextBlock Text="Aktueller Schritt" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Aktueller Schritt'}" Style="{StaticResource Muted}" />
                                         <ProgressBar Value="{Binding PhaseProgress}" Margin="0,4,0,10" />
-                                        <TextBlock Text="Gesamt (Schätzung – endet oft früher)" Style="{StaticResource Muted}" />
+                                        <TextBlock Text="{l:T 'Gesamt (Schätzung – endet oft früher)'}" Style="{StaticResource Muted}" />
                                         <ProgressBar Value="{Binding OverallProgress}" Margin="0,4,0,6" />
                                         <TextBlock Text="{Binding EtaText}" Style="{StaticResource Muted}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource Card}" DockPanel.Dock="Top">
                                     <StackPanel>
-                                        <TextBlock Text="Bisher beste Einstellung" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="{l:T 'Bisher beste Einstellung'}" Style="{StaticResource SectionTitle}" />
                                         <TextBlock Text="{Binding BestSummary}" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource Card}" Margin="0">
-                                    <controls:LineChart Values="{Binding HashHistory}" Title="Hashrate (live)" Unit="GH/s" Stroke="{DynamicResource AccentBrush}" MinHeight="140" />
+                                    <controls:LineChart Values="{Binding HashHistory}" Title="{l:T 'Hashrate (live)'}" Unit="GH/s" Stroke="{DynamicResource AccentBrush}" MinHeight="140" />
                                 </Border>
                             </DockPanel>
                         </Grid>
                     </TabItem>
 
                     <!-- ERGEBNISSE -->
-                    <TabItem Header="Ergebnisse">
+                    <TabItem Header="{l:T 'Ergebnisse'}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -358,19 +359,19 @@
                             <Border Style="{StaticResource Card}" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentBrush}">
                                 <StackPanel>
                                     <WrapPanel Margin="0,0,0,8">
-                                        <TextBlock Text="Beste Einstellung nach:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
+                                        <TextBlock Text="{l:T 'Beste Einstellung nach:'}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
                                         <ComboBox ItemsSource="{x:Static vm:Options.Ranking}" DisplayMemberPath="Label" SelectedValuePath="Value"
                                                   SelectedValue="{Binding SelectedRanking}" Width="250" />
-                                        <TextBlock Text="Gewichtung Hashrate (nur Kompromiss):" VerticalAlignment="Center" Margin="16,0,8,0" />
+                                        <TextBlock Text="{l:T 'Gewichtung Hashrate (nur Kompromiss):'}" VerticalAlignment="Center" Margin="16,0,8,0" />
                                         <Slider Minimum="0" Maximum="1" Width="140" Value="{Binding BalancedWeight}" VerticalAlignment="Center"
-                                                TickFrequency="0.1" IsSnapToTickEnabled="True" ToolTip="0 % = nur Effizienz, 100 % = nur Hashrate" />
+                                                TickFrequency="0.1" IsSnapToTickEnabled="True" ToolTip="{l:T '0 % = nur Effizienz, 100 % = nur Hashrate'}" />
                                         <TextBlock Text="{Binding BalancedWeight, StringFormat=P0}" VerticalAlignment="Center" Margin="6,0,0,0" />
                                     </WrapPanel>
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Content="Beste anwenden" Command="{Binding ApplyBestCommand}" Style="{StaticResource PrimaryButton}" />
-                                            <Button Content="Ausgewählte anwenden" Command="{Binding ApplyResultCommand}" />
-                                            <Button Content="CSV exportieren" Command="{Binding ExportCsvCommand}" Margin="0" />
+                                            <Button Content="{l:T 'Beste anwenden'}" Command="{Binding ApplyBestCommand}" Style="{StaticResource PrimaryButton}" />
+                                            <Button Content="{l:T 'Ausgewählte anwenden'}" Command="{Binding ApplyResultCommand}" />
+                                            <Button Content="{l:T 'CSV exportieren'}" Command="{Binding ExportCsvCommand}" Margin="0" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding BestSummary}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                                     </DockPanel>
@@ -382,10 +383,10 @@
                                     <DockPanel Margin="0,0,0,8">
                                         <ComboBox DockPanel.Dock="Right" ItemsSource="{x:Static vm:Options.HeatmapMetrics}" DisplayMemberPath="Label"
                                                   SelectedValuePath="Value" SelectedValue="{Binding HeatmapMetric}" Width="220" />
-                                        <TextBlock Text="Übersicht Frequenz × Spannung" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" Margin="0" />
+                                        <TextBlock Text="{l:T 'Übersicht Frequenz × Spannung'}" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" Margin="0" />
                                     </DockPanel>
                                     <controls:Heatmap Results="{Binding Results}" Metric="{Binding HeatmapMetric}" Highlight="{Binding BestResult}" Height="220" />
-                                    <TextBlock Style="{StaticResource Muted}" Text="Orange = stabil (je kräftiger, desto besser) · × = instabil · Rot = Sicherheitsgrenze überschritten · Rahmen = beste Einstellung" />
+                                    <TextBlock Style="{StaticResource Muted}" Text="{l:T 'Orange = stabil (je kräftiger, desto besser) · × = instabil · Rot = Sicherheitsgrenze überschritten · Rahmen = beste Einstellung'}" />
                                 </StackPanel>
                             </Border>
 
@@ -393,7 +394,7 @@
                                       IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderBrush="{DynamicResource CardBorderBrush}"
                                       HorizontalGridLinesBrush="{DynamicResource CardBorderBrush}" RowHeight="26" CanUserAddRows="False">
                                 <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="Status" SortMemberPath="Outcome">
+                                    <DataGridTemplateColumn Header="{l:T 'Status'}" SortMemberPath="Outcome">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" Margin="4,0">
@@ -406,43 +407,43 @@
                                     <DataGridTextColumn Header="MHz" Binding="{Binding FrequencyMhz}" />
                                     <DataGridTextColumn Header="mV" Binding="{Binding CoreVoltageMv}" />
                                     <DataGridTextColumn Header="GH/s" Binding="{Binding AvgHashRateGh, StringFormat=F1}" />
-                                    <DataGridTextColumn Header="% Soll" Binding="{Binding HashRateRatio, StringFormat=P1}" />
+                                    <DataGridTextColumn Header="{l:T '% Soll'}" Binding="{Binding HashRateRatio, StringFormat=P1}" />
                                     <DataGridTextColumn Header="W" Binding="{Binding AvgPowerW, StringFormat=F1}" />
                                     <DataGridTextColumn Header="J/TH" Binding="{Binding EfficiencyJth, StringFormat=F2}" />
-                                    <DataGridTextColumn Header="Chip max °C" Binding="{Binding MaxChipTempC, StringFormat=F1}" />
-                                    <DataGridTextColumn Header="VR max °C" Binding="{Binding MaxVrTempC, StringFormat=F1}" />
-                                    <DataGridTextColumn Header="Fehler %" Binding="{Binding AvgErrorPercent, StringFormat=F2}" />
-                                    <DataGridTextColumn Header="Messwerte" Binding="{Binding SampleCount}" />
-                                    <DataGridTextColumn Header="Zeit" Binding="{Binding Timestamp, StringFormat=HH:mm}" />
-                                    <DataGridTextColumn Header="Hinweis" Binding="{Binding Message}" Width="*" />
+                                    <DataGridTextColumn Header="{l:T 'Chip max °C'}" Binding="{Binding MaxChipTempC, StringFormat=F1}" />
+                                    <DataGridTextColumn Header="{l:T 'VR max °C'}" Binding="{Binding MaxVrTempC, StringFormat=F1}" />
+                                    <DataGridTextColumn Header="{l:T 'Fehler %'}" Binding="{Binding AvgErrorPercent, StringFormat=F2}" />
+                                    <DataGridTextColumn Header="{l:T 'Messwerte'}" Binding="{Binding SampleCount}" />
+                                    <DataGridTextColumn Header="{l:T 'Zeit'}" Binding="{Binding Timestamp, StringFormat=HH:mm}" />
+                                    <DataGridTextColumn Header="{l:T 'Hinweis'}" Binding="{Binding Message}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
                     </TabItem>
 
                     <!-- VORHER/NACHHER -->
-                    <TabItem Header="Vorher/Nachher">
+                    <TabItem Header="{l:T 'Vorher/Nachher'}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                                <Button DockPanel.Dock="Right" Content="Aktualisieren" Command="{Binding RefreshComparisonsCommand}" Margin="0" />
+                                <Button DockPanel.Dock="Right" Content="{l:T 'Aktualisieren'}" Command="{Binding RefreshComparisonsCommand}" Margin="0" />
                                 <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Text="Jede Tuning-Änderung aus history.db: Mittelwerte 60 min vorher und 60 min nachher (die ersten 5 min nach der Änderung zählen als Anlaufphase)." />
+                                           Text="{l:T 'Jede Tuning-Änderung aus history.db: Mittelwerte 60 min vorher und 60 min nachher (die ersten 5 min nach der Änderung zählen als Anlaufphase).'}" />
                             </DockPanel>
                             <DataGrid ItemsSource="{Binding Comparisons}" IsReadOnly="True" RowHeight="26">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Zeit" Binding="{Binding Time, StringFormat='dd.MM. HH:mm', ConverterCulture='de-DE'}" Width="95" />
-                                    <DataGridTextColumn Header="Quelle" Binding="{Binding Source}" Width="120" />
-                                    <DataGridTextColumn Header="Änderung" Binding="{Binding Change}" Width="210" />
-                                    <DataGridTextColumn Header="Vorher (Ø 60 min)" Binding="{Binding BeforeText}" Width="260" />
-                                    <DataGridTextColumn Header="Nachher (Ø 60 min)" Binding="{Binding AfterText}" Width="260" />
-                                    <DataGridTextColumn Header="Differenz" Binding="{Binding DeltaText}" Width="*" />
+                                    <DataGridTextColumn Header="{l:T 'Zeit'}" Binding="{Binding Time, StringFormat='dd.MM. HH:mm', ConverterCulture='de-DE'}" Width="95" />
+                                    <DataGridTextColumn Header="{l:T 'Quelle'}" Binding="{Binding Source}" Width="120" />
+                                    <DataGridTextColumn Header="{l:T 'Änderung'}" Binding="{Binding Change}" Width="210" />
+                                    <DataGridTextColumn Header="{l:T 'Vorher (Ø 60 min)'}" Binding="{Binding BeforeText}" Width="260" />
+                                    <DataGridTextColumn Header="{l:T 'Nachher (Ø 60 min)'}" Binding="{Binding AfterText}" Width="260" />
+                                    <DataGridTextColumn Header="{l:T 'Differenz'}" Binding="{Binding DeltaText}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
                     </TabItem>
 
                     <!-- AUTOMATIK: Voreinstellungen, Temperaturschutz, Zeitplan/Strompreis, Dauertest -->
-                    <TabItem Header="Automatik">
+                    <TabItem Header="{l:T 'Automatik'}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <Border Style="{StaticResource Card}" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentBrush}">
@@ -451,7 +452,7 @@
                                         <TextBlock Text="{Binding SoakStatus}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                    Visibility="{Binding SoakStatus, Converter={StaticResource NullToVisibility}}" />
                                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
-                                                   Text="Regeln handeln erst nach ausdrücklicher Freigabe. Jede Änderung an einer Regel hebt die Freigabe auf. Automatische Änderungen werden in history.db protokolliert (Quelle „Automatik“), im Verlauf markiert und per Push gemeldet (Einstellungen → „Watchdog, Firmware, Automatik“)." />
+                                                   Text="{l:T 'Regeln handeln erst nach ausdrücklicher Freigabe. Jede Änderung an einer Regel hebt die Freigabe auf. Automatische Änderungen werden in history.db protokolliert (Quelle „Automatik“), im Verlauf markiert und per Push gemeldet (Einstellungen → „Watchdog, Firmware, Automatik“).'}" />
                                     </StackPanel>
                                 </Border>
 
@@ -466,20 +467,20 @@
                                         <!-- Voreinstellungen -->
                                         <Border Style="{StaticResource Card}">
                                             <StackPanel>
-                                                <TextBlock Text="Voreinstellungen" Style="{StaticResource SectionTitle}" />
+                                                <TextBlock Text="{l:T 'Voreinstellungen'}" Style="{StaticResource SectionTitle}" />
                                                 <DataGrid ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" IsReadOnly="True" Height="120">
                                                     <DataGrid.Columns>
-                                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                                                        <DataGridTextColumn Header="{l:T 'Name'}" Binding="{Binding Name}" Width="*" />
                                                         <DataGridTextColumn Header="MHz" Binding="{Binding FrequencyMhz}" Width="70" />
                                                         <DataGridTextColumn Header="mV" Binding="{Binding CoreVoltageMv}" Width="70" />
                                                     </DataGrid.Columns>
                                                 </DataGrid>
                                                 <DockPanel Margin="0,8,0,0">
-                                                    <Button DockPanel.Dock="Right" Content="Entfernen" Command="{Binding RemovePresetCommand}" Margin="8,0,0,0" />
-                                                    <Button DockPanel.Dock="Right" Content="Aktuelle Werte speichern" Command="{Binding AddPresetFromCurrentCommand}" Margin="8,0,0,0" />
-                                                    <TextBox Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Name, z. B. Hashrate, Effizienz, Nacht" />
+                                                    <Button DockPanel.Dock="Right" Content="{l:T 'Entfernen'}" Command="{Binding RemovePresetCommand}" Margin="8,0,0,0" />
+                                                    <Button DockPanel.Dock="Right" Content="{l:T 'Aktuelle Werte speichern'}" Command="{Binding AddPresetFromCurrentCommand}" Margin="8,0,0,0" />
+                                                    <TextBox Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}" ToolTip="{l:T 'Name, z. B. Hashrate, Effizienz, Nacht'}" />
                                                 </DockPanel>
-                                                <Button Content="„Hashrate“ und „Effizienz“ aus dem letzten Benchmark übernehmen" Command="{Binding AddPresetsFromBenchmarkCommand}"
+                                                <Button Content="{l:T '„Hashrate“ und „Effizienz“ aus dem letzten Benchmark übernehmen'}" Command="{Binding AddPresetsFromBenchmarkCommand}"
                                                         HorizontalAlignment="Left" Margin="0,8,0,0" />
                                             </StackPanel>
                                         </Border>
@@ -487,25 +488,25 @@
                                         <!-- Temperaturschutz -->
                                         <Border Style="{StaticResource Card}">
                                             <StackPanel>
-                                                <TextBlock Text="Temperaturschutz" Style="{StaticResource SectionTitle}" />
-                                                <CheckBox Content="Eingeschaltet" IsChecked="{Binding ThermalGuard.Enabled}" Margin="0,0,0,8" />
+                                                <TextBlock Text="{l:T 'Temperaturschutz'}" Style="{StaticResource SectionTitle}" />
+                                                <CheckBox Content="{l:T 'Eingeschaltet'}" IsChecked="{Binding ThermalGuard.Enabled}" Margin="0,0,0,8" />
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                                                    <TextBlock Text="Max. Chiptemperatur (°C)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Text="{l:T 'Max. Chiptemperatur (°C)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Column="1" Text="{Binding ThermalGuard.MaxChipTempC}" Style="{StaticResource FieldBox}" />
-                                                    <TextBlock Grid.Row="1" Text="Max. VR-Temperatur (°C)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="1" Text="{l:T 'Max. VR-Temperatur (°C)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ThermalGuard.MaxVrTempC}" Style="{StaticResource FieldBox}" />
-                                                    <TextBlock Grid.Row="2" Text="Durchgehend überschritten (min)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="2" Text="{l:T 'Durchgehend überschritten (min)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ThermalGuard.Minutes}" Style="{StaticResource FieldBox}" />
-                                                    <TextBlock Grid.Row="3" Text="Frequenz senken um (MHz)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="3" Text="{l:T 'Frequenz senken um (MHz)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ThermalGuard.StepMhz}" Style="{StaticResource FieldBox}" />
-                                                    <TextBlock Grid.Row="4" Text="Nie unter (MHz)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="4" Text="{l:T 'Nie unter (MHz)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ThermalGuard.MinFrequencyMhz}" Style="{StaticResource FieldBox}" />
-                                                    <CheckBox Grid.Row="5" Content="Zurück, wenn kühl – nach (min):" IsChecked="{Binding ThermalGuard.Recover}" VerticalAlignment="Center" />
+                                                    <CheckBox Grid.Row="5" Content="{l:T 'Zurück, wenn kühl – nach (min):'}" IsChecked="{Binding ThermalGuard.Recover}" VerticalAlignment="Center" />
                                                     <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ThermalGuard.RecoverMinutes}" Style="{StaticResource FieldBox}" />
                                                 </Grid>
-                                                <Button Content="Speichern und freigeben …" Command="{Binding ApproveThermalGuardCommand}" Style="{StaticResource PrimaryButton}"
+                                                <Button Content="{l:T 'Speichern und freigeben …'}" Command="{Binding ApproveThermalGuardCommand}" Style="{StaticResource PrimaryButton}"
                                                         HorizontalAlignment="Left" Margin="0,10,0,0" />
                                             </StackPanel>
                                         </Border>
@@ -515,52 +516,52 @@
                                         <!-- Zeitplan / Strompreis -->
                                         <Border Style="{StaticResource Card}">
                                             <StackPanel>
-                                                <TextBlock Text="Zeitplan / Strompreis" Style="{StaticResource SectionTitle}" />
-                                                <CheckBox Content="Eingeschaltet" IsChecked="{Binding Schedule.Enabled}" Margin="0,0,0,8" />
+                                                <TextBlock Text="{l:T 'Zeitplan / Strompreis'}" Style="{StaticResource SectionTitle}" />
+                                                <CheckBox Content="{l:T 'Eingeschaltet'}" IsChecked="{Binding Schedule.Enabled}" Margin="0,0,0,8" />
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                    <RadioButton Content="Zeitplan" IsChecked="{Binding ScheduleIsTime}" Margin="0,0,16,0"
+                                                    <RadioButton Content="{l:T 'Zeitplan'}" IsChecked="{Binding ScheduleIsTime}" Margin="0,0,16,0"
                                                                  Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
-                                                    <RadioButton Content="Strompreis" IsChecked="{Binding ScheduleIsPrice}" Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
+                                                    <RadioButton Content="{l:T 'Strompreis'}" IsChecked="{Binding ScheduleIsPrice}" Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
                                                 </StackPanel>
 
                                                 <StackPanel Visibility="{Binding ScheduleIsTime, Converter={StaticResource BoolToVisibility}}">
                                                     <DataGrid ItemsSource="{Binding ScheduleEntries}" SelectedItem="{Binding SelectedScheduleEntry}" Height="130"
                                                               IsReadOnly="False" CanUserAddRows="False">
                                                         <DataGrid.Columns>
-                                                            <DataGridTextColumn Header="Tage (täglich, Mo-Fr, Sa,So)" Binding="{Binding DaysText, UpdateSourceTrigger=LostFocus}" Width="*" />
-                                                            <DataGridTextColumn Header="Von (h)" Binding="{Binding FromHour}" Width="60" />
-                                                            <DataGridTextColumn Header="Bis (h)" Binding="{Binding ToHour}" Width="60" />
-                                                            <DataGridTextColumn Header="Voreinstellung" Binding="{Binding Preset}" Width="110" />
+                                                            <DataGridTextColumn Header="{l:T 'Tage (täglich, Mo-Fr, Sa,So)'}" Binding="{Binding DaysText, UpdateSourceTrigger=LostFocus}" Width="*" />
+                                                            <DataGridTextColumn Header="{l:T 'Von (h)'}" Binding="{Binding FromHour}" Width="60" />
+                                                            <DataGridTextColumn Header="{l:T 'Bis (h)'}" Binding="{Binding ToHour}" Width="60" />
+                                                            <DataGridTextColumn Header="{l:T 'Voreinstellung'}" Binding="{Binding Preset}" Width="110" />
                                                         </DataGrid.Columns>
                                                     </DataGrid>
                                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                        <Button Content="Zeile hinzufügen" Command="{Binding AddScheduleEntryCommand}" />
-                                                        <Button Content="Zeile entfernen" Command="{Binding RemoveScheduleEntryCommand}" />
+                                                        <Button Content="{l:T 'Zeile hinzufügen'}" Command="{Binding AddScheduleEntryCommand}" />
+                                                        <Button Content="{l:T 'Zeile entfernen'}" Command="{Binding RemoveScheduleEntryCommand}" />
                                                     </StackPanel>
                                                     <DockPanel Margin="0,8,0,0">
-                                                        <TextBlock Text="Sonst (leer = nichts ändern):" Style="{StaticResource FieldLabel}" />
+                                                        <TextBlock Text="{l:T 'Sonst (leer = nichts ändern):'}" Style="{StaticResource FieldLabel}" />
                                                         <TextBox Text="{Binding Schedule.DefaultPreset}" />
                                                     </DockPanel>
                                                     <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                               Text="Erste passende Zeile gilt. „Bis“ ist ausschließlich; 22–6 läuft über Mitternacht (der Morgen zählt zum Vortag)." />
+                                                               Text="{l:T 'Erste passende Zeile gilt. „Bis“ ist ausschließlich; 22–6 läuft über Mitternacht (der Morgen zählt zum Vortag).'}" />
                                                 </StackPanel>
 
                                                 <Grid Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                                                    <TextBlock Text="Schwelle (ct/kWh)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Text="{l:T 'Schwelle (ct/kWh)'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Column="1" Text="{Binding Schedule.ThresholdCt}" Style="{StaticResource FieldBox}" />
-                                                    <TextBlock Grid.Row="1" Text="Günstig (≤ Schwelle) → Voreinstellung" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="1" Text="{l:T 'Günstig (≤ Schwelle) → Voreinstellung'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Schedule.CheapPreset}" Width="130" Margin="0,3" />
-                                                    <TextBlock Grid.Row="2" Text="Teuer → Voreinstellung" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Grid.Row="2" Text="{l:T 'Teuer → Voreinstellung'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Schedule.ExpensivePreset}" Width="130" Margin="0,3" />
                                                     <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                               Text="Preisquelle in Einstellungen → Strompreis. aWATTar liefert den Börsenpreis ohne Netzentgelte/Steuern, Tibber den Endpreis – die Schwelle entsprechend wählen." />
+                                                               Text="{l:T 'Preisquelle in Einstellungen → Strompreis. aWATTar liefert den Börsenpreis ohne Netzentgelte/Steuern, Tibber den Endpreis – die Schwelle entsprechend wählen.'}" />
                                                 </Grid>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                                    <Button Content="Speichern" Command="{Binding SaveAutomationCommand}" />
-                                                    <Button Content="Speichern und freigeben …" Command="{Binding ApproveScheduleCommand}" Style="{StaticResource PrimaryButton}" />
+                                                    <Button Content="{l:T 'Speichern'}" Command="{Binding SaveAutomationCommand}" />
+                                                    <Button Content="{l:T 'Speichern und freigeben …'}" Command="{Binding ApproveScheduleCommand}" Style="{StaticResource PrimaryButton}" />
                                                 </StackPanel>
                                             </StackPanel>
                                         </Border>
@@ -568,16 +569,16 @@
                                         <!-- Dauertest -->
                                         <Border Style="{StaticResource Card}">
                                             <StackPanel>
-                                                <TextBlock Text="Dauertest der aktuellen Einstellung" Style="{StaticResource SectionTitle}" />
+                                                <TextBlock Text="{l:T 'Dauertest der aktuellen Einstellung'}" Style="{StaticResource SectionTitle}" />
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="Dauer" Style="{StaticResource FieldLabel}" />
+                                                    <TextBlock Text="{l:T 'Dauer'}" Style="{StaticResource FieldLabel}" />
                                                     <ComboBox ItemsSource="{Binding SoakHourOptions}" SelectedItem="{Binding SoakHours}" Width="70" Margin="0,0,6,0" />
                                                     <TextBlock Text="h" Style="{StaticResource FieldLabel}" />
-                                                    <Button Content="Starten …" Command="{Binding StartSoakCommand}" Style="{StaticResource PrimaryButton}" />
-                                                    <Button Content="Abbrechen" Command="{Binding StopSoakCommand}" />
+                                                    <Button Content="{l:T 'Starten …'}" Command="{Binding StartSoakCommand}" Style="{StaticResource PrimaryButton}" />
+                                                    <Button Content="{l:T 'Abbrechen'}" Command="{Binding StopSoakCommand}" />
                                                 </StackPanel>
                                                 <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                                           Text="Prüft über Stunden: Hashrate (Ø 15 min, mind. 93 % der Soll-Hashrate), Fehlerrate, Temperaturen gegen die Profilgrenzen, Erreichbarkeit. Ändert nichts am Miner. Läuft nach einem Neustart der App weiter. Bei einem Fehler schlägt die App die nächstniedrigere stabile Einstellung aus dem letzten Benchmark vor – angewendet wird nur nach Bestätigung." />
+                                                           Text="{l:T 'Prüft über Stunden: Hashrate (Ø 15 min, mind. 93 % der Soll-Hashrate), Fehlerrate, Temperaturen gegen die Profilgrenzen, Erreichbarkeit. Ändert nichts am Miner. Läuft nach einem Neustart der App weiter. Bei einem Fehler schlägt die App die nächstniedrigere stabile Einstellung aus dem letzten Benchmark vor – angewendet wird nur nach Bestätigung.'}" />
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -587,7 +588,7 @@
                     </TabItem>
 
                     <!-- MINER-LOGS (live über ws://<host>/api/ws, Puffer über /api/system/logs) -->
-                    <TabItem x:Name="LogsTab" Header="Miner-Logs">
+                    <TabItem x:Name="LogsTab" Header="{l:T 'Miner-Logs'}">
                         <DockPanel DataContext="{Binding Logs}">
                             <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                                 <Button Command="{Binding ToggleLiveCommand}" Style="{StaticResource PrimaryButton}" MinWidth="120">
@@ -595,10 +596,10 @@
                                         <TextBlock>
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="▶ Live starten" />
+                                                    <Setter Property="Text" Value="{l:T '▶ Live starten'}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsLive}" Value="True">
-                                                            <Setter Property="Text" Value="■ Live stoppen" />
+                                                            <Setter Property="Text" Value="{l:T '■ Live stoppen'}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -606,23 +607,23 @@
                                         </TextBlock>
                                     </Button.Content>
                                 </Button>
-                                <Button Content="Bisherigen Puffer laden" Command="{Binding LoadBufferCommand}"
-                                        ToolTip="Log seit dem letzten Neustart des Miners (GET /api/system/logs, einige 100 KB)" />
+                                <Button Content="{l:T 'Bisherigen Puffer laden'}" Command="{Binding LoadBufferCommand}"
+                                        ToolTip="{l:T 'Log seit dem letzten Neustart des Miners (GET /api/system/logs, einige 100 KB)'}" />
                                 <TextBox Width="180" Margin="0,0,8,0" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="Filter nach Text oder Modul (z. B. asic_result, stratum, fan)" />
-                                <CheckBox Content="Fehler" IsChecked="{Binding ShowErrors}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <CheckBox Content="Warnungen" IsChecked="{Binding ShowWarnings}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                         ToolTip="{l:T 'Filter nach Text oder Modul (z. B. asic_result, stratum, fan)'}" />
+                                <CheckBox Content="{l:T 'Fehler'}" IsChecked="{Binding ShowErrors}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <CheckBox Content="{l:T 'Warnungen'}" IsChecked="{Binding ShowWarnings}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <CheckBox Content="Info" IsChecked="{Binding ShowInfo}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <CheckBox Content="Debug" IsChecked="{Binding ShowDebug}" VerticalAlignment="Center" Margin="0,0,16,0" />
-                                <CheckBox Content="Auto-Scroll" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <CheckBox Content="Anhalten" IsChecked="{Binding Paused}" VerticalAlignment="Center" Margin="0,0,16,0"
-                                          ToolTip="Anzeige einfrieren – neue Zeilen werden gesammelt und danach angehängt" />
-                                <Button Content="Leeren" Command="{Binding ClearCommand}" />
-                                <Button Content="Speichern …" Command="{Binding SaveCommand}" Margin="0" />
+                                <CheckBox Content="{l:T 'Auto-Scroll'}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <CheckBox Content="{l:T 'Anhalten'}" IsChecked="{Binding Paused}" VerticalAlignment="Center" Margin="0,0,16,0"
+                                          ToolTip="{l:T 'Anzeige einfrieren – neue Zeilen werden gesammelt und danach angehängt'}" />
+                                <Button Content="{l:T 'Leeren'}" Command="{Binding ClearCommand}" />
+                                <Button Content="{l:T 'Speichern …'}" Command="{Binding SaveCommand}" Margin="0" />
                             </WrapPanel>
                             <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}" Margin="0,0,0,6">
-                                <Run Text="Status: " /><Run Text="{Binding StatusText, Mode=OneWay}" />
-                                <Run Text=" · Die Verbindung ist nur offen, solange dieser Tab sichtbar ist (der Miner hat nur wenige WebSocket-Plätze)." />
+                                <Run Text="{l:T 'Status: '}" /><Run Text="{Binding StatusText, Mode=OneWay}" />
+                                <Run Text="{l:T ' · Die Verbindung ist nur offen, solange dieser Tab sichtbar ist (der Miner hat nur wenige WebSocket-Plätze).'}" />
                             </TextBlock>
                             <ListBox x:Name="MinerLogList" ItemsSource="{Binding View}" FontFamily="Consolas" FontSize="12"
                                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -649,7 +650,7 @@
                     </TabItem>
 
                     <!-- PROTOKOLL -->
-                    <TabItem Header="App-Protokoll">
+                    <TabItem Header="{l:T 'App-Protokoll'}">
                         <ListBox x:Name="LogList" ItemsSource="{Binding Log}" FontFamily="Consolas" FontSize="12" BorderThickness="0" />
                     </TabItem>
                 </TabControl>
@@ -659,7 +660,7 @@
         <!-- Statusleiste -->
         <Border Grid.Row="2" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="14,6">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}"><Run Text="Daten: " /><Run Text="{Binding DataDirectory, Mode=OneWay}" /></TextBlock>
+                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}"><Run Text="{l:T 'Daten: '}" /><Run Text="{Binding DataDirectory, Mode=OneWay}" /></TextBlock>
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}" />
             </DockPanel>
         </Border>

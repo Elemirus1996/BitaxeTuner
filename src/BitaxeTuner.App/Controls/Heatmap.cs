@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using BitaxeTuner.Core.Benchmark;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Controls;
 
@@ -50,7 +51,7 @@ public sealed class Heatmap : FrameworkElement
         var results = Results?.OfType<StepResult>().ToList() ?? [];
         if (results.Count == 0)
         {
-            dc.DrawText(Text("Noch keine Messergebnisse.", muted, 13, dpi), new Point(8, 8));
+            dc.DrawText(Text(L.T("Noch keine Messergebnisse."), muted, 13, dpi), new Point(8, 8));
             return;
         }
 
@@ -70,7 +71,7 @@ public sealed class Heatmap : FrameworkElement
         for (var yi = 0; yi < volts.Count; yi++)
         {
             var y = top + yi * cellH;
-            var label = Text($"{volts[yi]} mV", muted, 11, dpi);
+            var label = Text(L.T("{0} mV", volts[yi]), muted, 11, dpi);
             dc.DrawText(label, new Point(left - label.Width - 6, y + (cellH - label.Height) / 2));
 
             for (var xi = 0; xi < freqs.Count; xi++)
@@ -90,7 +91,7 @@ public sealed class Heatmap : FrameworkElement
                 else
                 {
                     fill = r.Outcome == StepOutcome.LimitExceeded ? Limit : Unstable;
-                    text = r.Outcome == StepOutcome.LimitExceeded ? "Grenze" : "×";
+                    text = r.Outcome == StepOutcome.LimitExceeded ? L.T("Grenze") : "×";
                 }
 
                 dc.DrawRoundedRectangle(fill, null, rect, 3, 3);

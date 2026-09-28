@@ -7,6 +7,7 @@ using BitaxeTuner.App.Services;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
 using Microsoft.Win32;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App;
 
@@ -70,10 +71,11 @@ public partial class SettingsWindow : Window
         NotifyRecordBox.IsChecked = n.OnRecord;
         UpdateProviderPanels();
 
-        DeviceHint.Text = "Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. " +
-                          "Feste IP ist zuverlässiger.";
+        DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
+                          L.T("Feste IP ist zuverlässiger.");
 
         SelectByTag(ThemeBox, config.Theme);
+        SelectByTag(LanguageBox, config.Language);
         RestartAfterApplyBox.IsChecked = config.RestartAfterApply;
         UpdateCheckBox.IsChecked = config.CheckForUpdates;
         AutostartBox.IsChecked = AutostartService.IsEnabled;
@@ -98,8 +100,8 @@ public partial class SettingsWindow : Window
         WebEnabledBox.IsChecked = config.WebView.Enabled;
         WebPortBox.Text = config.WebView.Port.ToString();
         WebUrlText.Text = config.WebView.Enabled && config.WebView.PinHash.Length > 0
-            ? "Adresse fürs Handy: " + string.Join("  oder  ", Core.Web.WebViewServer.LocalUrls(config.WebView.Port))
-            : config.WebView.PinHash.Length > 0 ? "PIN ist gesetzt." : "Noch keine PIN gesetzt.";
+            ? L.T("Adresse fürs Handy: ") + string.Join("  oder  ", Core.Web.WebViewServer.LocalUrls(config.WebView.Port))
+            : config.WebView.PinHash.Length > 0 ? L.T("PIN ist gesetzt.") : L.T("Noch keine PIN gesetzt.");
         MoveDataDirButton.IsEnabled = moveDataDirectory is not null;
     }
 
@@ -128,7 +130,7 @@ public partial class SettingsWindow : Window
         if (_current is null) return;
 
         var name = NameBox.Text.Trim();
-        _current.Name = name.Length > 0 ? name : (HostBox.Text.Trim().Length > 0 ? HostBox.Text.Trim() : "Miner");
+        _current.Name = name.Length > 0 ? name : (HostBox.Text.Trim().Length > 0 ? HostBox.Text.Trim() : L.T("Miner"));
         _current.Host = HostBox.Text.Trim();
         _current.WalletAddress = WalletBox.Text.Trim();
         _current.Coin = SelectedTag(CoinBox) ?? "Auto";
@@ -142,7 +144,7 @@ public partial class SettingsWindow : Window
     {
         StoreCurrent();
 
-        var device = new DeviceConfig { Name = "Neuer Miner", Host = "" };
+        var device = new DeviceConfig { Name = L.T("Neuer Miner"), Host = "" };
         _devices.Add(device);
         DeviceList.SelectedItem = device;
         NameBox.Focus();
@@ -153,7 +155,7 @@ public partial class SettingsWindow : Window
     {
         if (_current is null) return;
 
-        if (MessageBox.Show(this, $"\"{_current.Name}\" löschen?", "Miner löschen",
+        if (MessageBox.Show(this, L.T("\"{0}\" löschen?", _current.Name), L.T("Miner löschen"),
                             MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
@@ -174,115 +176,115 @@ public partial class SettingsWindow : Window
 
         if (_devices.Any(d => d.Host.Length == 0))
         {
-            ErrorText.Text = "Bei jedem Miner Host oder IP eintragen.";
+            ErrorText.Text = L.T("Bei jedem Miner Host oder IP eintragen.");
             return;
         }
         if (_devices.Select(d => d.Host.ToLowerInvariant()).Distinct().Count() != _devices.Count)
         {
-            ErrorText.Text = "Doppelter Host in der Liste.";
+            ErrorText.Text = L.T("Doppelter Host in der Liste.");
             return;
         }
         if (!TryParseNumber(PriceBox.Text, out var price) || price < 0)
         {
-            ErrorText.Text = "Strompreis ungültig.";
+            ErrorText.Text = L.T("Strompreis ungültig.");
             return;
         }
         if (!int.TryParse(IntervalBox.Text, out var interval) || interval < 1 || interval > 300)
         {
-            ErrorText.Text = "Abfrageintervall: 1 bis 300 Sekunden.";
+            ErrorText.Text = L.T("Abfrageintervall: 1 bis 300 Sekunden.");
             return;
         }
         if (!int.TryParse(HistoryBox.Text, out var history) || history < 1 || history > 1440)
         {
-            ErrorText.Text = "Verlauf: 1 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Verlauf: 1 bis 1440 Minuten.");
             return;
         }
         if (!int.TryParse(WalletIntervalBox.Text, out var walletInterval) || walletInterval < 1 || walletInterval > 1440)
         {
-            ErrorText.Text = "Wallet-Abfrage: 1 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Wallet-Abfrage: 1 bis 1440 Minuten.");
             return;
         }
 
         if (!int.TryParse(TaxIntervalBox.Text, out var taxInterval) || taxInterval < 5 || taxInterval > 1440)
         {
-            ErrorText.Text = "Steuer-Abfrage: 5 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Steuer-Abfrage: 5 bis 1440 Minuten.");
             return;
         }
 
         if (!TryParseNumber(TempWarnBox.Text, out var tempWarn) || tempWarn < 40 || tempWarn > 100)
         {
-            ErrorText.Text = "Temperatur-Warnung: 40 bis 100 °C.";
+            ErrorText.Text = L.T("Temperatur-Warnung: 40 bis 100 °C.");
             return;
         }
         if (!int.TryParse(HistoryDaysBox.Text, out var historyDays) || historyDays < 1 || historyDays > 3650)
         {
-            ErrorText.Text = "Verlauf aufbewahren: 1 bis 3650 Tage.";
+            ErrorText.Text = L.T("Verlauf aufbewahren: 1 bis 3650 Tage.");
             return;
         }
         if (!int.TryParse(WatchdogMinutesBox.Text, out var watchdogMinutes) || watchdogMinutes < 3 || watchdogMinutes > 240)
         {
-            ErrorText.Text = "Watchdog: 3 bis 240 Minuten.";
+            ErrorText.Text = L.T("Watchdog: 3 bis 240 Minuten.");
             return;
         }
         if (!int.TryParse(WatchdogCooldownBox.Text, out var watchdogCooldown) || watchdogCooldown < 10 || watchdogCooldown > 1440)
         {
-            ErrorText.Text = "Watchdog-Sperrzeit: 10 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Watchdog-Sperrzeit: 10 bis 1440 Minuten.");
             return;
         }
 
         if (!int.TryParse(LogCooldownBox.Text, out var logCooldown) || logCooldown < 1 || logCooldown > 1440)
         {
-            ErrorText.Text = "Log-Alarm-Sperrzeit: 1 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Log-Alarm-Sperrzeit: 1 bis 1440 Minuten.");
             return;
         }
         var patterns = LogPatternsBox.Text.Split('\n').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
         var invalid = new LogAlertRules(new LogAlertSettings { Patterns = patterns }).InvalidPatterns;
         if (invalid.Count > 0)
         {
-            ErrorText.Text = "Ungültiges Log-Muster: " + invalid[0];
+            ErrorText.Text = L.T("Ungültiges Log-Muster: ") + invalid[0];
             return;
         }
         if (!TryParseNumber(PoolRejectBox.Text, out var poolReject) || poolReject <= 0 || poolReject > 100)
         {
-            ErrorText.Text = "Max. abgelehnt: 0 bis 100 %.";
+            ErrorText.Text = L.T("Max. abgelehnt: 0 bis 100 %.");
             return;
         }
         if (!int.TryParse(PoolWindowBox.Text, out var poolWindow) || poolWindow < 5 || poolWindow > 1440)
         {
-            ErrorText.Text = "Pool-Zeitfenster: 5 bis 1440 Minuten.";
+            ErrorText.Text = L.T("Pool-Zeitfenster: 5 bis 1440 Minuten.");
             return;
         }
         if (!TryParseNumber(PoolResponseBox.Text, out var poolResponse) || poolResponse < 0 || poolResponse > 60000)
         {
-            ErrorText.Text = "Max. Antwortzeit: 0 bis 60000 ms.";
+            ErrorText.Text = L.T("Max. Antwortzeit: 0 bis 60000 ms.");
             return;
         }
         if (!int.TryParse(ReportHourBox.Text, out var reportHour) || reportHour < 0 || reportHour > 23)
         {
-            ErrorText.Text = "Tagesbericht: Stunde 0 bis 23.";
+            ErrorText.Text = L.T("Tagesbericht: Stunde 0 bis 23.");
             return;
         }
 
         if (!int.TryParse(WebPortBox.Text, out var webPort) || webPort < 1024 || webPort > 65535)
         {
-            ErrorText.Text = "Port der Handy-Ansicht: 1024 bis 65535.";
+            ErrorText.Text = L.T("Port der Handy-Ansicht: 1024 bis 65535.");
             return;
         }
         var newPin = WebPinBox.Password.Trim();
         if (newPin.Length > 0 && (newPin.Length < 4 || newPin.Length > 12 || !newPin.All(char.IsDigit)))
         {
-            ErrorText.Text = "PIN: 4 bis 12 Ziffern.";
+            ErrorText.Text = L.T("PIN: 4 bis 12 Ziffern.");
             return;
         }
         if (WebEnabledBox.IsChecked == true && newPin.Length == 0 && _config.WebView.PinHash.Length == 0)
         {
-            ErrorText.Text = "Für die Handy-Ansicht zuerst eine PIN festlegen.";
+            ErrorText.Text = L.T("Für die Handy-Ansicht zuerst eine PIN festlegen.");
             return;
         }
         var priceSource = SelectedTag(PriceSourceBox) ?? "none";
         if (priceSource == "tibber" && TibberTokenBox.Password.Trim().Length == 0)
         {
-            ErrorText.Text = "Für Tibber den API-Token eintragen.";
+            ErrorText.Text = L.T("Für Tibber den API-Token eintragen.");
             return;
         }
 
@@ -326,6 +328,7 @@ public partial class SettingsWindow : Window
         _config.WalletPollMinutes = walletInterval;
         _config.StartMinimized = MinimizedBox.IsChecked == true;
         _config.Theme = SelectedTag(ThemeBox) ?? "dark";
+        _config.Language = SelectedTag(LanguageBox) ?? "auto";
         _config.RestartAfterApply = RestartAfterApplyBox.IsChecked == true;
         _config.CheckForUpdates = UpdateCheckBox.IsChecked == true;
         _config.Save();
@@ -350,11 +353,11 @@ public partial class SettingsWindow : Window
     private async void ReportNow_Click(object sender, RoutedEventArgs e)
     {
         if (_sendReportNow is null) return;
-        ReportResultText.Text = "Sende …";
+        ReportResultText.Text = L.T("Sende …");
         ReportNowButton.IsEnabled = false;
         var error = await _sendReportNow();
         ReportNowButton.IsEnabled = true;
-        ReportResultText.Text = error ?? "Gesendet – kam er an? (mit den gespeicherten Push-Einstellungen)";
+        ReportResultText.Text = error ?? L.T("Gesendet – kam er an? (mit den gespeicherten Push-Einstellungen)");
     }
 
     // ---------- Autostart ----------
@@ -373,8 +376,8 @@ public partial class SettingsWindow : Window
 
             if (AutostartService.OldMonitorLinkExists &&
                 MessageBox.Show(this,
-                    "Im Autostart liegt noch eine Verknüpfung auf den alten BitaxeMonitor.\n\n" +
-                    "Beide Programme würden sonst gleichzeitig starten und die Miner doppelt abfragen. Alte Verknüpfung entfernen?",
+                    L.T("Im Autostart liegt noch eine Verknüpfung auf den alten BitaxeMonitor.\n\n") +
+                    L.T("Beide Programme würden sonst gleichzeitig starten und die Miner doppelt abfragen. Alte Verknüpfung entfernen?"),
                     "Autostart", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 AutostartService.RemoveOldMonitorLink();
@@ -382,7 +385,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Autostart konnte nicht geändert werden: " + ex.Message, "Autostart",
+            MessageBox.Show(this, L.T("Autostart konnte nicht geändert werden: ") + ex.Message, "Autostart",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -396,14 +399,14 @@ public partial class SettingsWindow : Window
     {
         if (_moveDataDirectory is null) return;
 
-        var dialog = new OpenFolderDialog { Title = "Neuen Datenordner wählen (leer oder neu)" };
+        var dialog = new OpenFolderDialog { Title = L.T("Neuen Datenordner wählen (leer oder neu)") };
         if (dialog.ShowDialog(this) != true) return;
 
         if (MessageBox.Show(this,
-                $"Daten von\n{_dataDirectory}\nnach\n{dialog.FolderName}\nkopieren und danach dort weiterarbeiten?\n\n" +
-                "Der alte Ordner bleibt unverändert erhalten. Die Abfragen pausieren während des Umzugs, " +
-                "anschließend startet die App neu. Nicht gespeicherte Änderungen in diesem Fenster gehen verloren.",
-                "Datenordner umziehen", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                L.T("Daten von\n{0}\nnach\n{1}\nkopieren und danach dort weiterarbeiten?\n\n", _dataDirectory, dialog.FolderName) +
+                L.T("Der alte Ordner bleibt unverändert erhalten. Die Abfragen pausieren während des Umzugs, ") +
+                L.T("anschließend startet die App neu. Nicht gespeicherte Änderungen in diesem Fenster gehen verloren."),
+                L.T("Datenordner umziehen"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 
         IsEnabled = false;
@@ -411,7 +414,7 @@ public partial class SettingsWindow : Window
         IsEnabled = true;
 
         MessageBox.Show(this, result.Message + "\n\n" + string.Join("\n", result.Log.TakeLast(12)),
-            "Datenordner umziehen", MessageBoxButton.OK, result.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            L.T("Datenordner umziehen"), MessageBoxButton.OK, result.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
 
         if (result.Success)
         {
@@ -455,14 +458,14 @@ public partial class SettingsWindow : Window
         var settings = ReadNotificationSettings();
         if (settings.Provider == "none")
         {
-            TestResultText.Text = "Erst einen Dienst auswählen.";
+            TestResultText.Text = L.T("Erst einen Dienst auswählen.");
             return;
         }
 
-        TestResultText.Text = "Sende …";
+        TestResultText.Text = L.T("Sende …");
         using var service = new NotificationService(() => settings);
         var error = await service.TestAsync(settings);
-        TestResultText.Text = error is null ? "Gesendet – kam sie an?" : "Fehler: " + error;
+        TestResultText.Text = error is null ? L.T("Gesendet – kam sie an?") : L.T("Fehler: ") + error;
     }
 
     // ---------- Hilfen ----------

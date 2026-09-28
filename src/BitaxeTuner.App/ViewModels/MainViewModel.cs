@@ -12,6 +12,7 @@ using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.ViewModels;
 
@@ -44,7 +45,7 @@ public sealed partial class NavItem : ObservableObject
     [ObservableProperty] private Brush _dot = Brushes.Gray;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(PoolLinkToolTip))] private PoolQuickLink? _poolLink;
 
-    public string? PoolLinkToolTip => PoolLink is { } p ? $"{p.Pool}: Pool-Statistik öffnen" : null;
+    public string? PoolLinkToolTip => PoolLink is { } p ? L.T("{0}: Pool-Statistik öffnen", p.Pool) : null;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -75,7 +76,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _newName = "";
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ScanNetworkCommand))] private bool _isScanning;
     [ObservableProperty] private double _scanProgress;
-    [ObservableProperty] private string _statusText = "Bereit";
+    [ObservableProperty] private string _statusText = L.T("Bereit");
     [ObservableProperty] private string? _updateText;
     [ObservableProperty] private string? _updateUrl;
 
@@ -114,15 +115,15 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         NavItems.Clear();
-        NavItems.Add(new NavItem(NavKind.Aggregate, "Gesamt", "alle Miner") { Dot = ThemeManager.Brush("IdleBrush") });
+        NavItems.Add(new NavItem(NavKind.Aggregate, L.T("Gesamt"), L.T("alle Miner")) { Dot = ThemeManager.Brush("IdleBrush") });
         foreach (var state in _host.Polling.States)
         {
             var vm = _devices[state.Config.Host];
             NavItems.Add(new NavItem(NavKind.Device, state.Config.Name, state.Config.Host, vm) { Dot = ThemeManager.Brush("IdleBrush") });
         }
-        NavItems.Add(new NavItem(NavKind.Network, "Netzwerk", "Blöcke & Pool-Ranking") { Dot = ThemeManager.Brush("InfoBrush") });
-        NavItems.Add(new NavItem(NavKind.Compare, "Vergleich", "Miner nebeneinander") { Dot = ThemeManager.Brush("AccentBrush") });
-        NavItems.Add(new NavItem(NavKind.Tax, "Steuer", "Zuflüsse dokumentieren") { Dot = ThemeManager.Brush("WarnBrush") });
+        NavItems.Add(new NavItem(NavKind.Network, L.T("Netzwerk"), L.T("Blöcke & Pool-Ranking")) { Dot = ThemeManager.Brush("InfoBrush") });
+        NavItems.Add(new NavItem(NavKind.Compare, L.T("Vergleich"), L.T("Miner nebeneinander")) { Dot = ThemeManager.Brush("AccentBrush") });
+        NavItems.Add(new NavItem(NavKind.Tax, L.T("Steuer"), L.T("Zuflüsse dokumentieren")) { Dot = ThemeManager.Brush("WarnBrush") });
 
         SelectedNav = NavItems.FirstOrDefault(n => n.Kind == selectedKind &&
                                                    (selectedKind != NavKind.Device || string.Equals(n.Host, selectedHost, StringComparison.OrdinalIgnoreCase)))
@@ -189,15 +190,15 @@ public sealed partial class MainViewModel : ObservableObject
         if (result.Status == Core.Update.UpdateCheckStatus.UpdateAvailable && result.Update is { } u)
         {
             _pendingUpdate = u;
-            UpdateText = $"Update {u.Tag} installieren";
+            UpdateText = L.T("Update {0} installieren", u.Tag);
             UpdateUrl = u.ReleaseUrl;
             InstallUpdateCommand.NotifyCanExecuteChanged();
             if (_host.Config.NotifiedAppVersion != u.Tag && _host.Notify.Enabled && _host.Config.Notifications.OnMaintenance)
             {
                 _host.Config.NotifiedAppVersion = u.Tag;
                 _host.Config.Save();
-                _host.SendAlert(new Core.Monitoring.Alert($"app-update:{u.Tag}", $"BitaxeTuner {u.Tag} verfügbar",
-                    $"Installiert ist {VersionText}. Installation per Klick in der App.", Core.Monitoring.NotifyPriority.Low, TimeSpan.FromDays(30)));
+                _host.SendAlert(new Core.Monitoring.Alert($"app-update:{u.Tag}", L.T("BitaxeTuner {0} verfügbar", u.Tag),
+                    L.T("Installiert ist {0}. Installation per Klick in der App.", VersionText), Core.Monitoring.NotifyPriority.Low, TimeSpan.FromDays(30)));
             }
         }
         // Automatische Prüfung bleibt still (z. B. solange das Repository privat ist); nur bei "Jetzt prüfen" melden
@@ -216,21 +217,21 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (_pendingUpdate is not { } u) return;
         var notes = u.Notes.Length > 900 ? u.Notes[..900] + " …" : u.Notes;
-        var text = $"BitaxeTuner {u.Tag} installieren? (installiert: {VersionText})\n\n" +
+        var text = L.T("BitaxeTuner {0} installieren? (installiert: {1})\n\n", u.Tag, VersionText) +
                    (notes.Length > 0 ? notes + "\n\n" : "") +
-                   $"Setup: {u.SetupName} ({u.SetupSize / 1024.0 / 1024.0:0.0} MB), Prüfsumme wird kontrolliert.\n" +
-                   (AnyRunning ? "Laufende Benchmarks werden gestoppt und die ursprünglichen Einstellungen wiederhergestellt.\n" : "") +
-                   "Die App wird beendet, aktualisiert und danach neu gestartet. Deine Daten bleiben unverändert.";
-        if (MessageBox.Show(text, "Update installieren", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                   L.T("Setup: {0} ({1:0.0} MB), Prüfsumme wird kontrolliert.\n", u.SetupName, u.SetupSize / 1024.0 / 1024.0) +
+                   (AnyRunning ? L.T("Laufende Benchmarks werden gestoppt und die ursprünglichen Einstellungen wiederhergestellt.\n") : "") +
+                   L.T("Die App wird beendet, aktualisiert und danach neu gestartet. Deine Daten bleiben unverändert.");
+        if (MessageBox.Show(text, L.T("Update installieren"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 
         IsUpdating = true;
         try
         {
-            var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BitaxeTuner-Update");
+            var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), L.T("BitaxeTuner-Update"));
             var file = await _host.Updates.DownloadAsync(u, dir,
-                new Progress<double>(p => StatusText = $"Lade {u.SetupName} … {p:P0}"));
-            StatusText = "Prüfsumme in Ordnung – beende laufende Vorgänge …";
+                new Progress<double>(p => StatusText = L.T("Lade {0} … {1:P0}", u.SetupName, p)));
+            StatusText = L.T("Prüfsumme in Ordnung – beende laufende Vorgänge …");
             await StopAllAndWaitAsync();
             _host.Config.Save();
 
@@ -240,8 +241,8 @@ public sealed partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             IsUpdating = false;
-            StatusText = "Update fehlgeschlagen: " + ex.Message;
-            MessageBox.Show(ex.Message, "Update", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusText = L.T("Update fehlgeschlagen: ") + ex.Message;
+            MessageBox.Show(ex.Message, L.T("Update"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -253,7 +254,7 @@ public sealed partial class MainViewModel : ObservableObject
         var host = NewAddress.Trim();
         if (_host.Config.Devices.Any(d => string.Equals(d.Host.Trim(), host, StringComparison.OrdinalIgnoreCase)))
         {
-            MessageBox.Show("Dieser Host ist bereits eingetragen.", "Gerät hinzufügen");
+            MessageBox.Show(L.T("Dieser Host ist bereits eingetragen."), L.T("Gerät hinzufügen"));
             return;
         }
         var name = NewName.Trim();
@@ -273,10 +274,10 @@ public sealed partial class MainViewModel : ObservableObject
         if (SelectedDevice is not { } device) return;
         if (device.IsRunning)
         {
-            MessageBox.Show("Bitte zuerst den laufenden Benchmark stoppen.", "Gerät entfernen", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(L.T("Bitte zuerst den laufenden Benchmark stoppen."), L.T("Gerät entfernen"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        if (MessageBox.Show($"\"{device.Title}\" entfernen?\n\nVerlauf in history.db und Steuerdaten bleiben erhalten.", "Gerät entfernen",
+        if (MessageBox.Show(L.T("\"{0}\" entfernen?\n\nVerlauf in history.db und Steuerdaten bleiben erhalten.", device.Title), L.T("Gerät entfernen"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
@@ -293,7 +294,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         IsScanning = true;
         ScanProgress = 0;
-        StatusText = "Durchsuche lokales Netzwerk …";
+        StatusText = L.T("Durchsuche lokales Netzwerk …");
         try
         {
             var found = await NetworkScanner.ScanAsync(new Progress<double>(p => ScanProgress = p * 100));
@@ -310,12 +311,12 @@ public sealed partial class MainViewModel : ObservableObject
                 Rebuild();
             }
             StatusText = found.Count == 0
-                ? "Keine Miner gefunden. Tipp: IP-Adresse manuell eingeben."
-                : $"{found.Count} Miner gefunden, {added} neu hinzugefügt.";
+                ? L.T("Keine Miner gefunden. Tipp: IP-Adresse manuell eingeben.")
+                : L.T("{0} Miner gefunden, {1} neu hinzugefügt.", found.Count, added);
         }
         catch (Exception ex)
         {
-            StatusText = $"Suche fehlgeschlagen: {ex.Message}";
+            StatusText = L.T("Suche fehlgeschlagen: {0}", ex.Message);
         }
         finally
         {
@@ -326,9 +327,9 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(AnyRunning))]
     private async Task StopAll()
     {
-        StatusText = "Stoppe alle Benchmarks und stelle Einstellungen wieder her …";
+        StatusText = L.T("Stoppe alle Benchmarks und stelle Einstellungen wieder her …");
         await Task.WhenAll(_devices.Values.Select(d => d.StopAndWaitAsync()));
-        StatusText = "Alle Benchmarks gestoppt.";
+        StatusText = L.T("Alle Benchmarks gestoppt.");
     }
 
     public Task StopAllAndWaitAsync() => Task.WhenAll(_devices.Values.Select(d => d.StopAndWaitAsync()));
@@ -345,7 +346,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var path = ProfileRegistry.WriteUserTemplate(DataPaths.TuningDirectory);
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        StatusText = "Profile bearbeiten, speichern und das Programm neu starten.";
+        StatusText = L.T("Profile bearbeiten, speichern und das Programm neu starten.");
     }
 
     [RelayCommand]

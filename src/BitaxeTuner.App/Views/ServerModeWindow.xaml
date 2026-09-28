@@ -1,7 +1,8 @@
-<Window x:Class="BitaxeTuner.App.Views.ServerModeWindow"
+<Window xmlns:l="clr-namespace:BitaxeTuner.App.I18n"
+        x:Class="BitaxeTuner.App.Views.ServerModeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Betriebsart" Height="760" Width="640" MinHeight="560" MinWidth="560"
+        Title="{l:T 'Betriebsart'}" Height="760" Width="640" MinHeight="560" MinWidth="560"
         WindowStartupLocation="CenterOwner" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
         TextOptions.TextFormattingMode="Display" FontFamily="Segoe UI">
 
@@ -41,58 +42,58 @@
 
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock x:Name="ModeTitle" Style="{StaticResource Section}" Text="Aktuell: Lokal (dieser PC fragt die Miner ab)"/>
+                        <TextBlock x:Name="ModeTitle" Style="{StaticResource Section}" Text="{l:T 'Aktuell: Lokal (dieser PC fragt die Miner ab)'}"/>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="„Lokal“: Die App erledigt alles selbst – nur solange dieser PC läuft. „Server“: Ein BitaxeTuner-Server (Raspberry Pi, Windows-Dienst oder Docker) übernimmt alles rund um die Uhr; die App zeigt dessen Oberfläche an und fragt selbst keine Miner ab. Es fragt immer nur eine Seite die Miner ab."/>
+                                   Text="{l:T '„Lokal“: Die App erledigt alles selbst – nur solange dieser PC läuft. „Server“: Ein BitaxeTuner-Server (Raspberry Pi, Windows-Dienst oder Docker) übernimmt alles rund um die Uhr; die App zeigt dessen Oberfläche an und fragt selbst keine Miner ab. Es fragt immer nur eine Seite die Miner ab.'}"/>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="Server"/>
-                        <TextBlock Text="ADRESSE (z. B. 192.168.1.20 oder raspberrypi.local:8484)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'ADRESSE (z. B. 192.168.1.20 oder raspberrypi.local:8484)'}" Style="{StaticResource Label}"/>
                         <DockPanel Margin="0,0,0,10">
-                            <Button DockPanel.Dock="Right" Content="Im Netz suchen" Click="Discover_Click" x:Name="DiscoverButton" Margin="6,0,0,0" Padding="10,4"/>
+                            <Button DockPanel.Dock="Right" Content="{l:T 'Im Netz suchen'}" Click="Discover_Click" x:Name="DiscoverButton" Margin="6,0,0,0" Padding="10,4"/>
                             <ComboBox x:Name="UrlBox" IsEditable="True"/>
                         </DockPanel>
-                        <TextBlock Text="API-TOKEN (Server-Oberfläche → Einstellungen → Desktop-App verbinden)" Style="{StaticResource Label}"/>
+                        <TextBlock Text="{l:T 'API-TOKEN (Server-Oberfläche → Einstellungen → Desktop-App verbinden)'}" Style="{StaticResource Label}"/>
                         <PasswordBox x:Name="TokenBox" Margin="0,0,0,10"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Verbindung testen" Click="Test_Click" x:Name="TestButton" Padding="12,4"/>
-                            <Button Content="Server-Oberfläche im Browser" Click="OpenBrowser_Click" Style="{StaticResource LinkButton}" Margin="12,4,0,0"/>
+                            <Button Content="{l:T 'Verbindung testen'}" Click="Test_Click" x:Name="TestButton" Padding="12,4"/>
+                            <Button Content="{l:T 'Server-Oberfläche im Browser'}" Click="OpenBrowser_Click" Style="{StaticResource LinkButton}" Margin="12,4,0,0"/>
                         </StackPanel>
                         <TextBlock x:Name="ConnectionText" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
                         <CheckBox x:Name="PickupCheck" Margin="0,6,0,6" Click="Pickup_Changed"
-                                  Content="Im Modus „Server“ täglich eine geprüfte Sicherung vom Server auf diesen PC holen"/>
+                                  Content="{l:T 'Im Modus „Server“ täglich eine geprüfte Sicherung vom Server auf diesen PC holen'}"/>
                         <DockPanel Margin="0,0,0,4">
-                            <Button DockPanel.Dock="Right" Content="Jetzt holen" Click="PickupNow_Click" Margin="6,0,0,0" Padding="10,4"/>
-                            <Button DockPanel.Dock="Right" Content="…" Click="PickupBrowse_Click" Margin="6,0,0,0" Padding="10,4" ToolTip="Ordner wählen"/>
-                            <TextBox x:Name="PickupFolder" LostFocus="Pickup_Changed" ToolTip="Zielordner für die Sicherungen (die letzten 14 bleiben)"/>
+                            <Button DockPanel.Dock="Right" Content="{l:T 'Jetzt holen'}" Click="PickupNow_Click" Margin="6,0,0,0" Padding="10,4"/>
+                            <Button DockPanel.Dock="Right" Content="…" Click="PickupBrowse_Click" Margin="6,0,0,0" Padding="10,4" ToolTip="{l:T 'Ordner wählen'}"/>
+                            <TextBox x:Name="PickupFolder" LostFocus="Pickup_Changed" ToolTip="{l:T 'Zielordner für die Sicherungen (die letzten 14 bleiben)'}"/>
                         </DockPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}" x:Name="ToServerCard">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Section}" Text="Auf „Server“ umschalten"/>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'Auf „Server“ umschalten'}"/>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Mit Datenübertragung: Verlauf (history.db), Einstellungen, Geräte, Steuerdaten, Benchmark-Ergebnisse und Sicherungen gehen einmalig auf den Server. Vorher wird alles geprüft (SHA-256, integrity_check); hat der Server schon Daten, fragt die App nach und der Server sichert seinen Stand. Deine lokalen Daten bleiben unverändert erhalten."/>
+                                   Text="{l:T 'Mit Datenübertragung: Verlauf (history.db), Einstellungen, Geräte, Steuerdaten, Benchmark-Ergebnisse und Sicherungen gehen einmalig auf den Server. Vorher wird alles geprüft (SHA-256, integrity_check); hat der Server schon Daten, fragt die App nach und der Server sichert seinen Stand. Deine lokalen Daten bleiben unverändert erhalten.'}"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Daten übertragen und umschalten …" Click="UploadAndSwitch_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
-                            <Button Content="Nur umschalten" Click="SwitchToServer_Click" Margin="8,0,0,0" Padding="12,4"
-                                    ToolTip="Der Server hat die Daten schon (z. B. frisch eingerichtet oder früher übertragen)"/>
+                            <Button Content="{l:T 'Daten übertragen und umschalten …'}" Click="UploadAndSwitch_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
+                            <Button Content="{l:T 'Nur umschalten'}" Click="SwitchToServer_Click" Margin="8,0,0,0" Padding="12,4"
+                                    ToolTip="{l:T 'Der Server hat die Daten schon (z. B. frisch eingerichtet oder früher übertragen)'}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}" x:Name="PiCard">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Section}" Text="Raspberry Pi vorbereiten"/>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'Raspberry Pi vorbereiten'}"/>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="1. Das BitaxeTuner-Pi-Image (Release-Seite) mit dem Raspberry Pi Imager auf die SD-Karte schreiben („Eigenes Image“ – der Imager bietet dafür keine Einstellungen an). 2. SD-Karte neu einstecken, hier das Laufwerk „bootfs“ wählen. 3. Admin-Passwort, Zugang zum Pi und WLAN eintragen, optional deine Daten mitgeben. Der Pi übernimmt beim ersten Start alles, startet pausiert und ist unter http://bitaxetuner.local:8484/ erreichbar; danach oben „Nur umschalten“."/>
-                        <TextBlock Text="SD-KARTE (BOOT-PARTITION)" Style="{StaticResource Label}"/>
+                                   Text="{l:T '1. Das BitaxeTuner-Pi-Image (Release-Seite) mit dem Raspberry Pi Imager auf die SD-Karte schreiben („Eigenes Image“ – der Imager bietet dafür keine Einstellungen an). 2. SD-Karte neu einstecken, hier das Laufwerk „bootfs“ wählen. 3. Admin-Passwort, Zugang zum Pi und WLAN eintragen, optional deine Daten mitgeben. Der Pi übernimmt beim ersten Start alles, startet pausiert und ist unter http://bitaxetuner.local:8484/ erreichbar; danach oben „Nur umschalten“.'}"/>
+                        <TextBlock Text="{l:T 'SD-KARTE (BOOT-PARTITION)'}" Style="{StaticResource Label}"/>
                         <DockPanel Margin="0,0,0,10">
-                            <Button DockPanel.Dock="Right" Content="Aktualisieren" Click="RefreshDrives_Click" Margin="6,0,0,0" Padding="10,4"/>
+                            <Button DockPanel.Dock="Right" Content="{l:T 'Aktualisieren'}" Click="RefreshDrives_Click" Margin="6,0,0,0" Padding="10,4"/>
                             <ComboBox x:Name="DriveBox" DisplayMemberPath="Label"/>
                         </DockPanel>
                         <Grid Margin="0,0,0,10">
@@ -102,16 +103,16 @@
                                 <ColumnDefinition/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="ADMIN-PASSWORT (MIND. 10 ZEICHEN)" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'ADMIN-PASSWORT (MIND. 10 ZEICHEN)'}" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiPassword1"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="WIEDERHOLEN" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'WIEDERHOLEN'}" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiPassword2"/>
                             </StackPanel>
                         </Grid>
                         <CheckBox x:Name="PiSetupOs" IsChecked="True" Margin="0,0,0,8"
-                                  Content="Zugang zum Pi einrichten (Benutzer, WLAN, SSH, Hostname „bitaxetuner“)"/>
+                                  Content="{l:T 'Zugang zum Pi einrichten (Benutzer, WLAN, SSH, Hostname „bitaxetuner“)'}"/>
                         <Grid x:Name="PiOsFields" Margin="0,0,0,10" IsEnabled="{Binding IsChecked, ElementName=PiSetupOs}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition/>
@@ -124,47 +125,47 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Margin="0,0,0,8">
-                                <TextBlock Text="BENUTZERNAME (FÜR SSH)" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'BENUTZERNAME (FÜR SSH)'}" Style="{StaticResource Label}"/>
                                 <TextBox x:Name="PiUser" Text="pi"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,0,0,8">
-                                <TextBlock Text="PI-PASSWORT (MIND. 8 ZEICHEN)" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'PI-PASSWORT (MIND. 8 ZEICHEN)'}" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiUserPassword"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Margin="0,0,0,8">
-                                <TextBlock Text="WLAN-NAME (LEER = NUR LAN-KABEL)" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'WLAN-NAME (LEER = NUR LAN-KABEL)'}" Style="{StaticResource Label}"/>
                                 <TextBox x:Name="PiWifiSsid"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
-                                <TextBlock Text="WLAN-PASSWORT" Style="{StaticResource Label}"/>
+                                <TextBlock Text="{l:T 'WLAN-PASSWORT'}" Style="{StaticResource Label}"/>
                                 <PasswordBox x:Name="PiWifiPassword"/>
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource Hint}" Margin="0"
-                                       Text="Pi 3: nur 2,4-GHz-WLAN. Passwörter landen nur als Hash auf der Karte. Land DE, Zeitzone Europe/Berlin, Tastatur deutsch."/>
+                                       Text="{l:T 'Pi 3: nur 2,4-GHz-WLAN. Passwörter landen nur als Hash auf der Karte. Land DE, Zeitzone Europe/Berlin, Tastatur deutsch.'}"/>
                         </Grid>
                         <CheckBox x:Name="PiIncludeData" IsChecked="True" Margin="0,0,0,10"
-                                  Content="Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)"/>
-                        <Button Content="Einrichtungspaket auf die SD-Karte schreiben" Click="PreparePi_Click"
+                                  Content="{l:T 'Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)'}"/>
+                        <Button Content="{l:T 'Einrichtungspaket auf die SD-Karte schreiben'}" Click="PreparePi_Click"
                                 Style="{StaticResource PrimaryButton}" Padding="12,4" HorizontalAlignment="Left"/>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}" x:Name="ToLocalCard">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Section}" Text="Auf „Lokal“ umschalten"/>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'Auf „Lokal“ umschalten'}"/>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Der Server wird dabei pausiert (er fragt keine Miner mehr ab, bis du ihn in seiner Oberfläche fortsetzt). Mit Datenübertragung übernimmt die App den kompletten Stand des Servers; der bisherige lokale Stand wird vorher gesichert."/>
+                                   Text="{l:T 'Der Server wird dabei pausiert (er fragt keine Miner mehr ab, bis du ihn in seiner Oberfläche fortsetzt). Mit Datenübertragung übernimmt die App den kompletten Stand des Servers; der bisherige lokale Stand wird vorher gesichert.'}"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Daten vom Server holen und umschalten …" Click="DownloadAndSwitch_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
-                            <Button Content="Nur umschalten" Click="SwitchToLocal_Click" Margin="8,0,0,0" Padding="12,4"
-                                    ToolTip="Mit dem lokalen Stand weiterarbeiten (was der Server seitdem gesammelt hat, bleibt nur auf dem Server)"/>
+                            <Button Content="{l:T 'Daten vom Server holen und umschalten …'}" Click="DownloadAndSwitch_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
+                            <Button Content="{l:T 'Nur umschalten'}" Click="SwitchToLocal_Click" Margin="8,0,0,0" Padding="12,4"
+                                    ToolTip="{l:T 'Mit dem lokalen Stand weiterarbeiten (was der Server seitdem gesammelt hat, bleibt nur auf dem Server)'}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Section}" Text="Ablauf"/>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'Ablauf'}"/>
                         <TextBox x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="220"
                                  VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"/>
                     </StackPanel>
@@ -173,7 +174,7 @@
         </ScrollViewer>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Schließen" IsCancel="True" Click="Close_Click" Padding="14,4"/>
+            <Button Content="{l:T 'Schließen'}" IsCancel="True" Click="Close_Click" Padding="14,4"/>
         </StackPanel>
     </Grid>
 </Window>

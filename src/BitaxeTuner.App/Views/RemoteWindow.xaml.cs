@@ -8,6 +8,7 @@ using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Transfer;
 using BitaxeTuner.Core.Update;
 using Microsoft.Web.WebView2.Core;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Views;
 
@@ -60,12 +61,12 @@ public partial class RemoteWindow : Window
             var name = await Core.Backup.BackupPickup.RunAsync(client, Core.Backup.BackupPickup.FolderOf(s), Math.Clamp(s.BackupKeep, 1, 365), DateTime.Now);
             s.BackupLastPickup = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             _config.Save();
-            BackupText.Text = $"· Sicherung {DateTime.Now:HH:mm} ✓";
+            BackupText.Text = L.T("· Sicherung {0:HH:mm} ✓", DateTime.Now);
             BackupText.ToolTip = Path.Combine(Core.Backup.BackupPickup.FolderOf(s), name);
         }
         catch (Exception ex) when (ex is ServerException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
-            BackupText.Text = "· Sicherung fehlgeschlagen";
+            BackupText.Text = L.T("· Sicherung fehlgeschlagen");
             BackupText.ToolTip = ex.Message;
         }
         finally
@@ -82,11 +83,11 @@ public partial class RemoteWindow : Window
             using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
             var info = await client.InfoAsync();
             if (info.ApiVersion != ServerClient.SupportedApiVersion)
-                throw new ServerException($"Server {info.Version} und App {MainViewModel.CurrentVersion.ToString(3)} passen nicht zusammen – bitte beide aktualisieren.");
+                throw new ServerException(L.T("Server {0} und App {1} passen nicht zusammen – bitte beide aktualisieren.", info.Version, MainViewModel.CurrentVersion.ToString(3)));
             if (info.SetupRequired)
-                throw new ServerException("Der Server ist noch nicht eingerichtet – im Browser öffnen und Admin-Passwort festlegen.");
+                throw new ServerException(L.T("Der Server ist noch nicht eingerichtet – im Browser öffnen und Admin-Passwort festlegen."));
             var (session, _, expires) = await client.CreateSessionAsync();
-            ServerText.Text = $"{client.BaseUri} · Server v{info.Version}" + (info.Paused ? " · PAUSIERT" : "");
+            ServerText.Text = L.T("{0} · Server v{1}", client.BaseUri, info.Version) + (info.Paused ? L.T(" · PAUSIERT") : "");
 
             await EnsureWebAsync();
             var core = Web.CoreWebView2;
@@ -107,7 +108,7 @@ public partial class RemoteWindow : Window
         }
         catch (System.Runtime.InteropServices.COMException ex)
         {
-            ShowError("Anzeige konnte nicht gestartet werden: " + ex.Message);
+            ShowError(L.T("Anzeige konnte nicht gestartet werden: ") + ex.Message);
         }
     }
 
@@ -131,7 +132,7 @@ public partial class RemoteWindow : Window
         };
         core.NavigationCompleted += (_, e) =>
         {
-            if (!e.IsSuccess) ShowError($"Seite konnte nicht geladen werden ({e.WebErrorStatus}).");
+            if (!e.IsSuccess) ShowError(L.T("Seite konnte nicht geladen werden ({0}).", e.WebErrorStatus));
         };
         // Links nach außen (z. B. GitHub) im Standardbrowser öffnen
         core.NewWindowRequested += (_, e) =>
@@ -168,30 +169,30 @@ public partial class RemoteWindow : Window
         var result = await new UpdateService(_updateHttp, UpdateChecker.Repository).CheckAsync(MainViewModel.CurrentVersion);
         if (result.Status != UpdateCheckStatus.UpdateAvailable || result.Update is not { } u) return;
         _update = u;
-        UpdateButton.Content = $"Update {u.Tag} installieren";
+        UpdateButton.Content = L.T("Update {0} installieren", u.Tag);
         UpdateButton.Visibility = Visibility.Visible;
     }
 
     private async void Update_Click(object sender, RoutedEventArgs e)
     {
         if (_update is not { } u) return;
-        if (MessageBox.Show(this, $"BitaxeTuner {u.Tag} installieren?\n\nDie App wird beendet, aktualisiert und neu gestartet. " +
-                                  "Der Server läuft währenddessen weiter (er wird in seiner Oberfläche separat aktualisiert).",
-                "Update", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        if (MessageBox.Show(this, L.T("BitaxeTuner {0} installieren?\n\nDie App wird beendet, aktualisiert und neu gestartet. ", u.Tag) +
+                                  L.T("Der Server läuft währenddessen weiter (er wird in seiner Oberfläche separat aktualisiert)."),
+                L.T("Update"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         UpdateButton.IsEnabled = false;
         try
         {
             var file = await new UpdateService(_updateHttp, UpdateChecker.Repository)
-                .DownloadAsync(u, Path.Combine(Path.GetTempPath(), "BitaxeTuner-Update"),
-                    new Progress<double>(p => UpdateButton.Content = $"Lade … {p:P0}"));
+                .DownloadAsync(u, Path.Combine(Path.GetTempPath(), L.T("BitaxeTuner-Update")),
+                    new Progress<double>(p => UpdateButton.Content = L.T("Lade … {0:P0}", p)));
             Process.Start(new ProcessStartInfo(file, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
             Application.Current.Shutdown();
         }
         catch (Exception ex)
         {
             UpdateButton.IsEnabled = true;
-            UpdateButton.Content = $"Update {u.Tag} installieren";
-            MessageBox.Show(this, ex.Message, "Update", MessageBoxButton.OK, MessageBoxImage.Warning);
+            UpdateButton.Content = L.T("Update {0} installieren", u.Tag);
+            MessageBox.Show(this, ex.Message, L.T("Update"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

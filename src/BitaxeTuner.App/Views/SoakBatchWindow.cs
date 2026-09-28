@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using BitaxeTuner.App.Services;
 using BitaxeTuner.Core.Host;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.App.Views;
 
@@ -16,7 +17,7 @@ public sealed class SoakBatchWindow : Window
     public SoakBatchWindow(AppHost host)
     {
         _host = host;
-        Title = "Dauertest für mehrere Miner";
+        Title = L.T("Dauertest für mehrere Miner");
         Width = 520;
         SizeToContent = SizeToContent.Height;
         MaxHeight = 700;
@@ -32,22 +33,22 @@ public sealed class SoakBatchWindow : Window
         {
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
-            Text = "Beobachtet wird jeweils die aktuelle Einstellung. Am Miner wird nichts geändert; Zeitplan/Strompreis-Regeln " +
-                   "pausieren so lange. Schlägt ein Test fehl, gibt es einen Vorschlag (nur nach Bestätigung).",
+            Text = L.T("Beobachtet wird jeweils die aktuelle Einstellung. Am Miner wird nichts geändert; Zeitplan/Strompreis-Regeln ") +
+                   L.T("pausieren so lange. Schlägt ein Test fehl, gibt es einen Vorschlag (nur nach Bestätigung)."),
         };
         hint.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
 
         var durationRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
-        durationRow.Children.Add(new TextBlock { Text = "Dauer", VerticalAlignment = VerticalAlignment.Center });
+        durationRow.Children.Add(new TextBlock { Text = L.T("Dauer"), VerticalAlignment = VerticalAlignment.Center });
         durationRow.Children.Add(_hours);
 
-        var start = new Button { Content = "Starten …", Padding = new Thickness(14, 4, 14, 4), IsDefault = true };
+        var start = new Button { Content = L.T("Starten …"), Padding = new Thickness(14, 4, 14, 4), IsDefault = true };
         start.SetResourceReference(StyleProperty, "PrimaryButton");
         start.Click += (_, _) => Start();
-        var stopAll = new Button { Content = "Alle abbrechen", Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0) };
+        var stopAll = new Button { Content = L.T("Alle abbrechen"), Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0) };
         stopAll.SetResourceReference(StyleProperty, "DangerButton");
         stopAll.Click += (_, _) => StopAll();
-        var close = new Button { Content = "Schließen", Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
+        var close = new Button { Content = L.T("Schließen"), Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
         buttons.Children.Add(start);
         buttons.Children.Add(stopAll);
@@ -69,13 +70,13 @@ public sealed class SoakBatchWindow : Window
         foreach (var e in _host.Hub.SoakBatchPreview())
         {
             var text = e.Eligible
-                ? $"{e.Device.Title}: {e.FrequencyMhz} MHz / {e.CoreVoltageMv} mV"
-                : $"{e.Device.Title}: {e.Reason}" + (e.Running && e.Device.Config.Soak is { } s ? $" (bis {s.Until:dd.MM. HH:mm})" : "");
+                ? L.T("{0}: {1} MHz / {2} mV", e.Device.Title, e.FrequencyMhz, e.CoreVoltageMv)
+                : $"{e.Device.Title}: {e.Reason}" + (e.Running && e.Device.Config.Soak is { } s ? L.T(" (bis {0:g})", s.Until) : "");
             var box = new CheckBox { Content = text, IsChecked = e.Eligible, IsEnabled = e.Eligible, Margin = new Thickness(0, 3, 0, 3) };
             _boxes.Add((box, e));
             _list.Children.Add(box);
         }
-        if (_boxes.Count == 0) _list.Children.Add(new TextBlock { Text = "Noch keine Miner eingetragen." });
+        if (_boxes.Count == 0) _list.Children.Add(new TextBlock { Text = L.T("Noch keine Miner eingetragen.") });
     }
 
     private void Start()
@@ -83,20 +84,20 @@ public sealed class SoakBatchWindow : Window
         var chosen = _boxes.Where(b => b.Box.IsChecked == true).Select(b => b.Entry).ToList();
         if (chosen.Count == 0)
         {
-            MessageBox.Show(this, "Kein Miner ausgewählt.", Title);
+            MessageBox.Show(this, L.T("Kein Miner ausgewählt."), Title);
             return;
         }
         var hours = (int)((ComboBoxItem)_hours.SelectedItem).Tag;
-        var list = string.Join("\n", chosen.Select(e => $"• {e.Device.Title}: {e.FrequencyMhz} MHz / {e.CoreVoltageMv} mV"));
-        if (MessageBox.Show(this, $"Dauertest für {chosen.Count} Miner starten ({hours} h)?\n\n{list}\n\nAm Miner wird dabei nichts geändert.",
+        var list = string.Join("\n", chosen.Select(e => L.T("• {0}: {1} MHz / {2} mV", e.Device.Title, e.FrequencyMhz, e.CoreVoltageMv)));
+        if (MessageBox.Show(this, L.T("Dauertest für {0} Miner starten ({1} h)?\n\n{2}\n\nAm Miner wird dabei nichts geändert.", chosen.Count, hours, list),
                 Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         try
         {
             var results = _host.Hub.StartSoakBatch(chosen.Select(e => e.Device.Host), hours);
             var skipped = results.Where(r => !r.Started).ToList();
-            MessageBox.Show(this, $"Dauertest gestartet für {results.Count(r => r.Started)} Miner." +
-                (skipped.Count > 0 ? "\n\nÜbersprungen:\n" + string.Join("\n", skipped.Select(r => $"• {r.Device.Title}: {r.Message}")) : ""), Title);
+            MessageBox.Show(this, L.T("Dauertest gestartet für {0} Miner.", results.Count(r => r.Started)) +
+                (skipped.Count > 0 ? L.T("\n\nÜbersprungen:\n") + string.Join("\n", skipped.Select(r => $"• {r.Device.Title}: {r.Message}")) : ""), Title);
         }
         catch (InvalidOperationException ex)
         {
@@ -110,10 +111,10 @@ public sealed class SoakBatchWindow : Window
         var running = _boxes.Count(b => b.Entry.Running);
         if (running == 0)
         {
-            MessageBox.Show(this, "Es läuft kein Dauertest.", Title);
+            MessageBox.Show(this, L.T("Es läuft kein Dauertest."), Title);
             return;
         }
-        if (MessageBox.Show(this, $"{running} laufende(n) Dauertest(s) abbrechen? Die Einstellungen der Miner bleiben, wie sie sind.",
+        if (MessageBox.Show(this, L.T("{0} laufende(n) Dauertest(s) abbrechen? Die Einstellungen der Miner bleiben, wie sie sind.", running),
                 Title, MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
         _host.Hub.StopAllSoaks();
