@@ -111,6 +111,15 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, started)
             );
             """);
+        // 0.7.0: abgeschlossene Monatsberichte (JSON), damit Jahresberichte über die Aufbewahrungszeit
+        // der Minutenwerte hinaus möglich sind – rein additiv, wird nie bereinigt
+        Execute("""
+            CREATE TABLE IF NOT EXISTS period_reports (
+                period  TEXT    NOT NULL PRIMARY KEY,
+                json    TEXT    NOT NULL,
+                created INTEGER NOT NULL
+            );
+            """);
         // 0.6.1: Strompreise der gewählten Quelle (ct/kWh je Zeitraum, UTC) für die Kostenrechnung – rein additiv
         Execute("""
             CREATE TABLE IF NOT EXISTS prices (
@@ -129,6 +138,74 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (plug, ts)
             );
             """);
+    }
+
+    // ---------- Berichte ----------
+
+    /// <summary>Gespeicherter Bericht eines abgeschlossenen Monats (JSON), null wenn keiner.</summary>
+    public string? GetPeriodReport(string period)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT json FROM period_reports WHERE period = $p;";
+            cmd.Parameters.AddWithValue("$p", period);
+            return cmd.ExecuteScalar() as string;
+        }
+    }
+
+    public void SavePeriodReport(string period, string json)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO period_reports (period, json, created) VALUES ($p, $j, $c);";
+            cmd.Parameters.AddWithValue("$p", period);
+            cmd.Parameters.AddWithValue("$j", json);
+            cmd.Parameters.AddWithValue("$c", DateTimeOffset.Now.ToUnixTimeSeconds());
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Gespeicherte Monate (yyyy-MM), aufsteigend.</summary>
+    public List<string> StoredPeriods()
+    {
+        var list = new List<string>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT period FROM period_reports ORDER BY period;";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(r.GetString(0));
+        }
+        return list;
+    }
+
+    /// <summary>Minuten mit Messwert und davon online im Zeitraum.</summary>
+    public (int Online, int Total) MinuteCounts(string host, DateTime from, DateTime to)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT COALESCE(SUM(online), 0), COUNT(*) FROM samples WHERE host = $host AND ts >= $from AND ts < $to;";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            r.Read();
+            return ((int)r.GetInt64(0), (int)r.GetInt64(1));
+        }
+    }
+
+    /// <summary>Ältester Minutenwert (für Hinweise, ab wann Berichte vollständig sind).</summary>
+    public DateTime? EarliestSample()
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT MIN(ts) FROM samples;";
+            return cmd.ExecuteScalar() is long ts ? DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime : null;
+        }
     }
 
     // ---------- Strompreise und Stundenwerte ----------

@@ -279,6 +279,7 @@ public sealed partial class MinerHub
 
     private void CheckDailyReport(DateTime now)
     {
+        CheckMonthlyReport(now);
         if (_reportBusy || History is null || !DailyReport.IsDue(Config.DailyReport, now)) return;
         _ = SendDailyReportAsync(now, markSent: true);
     }

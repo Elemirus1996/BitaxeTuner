@@ -328,6 +328,10 @@ public sealed class DailyReportSettings
     public int Hour { get; set; } = 20;
     /// <summary>Datum des zuletzt gesendeten Berichts (yyyy-MM-dd).</summary>
     public string? LastSent { get; set; }
+    /// <summary>0.7.0: am Monatsersten Zusammenfassung des Vormonats per Push.</summary>
+    public bool Monthly { get; set; }
+    /// <summary>Zuletzt gemeldeter Monat (yyyy-MM).</summary>
+    public string? LastMonthlySent { get; set; }
 
     public DailyReportSettings Clone() => (DailyReportSettings)MemberwiseClone();
 }

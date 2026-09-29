@@ -96,6 +96,7 @@ public partial class SettingsWindow : Window
         PoolWindowBox.Text = config.PoolWatch.WindowMinutes.ToString();
         PoolResponseBox.Text = config.PoolWatch.ResponseMs.ToString("0", CultureInfo.CurrentCulture);
         ReportEnabledBox.IsChecked = config.DailyReport.Enabled;
+        MonthlyReportBox.IsChecked = config.DailyReport.Monthly;
         ReportHourBox.Text = config.DailyReport.Hour.ToString();
         ReportNowButton.IsEnabled = sendReportNow is not null;
 
@@ -320,6 +321,7 @@ public partial class SettingsWindow : Window
         _config.PoolWatch = pool;
         var report = _config.DailyReport.Clone();
         report.Enabled = ReportEnabledBox.IsChecked == true;
+        report.Monthly = MonthlyReportBox.IsChecked == true;
         report.Hour = reportHour;
         _config.DailyReport = report;
 

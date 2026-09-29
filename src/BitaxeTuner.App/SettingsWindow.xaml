@@ -333,6 +333,7 @@
                 </StackPanel>
                 <TextBlock Text="{l:T 'Ø Hashrate, J/TH, Temperatur und Verfügbarkeit je Miner, Stromkosten, bester Best-Diff-Rekord, Tuning-Änderungen. Versand über den Push-Dienst unten.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <CheckBox x:Name="MonthlyReportBox" Content="{l:T 'Monatsbericht am Monatsersten per Push'}" Margin="0,8,0,0"/>
             </StackPanel>
         </Border>
 

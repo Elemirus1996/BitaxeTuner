@@ -593,6 +593,7 @@ public static class Endpoints
         BackupEndpoints.Map(g);
         MqttEndpoints.Map(g);
         PlugEndpoints.Map(g);
+        ReportEndpoints.Map(g);
         g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
         g.MapPut("/settings", async (SettingsDto req, HubService hub) => Results.Json(await hub.RunAsync(async h =>

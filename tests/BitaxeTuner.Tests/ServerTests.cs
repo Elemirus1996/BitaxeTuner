@@ -164,6 +164,30 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Reports_are_available_as_json_csv_and_html_for_admins()
+    {
+        var admin = await AdminAsync();
+        await Json(await admin.GetAsync("/api/v1/status"));                 // einmal abfragen → Minutenwert
+        var list = await Json(await admin.GetAsync("/api/v1/reports"));
+        var month = DateTime.Now.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Contains(month, list.GetProperty("periods").EnumerateArray().Select(p => p.GetString()));
+
+        var json = await Json(await admin.GetAsync($"/api/v1/reports/{month}"));
+        Assert.True(json.GetProperty("partial").GetBoolean());
+        Assert.Equal("Gamma Wohnzimmer", json.GetProperty("miners")[0].GetProperty("name").GetString());
+
+        var csv = await admin.GetAsync($"/api/v1/reports/{month}?format=csv");
+        Assert.Equal("text/csv", csv.Content.Headers.ContentType!.MediaType);
+        var html = await admin.GetAsync($"/api/v1/reports/{DateTime.Now.Year}?format=html");
+        Assert.Equal("text/html", html.Content.Headers.ContentType!.MediaType);
+        Assert.DoesNotContain("<script", await html.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/reports/2026-13")).StatusCode);
+        using var anonymous = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/v1/reports/{month}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Smart_plugs_are_saved_measured_and_only_local_addresses_are_allowed()
     {
         var admin = await AdminAsync();

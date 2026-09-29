@@ -74,7 +74,7 @@ async function loadLanguage(serverDefault) {
 
 /** Feste Texte aus index.html. */
 function applyStaticTexts() {
-  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), settings: t('Einstellungen') };
+  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), settings: t('Einstellungen') };
   for (const [k, v] of Object.entries(nav)) { const a = $(`[data-nav="${k}"]`); if (a) a.textContent = v; }
   $('#live').title = t('Live-Verbindung');
   $('#theme').title = t('Hell/Dunkel');
@@ -359,6 +359,7 @@ function route() {
   if (view === 'compare') return renderCompare();
   if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
+  if (view === 'reports' && isAdmin()) return renderReports();
   if (view === 'settings' && isAdmin()) return renderSettings();
   S.route = { view: 'overview' };
   if (S.status) renderOverview(); else api('/status').then(s => { S.status = s; renderOverview(); });
@@ -438,6 +439,57 @@ function renderOverview() {
         },
       }, t('Fortsetzen …')) : null) : null));
   drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+}
+
+/** Monats- und Jahresberichte: Zusammenfassung, druckbare Seite (PDF über „Drucken“), CSV, Push. */
+async function renderReports() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  mount(h('div', { class: 'stack' }, h('div', { class: 'card stack' }, h('h2', {}, t('Berichte')), body)));
+  let list;
+  try { list = await api('/reports'); } catch (e) { fill(body, h('p', { class: 'danger' }, e.message)); return; }
+  if (!list.periods.length) { fill(body, h('p', { class: 'muted' }, t('Noch keine Messwerte für einen Bericht.'))); return; }
+  const label = p => p.length === 4 ? t('Jahr {0}', p) : new Date(`${p}-01T00:00:00`).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
+  const sel = h('select', {}, list.periods.map(p => h('option', { value: p }, label(p))));
+  sel.value = S.reportPeriod && list.periods.includes(S.reportPeriod) ? S.reportPeriod : list.periods[Math.min(1, list.periods.length - 1)];
+  const view = h('div', { class: 'stack' });
+  const url = fmt => `/api/v1/reports/${sel.value}?format=${fmt}`;
+  const load = async () => {
+    S.reportPeriod = sel.value;
+    fill(view, h('p', { class: 'muted' }, t('Lade …')));
+    let r;
+    try { r = await api(`/reports/${sel.value}`); } catch (e) { fill(view, h('p', { class: 'danger' }, e.message)); return; }
+    const pct = v => v == null ? '–' : t('{0} %', n(v * 100, 1));
+    fill(view,
+      r.partial ? h('p', { class: 'muted small' }, t('Zeitraum läuft noch – Werte bis jetzt.')) : null,
+      r.dataFrom ? h('p', { class: 'warn small' }, t('Messwerte liegen erst ab {0} vor – der Zeitraum davor fehlt im Bericht.', new Date(r.dataFrom).toLocaleString(LOCALE))) : null,
+      h('div', { class: 'tiles' },
+        tile(t('Ø Hashrate gesamt'), r.totalAvgHashGh != null ? hash(r.totalAvgHashGh) : '–', ''),
+        tile(t('Energie'), t('{0} kWh', n(r.energy.kwh, 2)), ''),
+        tile(t('Stromkosten'), `${n(r.energy.cost, 2)} ${r.currency}`, r.energy.avgCt != null ? t('Ø {0} ct/kWh', n(r.energy.avgCt, 1)) : ''),
+        r.income.length ? tile(t('Zuflüsse'), `${n(r.incomeEur, 2)} €`, r.income.map(i => `${i.count}× ${i.coin}`).join(', ')) : null),
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Miner'), t('Verfügbarkeit'), t('Ø Hashrate'), t('Ø Temperatur'), t('Ø Leistung'), 'J/TH', 'kWh', t('Tuning')].map(x => h('th', {}, x)))),
+        h('tbody', {}, r.miners.map(m => h('tr', {},
+          h('td', {}, m.name), h('td', {}, pct(m.availability)), h('td', {}, m.avgHashGh != null ? hash(m.avgHashGh) : '–'),
+          h('td', {}, m.avgTemp != null ? t('{0} °C', n(m.avgTemp, 1)) : '–'), h('td', {}, m.avgPowerW != null ? t('{0} W', n(m.avgPowerW, 1)) : '–'),
+          h('td', {}, m.jth != null ? n(m.jth, 2) : '–'), h('td', {}, n(m.kwh, 2)), h('td', {}, m.tuningChanges)))))),
+      r.plugs.length ? h('p', { class: 'small' }, t('Smart Plugs: {0}', r.plugs.map(p => `${p.name} ${n(p.kwh, 2)} kWh`).join(' · '))) : null);
+  };
+  sel.addEventListener('change', load);
+  fill(body,
+    h('div', { class: 'row', style: 'flex-wrap:wrap' },
+      h('label', {}, t('Zeitraum')), sel,
+      h('button', { class: 'btn', onclick: () => window.open(url('html'), '_blank', 'noopener') }, t('Ansehen / Drucken')),
+      h('a', { class: 'btn', href: '#', onclick: e => { e.preventDefault(); location.href = url('csv'); } }, 'CSV'),
+      h('button', {
+        class: 'btn', onclick: async () => {
+          const r = await run(() => api(`/reports/${sel.value}/send`, { method: 'POST', body: {} }));
+          if (r) toast(r.ok ? t('Bericht per Push gesendet.') : r.error, r.ok ? 'ok' : 'error');
+        },
+      }, t('Per Push senden'))),
+    h('p', { class: 'muted small' }, t('Druckbare Seite: im Browser „Drucken“ → „Als PDF speichern“. Abgeschlossene Monate werden gespeichert und bleiben auch erhalten, wenn ältere Minutenwerte bereinigt werden.')),
+    view);
+  load();
 }
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
@@ -1203,6 +1255,7 @@ async function renderSettings() {
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Ablehnungen ab (%)')), text(pw, 'rejectPercent', 'number')), h('div', {}, h('label', {}, t('Zeitfenster (min)')), text(pw, 'windowMinutes', 'number')),
         h('div', {}, h('label', {}, t('mind. Shares')), text(pw, 'minShares', 'number')), h('div', {}, h('label', {}, t('Antwortzeit ab (ms)')), text(pw, 'responseMs', 'number'))),
       checkInput(dr, 'enabled', t('Tagesbericht per Push')),
+      checkInput(dr, 'monthly', t('Monatsbericht am Monatsersten per Push')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Uhrzeit (Stunde)')), text(dr, 'hour', 'number'))),
       checkInput(la, 'onErrors', t('Log-Alarm bei Fehlerzeilen (E)')),
       h('div', { class: 'form' }, h('div', { class: 'wide' }, h('label', {}, t('Log-Alarm bei Zeilen mit (je Zeile ein Muster)')), patterns))),
