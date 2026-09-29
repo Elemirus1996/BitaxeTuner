@@ -90,6 +90,9 @@ public partial class MonitorView : UserControl
         _host = host;
         _taxViewModel = new TaxViewModel(_taxMonitor, _taxRepository, MinerAddressCandidates);
         TaxView.DataContext = _taxViewModel;
+        TaxView.MonthReports = year => _host.Hub.MonthReports(year, DateTime.Now);
+        TaxView.ReportYears = () => _host.Hub.ReportPeriods(DateTime.Now).Where(p => p.Length == 4).Select(int.Parse)
+            .Append(DateTime.Now.Year).Distinct();
         InitFeatures();
 
         BlockList.ItemsSource = _blockRows;

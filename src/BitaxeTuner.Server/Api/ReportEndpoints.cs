@@ -27,6 +27,20 @@ public static class ReportEndpoints
             };
         });
 
+        // Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen
+        g.MapGet("/reports/{year:int}/months", async (int year, HubService hub) =>
+        {
+            if (year is < 2020 or > 2100) throw new LocalizedException("Ungültiger Zeitraum: {0} (z. B. 2026-09 oder 2026)", year);
+            var months = await hub.RunAsync(h => h.MonthReports(year, DateTime.Now));
+            return Results.Json(new
+            {
+                year,
+                currency = months.FirstOrDefault()?.Currency,
+                months = months.Select(m => new { m.Period, m.Partial, kwh = m.Energy.Kwh, cost = m.Energy.Cost, incomeEur = m.IncomeEur,
+                    incomeMissing = m.Income.Sum(i => i.EurMissing), hasData = m.Miners.Any(x => x.TotalMinutes > 0) }).ToList(),
+            });
+        });
+
         g.MapPost("/reports/{period}/send", async (string period, HubService hub) =>
         {
             if (!PeriodReports.TryParse(period, out _, out _, out _))

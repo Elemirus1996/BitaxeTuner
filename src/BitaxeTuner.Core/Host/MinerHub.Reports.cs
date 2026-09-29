@@ -23,6 +23,15 @@ public sealed partial class MinerHub
         return PeriodReports.Build(History, Config, ReportMiners(), rewards, period, now);
     }
 
+    /// <summary>Monate eines Jahres (Stromkosten je Monat im Steuer-Bereich).</summary>
+    public List<PeriodReport> MonthReports(int year, DateTime now)
+    {
+        if (History is null) throw new LocalizedException("Verlaufsdatenbank nicht verfügbar.");
+        List<Tax.Models.MinedReward> rewards;
+        try { rewards = TaxRepository.LoadRewards(); } catch { rewards = []; }
+        return PeriodReports.Months(History, Config, ReportMiners(), rewards, year, now);
+    }
+
     /// <summary>Zeiträume für die Auswahl: Monate ab dem ältesten Messwert bzw. gespeicherten Bericht, neueste zuerst.</summary>
     public List<string> ReportPeriods(DateTime now)
     {

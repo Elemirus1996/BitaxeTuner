@@ -183,6 +183,9 @@ public sealed class ServerTests : IDisposable
         Assert.DoesNotContain("<script", await html.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/reports/2026-13")).StatusCode);
+        var months = await Json(await admin.GetAsync($"/api/v1/reports/{DateTime.Now.Year}/months"));
+        Assert.Equal(DateTime.Now.Month, months.GetProperty("months").GetArrayLength());
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/reports/1999/months")).StatusCode);
         using var anonymous = _factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/v1/reports/{month}")).StatusCode);
     }

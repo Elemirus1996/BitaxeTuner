@@ -72,6 +72,22 @@ public class ReportTests
     }
 
     [Fact]
+    public void Months_of_a_year_up_to_now_for_the_tax_section()
+    {
+        using var dir = new TempDir();
+        using var h = Filled(dir);
+        var months = PeriodReports.Months(h, new AppConfig { ElectricityCtPerKwh = 30 }, [("Gamma", "a")],
+            [Reward(Sep.AddDays(5), 0.001m, 60000m)], 2026, new DateTime(2026, 10, 15));
+        Assert.Equal(10, months.Count);                          // Januar bis Oktober
+        var sep = months[8];
+        Assert.Equal("2026-09", sep.Period);
+        Assert.Equal(0.72, sep.Energy.Cost, 6);
+        Assert.Equal(60m, sep.IncomeEur);
+        Assert.True(months[9].Partial);
+        Assert.All(months[..8], m => Assert.Equal(0, m.Energy.Kwh));
+    }
+
+    [Fact]
     public void Running_month_is_partial_and_not_stored()
     {
         using var dir = new TempDir();

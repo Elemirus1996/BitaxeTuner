@@ -77,6 +77,7 @@
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
                     <Button Content="{l:T 'Zuflüsse'}" Command="{Binding ShowRewardsCommand}" Padding="12,4"/>
                     <Button Content="{l:T 'Verkäufe / Haltefrist'}" Command="{Binding ShowSalesCommand}" Padding="12,4" Margin="6,0,0,0"/>
+                    <Button Content="{l:T 'Stromkosten je Monat …'}" Click="EnergyButton_Click" Padding="12,4" Margin="6,0,0,0"/>
                 </StackPanel>
 
                 <Grid>

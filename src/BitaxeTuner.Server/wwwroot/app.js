@@ -449,7 +449,7 @@ async function renderReports() {
   try { list = await api('/reports'); } catch (e) { fill(body, h('p', { class: 'danger' }, e.message)); return; }
   if (!list.periods.length) { fill(body, h('p', { class: 'muted' }, t('Noch keine Messwerte für einen Bericht.'))); return; }
   const label = p => p.length === 4 ? t('Jahr {0}', p) : new Date(`${p}-01T00:00:00`).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
-  const sel = h('select', {}, list.periods.map(p => h('option', { value: p }, label(p))));
+  const sel = h('select', { style: 'width:auto' }, list.periods.map(p => h('option', { value: p }, label(p))));
   sel.value = S.reportPeriod && list.periods.includes(S.reportPeriod) ? S.reportPeriod : list.periods[Math.min(1, list.periods.length - 1)];
   const view = h('div', { class: 'stack' });
   const url = fmt => `/api/v1/reports/${sel.value}?format=${fmt}`;
@@ -1144,7 +1144,42 @@ async function renderTax() {
       h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Wert (EUR)'), t('Wallet'), 'TXID'].map(x => h('th', {}, x)))),
       h('tbody', {}, tv.rewards.map(r => h('tr', {}, h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.coin), h('td', { class: 'num' }, r.amount),
         h('td', { class: 'num' }, r.eurValue != null ? n(r.eurValue, 2) : '–'), h('td', {}, r.walletLabel || ''), h('td', { class: 'small muted' }, (r.txId || '').slice(0, 16) + '…')))))
-      : h('p', { class: 'muted' }, t('Noch keine Zuflüsse erfasst.')))));
+      : h('p', { class: 'muted' }, t('Noch keine Zuflüsse erfasst.'))),
+    taxEnergyCard()));
+}
+
+/** Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen (aus den Monatsberichten). */
+function taxEnergyCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const year = h('select', { style: 'width:auto' });
+  const load = async () => {
+    fill(body, h('p', { class: 'muted' }, t('Lade …')));
+    let d;
+    try { d = await api(`/reports/${year.value}/months`); } catch (e) { fill(body, h('p', { class: 'danger' }, e.message)); return; }
+    const rows = d.months.filter(m => m.hasData || m.incomeEur > 0);
+    if (!rows.length) { fill(body, h('p', { class: 'muted' }, t('Für dieses Jahr liegen keine Messwerte oder Zuflüsse vor.'))); return; }
+    const sum = k => rows.reduce((a, m) => a + m[k], 0);
+    const cur = d.currency || '€';
+    const month = p => new Date(`${p}-01T00:00:00`).toLocaleDateString(LOCALE, { month: 'long' });
+    fill(body, h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Monat'), 'kWh', t('Stromkosten ({0})', cur), t('Zuflüsse (EUR)'), t('Differenz')].map(x => h('th', {}, x)))),
+      h('tbody', {}, rows.map(m => h('tr', {},
+        h('td', {}, month(m.period) + (m.partial ? t(' (läuft)') : '')), h('td', { class: 'num' }, m.hasData ? n(m.kwh, 1) : '–'),
+        h('td', { class: 'num' }, m.hasData ? n(m.cost, 2) : '–'),
+        h('td', { class: 'num' }, n(m.incomeEur, 2) + (m.incomeMissing ? t(' ({0} ohne Kurs)', m.incomeMissing) : '')),
+        h('td', { class: `num ${m.incomeEur - m.cost < 0 ? 'danger' : 'ok'}` }, n(m.incomeEur - m.cost, 2)))),
+        h('tr', {}, h('td', {}, h('b', {}, t('Summe'))), h('td', { class: 'num' }, h('b', {}, n(sum('kwh'), 1))), h('td', { class: 'num' }, h('b', {}, n(sum('cost'), 2))),
+          h('td', { class: 'num' }, h('b', {}, n(sum('incomeEur'), 2))), h('td', { class: 'num' }, h('b', {}, n(sum('incomeEur') - sum('cost'), 2))))))),
+      h('p', { class: 'muted small' }, t('Stromkosten aus den Messwerten (mit Smart Plugs und Stundenpreisen, wenn eingerichtet). Ob und wie Stromkosten steuerlich berücksichtigt werden, klärt deine Steuerberatung – keine Steuerberatung.')));
+  };
+  api('/reports').then(r => {
+    const years = [...new Set(r.periods.filter(p => p.length === 4).concat([String(new Date().getFullYear())]))].sort().reverse();
+    fill(year, years.map(y => h('option', { value: y }, y)));
+    year.addEventListener('change', load);
+    load();
+  }).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h2', {}, t('Stromkosten je Monat')), h('span', { class: 'spacer' }), year), body);
 }
 
 // ---------- Einstellungen ----------

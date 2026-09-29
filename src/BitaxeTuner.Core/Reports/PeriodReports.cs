@@ -77,6 +77,17 @@ public static class PeriodReports
         return Combine(period, from, to, now, months, Income(rewardList, from, to), config.Currency);
     }
 
+    /// <summary>Alle Monate eines Jahres bis heute (Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen).</summary>
+    public static List<PeriodReport> Months(HistoryStore history, AppConfig config, IReadOnlyList<(string Name, string Host)> miners,
+        IEnumerable<MinedReward> rewards, int year, DateTime now)
+    {
+        var list = rewards.ToList();
+        var result = new List<PeriodReport>();
+        for (var m = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Local); m.Year == year && m <= now; m = m.AddMonths(1))
+            result.Add(Month(history, config, miners, list, m.ToString("yyyy-MM", CultureInfo.InvariantCulture), m, m.AddMonths(1), now));
+        return result;
+    }
+
     private static PeriodReport Month(HistoryStore history, AppConfig config, IReadOnlyList<(string Name, string Host)> miners,
         List<MinedReward> rewards, string period, DateTime from, DateTime to, DateTime now)
     {
