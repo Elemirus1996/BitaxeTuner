@@ -277,6 +277,13 @@ public static class Endpoints
         g.MapGet("/plugs/{id}/history", async (string id, string? range, HubService hub) =>
             Results.Json(await hub.RunAsync(h => Dto.PlugHistory(h, id, range ?? "24h", DateTime.Now))));
 
+        // Gesundheits-Frühwarnung: letzte 7 Tage gegen die 4 Wochen davor
+        g.MapGet("/devices/{id}/health", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var (findings, recent, @base) = h.HealthOf(Device(h, id).Host, DateTime.Now);
+            return new { findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base };
+        })));
+
         g.MapGet("/devices/{id}/comparisons", async (string id, HubService hub) =>
             Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id)).Select(Dto.Comparison).ToList())));
 

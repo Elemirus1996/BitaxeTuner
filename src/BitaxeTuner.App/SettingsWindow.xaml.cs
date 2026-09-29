@@ -90,6 +90,7 @@ public partial class SettingsWindow : Window
         NotifyLogBox.IsChecked = n.OnLogAlerts;
         NotifyPoolBox.IsChecked = n.OnPool;
         NotifyPlugsBox.IsChecked = n.OnPlugs;
+        NotifyHealthBox.IsChecked = n.OnHealth;
         LogErrorsBox.IsChecked = config.LogAlerts.OnErrors;
         LogCooldownBox.Text = config.LogAlerts.CooldownMinutes.ToString();
         LogPatternsBox.Text = string.Join(Environment.NewLine, config.LogAlerts.Patterns);
@@ -473,6 +474,7 @@ public partial class SettingsWindow : Window
         OnLogAlerts = NotifyLogBox.IsChecked == true,
         OnPool = NotifyPoolBox.IsChecked == true,
         OnPlugs = NotifyPlugsBox.IsChecked == true,
+        OnHealth = NotifyHealthBox.IsChecked == true,
     };
 
     private void ProviderBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateProviderPanels();

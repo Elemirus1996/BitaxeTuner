@@ -183,6 +183,11 @@ public sealed class ServerTests : IDisposable
         Assert.DoesNotContain("<script", await html.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/reports/2026-13")).StatusCode);
+        var deviceId = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString();
+        var health = await Json(await admin.GetAsync($"/api/v1/devices/{deviceId}/health"));
+        Assert.Equal(JsonValueKind.Array, health.GetProperty("findings").ValueKind);
+        Assert.True(health.TryGetProperty("recent", out _));
+
         var months = await Json(await admin.GetAsync($"/api/v1/reports/{DateTime.Now.Year}/months"));
         Assert.Equal(DateTime.Now.Month, months.GetProperty("months").GetArrayLength());
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/reports/1999/months")).StatusCode);

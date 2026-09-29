@@ -426,7 +426,7 @@ public partial class MonitorView : UserControl
             return;
         }
 
-        PoolStatusText.Text = PoolText(state);
+        PoolStatusText.Text = PoolText(state) + HealthText(state.Config.Host);
 
         var i = state.Info!;
         var th = i.hashRate / 1000.0;
@@ -916,6 +916,25 @@ public partial class MonitorView : UserControl
         _availabilityCache.Clear();
 
         await _host.Hub.ApplySettingsChangedAsync();
+    }
+
+    // ---------- Gesundheit ----------
+
+    private readonly Dictionary<string, (DateTime At, string Text)> _healthCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Hinweise der Frühwarnung für die Einzelansicht (höchstens stündlich neu berechnet).</summary>
+    private string HealthText(string host)
+    {
+        if (_healthCache.TryGetValue(host, out var c) && DateTime.Now - c.At < TimeSpan.FromHours(1)) return c.Text;
+        var text = "";
+        try
+        {
+            var findings = _host.Hub.HealthOf(host, DateTime.Now).Findings;
+            if (findings.Count > 0) text = "\n" + string.Join("\n", findings.Select(f => "⚠ " + f.Title + " – " + f.Text));
+        }
+        catch { /* Verlauf nicht lesbar */ }
+        _healthCache[host] = (DateTime.Now, text);
+        return text;
     }
 
     // ---------- Stromkosten ----------

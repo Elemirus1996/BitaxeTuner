@@ -138,6 +138,8 @@ public sealed partial class MinerHub
         CheckHealth();
         CheckPools(now);
         CheckDailyReport(now);
+        RecordHealth(now);
+        CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();
         RunWatchdog();

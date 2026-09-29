@@ -111,6 +111,19 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, started)
             );
             """);
+        // 0.7.0: Werte für die Gesundheits-Frühwarnung (alle 10 min): Lüfter, VR-Temperatur, Share-Zähler – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS health_samples (
+                host     TEXT    NOT NULL,
+                ts       INTEGER NOT NULL,
+                fan_rpm  INTEGER NOT NULL,
+                fan_pct  REAL    NOT NULL,
+                vr_temp  REAL    NOT NULL,
+                accepted REAL    NOT NULL,
+                rejected REAL    NOT NULL,
+                PRIMARY KEY (host, ts)
+            );
+            """);
         // 0.7.0: abgeschlossene Monatsberichte (JSON), damit Jahresberichte über die Aufbewahrungszeit
         // der Minutenwerte hinaus möglich sind – rein additiv, wird nie bereinigt
         Execute("""
@@ -138,6 +151,53 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (plug, ts)
             );
             """);
+    }
+
+    // ---------- Gesundheit ----------
+
+    public sealed record HealthSample(DateTime Time, int FanRpm, double FanPercent, double VrTemp, double Accepted, double Rejected);
+
+    /// <summary>Wert für die Frühwarnung; je 10 Minuten bleibt der letzte.</summary>
+    public void AddHealthSample(string host, DateTime time, int fanRpm, double fanPercent, double vrTemp, double accepted, double rejected)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 600 * 600;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR REPLACE INTO health_samples (host, ts, fan_rpm, fan_pct, vr_temp, accepted, rejected)
+                VALUES ($h, $ts, $rpm, $pct, $vr, $a, $r);
+                """;
+            cmd.Parameters.AddWithValue("$h", host);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$rpm", fanRpm);
+            cmd.Parameters.AddWithValue("$pct", fanPercent);
+            cmd.Parameters.AddWithValue("$vr", vrTemp);
+            cmd.Parameters.AddWithValue("$a", accepted);
+            cmd.Parameters.AddWithValue("$r", rejected);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public List<HealthSample> QueryHealth(string host, DateTime from, DateTime to)
+    {
+        var list = new List<HealthSample>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT ts, fan_rpm, fan_pct, vr_temp, accepted, rejected FROM health_samples
+                WHERE host = $h AND ts >= $from AND ts < $to ORDER BY ts;
+                """;
+            cmd.Parameters.AddWithValue("$h", host);
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new HealthSample(DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime, (int)r.GetInt64(1),
+                    r.GetDouble(2), r.GetDouble(3), r.GetDouble(4), r.GetDouble(5)));
+        }
+        return list;
     }
 
     // ---------- Berichte ----------
@@ -513,6 +573,31 @@ public sealed class HistoryStore : IDisposable
         }
     }
 
+    /// <summary>Viele Minutenwerte in einer Transaktion (Tests, Import).</summary>
+    internal void AddSamples(string host, IEnumerable<(DateTime Time, double HashrateGh, double Temp, double Power, bool Online)> samples)
+    {
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "INSERT OR REPLACE INTO samples (host, ts, hashrate, temp, power, online) VALUES ($host, $ts, $h, $t, $p, $o);";
+            var ts = cmd.Parameters.Add("$ts", Microsoft.Data.Sqlite.SqliteType.Integer);
+            var hr = cmd.Parameters.Add("$h", Microsoft.Data.Sqlite.SqliteType.Real);
+            var tp = cmd.Parameters.Add("$t", Microsoft.Data.Sqlite.SqliteType.Real);
+            var pw = cmd.Parameters.Add("$p", Microsoft.Data.Sqlite.SqliteType.Real);
+            var on = cmd.Parameters.Add("$o", Microsoft.Data.Sqlite.SqliteType.Integer);
+            cmd.Parameters.AddWithValue("$host", host);
+            foreach (var s in samples)
+            {
+                ts.Value = new DateTimeOffset(s.Time).ToUnixTimeSeconds() / 60 * 60;
+                (hr.Value, tp.Value, pw.Value, on.Value) = (s.HashrateGh, s.Temp, s.Power, s.Online ? 1 : 0);
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+    }
+
     /// <summary>
     /// Verlauf eines Hosts im Zeitraum, auf höchstens <paramref name="maxPoints"/>
     /// Punkte gemittelt. Nur Online-Minuten.
@@ -571,7 +656,7 @@ public sealed class HistoryStore : IDisposable
         lock (_lock)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff;";
+            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             cmd.ExecuteNonQuery();
         }

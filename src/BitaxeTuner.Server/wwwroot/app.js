@@ -719,7 +719,7 @@ function advisorCard() {
 // ---------- Gerät ----------
 
 const TABS = () => [
-  ['live', t('Live')], ['benchmark', t('Benchmark'), true], ['results', t('Ergebnisse')], ['compare', t('Vorher/Nachher')],
+  ['live', t('Live')], ['benchmark', t('Benchmark'), true], ['results', t('Ergebnisse')], ['compare', t('Vorher/Nachher')], ['health', t('Gesundheit')],
   ['automation', t('Automatik'), true], ['backups', t('Sicherungen'), true], ['log', t('Protokolle'), true],
 ];
 
@@ -755,10 +755,35 @@ function renderDevice() {
 function refreshDeviceTab() {
   const tab = $('#tab');
   if (!tab) return;
-  const render = { live: tabLive, benchmark: tabBenchmark, results: tabResults, compare: tabCompare, automation: tabAutomation, backups: tabBackups, log: tabLog }[S.route.tab];
+  const render = { live: tabLive, benchmark: tabBenchmark, results: tabResults, compare: tabCompare, health: tabHealth, automation: tabAutomation, backups: tabBackups, log: tabLog }[S.route.tab];
   // Protokoll-Tab nicht bei jedem Neuladen neu aufbauen (Live-Log liefe sonst neu an)
   if (S.route.tab === 'log' && $('#miner-log')) { fillAppLog(); return; }
   fill(tab, render());
+}
+
+/** Gesundheit: Hinweise der Frühwarnung und die verglichenen Werte (7 Tage gegen 4 Wochen davor). */
+function tabHealth() {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  api(`/devices/${S.route.id}/health`).then(d => {
+    const v = (x, f) => x == null ? '–' : f(x);
+    const rows = [
+      [t('Temperatur je Watt'), x => t('{0} °C/W', n(x, 2)), 'tempPerWatt'],
+      [t('ASIC-Temperatur'), x => t('{0} °C', n(x, 1)), 'temp'],
+      [t('Effizienz'), x => t('{0} J/TH', n(x, 2)), 'jth'],
+      [t('Lüfter (U/min je %)'), x => n(x, 0), 'rpmPerPercent'],
+      [t('Abgelehnte Shares'), x => t('{0} %', n(x * 100, 2)), 'rejectShare'],
+      [t('Verfügbarkeit'), x => t('{0} %', n(x * 100, 1)), 'availability'],
+    ];
+    fill(box,
+      d.findings.length
+        ? d.findings.map(f => h('div', { class: 'banner row' }, h('span', { style: 'flex:1' }, h('b', {}, f.title), ' – ', f.text)))
+        : h('p', { class: 'ok' }, t('Keine Auffälligkeiten.')),
+      h('div', { class: 'card table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Wert'), t('letzte 7 Tage'), t('4 Wochen davor')].map(x => h('th', {}, x)))),
+        h('tbody', {}, rows.map(([label, f, key]) => h('tr', {}, h('td', {}, label), h('td', { class: 'num' }, v(d.recent[key], f)), h('td', { class: 'num' }, v(d.base[key], f))))))),
+      h('p', { class: 'muted small' }, t('Einmal am Tag geprüft; gemeldet wird nur eine deutliche Veränderung (Push „Gesundheit“ in den Einstellungen). Lüfter und abgelehnte Shares werden seit 0.7.0 erfasst – der Vergleich braucht einige Wochen Daten.')));
+  }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
+  return box;
 }
 
 function suggestionBanner(d) {
@@ -1284,7 +1309,7 @@ async function renderSettings() {
       notifyForm(nt, text, select),
       h('div', { class: 'row' }, checkInput(nt, 'onOffline', 'offline'), checkInput(nt, 'onOverheat', t('Überhitzung')), checkInput(nt, 'onFinds', t('Blockfund/Zufluss')),
         checkInput(nt, 'onMaintenance', t('Watchdog/Automatik/Firmware')), checkInput(nt, 'onRecord', t('Rekorde')), checkInput(nt, 'onLogAlerts', t('Log-Alarme')), checkInput(nt, 'onPool', t('Pool')),
-        checkInput(nt, 'onPlugs', t('Smart Plugs'))),
+        checkInput(nt, 'onPlugs', t('Smart Plugs')), checkInput(nt, 'onHealth', t('Gesundheit'))),
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: async () => { await save(); const r = await run(() => api('/notifications/test', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Testnachricht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Speichern & testen')),
         h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/report/send', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Tagesbericht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Tagesbericht jetzt senden')))),

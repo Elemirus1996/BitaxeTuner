@@ -275,6 +275,8 @@ public sealed class NotificationSettings
     public bool OnPool { get; set; } = true;
     /// <summary>0.6.1: Smart Plug nicht erreichbar, Mehrverbrauch gestiegen.</summary>
     public bool OnPlugs { get; set; } = true;
+    /// <summary>0.7.0: Gesundheits-Frühwarnung (Kühlung, Effizienz, Lüfter, Shares, Verfügbarkeit).</summary>
+    public bool OnHealth { get; set; } = true;
 
     public NotificationSettings Clone() => (NotificationSettings)MemberwiseClone();
 }
