@@ -397,6 +397,7 @@ function renderOverview() {
           h('div', {}, h('span', {}, t('Hashrate')), hash(d.hashrate)),
           h('div', {}, h('span', {}, t('ASIC / VR')), t('{0} / {1} °C', n(d.temp, 1), n(d.vrTemp, 0))),
           h('div', {}, h('span', {}, t('Leistung')), t('{0} W', n(d.power, 1))),
+          d.wallPower != null ? h('div', {}, h('span', {}, t('Steckdose')), t('{0} W', n(d.wallPower, 1))) : null,
           h('div', {}, h('span', {}, t('Effizienz')), d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–'),
           h('div', {}, h('span', {}, t('Takt')), t('{0} MHz / {1} mV', d.frequency ?? '–', d.voltage ?? '–')),
           h('div', {}, h('span', {}, t('Laufzeit')), dur(d.uptimeSeconds)))
@@ -410,12 +411,16 @@ function renderOverview() {
   mount(h('div', { class: 'stack' },
     h('div', { class: 'tiles' },
       tile(t('Hashrate gesamt'), hash(tv.hashrate), t('{0}/{1} Miner online', tv.online, tv.count), 'ok'),
-      tile(t('Leistung'), t('{0} W', n(tv.power, 1)), tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''),
-      tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', t('gesamt')),
+      tv.wallPower != null
+        ? tile(t('Leistung (Steckdose)'), t('{0} W', n(tv.wallPower, 1)),
+            t('AxeOS {0} W · Netzteil/Neben {1} W', n(tv.power, 1), n(tv.overhead, 1)) + (tv.costPerDay != null ? ' · ' + t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''))
+        : tile(t('Leistung'), t('{0} W', n(tv.power, 1)), tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''),
+      tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
       tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
       s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 2)), s.price.source) : null),
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
+    s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
@@ -429,6 +434,19 @@ function renderOverview() {
         },
       }, t('Fortsetzen …')) : null) : null));
   drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+}
+
+/** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
+function plugOverviewCard(plugs) {
+  const roleText = { miners: t('Miner'), other: t('Nebenverbraucher'), total: t('Gesamtmessung') };
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Smart Plugs')), h('span', { class: 'spacer' }),
+      isAdmin() ? h('a', { class: 'btn small', href: '#/settings' }, t('Einstellungen')) : null),
+    h('div', { class: 'kv num' }, plugs.map(p => h('div', {},
+      h('span', {}, `${p.name} · ${roleText[p.role] ?? p.role}`),
+      p.online
+        ? t('{0} W', n(p.powerW, 1)) + (p.overheadW != null ? t(' (AxeOS {0} W, {1} W mehr)', n(p.minerPowerW, 1), n(p.overheadW, 1)) : '')
+        : h('span', { class: 'danger' }, p.error || 'offline')))));
 }
 
 /** Dauertest für mehrere Miner: Auswahl, eine Dauer, eine Bestätigung; laufende Tests mit Restzeit. */
@@ -1171,6 +1189,7 @@ async function renderSettings() {
         }, t('Token erzeugen')))),
     backupCard(),
     mqttCard(),
+    plugsCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Admin-Passwort ändern')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Aktuell')), curPw), h('div', {}, h('label', {}, t('Neu (mind. 10 Zeichen)')), newPw),
@@ -1442,6 +1461,68 @@ function fanEditor(data) {
     h('div', { class: 'card stack' }, h('h2', {}, t('Temperaturfühler')), sensorBox),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, t('Speichern'))),
     h('p', { class: 'muted small' }, t('Immer aktiv: Miner offline oder Daten älter als 30 s → sein Lüfter auf 100 %. Bekommt der Pico 5 s lang keinen Befehl, schaltet er selbst alle Lüfter auf 100 %.')));
+}
+
+/** Smart Plugs (Shelly): anlegen, Rolle und Miner zuordnen, testen. Es wird nie geschaltet, nur gemessen. */
+function plugsCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const render = d => {
+    const s = d.settings;
+    const passwords = {};
+    const clear = new Set();
+    const list = h('div', { class: 'stack' });
+    const roles = [['miners', t('speist Miner')], ['other', t('Nebenverbraucher (Zusatzlüfter, Pi …)')], ['total', t('Gesamtmessung (alles dahinter)')]];
+    const statusOf = id => d.status?.find(x => x.id === id);
+    const draw = () => fill(list, s.items.length ? s.items.map((p, i) => {
+      const st = statusOf(p.id);
+      const minerBox = h('div', { class: 'row', style: 'flex-wrap:wrap' }, d.miners.map(m => h('label', { class: 'row' },
+        h('input', { type: 'checkbox', checked: p.miners.includes(m.host), onchange: e => { p.miners = e.target.checked ? [...p.miners, m.host] : p.miners.filter(x => x !== m.host); } }),
+        h('span', {}, m.name))));
+      minerBox.style.display = p.role === 'miners' ? '' : 'none';
+      const role = h('select', { onchange: e => { p.role = e.target.value; minerBox.style.display = p.role === 'miners' ? '' : 'none'; } },
+        roles.map(([v, l]) => h('option', { value: v }, l)));
+      role.value = p.role;
+      const pw = h('input', {
+        type: 'password', autocomplete: 'new-password',
+        placeholder: d.passwordSet?.[p.id] ? t('gespeichert – leer lassen = unverändert') : t('Passwort (falls nötig)'),
+        oninput: e => { passwords[p.id] = e.target.value; },
+      });
+      const probe = async () => {
+        const r = await run(() => api('/plugs/probe', { method: 'POST', body: { host: p.host, user: p.user, password: passwords[p.id] || null, id: p.id, channel: p.channel } }));
+        if (r) toast(t('{0} (Gen {1}): {2} W', r.model, r.generation, n(r.powerW, 1)), 'ok', 8000);
+      };
+      return h('div', { class: 'card stack' },
+        h('div', { class: 'row' }, h('b', { style: 'flex:1' }, p.name || t('Smart Plug')),
+          st ? h('span', { class: `small ${st.online ? 'ok' : 'danger'}` }, st.online ? t('{0} W', n(st.powerW, 1)) + (st.model ? ` · ${st.model}` : '') : (st.error || 'offline')) : null,
+          h('button', { class: 'btn small', onclick: probe }, t('Testen')),
+          h('button', { class: 'btn small danger', onclick: () => { s.items.splice(i, 1); if (p.id) clear.add(p.id); draw(); } }, t('Entfernen'))),
+        h('div', { class: 'form' },
+          h('div', {}, h('label', {}, t('Name')), h('input', { value: p.name, oninput: e => { p.name = e.target.value; } })),
+          h('div', {}, h('label', {}, t('Adresse (IP oder Name, „sim“ = Simulation)')), h('input', { value: p.host, placeholder: '192.168.1.60', oninput: e => { p.host = e.target.value.trim(); } })),
+          h('div', {}, h('label', {}, t('Kanal')), numInput(p, 'channel')),
+          h('div', {}, h('label', {}, t('Benutzer (bei Gen2+ immer admin)')), h('input', { value: p.user, oninput: e => { p.user = e.target.value; } })),
+          h('div', {}, h('label', {}, t('Passwort')), pw),
+          h('div', {}, h('label', {}, t('Rolle')), role)),
+        minerBox);
+    }) : h('p', { class: 'muted small' }, t('Noch kein Smart Plug eingerichtet.')));
+    draw();
+    fill(body,
+      h('p', { class: 'muted small' }, t('Shelly-Steckdosen mit Leistungsmessung (Gen1, Plus/Pro/Gen3) messen den echten Verbrauch inklusive Netzteil und Zusatzlüftern. BitaxeTuner liest nur – geschaltet wird nie.')),
+      list,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', onclick: () => { s.items.push({ id: '', name: t('Smart Plug'), host: '', channel: 0, user: 'admin', role: 'miners', miners: [] }); draw(); } }, t('Plug hinzufügen'))),
+      checkInput(s, 'useForCosts', t('Kosten, Tagesbericht und Gesamteffizienz mit den Werten an der Steckdose rechnen')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('abfragen alle (s)')), numInput(s, 'intervalSeconds'))),
+      h('div', { class: 'row' },
+        h('button', {
+          class: 'btn primary', onclick: async () => {
+            const r = await run(() => api('/plugs', { method: 'PUT', body: { settings: s, passwords, clearPasswords: [...clear] } }));
+            if (r) { render(r); toast(t('Gespeichert.'), 'ok'); }
+          },
+        }, t('Speichern'))));
+  };
+  api('/plugs').then(render).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Smart Plugs')), body);
 }
 
 /** Home Assistant / MQTT: Broker, Geräteerkennung, optional Lüfter-Modus aus Home Assistant. */

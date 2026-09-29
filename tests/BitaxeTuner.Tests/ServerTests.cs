@@ -164,6 +164,49 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Smart_plugs_are_saved_measured_and_only_local_addresses_are_allowed()
+    {
+        var admin = await AdminAsync();
+        var settings = new
+        {
+            items = new[] { new { id = "", name = "Steckdose Gamma", host = "sim", channel = 0, user = "admin", role = "miners", miners = new[] { "192.168.50.10", "10.9.9.9" } } },
+            useForCosts = true,
+            intervalSeconds = 1,
+        };
+        var saved = await Json(await admin.PutAsJsonAsync("/api/v1/plugs", new { settings, passwords = new Dictionary<string, string>() }));
+        var plug = saved.GetProperty("settings").GetProperty("items")[0];
+        var id = plug.GetProperty("id").GetString()!;
+        Assert.Matches("^[a-z0-9]{8}$", id);
+        Assert.Equal(["192.168.50.10"], plug.GetProperty("miners").EnumerateArray().Select(m => m.GetString()));   // unbekannter Miner entfernt
+        Assert.Equal(5, saved.GetProperty("settings").GetProperty("intervalSeconds").GetInt32());                   // Untergrenze
+
+        // Passwort nur schreibbar
+        var withPw = new { settings = saved.GetProperty("settings"), passwords = new Dictionary<string, string> { [id] = "plug-geheim-1" } };
+        var again = await Json(await admin.PutAsJsonAsync("/api/v1/plugs", withPw));
+        Assert.True(again.GetProperty("passwordSet").GetProperty(id).GetBoolean());
+        Assert.DoesNotContain("plug-geheim-1", again.GetRawText());
+        Assert.DoesNotContain("plug-geheim-1", File.ReadAllText(_dir.File("config.json")));
+
+        var status = await Json(await admin.GetAsync("/api/v1/status"));
+        var p = status.GetProperty("plugs")[0];
+        Assert.True(p.GetProperty("online").GetBoolean());
+        Assert.True(p.GetProperty("overheadW").GetDouble() > 0);
+        Assert.True(status.GetProperty("totals").GetProperty("wallPower").GetDouble() > status.GetProperty("totals").GetProperty("power").GetDouble());
+        Assert.True(status.GetProperty("devices")[0].GetProperty("wallPower").GetDouble() > 0);
+
+        foreach (var host in new[] { "8.8.8.8", "http://192.168.1.60", "192.168.1.60/rpc/Switch.Set" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/plugs/probe", new { host, channel = 0 })).StatusCode);
+        var bad = new { settings = new { items = new[] { new { id = "", name = "x", host = "1.1.1.1", channel = 0, user = "admin", role = "total", miners = Array.Empty<string>() } }, useForCosts = true, intervalSeconds = 10 } };
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/plugs", bad)).StatusCode);
+        Assert.True((await Json(await admin.PostAsJsonAsync("/api/v1/plugs/probe", new { host = "sim", channel = 0 }))).GetProperty("ok").GetBoolean());
+
+        // Entfernen löscht das gespeicherte Passwort
+        await Json(await admin.PutAsJsonAsync("/api/v1/plugs", new { settings = new { items = Array.Empty<object>(), useForCosts = true, intervalSeconds = 10 } }));
+        var hub = _factory.Services.GetRequiredService<HubService>();
+        Assert.False(await hub.RunAsync(h => h.Secrets.Has(BitaxeTuner.Core.Config.SmartPlugConfig.SecretKey(id))));
+    }
+
+    [Fact]
     public async Task Fresh_server_needs_setup_code_and_locks_after_failures()
     {
         var client = _factory.CreateClient();

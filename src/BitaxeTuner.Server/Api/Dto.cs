@@ -28,6 +28,9 @@ public static class Dto
         var hash = online.Sum(i => i.hashRate);
         var power = online.Sum(i => i.power);
         var price = hub.Prices.PriceAt(now.ToUniversalTime());
+        // Mit Smart Plugs: Kosten und Gesamteffizienz aus dem Wert an der Steckdose
+        var energy = hub.Config.Plugs.Items.Count > 0 ? hub.CurrentEnergy() : null;
+        var costPower = energy is { FromPlugs: true } ? energy.TotalPowerW : power;
         return new
         {
             time = now,
@@ -36,18 +39,40 @@ public static class Dto
             {
                 hashrate = hash,
                 power,
+                wallPower = energy is { FromPlugs: true } ? energy.TotalPowerW : (double?)null,
+                overhead = energy?.OverheadW,
                 efficiency = hash > 1 ? power / (hash / 1000.0) : (double?)null,
+                wallEfficiency = energy is { FromPlugs: true } && hash > 1 ? costPower / (hash / 1000.0) : (double?)null,
                 online = online.Count,
                 count = devices.Count,
                 maxTemp = online.Count > 0 ? online.Max(i => i.temp) : (double?)null,
-                costPerDay = power * 24 / 1000.0 * hub.Config.ElectricityCtPerKwh / 100.0,
+                costPerDay = costPower * 24 / 1000.0 * hub.Config.ElectricityCtPerKwh / 100.0,
                 currency = hub.Config.Currency,
             },
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },
             history = hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),
             devices = devices.Select(d => Summary(hub, d, role)).ToList(),
             fans = Fans(hub, role),
+            plugs = Plugs(hub, role),
         };
+    }
+
+    /// <summary>Smart Plugs; null, wenn keine eingerichtet. Adressen und Fehlertexte nur für Admins.</summary>
+    public static object? Plugs(MinerHub hub, Role role)
+    {
+        if (hub.Config.Plugs.Items.Count == 0) return null;
+        var admin = role == Role.Admin;
+        return hub.PlugStatuses().Select(p => new
+        {
+            p.Id, p.Name, p.Role, p.Online,
+            powerW = R(p.PowerW), energyKwh = p.EnergyWh is { } e ? Math.Round(e / 1000, 3) : (double?)null,
+            p.Voltage, p.Current, minerPowerW = R(p.MinerPowerW), overheadW = R(p.OverheadW),
+            miners = p.Miners.Select(DeviceId).ToList(),
+            host = admin ? p.Host : null,
+            model = p.Model,
+            error = admin ? p.Error : null,
+            p.Updated,
+        }).ToList();
     }
 
     /// <summary>Zusatzlüfter; null, wenn nicht eingeschaltet.</summary>
@@ -96,6 +121,7 @@ public static class Dto
             temp = i?.temp,
             vrTemp = i?.vrTemp,
             power = i?.power,
+            wallPower = i is not null && hub.Config.Plugs.Items.Count > 0 ? R(hub.CurrentEnergy().WallPowerOf(d.Host)) : null,
             efficiency = n?.EfficiencyJth,
             frequency = n?.FrequencyMhz,
             voltage = n?.CoreVoltageMv,
@@ -218,4 +244,5 @@ public static class Dto
 
     public static long Unix(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
     private static double R(double v) => Math.Round(v, 2);
+    private static double? R(double? v) => v is { } x ? Math.Round(x, 2) : null;
 }
