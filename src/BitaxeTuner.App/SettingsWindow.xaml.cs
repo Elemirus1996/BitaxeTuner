@@ -42,6 +42,8 @@ public partial class SettingsWindow : Window
         if (_devices.Count > 0) DeviceList.SelectedIndex = 0;
 
         PriceBox.Text = config.ElectricityCtPerKwh.ToString("0.##", CultureInfo.CurrentCulture);
+        SelectByTag(PriceNetBox, config.ElectricityPriceIsNet ? "net" : "gross");
+        VatBox.Text = config.VatPercent.ToString("0.##", CultureInfo.CurrentCulture);
         CurrencyBox.Text = config.Currency;
         IntervalBox.Text = config.IntervalSeconds.ToString();
         HistoryBox.Text = config.HistoryMinutes.ToString();
@@ -197,6 +199,11 @@ public partial class SettingsWindow : Window
             ErrorText.Text = L.T("Strompreis ungültig.");
             return;
         }
+        if (!TryParseNumber(VatBox.Text, out var vat) || vat is < 0 or > 50)
+        {
+            ErrorText.Text = L.T("MwSt.: Zahl zwischen 0 und 50 %.");
+            return;
+        }
         if (!int.TryParse(IntervalBox.Text, out var interval) || interval < 1 || interval > 300)
         {
             ErrorText.Text = L.T("Abfrageintervall: 1 bis 300 Sekunden.");
@@ -340,6 +347,8 @@ public partial class SettingsWindow : Window
         _config.CoinGeckoApiKey = CoinGeckoKeyBox.Text.Trim();
         _config.Notifications = ReadNotificationSettings();
         _config.ElectricityCtPerKwh = price;
+        _config.ElectricityPriceIsNet = SelectedTag(PriceNetBox) == "net";
+        _config.VatPercent = vat;
         _config.Currency = CurrencyBox.Text.Trim().Length > 0 ? CurrencyBox.Text.Trim() : "€";
         _config.IntervalSeconds = interval;
         _config.HistoryMinutes = history;

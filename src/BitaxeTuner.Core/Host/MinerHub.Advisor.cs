@@ -37,7 +37,7 @@ public sealed partial class MinerHub
             catch { /* Verlauf nicht lesbar – dann aktueller Wert */ }
 
             list.Add(EfficiencyAdvisor.Evaluate(d.Host, d.Title, d.Profile, i?.FrequencyMhz, i?.CoreVoltageMv, gh, w, basis,
-                results, soaks, Config.ElectricityCtPerKwh, goal));
+                results, soaks, Plugs.EnergyCost.FixedCt(Config), goal));
         }
         return list;
     }

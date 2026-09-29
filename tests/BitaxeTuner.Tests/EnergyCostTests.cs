@@ -85,6 +85,28 @@ public class EnergyCostTests
     }
 
     [Fact]
+    public void Contract_price_gross_or_net_and_vat_on_awattar_but_not_tibber()
+    {
+        var config = new AppConfig { ElectricityCtPerKwh = 25 };
+        Assert.Equal(25, EnergyCost.FixedCt(config));                 // Standard: brutto wie bisher
+        config.ElectricityPriceIsNet = true;
+        Assert.Equal(29.75, EnergyCost.FixedCt(config), 6);          // 25 ct netto + 19 %
+        config.VatPercent = 7;
+        Assert.Equal(26.75, EnergyCost.FixedCt(config), 6);
+
+        config.VatPercent = 19;
+        config.PriceSource.SurchargeCt = 10;                         // netto wie der Vertrag
+        config.PriceSource.Source = "awattar-de";
+        Assert.Equal(10 * 1.19 + 10 * 1.19, EnergyCost.DynamicCt(config, 10), 6);
+        config.PriceSource.Source = "tibber";
+        Assert.Equal(30 + 11.9, EnergyCost.DynamicCt(config, 30), 6); // Tibber-Endpreis ohne weitere MwSt.
+
+        var old = System.Text.Json.JsonSerializer.Deserialize<AppConfig>("""{"ElectricityCtPerKwh": 32}""")!;
+        Assert.False(old.ElectricityPriceIsNet);
+        Assert.Equal(32, EnergyCost.FixedCt(old));
+    }
+
+    [Fact]
     public void Current_price_for_cost_per_day()
     {
         var config = new AppConfig { ElectricityCtPerKwh = 30 };

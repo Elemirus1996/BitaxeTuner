@@ -15,6 +15,8 @@ public sealed class SettingsDto
     public int WalletPollMinutes { get; set; }
     public int TaxPollMinutes { get; set; }
     public double ElectricityCtPerKwh { get; set; }
+    public bool ElectricityPriceIsNet { get; set; }
+    public double VatPercent { get; set; } = 19;
     public string Currency { get; set; } = "€";
     public double TempWarn { get; set; }
     public bool RestartAfterApply { get; set; }
@@ -44,6 +46,8 @@ public sealed class SettingsDto
         WalletPollMinutes = c.WalletPollMinutes,
         TaxPollMinutes = c.TaxPollMinutes,
         ElectricityCtPerKwh = c.ElectricityCtPerKwh,
+        ElectricityPriceIsNet = c.ElectricityPriceIsNet,
+        VatPercent = c.VatPercent,
         Currency = c.Currency,
         TempWarn = c.TempWarn,
         RestartAfterApply = c.RestartAfterApply,
@@ -74,6 +78,8 @@ public sealed class SettingsDto
         c.WalletPollMinutes = Math.Clamp(WalletPollMinutes, 1, 1440);
         c.TaxPollMinutes = Math.Clamp(TaxPollMinutes, 1, 1440);
         c.ElectricityCtPerKwh = Math.Clamp(ElectricityCtPerKwh, 0, 500);
+        c.ElectricityPriceIsNet = ElectricityPriceIsNet;
+        c.VatPercent = Math.Clamp(VatPercent, 0, 50);
         c.Currency = string.IsNullOrWhiteSpace(Currency) ? "€" : Currency.Trim();
         c.TempWarn = Math.Clamp(TempWarn, 30, 120);
         c.RestartAfterApply = RestartAfterApply;

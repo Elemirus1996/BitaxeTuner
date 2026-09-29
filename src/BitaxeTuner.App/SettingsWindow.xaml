@@ -106,6 +106,14 @@
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
                         <TextBlock Text="{l:T 'STROMPREIS (CT/KWH)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="PriceBox"/>
+                        <ComboBox x:Name="PriceNetBox" Margin="0,4,0,0">
+                            <ComboBoxItem Content="{l:T 'brutto (inkl. MwSt.)'}" Tag="gross"/>
+                            <ComboBoxItem Content="{l:T 'netto (zzgl. MwSt.)'}" Tag="net"/>
+                        </ComboBox>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="{l:T 'MwSt. (%)'}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="VatBox" Width="50"/>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
                         <TextBlock Text="{l:T 'WÄHRUNGSZEICHEN'}" Style="{StaticResource Label}"/>

@@ -527,7 +527,7 @@ public static class Endpoints
             {
                 goal = g.ToString(),
                 currency = h.Config.Currency,
-                ctPerKwh = h.Config.ElectricityCtPerKwh,
+                ctPerKwh = Core.Plugs.EnergyCost.FixedCt(h.Config),
                 miners = h.Advise(g, DateTime.Now).Select(r => new
                 {
                     id = Dto.DeviceId(r.Host), r.Name, r.FrequencyMhz, r.CoreVoltageMv, r.HashrateGh, r.PowerW, r.Jth, r.Basis, r.Note,

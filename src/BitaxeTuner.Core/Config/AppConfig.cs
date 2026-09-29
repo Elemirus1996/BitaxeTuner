@@ -19,6 +19,12 @@ public sealed class AppConfig
     /// <summary>Strompreis in Cent je kWh.</summary>
     public double ElectricityCtPerKwh { get; set; } = 30;
 
+    /// <summary>0.7.0: Arbeitspreis (und Aufschlag) ist netto, also zzgl. MwSt. Standard: brutto wie bisher.</summary>
+    public bool ElectricityPriceIsNet { get; set; }
+
+    /// <summary>MwSt.-Satz in Prozent für Nettopreise und den aWATTar-Börsenpreis.</summary>
+    public double VatPercent { get; set; } = 19;
+
     /// <summary>Intervall der Steuer-Wallet-Überwachung (Blockchair) in Minuten.</summary>
     public int TaxPollMinutes { get; set; } = 15;
 

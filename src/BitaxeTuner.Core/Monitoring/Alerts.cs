@@ -273,7 +273,7 @@ public static class DailyReport
 
         if (energy.FromPlugs) totalPower = energy.TotalPowerW;
         var kwh = totalPower * 24 / 1000.0;
-        var cost = kwh * config.ElectricityCtPerKwh / 100.0;
+        var cost = kwh * Plugs.EnergyCost.FixedCt(config) / 100.0;
         // Stundenpreise: letzte 24 volle Stunden, Energie × Preis der Stunde
         Plugs.CostResult? dyn = null;
         if (config.PriceSource.DynamicCosts)

@@ -237,7 +237,7 @@ public sealed partial class MinerHub
                 if (energy.FromPlugs) w = energy.TotalPowerW;
             }
             var kwh = w * 24 / 1000.0;
-            var cost = kwh * Config.ElectricityCtPerKwh / 100.0;
+            var cost = kwh * Plugs.EnergyCost.FixedCt(Config) / 100.0;
             if (Config.PriceSource.DynamicCosts &&
                 Plugs.EnergyCost.Compute(History, Config, Devices.Select(d => d.Host).ToList(), from, now) is { Kwh: > 0 } dyn)
                 (kwh, cost) = (dyn.Kwh, dyn.Cost);

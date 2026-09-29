@@ -41,19 +41,38 @@ public static class EnergyCost
             double ct;
             if (dynamic && prices.TryGetValue(key, out var p))
             {
-                ct = p + config.PriceSource.SurchargeCt;
+                ct = DynamicCt(config, p);
                 dynHours++;
             }
-            else ct = config.ElectricityCtPerKwh;
+            else ct = FixedCt(config);
             kwh += hourKwh;
             cost += hourKwh * ct / 100.0;
         }
         return new CostResult(kwh, cost, hours, dynHours);
     }
 
-    /// <summary>Aktueller Preis für „Kosten pro Tag“: Stundenpreis + Aufschlag, sonst der feste Wert.</summary>
+    /// <summary>Aktueller Bruttopreis für „Kosten pro Tag“: Stundenpreis + Aufschlag, sonst der Vertragspreis.</summary>
     public static double CurrentCt(AppConfig config, double? sourcePriceCt) =>
-        config.PriceSource.DynamicCosts && sourcePriceCt is { } p ? p + config.PriceSource.SurchargeCt : config.ElectricityCtPerKwh;
+        config.PriceSource.DynamicCosts && sourcePriceCt is { } p ? DynamicCt(config, p) : FixedCt(config);
+
+    /// <summary>Betrag in ct/kWh brutto: bei „netto“ zzgl. MwSt.</summary>
+    public static double Gross(AppConfig config, double ct) =>
+        config.ElectricityPriceIsNet ? ct * (1 + Math.Clamp(config.VatPercent, 0, 50) / 100) : ct;
+
+    /// <summary>Vertragspreis brutto.</summary>
+    public static double FixedCt(AppConfig config) => Gross(config, config.ElectricityCtPerKwh);
+
+    /// <summary>
+    /// Stundenpreis brutto: aWATTar liefert den Börsenpreis netto (+ MwSt.), Tibber den Endpreis (brutto);
+    /// dazu der Aufschlag, der wie der Vertragspreis brutto oder netto eingegeben ist.
+    /// </summary>
+    public static double DynamicCt(AppConfig config, double sourceCt)
+    {
+        var energy = config.PriceSource.Source.StartsWith("awattar", StringComparison.Ordinal)
+            ? sourceCt * (1 + Math.Clamp(config.VatPercent, 0, 50) / 100)
+            : sourceCt;
+        return energy + Gross(config, config.PriceSource.SurchargeCt);
+    }
 
     private static DateTime Floor(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, 0, 0, t.Kind);
 }
