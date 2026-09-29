@@ -1137,10 +1137,7 @@ async function renderSettings() {
         select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ['de', 'Deutsch'], ['en', 'English']]))),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('PIN für „Nur ansehen“ (mind. 4 Ziffern, „-“ = entfernen)')), pin))),
     h('div', { class: 'card stack' }, h('h2', {}, t('Push-Benachrichtigungen')),
-      h('div', { class: 'form' },
-        h('div', {}, h('label', {}, t('Dienst')), select(nt, 'provider', [['none', t('aus')], ['ntfy', 'ntfy'], ['telegram', 'Telegram']])),
-        h('div', {}, h('label', {}, t('ntfy-Server')), text(nt, 'ntfyServer')), h('div', {}, h('label', {}, t('ntfy-Topic')), text(nt, 'ntfyTopic')),
-        h('div', {}, h('label', {}, t('Telegram-Bot-Token')), text(nt, 'telegramBotToken', 'password')), h('div', {}, h('label', {}, t('Telegram-Chat-ID')), text(nt, 'telegramChatId'))),
+      notifyForm(nt, text, select),
       h('div', { class: 'row' }, checkInput(nt, 'onOffline', 'offline'), checkInput(nt, 'onOverheat', t('Überhitzung')), checkInput(nt, 'onFinds', t('Blockfund/Zufluss')),
         checkInput(nt, 'onMaintenance', t('Watchdog/Automatik/Firmware')), checkInput(nt, 'onRecord', t('Rekorde')), checkInput(nt, 'onLogAlerts', t('Log-Alarme')), checkInput(nt, 'onPool', t('Pool'))),
       h('div', { class: 'row' },
@@ -1317,6 +1314,23 @@ function curveInputs(curve) {
     h('div', {}, h('label', {}, t('darunter %')), numInput(curve, 'minPercent')),
     h('div', {}, h('label', {}, t('Hysterese °C')), numInput(curve, 'hysteresis', 0.5)),
   ];
+}
+
+/** Dienst-Auswahl für Push: nur die Felder des gewählten Dienstes sind sichtbar. */
+function notifyForm(nt, text, select) {
+  const field = (provider, label, el) => { const d = h('div', { 'data-provider': provider }, h('label', {}, label), el); return d; };
+  const fields = [
+    field('ntfy', t('ntfy-Server'), text(nt, 'ntfyServer')), field('ntfy', t('ntfy-Topic'), text(nt, 'ntfyTopic')),
+    field('telegram', t('Telegram-Bot-Token'), text(nt, 'telegramBotToken', 'password')), field('telegram', t('Telegram-Chat-ID'), text(nt, 'telegramChatId')),
+    field('discord', t('Discord-Webhook-URL'), text(nt, 'discordWebhookUrl', 'password')),
+    field('pushover', t('Pushover-User-Key'), text(nt, 'pushoverUserKey', 'password')), field('pushover', t('Pushover-App-Token'), text(nt, 'pushoverAppToken', 'password')),
+    field('webhook', t('Webhook-URL (JSON-POST: title, message, priority)'), text(nt, 'webhookUrl')),
+  ];
+  const show = () => fields.forEach(f => { f.style.display = f.dataset.provider === nt.provider ? '' : 'none'; });
+  const sel = select(nt, 'provider', [['none', t('aus')], ['ntfy', 'ntfy'], ['telegram', 'Telegram'], ['discord', 'Discord'], ['pushover', 'Pushover'], ['webhook', t('Eigener Webhook')]]);
+  sel.addEventListener('change', show);
+  show();
+  return h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Dienst')), sel), ...fields);
 }
 
 function selectInput(obj, key, options, onchange) {

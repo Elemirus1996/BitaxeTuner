@@ -14,7 +14,7 @@ public enum NotifyPriority
 }
 
 /// <summary>
-/// Push-Benachrichtigungen über ntfy oder Telegram.
+/// Push-Benachrichtigungen über ntfy, Telegram, Discord, Pushover oder einen eigenen Webhook.
 ///
 /// Jede Meldung hat einen Schlüssel (z. B. "offline:192.168.1.50"). Innerhalb
 /// der Sperrzeit wird derselbe Schlüssel nicht erneut gesendet, damit ein
@@ -23,7 +23,9 @@ public enum NotifyPriority
 /// </summary>
 public sealed class NotificationService : IDisposable
 {
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
+    public static readonly string[] Providers = ["ntfy", "telegram", "discord", "pushover", "webhook"];
+
+    private readonly HttpClient _http;
     private readonly Func<NotificationSettings> _settings;
     private readonly Dictionary<string, DateTime> _lastSent = new();
 
@@ -35,13 +37,18 @@ public sealed class NotificationService : IDisposable
     /// <summary>Nur für Tests: statt ntfy/Telegram aufrufen.</summary>
     internal Func<string, string, NotifyPriority, Task>? TransportOverride { get; set; }
 
-    public NotificationService(Func<NotificationSettings> settings)
+    public NotificationService(Func<NotificationSettings> settings) : this(settings, null) { }
+
+    /// <summary>Mit eigenem Handler (Tests prüfen damit die gesendeten Anfragen).</summary>
+    internal NotificationService(Func<NotificationSettings> settings, HttpMessageHandler? handler)
     {
         _settings = settings;
+        _http = handler is null ? new HttpClient() : new HttpClient(handler);
+        _http.Timeout = TimeSpan.FromSeconds(10);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeMonitor/1.0");
     }
 
-    public bool Enabled => _settings().Provider is "ntfy" or "telegram";
+    public bool Enabled => Providers.Contains(_settings().Provider);
 
     /// <summary>Sendet, sofern aktiviert und nicht innerhalb der Sperrzeit schon gesendet.</summary>
     public async Task SendAsync(string key, string title, string message,
@@ -130,9 +137,68 @@ public sealed class NotificationService : IDisposable
                 break;
             }
 
+            case "discord":
+            {
+                var url = CheckUrl(s.DiscordWebhookUrl, L.T("Discord-Webhook-URL fehlt"), httpsOnly: true);
+                if (url.Host is not ("discord.com" or "discordapp.com" or "ptb.discord.com" or "canary.discord.com")
+                    || !url.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.Ordinal))
+                    throw new InvalidOperationException(L.T("Das ist keine Discord-Webhook-URL (https://discord.com/api/webhooks/…)."));
+                // Discord erlaubt 2000 Zeichen je Nachricht
+                var content = $"**{title}**\n{message}";
+                if (content.Length > 2000) content = content[..1999] + "…";
+                using var resp = await _http.PostAsJsonAsync(url, new { content, username = "BitaxeTuner" });
+                resp.EnsureSuccessStatusCode();
+                break;
+            }
+
+            case "pushover":
+            {
+                if (string.IsNullOrWhiteSpace(s.PushoverUserKey) || string.IsNullOrWhiteSpace(s.PushoverAppToken))
+                    throw new InvalidOperationException(L.T("Pushover-User-Key oder App-Token fehlt"));
+                var form = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["token"] = s.PushoverAppToken.Trim(),
+                    ["user"] = s.PushoverUserKey.Trim(),
+                    ["title"] = title,
+                    ["message"] = message,
+                    // -1 leise, 0 normal, 1 hoch (2 = Notfall mit Quittierung wird bewusst nicht genutzt)
+                    ["priority"] = (priority switch { NotifyPriority.Low => -1, NotifyPriority.Normal => 0, _ => 1 }).ToString(),
+                });
+                using var resp = await _http.PostAsync("https://api.pushover.net/1/messages.json", form);
+                resp.EnsureSuccessStatusCode();
+                break;
+            }
+
+            case "webhook":
+            {
+                var url = CheckUrl(s.WebhookUrl, L.T("Webhook-URL fehlt"), httpsOnly: false);
+                var payload = new
+                {
+                    source = "BitaxeTuner",
+                    title,
+                    message,
+                    priority = priority.ToString().ToLowerInvariant(),
+                    priorityLevel = (int)priority,
+                    time = DateTimeOffset.Now,
+                };
+                using var resp = await _http.PostAsJsonAsync(url, payload);
+                resp.EnsureSuccessStatusCode();
+                break;
+            }
+
             default:
                 throw new InvalidOperationException(L.T("Kein Dienst ausgewählt"));
         }
+    }
+
+    /// <summary>Nur vollständige http(s)-Adressen; für Discord ausschließlich https.</summary>
+    private static Uri CheckUrl(string text, string missing, bool httpsOnly)
+    {
+        if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException(missing);
+        if (!Uri.TryCreate(text.Trim(), UriKind.Absolute, out var url)
+            || !(url.Scheme == Uri.UriSchemeHttps || (!httpsOnly && url.Scheme == Uri.UriSchemeHttp)))
+            throw new InvalidOperationException(L.T("Ungültige Adresse: {0}", text.Trim()));
+        return url;
     }
 
     public void Dispose() => _http.Dispose();

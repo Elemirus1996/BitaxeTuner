@@ -340,6 +340,9 @@
                         <ComboBoxItem Content="{l:T 'Aus'}" Tag="none"/>
                         <ComboBoxItem Content="ntfy" Tag="ntfy"/>
                         <ComboBoxItem Content="Telegram" Tag="telegram"/>
+                        <ComboBoxItem Content="Discord" Tag="discord"/>
+                        <ComboBoxItem Content="Pushover" Tag="pushover"/>
+                        <ComboBoxItem Content="{l:T 'Eigener Webhook'}" Tag="webhook"/>
                     </ComboBox>
                     <Button Content="{l:T 'Test senden'}" Click="TestNotify_Click" Padding="10,4" Margin="10,0,0,0"/>
                     <TextBlock x:Name="TestResultText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center"
@@ -375,6 +378,31 @@
                         <TextBox x:Name="TelegramChatBox"/>
                     </StackPanel>
                 </Grid>
+
+                <StackPanel x:Name="DiscordPanel" Margin="0,0,0,10">
+                    <TextBlock Text="{l:T 'DISCORD-WEBHOOK-URL (KANAL → INTEGRATIONEN → WEBHOOKS)'}" Style="{StaticResource Label}"/>
+                    <TextBox x:Name="DiscordUrlBox"/>
+                </StackPanel>
+
+                <Grid x:Name="PushoverPanel">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,10">
+                        <TextBlock Text="{l:T 'USER-KEY'}" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="PushoverUserBox"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,0,10">
+                        <TextBlock Text="{l:T 'APP-TOKEN'}" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="PushoverTokenBox"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel x:Name="WebhookPanel" Margin="0,0,0,10">
+                    <TextBlock Text="{l:T 'WEBHOOK-URL (JSON-POST: TITLE, MESSAGE, PRIORITY)'}" Style="{StaticResource Label}"/>
+                    <TextBox x:Name="WebhookUrlBox"/>
+                </StackPanel>
 
                 <WrapPanel>
                     <CheckBox x:Name="NotifyOfflineBox" Content="{l:T 'Miner offline'}" Margin="0,0,16,6"/>

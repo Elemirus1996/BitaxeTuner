@@ -64,6 +64,10 @@ public partial class SettingsWindow : Window
         NtfyTopicBox.Text = n.NtfyTopic;
         TelegramTokenBox.Text = n.TelegramBotToken;
         TelegramChatBox.Text = n.TelegramChatId;
+        DiscordUrlBox.Text = n.DiscordWebhookUrl;
+        PushoverUserBox.Text = n.PushoverUserKey;
+        PushoverTokenBox.Text = n.PushoverAppToken;
+        WebhookUrlBox.Text = n.WebhookUrl;
         NotifyOfflineBox.IsChecked = n.OnOffline;
         NotifyOverheatBox.IsChecked = n.OnOverheat;
         NotifyFindsBox.IsChecked = n.OnFinds;
@@ -434,6 +438,10 @@ public partial class SettingsWindow : Window
         NtfyTopic = NtfyTopicBox.Text.Trim(),
         TelegramBotToken = TelegramTokenBox.Text.Trim(),
         TelegramChatId = TelegramChatBox.Text.Trim(),
+        DiscordWebhookUrl = DiscordUrlBox.Text.Trim(),
+        PushoverUserKey = PushoverUserBox.Text.Trim(),
+        PushoverAppToken = PushoverTokenBox.Text.Trim(),
+        WebhookUrl = WebhookUrlBox.Text.Trim(),
         OnOffline = NotifyOfflineBox.IsChecked == true,
         OnOverheat = NotifyOverheatBox.IsChecked == true,
         OnFinds = NotifyFindsBox.IsChecked == true,
@@ -447,10 +455,13 @@ public partial class SettingsWindow : Window
 
     private void UpdateProviderPanels()
     {
-        if (NtfyPanel is null || TelegramPanel is null) return;
+        if (NtfyPanel is null || TelegramPanel is null || DiscordPanel is null || PushoverPanel is null || WebhookPanel is null) return;
         var provider = SelectedTag(ProviderBox);
         NtfyPanel.Visibility = provider == "ntfy" ? Visibility.Visible : Visibility.Collapsed;
         TelegramPanel.Visibility = provider == "telegram" ? Visibility.Visible : Visibility.Collapsed;
+        DiscordPanel.Visibility = provider == "discord" ? Visibility.Visible : Visibility.Collapsed;
+        PushoverPanel.Visibility = provider == "pushover" ? Visibility.Visible : Visibility.Collapsed;
+        WebhookPanel.Visibility = provider == "webhook" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void TestNotify_Click(object sender, RoutedEventArgs e)

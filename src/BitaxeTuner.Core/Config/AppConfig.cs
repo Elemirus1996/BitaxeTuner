@@ -234,7 +234,7 @@ public sealed class DeviceConfig
 
 public sealed class NotificationSettings
 {
-    /// <summary>"none", "ntfy" oder "telegram".</summary>
+    /// <summary>"none", "ntfy", "telegram", "discord", "pushover" oder "webhook".</summary>
     public string Provider { get; set; } = "none";
 
     public string NtfyServer { get; set; } = "https://ntfy.sh";
@@ -242,6 +242,15 @@ public sealed class NotificationSettings
 
     public string TelegramBotToken { get; set; } = "";
     public string TelegramChatId { get; set; } = "";
+
+    /// <summary>Discord: Webhook-URL eines Kanals (Servereinstellungen → Integrationen → Webhooks).</summary>
+    public string DiscordWebhookUrl { get; set; } = "";
+
+    public string PushoverUserKey { get; set; } = "";
+    public string PushoverAppToken { get; set; } = "";
+
+    /// <summary>Allgemeiner Webhook: JSON-POST {title, message, priority, …} an diese URL (z. B. Home Assistant, n8n).</summary>
+    public string WebhookUrl { get; set; } = "";
 
     public bool OnOffline { get; set; } = true;
     public bool OnOverheat { get; set; } = true;
