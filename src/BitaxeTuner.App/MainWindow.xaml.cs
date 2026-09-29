@@ -176,6 +176,9 @@ public partial class MainWindow : Window
     private void OnCopySettingsClick(object sender, RoutedEventArgs e) =>
         new CopySettingsWindow(Vm.Host) { Owner = this }.ShowDialog();
 
+    private void OnSmartPlugsClick(object sender, RoutedEventArgs e) =>
+        new SmartPlugsWindow(Vm.Host) { Owner = this }.ShowDialog();
+
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)
     {

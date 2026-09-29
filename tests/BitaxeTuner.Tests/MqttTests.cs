@@ -81,6 +81,7 @@ public class MqttTests
         var config = new AppConfig();
         config.Devices.Add(new DeviceConfig { Name = "Gamma Wohnzimmer", Host = "10.0.5.1" });
         config.Mqtt = new MqttSettings { Enabled = true, Host = "127.0.0.1", Port = broker.Port, User = "ha" };
+        config.Plugs.Items.Add(new SmartPlugConfig { Id = "plug1", Name = "Steckdose", Host = "sim", Miners = ["10.0.5.1"] });
         var hub = new MinerHub(config, new MinerHubOptions
         {
             DataDirectory = dir.Path,
@@ -98,6 +99,7 @@ public class MqttTests
 
             hub.Secrets.Set(SecretStore.MqttPassword, "mqtt-geheim");
             await hub.PollNowAsync();
+            await hub.PlugTickAsync();
             await hub.ApplyMqttSettingsAsync();
             Assert.True(hub.MqttConnected, hub.MqttError);
             await Until(() => broker.Last.ContainsKey("bitaxetuner/miner/10_0_5_1/state"));
@@ -110,6 +112,11 @@ public class MqttTests
             Assert.Equal("Gamma Wohnzimmer", cfg.GetProperty("device").GetProperty("name").GetString());
             Assert.Equal("bitaxetuner/status", cfg.GetProperty("availability_topic").GetString());
             Assert.Equal("", broker.Last["homeassistant/select/bitaxetuner/server_fan_mode/config"]);   // nicht freigegeben
+            var energy = JsonDocument.Parse(broker.Last["homeassistant/sensor/bitaxetuner/plug_plug1_energy/config"]).RootElement;
+            Assert.Equal("total_increasing", energy.GetProperty("state_class").GetString());
+            var server = JsonDocument.Parse(broker.Last["bitaxetuner/server/state"]).RootElement;
+            Assert.True(server.GetProperty("plugs").GetProperty("plug1").GetProperty("power_w").GetDouble() > 0);
+            Assert.True(server.GetProperty("wall_power_w").GetDouble() > server.GetProperty("power_w").GetDouble());
             Assert.DoesNotContain(broker.Last.Keys, t => t.Contains("frequency") && t.EndsWith("/set"));
 
             // Lüfter-Befehl ohne Freigabe: wirkungslos

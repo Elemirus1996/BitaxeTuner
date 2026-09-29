@@ -56,6 +56,10 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   aus `history.db`, jetzt mit viertem Diagramm **Effizienz (J/TH)**.
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
+- **Smart Plugs** (Shelly Gen1, Plus/Pro/Gen3 mit Leistungsmessung): echter Verbrauch an der Steckdose inklusive Netzteil
+  und Zusatzlüftern – je Plug für bestimmte Miner, Nebenverbraucher oder als Gesamtmessung. Kosten, Tagesbericht und
+  Effizienz wahlweise mit Steckdosenwerten, Differenz zu AxeOS sichtbar, Verlauf in `history.db`, MQTT/Home Assistant
+  (Energie-Dashboard). Es wird nur gemessen, nie geschaltet; nur Adressen im Heimnetz.
 - **Push** (ntfy, Telegram, Discord, Pushover oder eigener Webhook als JSON-POST), **Watchdog**, **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
 
 ### Zusammenspiel Tuning ↔ Überwachung

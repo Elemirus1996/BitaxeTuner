@@ -43,6 +43,8 @@
                             ToolTip="{l:T 'Dauertest für mehrere Miner auf einmal starten oder alle abbrechen'}" />
                     <Button Content="{l:T 'Einstellungen übertragen …'}" Click="OnCopySettingsClick"
                             ToolTip="{l:T 'Pool und Lüfter eines Miners auf andere übernehmen (ohne Frequenz/Spannung)'}" />
+                    <Button Content="{l:T 'Smart Plugs …'}" Click="OnSmartPlugsClick"
+                            ToolTip="{l:T 'Shelly-Steckdosen für den echten Verbrauch an der Steckdose (nur messen, nie schalten)'}" />
                     <Button Content="{l:T 'Profile bearbeiten'}" Command="{Binding EditProfilesCommand}" />
                     <Button Content="{l:T 'Datenordner öffnen'}" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
                     <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />

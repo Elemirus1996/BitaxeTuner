@@ -341,11 +341,20 @@ public partial class MonitorView : UserControl
                 vr.Count > 0 ? vr.Max().ToString("0", De) + " °C" : "–",
                 infos.Any(i => i.overheat_mode != 0) ? L.T("OVERHEAT AKTIV") : "", Normal);
 
-        SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG GESAMT"), power.ToString("0.0", De) + " W",
-                L.T("Ø {0} W je Miner", (power / online.Count).ToString("0.0", De)), Normal);
+        // Mit Smart Plugs: Wert an der Steckdose (inkl. Netzteil und Nebenverbraucher) für Leistung, Kosten und Effizienz
+        var energy = _config.Plugs.Items.Count > 0 ? _host.Hub.CurrentEnergy() : null;
+        var wall = energy is { FromPlugs: true } ? energy.TotalPowerW : (double?)null;
+        if (wall is { } w)
+            SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG STECKDOSE"), w.ToString("0.0", De) + " W",
+                    L.T("AxeOS {0} W · {1} W", power.ToString("0.0", De), (w - power).ToString("+0.0;-0.0", De)), Normal);
+        else
+            SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG GESAMT"), power.ToString("0.0", De) + " W",
+                    L.T("Ø {0} W je Miner", (power / online.Count).ToString("0.0", De)), Normal);
 
         SetTile(T5Label, T5Value, T5Sub, L.T("EFFIZIENZ"),
-                th > 0.01 ? (power / th).ToString("0.0", De) : "–", L.T("J/TH gesamt"), Normal);
+                th > 0.01 ? (power / th).ToString("0.0", De) : "–",
+                wall is { } ww && th > 0.01 ? L.T("Steckdose {0} J/TH", (ww / th).ToString("0.0", De)) : L.T("J/TH gesamt"), Normal);
+        power = wall ?? power;
 
         var offline = _states.Where(s => !s.Online).Select(s => s.Config.Name).ToList();
         SetTile(T6Label, T6Value, T6Sub, L.T("MINER ONLINE"), $"{online.Count}/{_states.Count}",
@@ -425,8 +434,10 @@ public partial class MonitorView : UserControl
                 i.temptarget > 0 ? L.T("Ziel {0} °C", i.temptarget) : "", TempBrush(i.temp));
         SetTile(T3Label, T3Value, T3Sub, L.T("VR TEMP"), i.vrTemp > 0 ? i.vrTemp.ToString("0", De) + " °C" : "–",
                 i.overheat_mode != 0 ? L.T("OVERHEAT AKTIV") : "", i.overheat_mode != 0 ? Red : Normal);
+        var socket = _config.Plugs.Items.Count > 0 ? _host.Hub.CurrentEnergy().WallPowerOf(state.Config.Host) : null;
         SetTile(T4Label, T4Value, T4Sub, L.T("LEISTUNG"), i.power.ToString("0.0", De) + " W",
-                $"{(i.voltage / 1000.0).ToString("0.00", De)} V / {(i.current / 1000.0).ToString("0.00", De)} A", Normal);
+                socket is { } sw ? L.T("Steckdose {0} W", sw.ToString("0.0", De))
+                    : $"{(i.voltage / 1000.0).ToString("0.00", De)} V / {(i.current / 1000.0).ToString("0.00", De)} A", Normal);
         SetTile(T5Label, T5Value, T5Sub, L.T("EFFIZIENZ"), th > 0.01 ? (i.power / th).ToString("0.0", De) : "–", "J/TH", Normal);
         SetTile(T6Label, T6Value, T6Sub, L.T("FREQUENZ"), i.frequency.ToString("0", De) + " MHz", i.AsicModel ?? "", Normal);
         SetTile(T7Label, T7Value, T7Sub, L.T("CORE VOLTAGE"), i.coreVoltageActual.ToString("0", De) + " mV",

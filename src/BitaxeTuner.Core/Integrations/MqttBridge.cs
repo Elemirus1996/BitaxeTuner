@@ -19,9 +19,13 @@ public sealed record MqttMiner(string Key, string Name, string Model, bool Onlin
 public sealed record MqttFan(int Channel, string Name, int Percent, int? Rpm);
 public sealed record MqttSensor(string Key, string Name, double? Temp);
 
+/// <summary>Smart Plug für MQTT (EnergyKwh = Zählerstand des Plugs).</summary>
+public sealed record MqttPlug(string Key, string Name, double? PowerW, double? EnergyKwh);
+
 /// <summary>Gesamtzustand für MQTT.</summary>
 public sealed record MqttSnapshot(double HashrateGh, double PowerW, int Online, int Count, double? PriceCt, bool Paused, string FanMode,
-    IReadOnlyList<MqttMiner> Miners, IReadOnlyList<MqttFan> Fans, IReadOnlyList<MqttSensor> Sensors);
+    IReadOnlyList<MqttMiner> Miners, IReadOnlyList<MqttFan> Fans, IReadOnlyList<MqttSensor> Sensors,
+    IReadOnlyList<MqttPlug>? Plugs = null, double? WallPowerW = null);
 
 /// <summary>
 /// Verbindung zum MQTT-Broker (z. B. Mosquitto in Home Assistant): Zustände als JSON (retained), Geräteerkennung
@@ -185,6 +189,8 @@ public sealed partial class MqttBridge : IAsyncDisposable
                 fan_mode = s.FanMode,
                 fans = s.Fans.ToDictionary(f => $"k{f.Channel}", f => new { percent = f.Percent, rpm = f.Rpm }),
                 sensors = s.Sensors.ToDictionary(x => x.Key, x => x.Temp is { } t ? Math.Round(t, 1) : (double?)null),
+                wall_power_w = Round(s.WallPowerW, 1),
+                plugs = (s.Plugs ?? []).ToDictionary(x => x.Key, x => new { power_w = Round(x.PowerW, 1), energy_kwh = Round(x.EnergyKwh, 3) }),
             }), retain: true, ct);
             foreach (var m in s.Miners)
                 await PublishAsync($"{b}/miner/{m.Key}/state", JsonSerializer.Serialize(new
@@ -291,6 +297,16 @@ public sealed partial class MqttBridge : IAsyncDisposable
         }
         foreach (var t in s.Sensors)
             Add("sensor", $"temp_{t.Key}", t.Name, st, $"{{{{ value_json.sensors['{t.Key}'] }}}}", serverDevice, o => Unit(o, "°C", "temperature"));
+        if (s.Plugs is { Count: > 0 } plugs)
+        {
+            Add("sensor", "server_wall_power", L.T("Leistung an der Steckdose"), st, "{{ value_json.wall_power_w }}", serverDevice, o => Unit(o, "W", "power"));
+            foreach (var p in plugs)
+            {
+                Add("sensor", $"plug_{p.Key}_power", L.T("{0} Leistung", p.Name), st, $"{{{{ value_json.plugs['{p.Key}'].power_w }}}}", serverDevice, o => Unit(o, "W", "power"));
+                Add("sensor", $"plug_{p.Key}_energy", L.T("{0} Energie", p.Name), st, $"{{{{ value_json.plugs['{p.Key}'].energy_kwh }}}}", serverDevice,
+                    o => Unit(o, "kWh", "energy", "total_increasing"));
+            }
+        }
 
         foreach (var m in s.Miners)
         {

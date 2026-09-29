@@ -88,6 +88,8 @@ public sealed partial class MinerHub
         return new MqttSnapshot(online.Sum(m => m.HashrateGh ?? 0), online.Sum(m => m.PowerW ?? 0), online.Count, miners.Count,
             Prices.PriceAt(DateTime.UtcNow), IsPaused, mode, miners,
             fans.Select(c => new MqttFan(c.Channel, c.Name, c.Percent, c.Rpm)).ToList(),
-            (FanStatus.Sensors ?? []).Select(s => new MqttSensor(MqttBridge.Key(s.Id), s.Name, s.Temp)).ToList());
+            (FanStatus.Sensors ?? []).Select(s => new MqttSensor(MqttBridge.Key(s.Id), s.Name, s.Temp)).ToList(),
+            PlugStatuses().Select(p => new MqttPlug(MqttBridge.Key(p.Id), p.Name, p.PowerW, p.EnergyWh / 1000)).ToList(),
+            Config.Plugs.Items.Count > 0 && CurrentEnergy() is { FromPlugs: true } e ? e.TotalPowerW : null);
     }
 }

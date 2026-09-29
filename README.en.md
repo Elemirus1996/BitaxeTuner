@@ -59,6 +59,10 @@ Corrections to the English texts are welcome: they all live in
   from `history.db`, including an **efficiency (J/TH)** chart.
 - **Network**: recently found blocks, pool ranking, solo chances BTC/BCH.
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export.
+- **Smart plugs** (Shelly Gen1, Plus/Pro/Gen3 with power metering): real consumption at the socket including power supply
+  and extra fans – per plug for specific miners, other consumers or as a total measurement. Costs, daily report and
+  efficiency optionally use socket values, the difference to AxeOS is shown, history in `history.db`, MQTT/Home Assistant
+  (energy dashboard). Read-only, never switched; home-network addresses only.
 - **Push** (ntfy, Telegram, Discord, Pushover or a custom webhook as JSON POST), **watchdog**, **firmware check**, **best diff records**, **tray**, autostart.
 
 ### Tuning ↔ monitoring
