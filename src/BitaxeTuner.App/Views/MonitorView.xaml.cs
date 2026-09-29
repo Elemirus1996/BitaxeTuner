@@ -917,7 +917,10 @@ public partial class MonitorView : UserControl
 
     // ---------- Stromkosten ----------
 
-    private double CostPerDay(double watt) => watt * 24 / 1000.0 * _config.ElectricityCtPerKwh / 100.0;
+    /// <summary>Mit „Kosten mit Stundenpreisen“: aktueller Stundenpreis + Aufschlag, sonst der feste Wert.</summary>
+    private double CurrentCt => Core.Plugs.EnergyCost.CurrentCt(_config, _host.Hub.Prices.PriceAt(DateTime.UtcNow));
+
+    private double CostPerDay(double watt) => watt * 24 / 1000.0 * CurrentCt / 100.0;
 
     private string Money(double value) => value.ToString("0.00", De) + " " + _config.Currency;
 
@@ -927,7 +930,7 @@ public partial class MonitorView : UserControl
         SetTile(T13Label, T13Value, T13Sub, L.T("STROMKOSTEN/TAG"), Money(day),
                 L.T("{0} kWh {1}", (watt * 24 / 1000.0).ToString("0.00", De), scope), Normal);
         SetTile(T14Label, T14Value, T14Sub, L.T("STROMKOSTEN/MONAT"), Money(day * 30.44),
-                L.T("{0} ct/kWh · Jahr {1}", _config.ElectricityCtPerKwh.ToString("0.##", De), Money(day * 365)), Normal);
+                L.T("{0} ct/kWh · Jahr {1}", CurrentCt.ToString("0.##", De), Money(day * 365)), Normal);
     }
 
     // ---------- Steuer-Modul ----------

@@ -5,6 +5,7 @@ using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.Plugs;
 using BitaxeTuner.Server.Security;
 
 namespace BitaxeTuner.Server.Api;
@@ -46,7 +47,7 @@ public static class Dto
                 online = online.Count,
                 count = devices.Count,
                 maxTemp = online.Count > 0 ? online.Max(i => i.temp) : (double?)null,
-                costPerDay = costPower * 24 / 1000.0 * hub.Config.ElectricityCtPerKwh / 100.0,
+                costPerDay = costPower * 24 / 1000.0 * EnergyCost.CurrentCt(hub.Config, price) / 100.0,
                 currency = hub.Config.Currency,
             },
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },

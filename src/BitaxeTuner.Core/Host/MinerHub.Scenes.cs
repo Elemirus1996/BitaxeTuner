@@ -237,8 +237,12 @@ public sealed partial class MinerHub
                 if (energy.FromPlugs) w = energy.TotalPowerW;
             }
             var kwh = w * 24 / 1000.0;
+            var cost = kwh * Config.ElectricityCtPerKwh / 100.0;
+            if (Config.PriceSource.DynamicCosts &&
+                Plugs.EnergyCost.Compute(History, Config, Devices.Select(d => d.Host).ToList(), from, now) is { Kwh: > 0 } dyn)
+                (kwh, cost) = (dyn.Kwh, dyn.Cost);
             var best = BestDiffs.Where(r => Devices.Any(d => d.Host == r.Host)).OrderByDescending(r => r.Value).FirstOrDefault();
-            var daily = new DisplayDaily(gh, w, kwh, kwh * Config.ElectricityCtPerKwh / 100.0, Config.Currency, best?.Raw,
+            var daily = new DisplayDaily(gh, w, kwh, cost, Config.Currency, best?.Raw,
                 best is null ? null : Device(best.Host)?.Title, rows);
             _dailyCache = (now, daily);
             return daily;

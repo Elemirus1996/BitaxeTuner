@@ -486,6 +486,12 @@ public sealed class PriceSourceSettings
     public string Source { get; set; } = "none";
     public string TibberToken { get; set; } = "";
 
+    /// <summary>0.6.1: Stromkosten stundenweise mit dem Preis der Quelle rechnen (sonst fester ct/kWh-Wert).</summary>
+    public bool DynamicCosts { get; set; }
+
+    /// <summary>Aufschlag in ct/kWh für die Kostenrechnung (aWATTar: Netzentgelte, Steuern, Umlagen; Tibber: 0).</summary>
+    public double SurchargeCt { get; set; }
+
     public PriceSourceSettings Clone() => (PriceSourceSettings)MemberwiseClone();
 }
 

@@ -101,6 +101,8 @@ public partial class SettingsWindow : Window
 
         SelectByTag(PriceSourceBox, config.PriceSource.Source);
         TibberTokenBox.Password = config.PriceSource.TibberToken;
+        DynamicCostsBox.IsChecked = config.PriceSource.DynamicCosts;
+        SurchargeBox.Text = config.PriceSource.SurchargeCt.ToString("0.##", CultureInfo.CurrentCulture);
         UpdatePricePanels();
         WebEnabledBox.IsChecked = config.WebView.Enabled;
         WebPortBox.Text = config.WebView.Port.ToString();
@@ -293,7 +295,16 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        _config.PriceSource = new PriceSourceSettings { Source = priceSource, TibberToken = TibberTokenBox.Password.Trim() };
+        if (!double.TryParse(SurchargeBox.Text.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out var surcharge) || surcharge is < 0 or > 200)
+        {
+            ErrorText.Text = L.T("Aufschlag: Zahl zwischen 0 und 200 ct/kWh.");
+            return;
+        }
+        _config.PriceSource = new PriceSourceSettings
+        {
+            Source = priceSource, TibberToken = TibberTokenBox.Password.Trim(),
+            DynamicCosts = DynamicCostsBox.IsChecked == true, SurchargeCt = surcharge,
+        };
         var web = _config.WebView.Clone();
         web.Enabled = WebEnabledBox.IsChecked == true;
         web.Port = webPort;

@@ -111,6 +111,14 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, started)
             );
             """);
+        // 0.6.1: Strompreise der gewählten Quelle (ct/kWh je Zeitraum, UTC) für die Kostenrechnung – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS prices (
+                ts      INTEGER NOT NULL PRIMARY KEY,
+                ends    INTEGER NOT NULL,
+                ct      REAL    NOT NULL
+            );
+            """);
         // 0.6.1: Smart-Plug-Messwerte (Minutenmittel an der Steckdose) – rein additiv
         Execute("""
             CREATE TABLE IF NOT EXISTS plug_samples (
@@ -121,6 +129,59 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (plug, ts)
             );
             """);
+    }
+
+    // ---------- Strompreise und Stundenwerte ----------
+
+    /// <summary>Preise speichern (vorhandene Zeiträume werden überschrieben).</summary>
+    public void AddPrices(IEnumerable<Automation.PricePoint> points)
+    {
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            foreach (var p in points)
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = "INSERT OR REPLACE INTO prices (ts, ends, ct) VALUES ($ts, $e, $ct);";
+                cmd.Parameters.AddWithValue("$ts", new DateTimeOffset(DateTime.SpecifyKind(p.StartUtc, DateTimeKind.Utc)).ToUnixTimeSeconds());
+                cmd.Parameters.AddWithValue("$e", new DateTimeOffset(DateTime.SpecifyKind(p.EndUtc, DateTimeKind.Utc)).ToUnixTimeSeconds());
+                cmd.Parameters.AddWithValue("$ct", p.CtPerKwh);
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+    }
+
+    /// <summary>Mittlerer Preis je Stunde (Unix-Sekunden des Stundenbeginns) im Zeitraum; auch 15-min-Preise.</summary>
+    public Dictionary<long, double> HourlyPrices(DateTime from, DateTime to) =>
+        Hourly("SELECT (ts / 3600) * 3600 AS h, AVG(ct), COUNT(*) FROM prices WHERE ts >= $from AND ts < $to GROUP BY h;", null, from, to)
+            .ToDictionary(kv => kv.Key, kv => kv.Value.Value);
+
+    /// <summary>Energie eines Miners je Stunde in Wh (Minutenwerte, nur online).</summary>
+    public Dictionary<long, double> HourlyEnergyWh(string host, DateTime from, DateTime to) =>
+        Hourly("SELECT (ts / 3600) * 3600 AS h, SUM(power) / 60.0, COUNT(*) FROM samples WHERE host = $key AND online = 1 AND ts >= $from AND ts < $to GROUP BY h;",
+            host, from, to).ToDictionary(kv => kv.Key, kv => kv.Value.Value);
+
+    /// <summary>Mittlere Leistung eines Plugs je Stunde und Anzahl Messminuten.</summary>
+    public Dictionary<long, (double Value, int Count)> HourlyPlugPower(string plugId, DateTime from, DateTime to) =>
+        Hourly("SELECT (ts / 3600) * 3600 AS h, AVG(power), COUNT(*) FROM plug_samples WHERE plug = $key AND ts >= $from AND ts < $to GROUP BY h;",
+            plugId, from, to);
+
+    private Dictionary<long, (double Value, int Count)> Hourly(string sql, string? key, DateTime from, DateTime to)
+    {
+        var result = new Dictionary<long, (double, int)>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = sql;
+            if (key is not null) cmd.Parameters.AddWithValue("$key", key);
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) result[r.GetInt64(0)] = (r.GetDouble(1), (int)r.GetInt64(2));
+        }
+        return result;
     }
 
     // ---------- Smart Plugs ----------
@@ -433,7 +494,7 @@ public sealed class HistoryStore : IDisposable
         lock (_lock)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff;";
+            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             cmd.ExecuteNonQuery();
         }

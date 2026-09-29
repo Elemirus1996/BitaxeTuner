@@ -274,12 +274,21 @@ public static class DailyReport
         if (energy.FromPlugs) totalPower = energy.TotalPowerW;
         var kwh = totalPower * 24 / 1000.0;
         var cost = kwh * config.ElectricityCtPerKwh / 100.0;
+        // Stundenpreise: letzte 24 volle Stunden, Energie × Preis der Stunde
+        Plugs.CostResult? dyn = null;
+        if (config.PriceSource.DynamicCosts)
+        {
+            dyn = Plugs.EnergyCost.Compute(history, config, miners.Select(m => m.Host).ToList(), from, now);
+            if (dyn.Kwh > 0) (kwh, cost) = (dyn.Kwh, dyn.Cost);
+        }
         var best = history.GetBestDiffs()
             .Where(r => miners.Any(m => m.Host == r.Host))
             .OrderByDescending(r => r.Value).FirstOrDefault();
 
         var header = L.T("Gesamt Ø {0} · {1} W · ", FormatHash(totalHash), totalPower.ToString("0.0", De)) +
                      L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency);
+        if (dyn is { AvgCt: { } avgCt, DynamicHours: > 0 })
+            header += L.T(" (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)", avgCt.ToString("0.0", De), dyn.DynamicHours, dyn.Hours);
         if (energy.OverheadW is { } overhead)
             header += L.T("\nSteckdose gemessen: AxeOS {0} W, Netzteil/Nebenverbrauch {1} W", energy.MinerPowerW.ToString("0.0", De),
                 overhead.ToString("+0.0;-0.0", De));

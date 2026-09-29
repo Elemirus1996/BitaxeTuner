@@ -262,6 +262,13 @@
                 </Grid>
                 <TextBlock Text="{l:T 'aWATTar: stündlicher Börsenpreis ohne Konto, ohne Netzentgelte und Steuern. Tibber: Endpreis inkl. Steuern. Genutzt von der Strompreis-Regel (Gerät → Automatik) und in der Handy-Ansicht.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <CheckBox x:Name="DynamicCostsBox" Content="{l:T 'Stromkosten mit Stundenpreisen rechnen'}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{l:T 'Aufschlag (ct/kWh)'}" VerticalAlignment="Center" Margin="16,0,6,0"/>
+                    <TextBox x:Name="SurchargeBox" Width="70"/>
+                </StackPanel>
+                <TextBlock Text="{l:T 'Aufschlag bei aWATTar: Netzentgelte, Steuern und Umlagen (typisch 15–25 ct/kWh), bei Tibber 0. Ohne Preis für eine Stunde gilt der feste Strompreis.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
 
                 <TextBlock Text="{l:T 'Handy-Ansicht (nur ansehen)'}" Style="{StaticResource Section}" Margin="0,16,0,8"/>
                 <StackPanel Orientation="Horizontal">

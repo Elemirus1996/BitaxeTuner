@@ -17,10 +17,18 @@ public sealed partial class MinerHub
     /// <summary>Dauertest beendet (bestanden, fehlgeschlagen oder abgebrochen). Bei Fehlschlag evtl. mit Vorschlag.</summary>
     public event Action<HubDevice, SoakResult, SoakSuggestion?>? SoakFinished;
 
+    /// <summary>Preise abrufen und für die Kostenrechnung vergangener Stunden in history.db sichern.</summary>
+    private async Task RefreshPricesAsync(DateTime now)
+    {
+        await Prices.RefreshAsync(now.ToUniversalTime());
+        if (Prices.Prices.Count > 0)
+            try { History?.AddPrices(Prices.Prices); } catch { /* nicht kritisch */ }
+    }
+
     private void TickAutomation(DateTime now)
     {
         // Preise nur abrufen, wenn eine Quelle eingestellt ist (höchstens alle 30 min)
-        if (Config.PriceSource.Source != "none") _ = Prices.RefreshAsync(now.ToUniversalTime());
+        if (Config.PriceSource.Source != "none") _ = RefreshPricesAsync(now);
 
         var list = Devices;
         foreach (var device in list)

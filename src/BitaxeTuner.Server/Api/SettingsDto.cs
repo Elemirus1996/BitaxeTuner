@@ -88,6 +88,7 @@ public sealed class SettingsDto
         // Datum des letzten Tagesberichts bleibt (sonst käme er doppelt)
         DailyReport.LastSent = c.DailyReport.LastSent;
         c.DailyReport = DailyReport;
+        PriceSource.SurchargeCt = Math.Clamp(PriceSource.SurchargeCt, 0, 200);
         c.PriceSource = PriceSource;
     }
 }
