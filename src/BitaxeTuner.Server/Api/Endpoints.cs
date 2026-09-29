@@ -530,9 +530,9 @@ public static class Endpoints
                 ctPerKwh = Core.Plugs.EnergyCost.FixedCt(h.Config),
                 miners = h.Advise(g, DateTime.Now).Select(r => new
                 {
-                    id = Dto.DeviceId(r.Host), r.Name, r.FrequencyMhz, r.CoreVoltageMv, r.HashrateGh, r.PowerW, r.Jth, r.Basis, r.Note,
-                    candidates = r.Candidates.Select(c => new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta }).ToList(),
-                    recommended = r.Recommended is { } c ? new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta } : null,
+                    id = Dto.DeviceId(r.Host), r.Name, r.FrequencyMhz, r.CoreVoltageMv, r.HashrateGh, r.PowerW, r.Jth, r.Basis, r.Note, r.WallFactor,
+                    candidates = r.Candidates.Select(c => new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta, c.WallPowerW, c.WallJth }).ToList(),
+                    recommended = r.Recommended is { } c ? new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta, c.WallPowerW, c.WallJth } : null,
                 }).ToList(),
             };
         })));

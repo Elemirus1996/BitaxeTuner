@@ -690,7 +690,8 @@ function advisorCard() {
             m.frequencyMhz ? h('span', { class: 'pill gray' }, t('jetzt {0} MHz / {1} mV', m.frequencyMhz, m.coreVoltageMv)) : null),
           m.hashrateGh ? h('p', { class: 'small muted' }, t('{0}: {1} · {2} W · {3}', m.basis, hash(m.hashrateGh), n(m.powerW, 1), m.jth ? n(m.jth, 2) + ' J/TH' : '–')) : null,
           c ? h('div', { class: 'stack' },
-                h('p', {}, h('b', {}, t('Vorschlag: {0} MHz / {1} mV', c.frequencyMhz, c.coreVoltageMv)), t(' · {0} · {1} W · {2} J/TH', hash(c.hashrateGh), n(c.powerW, 1), n(c.jth, 2))),
+                h('p', {}, h('b', {}, t('Vorschlag: {0} MHz / {1} mV', c.frequencyMhz, c.coreVoltageMv)), t(' · {0} · {1} W · {2} J/TH', hash(c.hashrateGh), n(c.powerW, 1), n(c.jth, 2)),
+                  c.wallJth != null ? h('span', { class: 'muted' }, t(' · Steckdose ≈ {0} W · {1} J/TH', n(c.wallPowerW, 1), n(c.wallJth, 2))) : null),
                 h('p', { class: 'small' },
                   `${signed(c.deltaGh, 0, 'GH/s')} · ${signed(c.deltaW, 1, 'W')} · `,
                   h('b', { class: c.monthlyCostDelta < 0 ? 'ok' : '' }, t('{0} pro Monat', signed(c.monthlyCostDelta, 2, d.currency))),
@@ -700,6 +701,7 @@ function advisorCard() {
                   c.soakPassed ? null : h('button', { class: 'btn small primary', onclick: () => apply(m, c, true) }, t('Anwenden + Dauertest 24 h …'))))
             : null,
           h('p', { class: 'small muted' }, m.note),
+          m.wallFactor ? h('p', { class: 'small muted' }, t('Steckdosenwerte hochgerechnet mit dem gemessenen Faktor ×{0} (Smart Plug, letzte 7 Tage); die Kosten pro Monat rechnen damit.', n(m.wallFactor, 2))) : null,
           m.candidates.length ? h('details', {}, h('summary', { class: 'small' }, t('Alle Ziele')),
             h('div', { class: 'table-wrap' }, h('table', {},
               h('thead', {}, h('tr', {}, [t('Ziel'), t('Einstellung'), t('Hashrate'), t('Leistung'), 'J/TH', t('pro Monat'), t('geprüft')].map(x => h('th', {}, x)))),

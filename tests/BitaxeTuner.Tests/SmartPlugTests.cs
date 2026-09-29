@@ -243,6 +243,32 @@ public class SmartPlugTests
         }
     }
 
+    [Fact]
+    public void Wall_factor_comes_from_seven_days_of_plug_and_miner_history()
+    {
+        using var dir = new TempDir();
+        var now = new DateTime(2026, 9, 29, 12, 0, 0);
+        var config = new AppConfig();
+        config.Devices.Add(new DeviceConfig { Name = "Gamma", Host = "10.0.5.1" });
+        config.Plugs.Items.Add(new SmartPlugConfig { Id = "p1", Role = "miners", Miners = ["10.0.5.1"] });
+        var hub = new MinerHub(config, new MinerHubOptions { DataDirectory = dir.Path, OnlineChecks = false, Clock = () => now });
+        try
+        {
+            Assert.Null(hub.WallFactor("10.0.5.1", now));                         // noch keine Messwerte
+            for (var m = 0; m < 7 * 24 * 60; m += 1)
+            {
+                hub.History!.AddSample("10.0.5.1", now.AddMinutes(-m), 1000, 55, 20, true);
+                hub.History.AddPlugSample("p1", now.AddMinutes(-m), 23, null);
+            }
+            Assert.Equal(1.15, hub.WallFactor("10.0.5.1", now)!.Value, 6);
+            Assert.Null(hub.WallFactor("10.0.9.9", now));                         // Miner ohne Plug
+        }
+        finally
+        {
+            hub.Dispose();
+        }
+    }
+
     // ---------- Hub ----------
 
     [Fact]

@@ -37,9 +37,30 @@ public sealed partial class MinerHub
             catch { /* Verlauf nicht lesbar – dann aktueller Wert */ }
 
             list.Add(EfficiencyAdvisor.Evaluate(d.Host, d.Title, d.Profile, i?.FrequencyMhz, i?.CoreVoltageMv, gh, w, basis,
-                results, soaks, Plugs.EnergyCost.FixedCt(Config), goal));
+                results, soaks, Plugs.EnergyCost.FixedCt(Config), goal, WallFactor(d.Host, now)));
         }
         return list;
+    }
+
+    /// <summary>
+    /// Steckdose ÷ AxeOS der letzten 7 Tage für einen Miner an einem Plug mit Rolle „miners“ (mindestens 3,5 Tage gemessen);
+    /// bei mehreren Minern am Plug derselbe Faktor für alle. Null ohne Plug oder ohne genug Messwerte.
+    /// </summary>
+    public double? WallFactor(string host, DateTime now)
+    {
+        if (History is not { } db) return null;
+        var plug = Config.Plugs.Items.FirstOrDefault(p => p.Role == "miners" && p.Miners.Contains(host, StringComparer.OrdinalIgnoreCase));
+        if (plug is null) return null;
+        var from = now.AddDays(-7);
+        try
+        {
+            if (db.AveragePlugPower(plug.Id, from, now) is not { Minutes: >= 5040 } pa) return null;
+            var axe = plug.Miners.Select(h => db.Average(h, from, now)?.Power).ToList();
+            if (axe.Any(a => a is null)) return null;
+            var sum = axe.Sum(a => a!.Value);
+            return sum > 0 ? pa.PowerW / sum : null;
+        }
+        catch { return null; }
     }
 
     /// <summary>Nach einer bestätigten Änderung einen Dauertest starten, sobald der Miner wieder läuft.</summary>

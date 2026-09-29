@@ -60,6 +60,15 @@ public class AdvisorTests
         Assert.False(r2.Recommended.SoakPassed);
 
         Assert.Contains("Benchmark", EfficiencyAdvisor.Evaluate("h", "G", p, 600, 1200, 1000, 20, "aktuell", [], [], 30, AdvisorGoal.Balanced).Note);
+
+        // Mit Smart Plug: gleiche Rangfolge, Steckdosenwerte und Kosten mit dem gemessenen Faktor
+        var wall = EfficiencyAdvisor.Evaluate("h", "Gamma", p, 600, 1200, 1250, 22.5, "Ø 24 h", results, soaks, 30, AdvisorGoal.Efficiency, wallFactor: 1.2);
+        Assert.Equal((525, 1150), (wall.Recommended!.FrequencyMhz, wall.Recommended.CoreVoltageMv));
+        Assert.Equal(1.2, wall.WallFactor);
+        Assert.Equal(c.PowerW * 1.2, wall.Recommended.WallPowerW!.Value, 6);
+        Assert.Equal(c.Jth * 1.2, wall.Recommended.WallJth!.Value, 6);
+        Assert.Equal(c.MonthlyCostDelta * 1.2, wall.Recommended.MonthlyCostDelta, 6);
+        Assert.Null(EfficiencyAdvisor.Evaluate("h", "G", p, 600, 1200, 1250, 22.5, "x", results, soaks, 30, AdvisorGoal.Efficiency, wallFactor: 0.8).WallFactor); // unplausibel
     }
 
     [Fact]

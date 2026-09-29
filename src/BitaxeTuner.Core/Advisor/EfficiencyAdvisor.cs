@@ -10,7 +10,7 @@ public enum AdvisorGoal { Efficiency, Balanced, Hashrate }
 /// <summary>Eine geprüfte Einstellung aus den Benchmarks, verglichen mit der aktuellen.</summary>
 public sealed record AdvisorCandidate(
     AdvisorGoal Goal, int FrequencyMhz, int CoreVoltageMv, double HashrateGh, double PowerW, double Jth,
-    bool SoakPassed, double DeltaW, double DeltaGh, double MonthlyCostDelta)
+    bool SoakPassed, double DeltaW, double DeltaGh, double MonthlyCostDelta, double? WallPowerW = null, double? WallJth = null)
 {
     /// <summary>„Dauertest bestanden“ oder „nur Benchmark“.</summary>
     public string Confidence => SoakPassed ? L.T("Dauertest bestanden") : L.T("nur Benchmark");
@@ -18,7 +18,7 @@ public sealed record AdvisorCandidate(
 
 public sealed record AdvisorResult(
     string Host, string Name, int? FrequencyMhz, int? CoreVoltageMv, double? HashrateGh, double? PowerW, double? Jth, string Basis,
-    IReadOnlyList<AdvisorCandidate> Candidates, AdvisorCandidate? Recommended, string Note);
+    IReadOnlyList<AdvisorCandidate> Candidates, AdvisorCandidate? Recommended, string Note, double? WallFactor = null);
 
 /// <summary>
 /// Effizienz-Ratgeber: aus stabilen Benchmark-Ergebnissen (innerhalb der Profilgrenzen) und bestandenen Dauertests
@@ -32,8 +32,10 @@ public static class EfficiencyAdvisor
 
     public static AdvisorResult Evaluate(string host, string name, DeviceProfile profile,
         int? frequencyMhz, int? coreVoltageMv, double? hashrateGh, double? powerW, string basis,
-        IEnumerable<StepResult> results, IEnumerable<SoakResultRecord> soaks, double ctPerKwh, AdvisorGoal goal)
+        IEnumerable<StepResult> results, IEnumerable<SoakResultRecord> soaks, double ctPerKwh, AdvisorGoal goal, double? wallFactor = null)
     {
+        // Mit Smart Plug: Leistung an der Steckdose = AxeOS × gemessener Faktor (Netzteil); Rangfolge bleibt gleich
+        var f = wallFactor is > 1 and < 3 ? wallFactor : null;
         var soakList = soaks.ToList();
         // Letztes Ergebnis je Einstellung; nur stabile innerhalb der Profilgrenzen; zuletzt im Dauertest durchgefallene raus
         var stable = results
@@ -56,7 +58,8 @@ public static class EfficiencyAdvisor
             var dgh = hashrateGh is { } h ? best.AvgHashRateGh - h : 0;
             candidates.Add(new AdvisorCandidate(g, best.FrequencyMhz, best.CoreVoltageMv, best.AvgHashRateGh, best.AvgPowerW, best.EfficiencyJth!.Value,
                 LatestSoak(soakList, best.FrequencyMhz, best.CoreVoltageMv) is { Passed: true },
-                dw, dgh, dw * 24 * 30 / 1000.0 * ctPerKwh / 100.0));
+                dw, dgh, dw * (f ?? 1) * 24 * 30 / 1000.0 * ctPerKwh / 100.0,
+                f is { } k ? best.AvgPowerW * k : null, f is { } k2 ? best.EfficiencyJth!.Value * k2 : null));
         }
 
         var pick = candidates.FirstOrDefault(c => c.Goal == goal);
@@ -77,7 +80,7 @@ public static class EfficiencyAdvisor
                 ? L.T("Diese Einstellung hat bereits einen Dauertest bestanden.")
                 : L.T("Nur im Benchmark geprüft – nach dem Wechsel einen Dauertest empfehlen.");
         }
-        return new AdvisorResult(host, name, frequencyMhz, coreVoltageMv, hashrateGh, powerW, jth, basis, candidates, recommended, note);
+        return new AdvisorResult(host, name, frequencyMhz, coreVoltageMv, hashrateGh, powerW, jth, basis, candidates, recommended, note, f);
     }
 
     private static bool Worth(AdvisorGoal goal, AdvisorCandidate c, double currentGh, double? currentJth) => goal switch
