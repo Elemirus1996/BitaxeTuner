@@ -35,6 +35,8 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 
 ## Funktionen
 
+### Tuning
+
 - **Automatischer Benchmark** pro Gerät:
   stabil → Frequenz erhöhen · instabil → Spannung erhöhen · Grenze erreicht → sofort abbrechen.
   Optional wird pro Frequenz auch die niedrigste stabile Spannung gesucht (effizienter).
@@ -43,30 +45,37 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   werden die ursprünglichen (oder die beste gefundene) Einstellungen wiederhergestellt.
 - **Parallelbetrieb** mehrerer Miner, **Pause/Fortsetzen** und Fortsetzen abgebrochener Läufe.
 - **Live-Ansicht** mit Hashrate-/Temperaturverlauf, **Heatmap** Frequenz × Spannung, Ergebnistabelle, CSV-Export.
-- **Automatische Geräteerkennung** (Netzwerkscan, auch im Browser unter *Einstellungen → Geräte*) und passende
-  **Geräteprofile** mit sinnvollen Grenzen.
-- **Einstellungen übertragen**: Pool/Fallback und Lüfter eines Miners auf andere übernehmen (Desktop und Browser) –
-  Vorschau alt → neu, vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
+- **Dauertest** und **Effizienz-Ratgeber** (siehe [Bedienung](#automatik-dauertest-vergleich-handy-ansicht)).
 - **Simulationsmodus**: Adresse `sim` oder `sim:<profil-id>` eingeben (z. B. `sim:nerdqaxe-plusplus`) –
   zum Ausprobieren ohne echte Hardware (läuft 30× schneller).
 
-### Überwachung (aus BitaxeMonitor übernommen)
+### Überwachung
 
-- **Gesamt- und Einzelansicht** mit 14 Kacheln, Wallet-Guthaben (mempool.space / Blockchair), Verlauf 1 h / 24 h / 7 / 30 Tage
-  aus `history.db`, jetzt mit viertem Diagramm **Effizienz (J/TH)**.
+- **Gesamt- und Einzelansicht** mit 14 Kacheln, Wallet-Guthaben (mempool.space / Blockchair), Verlauf 1 h / 24 h /
+  7 / 30 Tage aus `history.db` (Hashrate, Temperatur, Leistung, Effizienz J/TH).
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
-- **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
-- **Monats- und Jahresbericht** (Browser *Berichte*, Desktop *Bericht …*): Verfügbarkeit, Ø Hashrate/Temperatur/Leistung,
-  J/TH, kWh, Stromkosten und Zuflüsse – als CSV oder druckbare Seite (PDF), optional Monats-Push. Im Steuer-Bereich
+- **Gesundheits-Frühwarnung**: täglicher Vergleich der letzten 7 Tage mit den 4 Wochen davor – Kühlung (Temperatur je
+  Watt), Effizienz ohne Tuning-Änderung, Lüfter-Drehzahl, abgelehnte Shares, Verfügbarkeit.
+- **Watchdog** (Neustart bei 0 Hashrate), **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
+- **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen.
-- **Gesundheits-Frühwarnung**: täglicher Vergleich der letzten 7 Tage mit den 4 Wochen davor – Kühlung, Effizienz,
-  Lüfter-Drehzahl, abgelehnte Shares, Verfügbarkeit; Hinweis per Push und im Tab *Gesundheit*.
-- **Stromtarif** brutto oder netto (mit MwSt.-Satz), optional mit Stundenpreisen von aWATTar/Tibber.
-- **Smart Plugs** (Shelly Gen1, Plus/Pro/Gen3 mit Leistungsmessung): echter Verbrauch an der Steckdose inklusive Netzteil
-  und Zusatzlüftern – je Plug für bestimmte Miner, Nebenverbraucher oder als Gesamtmessung. Kosten, Tagesbericht und
-  Effizienz wahlweise mit Steckdosenwerten, Differenz zu AxeOS sichtbar, Verlauf in `history.db`, MQTT/Home Assistant
-  (Energie-Dashboard). Es wird nur gemessen, nie geschaltet; nur Adressen im Heimnetz.
-- **Push** (ntfy, Telegram, Discord, Pushover oder eigener Webhook als JSON-POST), **Watchdog**, **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
+
+### Strom und Kosten
+
+- **Stromtarif** brutto oder netto (mit MwSt.-Satz); optional **Stundenpreise** von aWATTar (Börsenpreis + Aufschlag)
+  oder Tibber (Endpreis).
+- **Smart Plugs** (Shelly Gen1, Plus/Pro/Gen3 mit Leistungsmessung): echter Verbrauch an der Steckdose inklusive
+  Netzteil und Zusatzlüftern, Verlauf gegen AxeOS, Meldung bei Ausfall oder steigendem Mehrverbrauch. Es wird nur
+  gemessen, **nie geschaltet**.
+- **Monats- und Jahresbericht**: Verfügbarkeit, Ø Hashrate/Temperatur/Leistung, J/TH, kWh, Stromkosten und Zuflüsse –
+  als CSV oder druckbare Seite (PDF), optional Monats-Push.
+
+### Mehrere Miner
+
+- **Automatische Geräteerkennung** (Netzwerkscan in Desktop und Browser) und passende **Geräteprofile** mit sinnvollen Grenzen.
+- **Einstellungen übertragen**: Pool/Fallback und Lüfter eines Miners auf andere übernehmen – Vorschau alt → neu,
+  vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
+- **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander.
 
 ### Zusammenspiel Tuning ↔ Überwachung
 
@@ -80,7 +89,7 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   `overclockEnabled` wird nur gesetzt, wenn der Wert außerhalb der AxeOS-Auswahlliste liegt – mit Hinweis im Dialog.
 - **Design** umschaltbar: dunkel oder hell.
 
-### Miner-Logs, Alarme, Sicherungen, Tagesbericht
+### Miner-Logs, Alarme, Sicherungen
 
 - **Miner-Logs** je Gerät live (`ws://<host>/api/ws`) und als Puffer (`/api/system/logs`), mit Filter, Stufen, Speichern.
 - **Log-Alarme** (Einstellungen → Log-Alarme, Haken je Miner): Push bei Fehlerzeilen und frei definierbaren Mustern
@@ -91,8 +100,81 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 - **Einstellungen sichern/wiederherstellen** (Gerätekopf): vollständige Sicherung unter `snapshots\`, automatisch vor
   jedem Benchmark und jeder manuellen Änderung. Wiederherstellen feldweise mit Vorschau alt → neu, Profilgrenzen
   werden geprüft, Frequenz/Spannung werden protokolliert. Pool-Passwörter liefert AxeOS nicht aus und bleiben unverändert.
-- **Tagesbericht** per Push: Ø Hashrate, J/TH, Temperatur, Verfügbarkeit je Miner, Stromkosten, Best-Diff-Rekord,
-  Tuning-Änderungen der letzten 24 h.
+
+## Strom, Kosten, Berichte und Meldungen
+
+### Push-Benachrichtigungen
+
+*Einstellungen → Push-Benachrichtigungen* (Desktop und Browser), ein Dienst nach Wahl, **„Test senden“** prüft die Einrichtung:
+
+| Dienst | Einzutragen |
+|---|---|
+| **ntfy** | Server (Standard `https://ntfy.sh`) und ein schwer zu erratendes Topic; App „ntfy“ auf dem Handy |
+| **Telegram** | Bot-Token (von @BotFather) und Chat-ID |
+| **Discord** | Webhook-URL eines Kanals (*Kanal-Einstellungen → Integrationen → Webhooks*) |
+| **Pushover** | User-Key und App-Token (pushover.net) |
+| **Eigener Webhook** | URL; BitaxeTuner sendet `POST` mit JSON `{"source":"BitaxeTuner","title":…,"message":…,"priority":"high","priorityLevel":4,"time":…}` – z. B. an Home Assistant oder n8n |
+
+Meldungen gibt es je Bereich schaltbar: offline, Überhitzung, Blockfund/Zufluss, Watchdog/Automatik/Firmware, Rekorde,
+Log-Alarme, Pool, Smart Plugs, Gesundheit. Dazu **Tagesbericht** (Ø Hashrate, J/TH, Temperatur, Verfügbarkeit je
+Miner, Stromkosten, Best-Diff-Rekord, Tuning-Änderungen, lohnende Ratgeber-Vorschläge) und **Monatsbericht** am
+Monatsersten. Jede Meldung hat eine Sperrzeit, damit ein wackelnder Miner das Handy nicht flutet.
+
+### Stromkosten
+
+*Einstellungen → Strom und Abfrage / Strompreis* (Desktop) bzw. *Einstellungen → Allgemein / Strompreis-Quelle* (Browser):
+
+- **Strompreis** (ct/kWh) deines Vertrags, wahlweise **brutto (inkl. MwSt.)** oder **netto (zzgl. MwSt.)** mit MwSt.-Satz
+  (Standard 19 %). Gerechnet wird immer mit dem Bruttopreis.
+- **Stromkosten mit Stundenpreisen** (optional): Kosten Stunde für Stunde aus Energie × Preis der Stunde.
+  aWATTar liefert den Börsenpreis **netto ohne Netzentgelte und Steuern** – dafür den **Aufschlag** (typisch 15–25 ct/kWh)
+  eintragen; die MwSt. kommt automatisch dazu. Tibber liefert den Endpreis, Aufschlag 0. Stunden ohne Preis rechnen
+  mit dem festen Strompreis.
+- Mit **Smart Plugs** zählt der Verbrauch an der Steckdose statt der AxeOS-Leistung (abschaltbar).
+
+### Smart Plugs (Shelly)
+
+*Smart Plugs …* (Desktop) bzw. *Einstellungen → Smart Plugs* (Browser):
+
+1. **Plug hinzufügen**, IP-Adresse (oder Name) eintragen – nur Adressen im Heimnetz. Kanal bei Steckdosen 0.
+   Geschützte Shellys: Benutzer (Gen2+ immer `admin`) und Passwort; das Passwort liegt in `secrets.json`.
+2. **Testen** zeigt Modell, Generation und aktuelle Leistung – auch vor dem Speichern.
+3. **Rolle** wählen:
+   - *speist Miner* – die angehakten Miner hängen an diesem Plug; bei mehreren wird nach AxeOS-Anteil aufgeteilt,
+   - *Nebenverbraucher* – Zusatzlüfter, Pi, Router … (kommt zu den Kosten dazu),
+   - *Gesamtmessung* – alles hängt dahinter; ersetzt die Summe (höchstens ein Plug).
+4. **Speichern**. Die Übersicht zeigt „Leistung (Steckdose)“, den Anteil Netzteil/Nebenverbrauch und je Plug den Wert;
+   ein Klick auf einen Plug öffnet den Verlauf Steckdose gegen AxeOS.
+
+Unterstützt: Shelly Gen1 (`/status`, z. B. Plug S) und Gen2+/Gen3 (RPC `Shelly.GetStatus`, z. B. Plus Plug S, PM Mini,
+Pro EM-50). Push, wenn ein Plug 5 min nicht antwortet oder der Mehrverbrauch gegenüber der Vorwoche deutlich steigt
+(z. B. alterndes Netzteil). Home Assistant bekommt je Plug Leistung und Energie (Energie-Dashboard).
+**BitaxeTuner schaltet die Plugs nie** – auch nicht, wenn der Server selbst am Plug hängt.
+
+### Berichte
+
+Browser *Berichte* bzw. Desktop *Bericht …*: Monat oder Jahr wählen. Je Miner Verfügbarkeit, Ø Hashrate, Temperatur,
+Leistung, J/TH, kWh und Tuning-Änderungen; dazu Smart-Plug-Energie, Stromkosten (mit Stundenpreisen, wenn eingerichtet)
+und Zuflüsse aus dem Steuer-Bereich. **Ansehen / Drucken** öffnet eine druckbare Seite (im Browser „Als PDF speichern“),
+**CSV** für Excel. Abgeschlossene Monate werden in `history.db` abgelegt – Jahresberichte funktionieren auch, wenn
+ältere Minutenwerte bereinigt sind. Im **Steuer-Bereich** stehen die Stromkosten je Monat neben den Zuflüssen
+(keine Steuerberatung).
+
+### Gesundheits-Frühwarnung
+
+Einmal am Tag vergleicht BitaxeTuner je Miner die letzten 7 Tage mit den 4 Wochen davor und meldet nur deutliche
+Veränderungen (je Hinweis höchstens einmal pro Woche):
+
+| Hinweis | Bedingung |
+|---|---|
+| Kühlung prüfen | Temperatur je Watt +10 % und mindestens +3 °C |
+| Effizienz lässt nach | J/TH +5 % ohne Tuning-Änderung im Vergleichszeitraum |
+| Lüfter verliert Drehzahl | Drehzahl je % Ansteuerung −15 % |
+| Mehr abgelehnte Shares | mindestens +1 Prozentpunkt und doppelt so viele |
+| Häufiger offline | unter 97 % statt vorher ab 99 % |
+
+Die Werte stehen im Browser je Miner im Tab **Gesundheit**, in der Desktop-App in der Einzelansicht. Lüfter und
+abgelehnte Shares werden seit 0.7.0 aufgezeichnet – der Vergleich braucht einige Wochen Daten.
 
 ## Unterstützte Geräte
 
@@ -207,7 +289,8 @@ stehen in der Bauanleitung
 
 *Einstellungen → Home Assistant / MQTT* (Browser): Broker-Adresse (z. B. das Mosquitto-Add-on von Home Assistant),
 Benutzer, Passwort. BitaxeTuner sendet Hashrate, Leistung, Effizienz, Temperaturen, Frequenz/Spannung (nur lesend),
-Best Diff, Dauertest, Zusatzlüfter und Temperaturfühler; Home Assistant legt je Miner und für den Server automatisch
+Best Diff, Dauertest, Zusatzlüfter, Temperaturfühler und Smart Plugs (Leistung, Energie fürs Energie-Dashboard,
+Leistung an der Steckdose gesamt); Home Assistant legt je Miner und für den Server automatisch
 Geräte an (MQTT-Discovery, Verfügbarkeit per Last Will). Aus Home Assistant schaltbar: „Anzeige aktualisieren“ und –
 nur wenn freigegeben – der Zusatzlüfter-Modus (Automatik / 100 % / Aus). **Frequenz und Spannung lassen sich über
 MQTT nicht ändern.** Das Passwort liegt getrennt in `secrets.json` und geht nie in Sicherungen oder Übertragungen.
@@ -231,8 +314,8 @@ Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen 
 ### Bedienung: Browser oder Desktop-App
 
 - **Browser** (PC, Handy, Tablet): Übersicht, Vergleich, je Miner Live-Werte und Verlauf mit Tuning-Markierungen,
-  Benchmark, Ergebnisse, Vorher/Nachher, Automatik-Regeln mit Freigabe, Dauertest, Sicherungen, Miner-Logs live,
-  Steuer (Zuflüsse, CSV), Einstellungen. Hell/Dunkel, handytauglich, als App zum Startbildschirm hinzufügbar.
+  Benchmark, Ergebnisse, Vorher/Nachher, Gesundheit, Automatik-Regeln mit Freigabe, Dauertest, Sicherungen, Miner-Logs
+  live, Smart Plugs mit Verlauf, Berichte, Steuer (Zuflüsse, Stromkosten je Monat, CSV), Einstellungen. Hell/Dunkel, handytauglich, als App zum Startbildschirm hinzufügbar.
   Frequenz/Spannung ändern sich – wie am Desktop – nur nach einem Dialog mit altem und neuem Wert und den Profilgrenzen.
 - **Rollen**: *Admin* (Passwort, alles) und *Nur ansehen* (PIN, ohne IP- und Wallet-Adressen, ohne Protokolle).
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
@@ -304,7 +387,10 @@ Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen 
 ### Daten
 
 Alle Daten liegen in **einem** Ordner, Standard `%AppData%\BitaxeMonitor\` (bisheriger BitaxeMonitor-Ordner):
-`config.json` (Geräte und alle Einstellungen), `history.db`, `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json`.
+`config.json` (Geräte und alle Einstellungen), `history.db` (Verlauf, Tuning-Ereignisse, Dauertests, Smart-Plug-Werte,
+Strompreise, Monatsberichte, Frühwarnung), `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json` und
+`secrets.json` (Passwörter für NAS, MQTT und Smart Plugs – unter Windows verschlüsselt, unter Linux nur für den
+Dienst lesbar, nie in Sicherungen oder Übertragungen).
 
 - Beim ersten Start wird der Ordner vollständig nach `backup-<datum>\` gesichert (history.db über die SQLite-Backup-API).
 - Geräte und Ergebnisse des früheren eigenständigen BitaxeTuner (`%LocalAppData%\BitaxeTuner`) werden einmalig
@@ -364,12 +450,14 @@ The full English documentation is in **[README.en.md](README.en.md)**; the progr
 - **Keine Gewähr.** BitaxeTuner wird ohne jede Garantie bereitgestellt (GPL-3.0, Abschnitte 15–16). Übertakten,
   höhere Spannungen und eigene Lüfterschaltungen geschehen auf eigenes Risiko.
 - **Unabhängiges Projekt.** BitaxeTuner ist nicht mit dem Bitaxe-Projekt (bitaxe.org), NerdAxe, Raspberry Pi Ltd,
-  Home Assistant oder Waveshare verbunden und wird von ihnen weder unterstützt noch geprüft. Alle genannten Namen und
+  Home Assistant, Waveshare, Shelly, Tibber, aWATTar, Discord, Pushover oder Telegram verbunden und wird von ihnen weder unterstützt noch geprüft. Alle genannten Namen und
   Marken gehören ihren jeweiligen Inhabern und werden nur zur Beschreibung der Kompatibilität verwendet.
+- **Keine Steuerberatung.** Steuer-Bereich, Zuflüsse und Stromkosten sind eine Hilfe zur Dokumentation; ob und wie
+  etwas steuerlich zählt, klärt deine Steuerberatung.
 - Das fertige Pi-Image basiert auf Raspberry Pi OS und ist **kein offizielles Raspberry-Pi-Produkt**; Lizenzen und
   Quelltext-Hinweise dazu stehen in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 - *No warranty. Independent project, not affiliated with or endorsed by the Bitaxe project, NerdAxe, Raspberry Pi Ltd,
-  Home Assistant or Waveshare. All trademarks belong to their respective owners.*
+  Home Assistant, Waveshare, Shelly, Tibber, aWATTar, Discord, Pushover or Telegram. All trademarks belong to their respective owners.*
 
 ## Datenschutz und Code-Signatur
 
@@ -391,5 +479,5 @@ The full English documentation is in **[README.en.md](README.en.md)**; the progr
 Copyright © 2026 BitaxeTuner contributors. Lizenz: **GNU GPL v3.0** – siehe [LICENSE](LICENSE).
 Den Quelltext zu jeder veröffentlichten Version gibt es in diesem Repository (Tag `vX.Y.Z` bzw. „Source code“ auf der
 Release-Seite). Enthaltene Komponenten anderer Urheber (u. a. .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet,
-DejaVu-Schriften, WebView2-SDK) und Hinweise zum Raspberry-Pi-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+DejaVu-Schriften, WebView2-SDK, Inno Setup) und Hinweise zum Raspberry-Pi- und Docker-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 `LICENSE` und `THIRD-PARTY-NOTICES.txt` liegen jedem Paket bei.

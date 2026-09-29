@@ -23,6 +23,10 @@ aktualisieren (Desktop: *Nach Updates suchen*, Server: *Einstellungen → Server
 - Den Server **nicht** per Portfreigabe ins Internet stellen; für den Zugriff von unterwegs ein VPN verwenden
   (z. B. Tailscale oder WireGuard). Der Server nimmt nur Anfragen aus privaten Netzen an.
 - API-Tokens nur an vertrauenswürdige Geräte geben; nicht mehr benötigte Tokens widerrufen.
+- Passwörter für Netzlaufwerk, MQTT und Smart Plugs liegen getrennt in `secrets.json` (Windows: verschlüsselt,
+  Linux: nur für den Dienst lesbar) und gehen nie in Sicherungen, Übertragungen oder die API-Antworten.
+- Smart Plugs und Push-Webhooks: BitaxeTuner fragt nur Adressen im Heimnetz ab bzw. sendet nur an die eingetragene
+  Adresse; Plugs werden nie geschaltet.
 
 ---
 

@@ -35,6 +35,7 @@ configure them.</p>
   <tr><td>api.coingecko.com</td><td>Historical EUR exchange rates for the tax overview</td><td>Only if you use the tax features</td></tr>
   <tr><td>api.awattar.de / .at, api.tibber.com</td><td>Electricity prices</td><td>Only if you select a price source (Tibber: with your own token)</td></tr>
   <tr><td>ntfy.sh (or your ntfy server), api.telegram.org, discord.com, api.pushover.net, or your own webhook URL</td><td>Push notifications you configured</td><td>Only if you set up push notifications</td></tr>
+  <tr><td>Your smart plugs (Shelly) in your local network</td><td>Read power and energy (never switched)</td><td>Only if you add smart plugs</td></tr>
   <tr><td>Your own MQTT broker (e.g. Home Assistant)</td><td>Publish miner values</td><td>Only if you enable MQTT</td></tr>
 </table>
 <p>Wallet addresses you enter are sent to the respective explorer to look up balances. These third-party services have their
@@ -56,7 +57,7 @@ GitHub may process technical access data (e.g. IP address) when delivering the p
 <p><b>BitaxeTuner sammelt keine Daten für die Entwickler.</b> Es gibt keine Telemetrie, keine Nutzungsstatistik, kein Konto und
 keinen Cloud-Dienst des Projekts. Einstellungen, Verlauf und Steuerdaten bleiben auf deinem PC, Raspberry Pi oder Server.</p>
 <p>Das Programm verbindet sich nur mit den oben aufgeführten Diensten und nur zum jeweils genannten Zweck: mit deinen Minern im
-Heimnetz, mit GitHub (Updates, Firmware-Versionen), mempool.space und Blockchair (Netzwerkdaten, Wallet-Guthaben), CoinGecko
+Heimnetz und deinen Smart Plugs (nur Messwerte lesen), mit GitHub (Updates, Firmware-Versionen), mempool.space und Blockchair (Netzwerkdaten, Wallet-Guthaben), CoinGecko
 (Euro-Kurse für die Steuerübersicht), aWATTar/Tibber (Strompreis), ntfy/Telegram/Discord/Pushover oder deinem eigenen Webhook (Push) und deinem MQTT-Broker – die optionalen
 Dienste nur, wenn du sie einrichtest. Eingetragene Wallet-Adressen werden zur Abfrage an den jeweiligen Explorer übermittelt;
 für diese Dienste gelten deren Datenschutzbestimmungen.</p>

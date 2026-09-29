@@ -20,8 +20,9 @@ Komponente                                   Lizenz              Copyright
 Microsoft.Extensions.* (Hosting, Logging,    MIT                 .NET Foundation and Contributors
   Configuration, DI, Windows-Dienst, systemd)
 Microsoft.Data.Sqlite                        MIT                 .NET Foundation and Contributors
-System.IO.Ports, System.Memory,              MIT                 .NET Foundation and Contributors
-  System.Diagnostics.EventLog,
+System.IO.Ports (inkl. runtime.*.native.     MIT                 .NET Foundation and Contributors
+  System.IO.Ports), System.Memory,
+  System.Buffers, System.Diagnostics.EventLog,
   System.ServiceProcess.ServiceController
 CommunityToolkit.Mvvm                        MIT                 .NET Foundation and Contributors
 System.Security.Cryptography.ProtectedData   MIT                 .NET Foundation and Contributors
@@ -51,6 +52,17 @@ https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT
 https://github.com/dotnet/aspnetcore/blob/main/THIRD-PARTY-NOTICES.txt
 
 
+Installer: Die Setup-Programme (BitaxeTuner-Setup-….exe, BitaxeTuner-Server-Setup-….exe) werden mit
+Inno Setup erstellt – Copyright (C) Jordan Russell, Portions Copyright (C) Martijn Laan,
+Lizenz: https://jrsoftware.org/files/is/license.txt.
+
+Marken: Genannte Produkt- und Dienstnamen (u. a. Bitaxe, NerdAxe, Shelly, Tibber, aWATTar, Discord, Pushover,
+Telegram, ntfy, Home Assistant, Raspberry Pi, Windows) sind Marken ihrer jeweiligen Inhaber. BitaxeTuner ist ein
+unabhängiges Projekt und steht mit keinem dieser Unternehmen in Verbindung.
+Trademarks: product and service names mentioned are trademarks of their respective owners; BitaxeTuner is an
+independent project and not affiliated with any of them.
+
+
 2. Raspberry-Pi-Image (BitaxeTuner-Server-<Version>-pi-arm64.img.xz)
 ---------------------------------------------------------------------
 
@@ -68,6 +80,16 @@ Auf Anfrage stellen wir die Quelltexte der im Image enthaltenen GPL-Komponenten 
 drei Jahre ab Veröffentlichung des jeweiligen Images bereit (Anfrage über die Issues des
 BitaxeTuner-Repositorys).
 Die Firmware-Dateien auf der Boot-Partition stehen unter der Lizenz in LICENCE.broadcom.
+
+
+2a. Docker-Image (ghcr.io/elemirus1996/bitaxetuner-server)
+---------------------------------------------------------
+
+Das Image baut auf dem offiziellen .NET-Image „mcr.microsoft.com/dotnet/aspnet:8.0“ (Debian 12) auf und enthält
+dessen Pakete unter ihren jeweiligen freien Lizenzen (u. a. GPL, LGPL, BSD, MIT); die Lizenz jedes Pakets steht
+im Image unter /usr/share/doc/<paket>/copyright. Die .NET-Laufzeit im Image steht unter der MIT-Lizenz
+(Abschnitt 4); Dockerfiles der .NET-Images: https://github.com/dotnet/dotnet-docker. Quelltexte der
+Debian-Pakete: https://deb.debian.org/debian/ und https://sources.debian.org.
 
 
 3. Pico-Firmware
