@@ -46,7 +46,10 @@ Corrections to the English texts are welcome: they all live in
   settings are restored.
 - **Parallel operation** of several miners, **pause/resume** and resuming interrupted runs.
 - **Live view** with hashrate/temperature history, **heatmap** frequency × voltage, results table, CSV export.
-- **Automatic device discovery** (network scan) and matching **device profiles** with sensible limits.
+- **Automatic device discovery** (network scan, also in the browser under *Settings → Devices*) and matching
+  **device profiles** with sensible limits.
+- **Copy settings**: take over one miner's pool/fallback and fan settings to others (desktop and browser) –
+  preview old → new, backup of each miner first, worker names are kept, frequency and voltage are never copied.
 - **Simulation mode**: enter the address `sim` or `sim:<profile-id>` (e.g. `sim:nerdqaxe-plusplus`) –
   to try it out without real hardware (runs 30× faster).
 
@@ -56,7 +59,7 @@ Corrections to the English texts are welcome: they all live in
   from `history.db`, including an **efficiency (J/TH)** chart.
 - **Network**: recently found blocks, pool ranking, solo chances BTC/BCH.
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export.
-- **Push** (ntfy/Telegram), **watchdog**, **firmware check**, **best diff records**, **tray**, autostart.
+- **Push** (ntfy, Telegram, Discord, Pushover or a custom webhook as JSON POST), **watchdog**, **firmware check**, **best diff records**, **tray**, autostart.
 
 ### Tuning ↔ monitoring
 
@@ -143,6 +146,8 @@ record per minute and miner (easy on the SD card).
    for custom images – the desktop app enters user, Wi-Fi and SSH (step 2).
 2. Re-insert the SD card; in the desktop app choose *Mode … → Prepare Raspberry Pi*: select the “bootfs” drive,
    set the admin password, enter user/password for the Pi and Wi-Fi, optionally *Include my data*.
+   Country, time zone and keyboard are taken from Windows (editable); optionally store an *SSH key* for password-less
+   login (*Open SSH terminal* or *Transfer key* for a running Pi).
    The app writes the cloud-init files (`user-data`, `network-config`, `ssh`) and a setup package to the card
    (all passwords only as hashes) and remembers address and token.
 3. Insert the card into the Pi and power it on (first boot 3–5 minutes). The Pi applies the package, deletes it from the

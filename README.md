@@ -43,7 +43,10 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   werden die ursprünglichen (oder die beste gefundene) Einstellungen wiederhergestellt.
 - **Parallelbetrieb** mehrerer Miner, **Pause/Fortsetzen** und Fortsetzen abgebrochener Läufe.
 - **Live-Ansicht** mit Hashrate-/Temperaturverlauf, **Heatmap** Frequenz × Spannung, Ergebnistabelle, CSV-Export.
-- **Automatische Geräteerkennung** (Netzwerkscan) und passende **Geräteprofile** mit sinnvollen Grenzen.
+- **Automatische Geräteerkennung** (Netzwerkscan, auch im Browser unter *Einstellungen → Geräte*) und passende
+  **Geräteprofile** mit sinnvollen Grenzen.
+- **Einstellungen übertragen**: Pool/Fallback und Lüfter eines Miners auf andere übernehmen (Desktop und Browser) –
+  Vorschau alt → neu, vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
 - **Simulationsmodus**: Adresse `sim` oder `sim:<profil-id>` eingeben (z. B. `sim:nerdqaxe-plusplus`) –
   zum Ausprobieren ohne echte Hardware (läuft 30× schneller).
 
@@ -53,7 +56,7 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   aus `history.db`, jetzt mit viertem Diagramm **Effizienz (J/TH)**.
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
-- **Push** (ntfy/Telegram), **Watchdog**, **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
+- **Push** (ntfy, Telegram, Discord, Pushover oder eigener Webhook als JSON-POST), **Watchdog**, **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
 
 ### Zusammenspiel Tuning ↔ Überwachung
 
@@ -141,6 +144,8 @@ Datensatz pro Minute und Miner (schont die SD-Karte).
    Benutzer, WLAN und SSH trägt die Desktop-App ein (Schritt 2).
 2. SD-Karte neu einstecken, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
    Admin-Passwort festlegen, Benutzer/Passwort für den Pi und WLAN eintragen, optional *Meine Daten mitgeben*.
+   Land, Zeitzone und Tastatur übernimmt die App aus Windows (änderbar); optional *SSH-Schlüssel hinterlegen* für
+   Anmeldung ohne Passwort (*SSH-Terminal öffnen* bzw. *Schlüssel übertragen* für einen laufenden Pi).
    Die App schreibt die cloud-init-Dateien (`user-data`, `network-config`, `ssh`) und ein Einrichtungspaket auf die
    Karte (alle Passwörter nur als Hash) und merkt sich Adresse und Token.
 3. Karte in den Pi, starten (erster Start 3–5 Minuten). Der Pi übernimmt das Paket, löscht es von der Karte und
