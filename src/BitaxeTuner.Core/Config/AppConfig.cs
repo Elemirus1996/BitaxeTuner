@@ -110,6 +110,9 @@ public sealed class AppConfig
     /// <summary>Home Assistant / MQTT.</summary>
     public MqttSettings Mqtt { get; set; } = new();
 
+    /// <summary>0.6.1: Smart Plugs (Shelly) für Verbrauch an der Steckdose – rein additiv.</summary>
+    public SmartPlugSettings Plugs { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }

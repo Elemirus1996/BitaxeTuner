@@ -302,8 +302,9 @@ public sealed partial class MinerHub : IDisposable
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();
         await PollNowAsync();
-        // Wallets im Hintergrund (Netzabfrage) – der Start wartet nicht darauf
+        // Wallets und Smart Plugs im Hintergrund (Netzabfrage) – der Start wartet nicht darauf
         _ = PollWalletsAsync();
+        _ = PlugTickAsync();
     }
 
     /// <summary>
@@ -345,6 +346,7 @@ public sealed partial class MinerHub : IDisposable
         var ct = _loops.Token;
         _ = RunLoopAsync(() => TimeSpan.FromSeconds(Math.Clamp(Config.IntervalSeconds, 1, 300)), PollNowAsync, ct);
         _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.WalletPollMinutes, 1, 1440)), PollWalletsAsync, ct);
+        _ = RunLoopAsync(() => PlugInterval, PlugTickAsync, ct);
         TaxMonitor.Start(TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440)));
     }
 
@@ -414,6 +416,7 @@ public sealed partial class MinerHub : IDisposable
         // außerhalb des Hub-Kontexts trennen (dieser Thread wartet hier)
         if (_mqtt is { } mqtt) try { Task.Run(() => mqtt.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(3)); } catch { /* Broker weg */ }
         CloseFanDevice();
+        foreach (var id in _plugClients.Keys.ToList()) ClosePlug(id);
         foreach (var d in _devices.Values) d.Benchmark?.Cts?.Cancel();
         WebView.Dispose();
         _priceHttp.Dispose();

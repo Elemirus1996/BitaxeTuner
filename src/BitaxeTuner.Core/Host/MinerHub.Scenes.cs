@@ -229,6 +229,13 @@ public sealed partial class MinerHub
                 w += avg.Power;
                 rows.Add(new DisplayDailyRow(d.Title, avg.HashRateGh, avg.HashRateGh > 0 ? avg.Power / (avg.HashRateGh / 1000) : null, avg.Temp, availability));
             }
+            if (Config.Plugs.Items.Count > 0)
+            {
+                var avgs = Devices.Select(d => (d.Host, Avg: History.Average(d.Host, from, now))).Where(x => x.Avg is not null)
+                    .ToDictionary(x => x.Host, x => x.Avg!.Power, StringComparer.OrdinalIgnoreCase);
+                var energy = Plugs.EnergyBalance.FromHistory(History, Config.Plugs, avgs, from, now);
+                if (energy.FromPlugs) w = energy.TotalPowerW;
+            }
             var kwh = w * 24 / 1000.0;
             var best = BestDiffs.Where(r => Devices.Any(d => d.Host == r.Host)).OrderByDescending(r => r.Value).FirstOrDefault();
             var daily = new DisplayDaily(gh, w, kwh, kwh * Config.ElectricityCtPerKwh / 100.0, Config.Currency, best?.Raw,

@@ -246,10 +246,14 @@ public static class DailyReport
         var from = now.AddHours(-24);
         var lines = new List<string>();
         double totalHash = 0, totalPower = 0;
+        var avgs = new Dictionary<string, WindowAverage>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (_, host) in miners)
+            if (history.Average(host, from, now) is { } a) avgs[host] = a;
+        var energy = Plugs.EnergyBalance.FromHistory(history, config.Plugs, avgs.ToDictionary(kv => kv.Key, kv => kv.Value.Power), from, now);
 
         foreach (var (name, host) in miners)
         {
-            var avg = history.Average(host, from, now);
+            var avg = avgs.GetValueOrDefault(host);
             var availability = history.Availability(host, from);
             if (avg is null)
             {
@@ -262,9 +266,12 @@ public static class DailyReport
             var changes = history.QueryTuningEvents(host, from, now).Count(e => e.Source != TuningSource.Benchmark);
             lines.Add(L.T("{0}: {1} · {2} J/TH · {3} °C", name, FormatHash(avg.HashRateGh), eff.ToString("0.0", De), avg.Temp.ToString("0", De)) +
                       (availability is { } a ? L.T(" · verfügbar {0} %", (a * 100).ToString("0.0", De)) : "") +
+                      (energy.WallPowerOf(host) is { } wall && avg.HashRateGh > 0
+                          ? L.T(" · Steckdose {0} J/TH", (wall / (avg.HashRateGh / 1000.0)).ToString("0.0", De)) : "") +
                       (changes > 0 ? L.T(" · {0} Tuning-Änderung(en)", changes) : ""));
         }
 
+        if (energy.FromPlugs) totalPower = energy.TotalPowerW;
         var kwh = totalPower * 24 / 1000.0;
         var cost = kwh * config.ElectricityCtPerKwh / 100.0;
         var best = history.GetBestDiffs()
@@ -273,6 +280,9 @@ public static class DailyReport
 
         var header = L.T("Gesamt Ø {0} · {1} W · ", FormatHash(totalHash), totalPower.ToString("0.0", De)) +
                      L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency);
+        if (energy.OverheadW is { } overhead)
+            header += L.T("\nSteckdose gemessen: AxeOS {0} W, Netzteil/Nebenverbrauch {1} W", energy.MinerPowerW.ToString("0.0", De),
+                overhead.ToString("+0.0;-0.0", De));
         if (best is not null)
             header += L.T("\nBest Diff (Rekord): {0} ({1}, {2})", best.Raw, miners.First(m => m.Host == best.Host).Name, best.AchievedAt.ToString("d", De));
 

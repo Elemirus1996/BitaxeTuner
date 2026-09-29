@@ -111,6 +111,74 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, started)
             );
             """);
+        // 0.6.1: Smart-Plug-Messwerte (Minutenmittel an der Steckdose) – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS plug_samples (
+                plug    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                power   REAL    NOT NULL,
+                energy  REAL,
+                PRIMARY KEY (plug, ts)
+            );
+            """);
+    }
+
+    // ---------- Smart Plugs ----------
+
+    /// <summary>Messwert eines Plugs; je Minute bleibt der letzte Wert (Zeit auf die volle Minute gerundet).</summary>
+    public void AddPlugSample(string plugId, DateTime time, double powerW, double? energyWh)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO plug_samples (plug, ts, power, energy) VALUES ($plug, $ts, $p, $e);";
+            cmd.Parameters.AddWithValue("$plug", plugId);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$p", powerW);
+            cmd.Parameters.AddWithValue("$e", energyWh is { } e ? e : DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Mittlere Leistung und Anzahl Messminuten eines Plugs im Zeitfenster; null ohne Daten.</summary>
+    public (double PowerW, int Minutes)? AveragePlugPower(string plugId, DateTime from, DateTime to)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*), AVG(power) FROM plug_samples WHERE plug = $plug AND ts BETWEEN $from AND $to;";
+            cmd.Parameters.AddWithValue("$plug", plugId);
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            if (!r.Read() || r.GetInt64(0) == 0 || r.IsDBNull(1)) return null;
+            return (r.GetDouble(1), (int)r.GetInt64(0));
+        }
+    }
+
+    /// <summary>Leistungsverlauf eines Plugs, auf höchstens <paramref name="maxPoints"/> Punkte gemittelt.</summary>
+    public List<(DateTime Time, double PowerW)> QueryPlug(string plugId, DateTime from, DateTime to, int maxPoints = 400)
+    {
+        var fromTs = new DateTimeOffset(from).ToUnixTimeSeconds();
+        var toTs = new DateTimeOffset(to).ToUnixTimeSeconds();
+        var bucket = Math.Max(60, (toTs - fromTs) / Math.Max(1, maxPoints));
+        var result = new List<(DateTime, double)>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT (ts / $b) * $b AS bucket, AVG(power) FROM plug_samples
+                WHERE plug = $plug AND ts BETWEEN $from AND $to GROUP BY bucket ORDER BY bucket;
+                """;
+            cmd.Parameters.AddWithValue("$b", bucket);
+            cmd.Parameters.AddWithValue("$plug", plugId);
+            cmd.Parameters.AddWithValue("$from", fromTs);
+            cmd.Parameters.AddWithValue("$to", toTs);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) result.Add((DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime, r.GetDouble(1)));
+        }
+        return result;
     }
 
     // ---------- Dauertests ----------
@@ -365,7 +433,7 @@ public sealed class HistoryStore : IDisposable
         lock (_lock)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff;";
+            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             cmd.ExecuteNonQuery();
         }
