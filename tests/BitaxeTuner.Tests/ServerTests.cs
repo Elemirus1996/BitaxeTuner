@@ -200,6 +200,11 @@ public sealed class ServerTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/plugs", bad)).StatusCode);
         Assert.True((await Json(await admin.PostAsJsonAsync("/api/v1/plugs/probe", new { host = "sim", channel = 0 }))).GetProperty("ok").GetBoolean());
 
+        var hist = await Json(await admin.GetAsync($"/api/v1/plugs/{id}/history?range=1h"));
+        Assert.True(hist.GetProperty("plug").GetArrayLength() > 0);
+        Assert.Equal(JsonValueKind.Array, hist.GetProperty("axeos").ValueKind);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/v1/plugs/unbekannt/history")).StatusCode);
+
         // Entfernen löscht das gespeicherte Passwort
         await Json(await admin.PutAsJsonAsync("/api/v1/plugs", new { settings = new { items = Array.Empty<object>(), useForCosts = true, intervalSeconds = 10 } }));
         var hub = _factory.Services.GetRequiredService<HubService>();

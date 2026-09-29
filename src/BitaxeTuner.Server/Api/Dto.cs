@@ -231,6 +231,36 @@ public static class Dto
         };
     }
 
+    /// <summary>
+    /// Verlauf eines Smart Plugs aus history.db und zum Vergleich die AxeOS-Leistung dahinter:
+    /// Summe der zugeordneten Miner (Rolle „miners“) bzw. aller Miner (Gesamtmessung). Gleiche Zeitfenster wie der Plug.
+    /// </summary>
+    public static object PlugHistory(MinerHub hub, string id, string range, DateTime now)
+    {
+        var plug = hub.Config.Plugs.Items.FirstOrDefault(p => p.Id == id)
+                   ?? throw new LocalizedException("Smart Plug nicht gefunden.") { Status = 404 };
+        var span = range switch { "1h" => TimeSpan.FromHours(1), "7d" => TimeSpan.FromDays(7), "30d" => TimeSpan.FromDays(30), _ => TimeSpan.FromHours(24) };
+        var from = now - span;
+        if (hub.History is not { } db) return new { range, plug = Array.Empty<double[]>(), axeos = (List<double[]>?)null };
+        var hosts = plug.Role switch
+        {
+            "miners" => plug.Miners,
+            "total" => [HistoryStore.AggregateHost],
+            _ => [],
+        };
+        List<double[]>? axeos = null;
+        if (hosts.Count > 0)
+            axeos = hosts.SelectMany(h => db.Query(h, from, now))
+                .GroupBy(s => Unix(s.Time)).OrderBy(g => g.Key)
+                .Select(g => new[] { g.Key, R(g.Sum(s => s.Power)) }).ToList();
+        return new
+        {
+            range,
+            plug = db.QueryPlug(id, from, now).Select(p => new[] { Unix(p.Time), R(p.PowerW) }).ToList(),
+            axeos,
+        };
+    }
+
     public static object Comparison(TuningComparisonRow r) => new
     {
         time = r.Time, source = r.Source, change = r.Change, before = r.BeforeText, after = r.AfterText, delta = r.DeltaText,

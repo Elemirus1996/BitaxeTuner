@@ -176,6 +176,73 @@ public class SmartPlugTests
         Assert.True(c.Plugs.UseForCosts);
     }
 
+    // ---------- Frühwarnung ----------
+
+    [Theory]
+    [InlineData(115, 100, 108, 100, true)]   // 15 % statt 8 %, +7 W → Meldung
+    [InlineData(111, 100, 108, 100, false)]  // nur +3 Prozentpunkte
+    [InlineData(24, 20, 20.5, 20, true)]     // kleiner Miner: 20 % statt 2,5 %, +3,5 W
+    [InlineData(22, 20, 20.4, 20, false)]    // +8 Prozentpunkte, aber nur +1,6 W
+    [InlineData(4, 3, 3, 3, false)]          // zu wenig Last für eine Aussage
+    public void Overhead_warning_needs_percent_and_watt_increase(double pr, double ar, double pb, double ab, bool expected) =>
+        Assert.Equal(expected, PlugHealth.Check(pr, ar, pb, ab) is not null);
+
+    private sealed class FailingPlug : IPlugClient
+    {
+        public bool Fail { get; set; } = true;
+        public Task<PlugIdentity> IdentifyAsync(CancellationToken ct = default) => Task.FromResult(new PlugIdentity(2, "Test", false));
+        public Task<PlugReading> ReadAsync(int channel, CancellationToken ct = default) =>
+            Fail ? throw new HttpRequestException("keine Verbindung") : Task.FromResult(new PlugReading(30, 1, null, null));
+        public void Dispose() { }
+    }
+
+    [Fact]
+    public async Task Offline_plug_is_reported_after_five_minutes_and_recovery_once()
+    {
+        using var dir = new TempDir();
+        var now = new DateTime(2026, 9, 29, 12, 0, 0);
+        var config = new AppConfig();
+        config.Notifications.Provider = "ntfy";
+        config.Notifications.NtfyTopic = "test";
+        config.Plugs.Items.Add(new SmartPlugConfig { Id = "p1", Name = "Regal", Host = "192.168.1.60", Role = "other" });
+        var hub = new MinerHub(config, new MinerHubOptions { DataDirectory = dir.Path, OnlineChecks = false, Clock = () => now });
+        var plug = new FailingPlug();
+        hub.PlugClientFactory = _ => plug;
+        hub.Notify.TransportOverride = (_, _, _) => Task.CompletedTask;
+        var sent = new List<string>();
+        hub.Notify.Sending += (key, _, _, _) => sent.Add(key);
+        try
+        {
+            await hub.PlugTickAsync();
+            now = now.AddMinutes(4);
+            await hub.PlugTickAsync();
+            Assert.Empty(sent);                                  // WLAN-Aussetzer: noch keine Meldung
+
+            now = now.AddMinutes(2);
+            await hub.PlugTickAsync();
+            await hub.PlugTickAsync();
+            Assert.Equal(["plug-offline:p1"], sent);             // genau einmal
+
+            plug.Fail = false;
+            now = now.AddMinutes(1);
+            await hub.PlugTickAsync();
+            await hub.PlugTickAsync();
+            Assert.Equal(["plug-offline:p1", "plug-online:p1"], sent);
+
+            hub.Config.Notifications.OnPlugs = false;
+            plug.Fail = true;
+            now = now.AddMinutes(10);
+            await hub.PlugTickAsync();
+            now = now.AddMinutes(10);
+            await hub.PlugTickAsync();
+            Assert.Equal(2, sent.Count);                         // abgeschaltet
+        }
+        finally
+        {
+            hub.Dispose();
+        }
+    }
+
     // ---------- Hub ----------
 
     [Fact]

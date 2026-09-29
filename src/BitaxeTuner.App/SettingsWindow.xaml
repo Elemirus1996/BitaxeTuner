@@ -412,6 +412,7 @@
                     <CheckBox x:Name="NotifyRecordBox" Content="{l:T 'Neuer Best-Diff-Rekord'}" Margin="0,0,16,6"/>
                     <CheckBox x:Name="NotifyLogBox" Content="{l:T 'Treffer in Miner-Logs'}" Margin="0,0,16,6"/>
                     <CheckBox x:Name="NotifyPoolBox" Content="{l:T 'Pool (Fallback, Ablehnungen, langsam)'}" Margin="0,0,16,6"/>
+                    <CheckBox x:Name="NotifyPlugsBox" Content="{l:T 'Smart Plugs (nicht erreichbar, Mehrverbrauch)'}" Margin="0,0,16,6"/>
                 </WrapPanel>
             </StackPanel>
         </Border>

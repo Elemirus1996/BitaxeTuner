@@ -351,6 +351,10 @@ function route() {
     S.route = { view, id: parts[1], tab: parts[2] || 'live' };
     return loadDevice(true);
   }
+  if (view === 'plug' && parts[1]) {
+    S.route = { view, id: parts[1] };
+    return renderPlug();
+  }
   S.route = { view };
   if (view === 'compare') return renderCompare();
   if (view === 'fans') return renderFans();
@@ -442,11 +446,41 @@ function plugOverviewCard(plugs) {
   return h('div', { class: 'card stack' },
     h('div', { class: 'titlebar' }, h('h3', {}, t('Smart Plugs')), h('span', { class: 'spacer' }),
       isAdmin() ? h('a', { class: 'btn small', href: '#/settings' }, t('Einstellungen')) : null),
-    h('div', { class: 'kv num' }, plugs.map(p => h('div', {},
+    h('div', { class: 'kv num' }, plugs.map(p => h('a', { href: `#/plug/${p.id}`, title: t('Verlauf anzeigen'), style: 'display:block;color:inherit;text-decoration:none' },
       h('span', {}, `${p.name} · ${roleText[p.role] ?? p.role}`),
       p.online
         ? t('{0} W', n(p.powerW, 1)) + (p.overheadW != null ? t(' (AxeOS {0} W, {1} W mehr)', n(p.minerPowerW, 1), n(p.overheadW, 1)) : '')
         : h('span', { class: 'danger' }, p.error || 'offline')))));
+}
+
+/** Verlauf eines Smart Plugs: Leistung an der Steckdose und zum Vergleich AxeOS (zugeordnete Miner bzw. alle). */
+function renderPlug() {
+  const id = S.route.id;
+  const p = S.status?.plugs?.find(x => x.id === id);
+  const range = S.plugRange || '24h';
+  const chart = h('canvas');
+  const legend = h('span', { class: 'muted small' });
+  const ranges = ['1h', '24h', '7d', '30d'];
+  const rangeBar = h('span', { class: 'range' }, ranges.map(r => h('a', {
+    href: '#', class: r === range ? 'active' : null,
+    onclick: e => { e.preventDefault(); S.plugRange = r; renderPlug(); },
+  }, r === '1h' ? t('1 h') : r === '24h' ? t('24 h') : r === '7d' ? t('7 Tage') : t('30 Tage'))));
+  const summary = h('p', { class: 'muted' });
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'row' }, h('a', { class: 'btn small', href: '#/' }, t('← Übersicht')), h('h2', { style: 'margin:0' }, p?.name ?? t('Smart Plug'))),
+    summary,
+    h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Leistung (W)')), rangeBar), h('div', { class: 'chart' }, chart), legend)));
+  api(`/plugs/${id}/history?range=${range}`).then(hist => {
+    if (S.route?.view !== 'plug' || S.route.id !== id) return;
+    const avg = pts => pts?.length ? pts.reduce((a, x) => a + x[1], 0) / pts.length : null;
+    const pa = avg(hist.plug), aa = avg(hist.axeos);
+    fill(summary, pa == null ? t('Für diesen Zeitraum liegen noch keine Messwerte vor.')
+      : t('Ø Steckdose {0} W', n(pa, 1)) + (aa != null ? t(' · Ø AxeOS {0} W · Differenz {1} W ({2} %)', n(aa, 1), n(pa - aa, 1), n(aa > 0 ? (pa - aa) / aa * 100 : 0, 0)) : ''));
+    const series = [{ points: hist.plug, color: cssVar('--accent'), format: v => t('{0} W', n(v, 1)) }];
+    if (hist.axeos?.length) series.push({ points: hist.axeos, color: cssVar('--muted'), format: v => t('{0} W', n(v, 1)) });
+    fill(legend, t('Orange: Steckdose'), hist.axeos?.length ? t(' · Grau: AxeOS der Miner dahinter') : '');
+    drawChart(chart, series, []);
+  }).catch(e => fill(summary, h('span', { class: 'danger' }, e.message)));
 }
 
 /** Dauertest für mehrere Miner: Auswahl, eine Dauer, eine Bestätigung; laufende Tests mit Restzeit. */
@@ -1157,7 +1191,8 @@ async function renderSettings() {
     h('div', { class: 'card stack' }, h('h2', {}, t('Push-Benachrichtigungen')),
       notifyForm(nt, text, select),
       h('div', { class: 'row' }, checkInput(nt, 'onOffline', 'offline'), checkInput(nt, 'onOverheat', t('Überhitzung')), checkInput(nt, 'onFinds', t('Blockfund/Zufluss')),
-        checkInput(nt, 'onMaintenance', t('Watchdog/Automatik/Firmware')), checkInput(nt, 'onRecord', t('Rekorde')), checkInput(nt, 'onLogAlerts', t('Log-Alarme')), checkInput(nt, 'onPool', t('Pool'))),
+        checkInput(nt, 'onMaintenance', t('Watchdog/Automatik/Firmware')), checkInput(nt, 'onRecord', t('Rekorde')), checkInput(nt, 'onLogAlerts', t('Log-Alarme')), checkInput(nt, 'onPool', t('Pool')),
+        checkInput(nt, 'onPlugs', t('Smart Plugs'))),
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: async () => { await save(); const r = await run(() => api('/notifications/test', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Testnachricht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Speichern & testen')),
         h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/report/send', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Tagesbericht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Tagesbericht jetzt senden')))),

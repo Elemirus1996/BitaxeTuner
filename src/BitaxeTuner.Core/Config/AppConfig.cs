@@ -267,6 +267,8 @@ public sealed class NotificationSettings
     public bool OnLogAlerts { get; set; } = true;
     /// <summary>Fallback-Pool, hohe Ablehnungsquote, langsamer Pool.</summary>
     public bool OnPool { get; set; } = true;
+    /// <summary>0.6.1: Smart Plug nicht erreichbar, Mehrverbrauch gestiegen.</summary>
+    public bool OnPlugs { get; set; } = true;
 
     public NotificationSettings Clone() => (NotificationSettings)MemberwiseClone();
 }

@@ -274,6 +274,9 @@ public static class Endpoints
         g.MapGet("/devices/{id}/history", async (string id, string? range, HubService hub) =>
             Results.Json(await hub.RunAsync(h => Dto.History(h, id == "all" ? HistoryStore.AggregateHost : Device(h, id).Host, range ?? "1h", DateTime.Now))));
 
+        g.MapGet("/plugs/{id}/history", async (string id, string? range, HubService hub) =>
+            Results.Json(await hub.RunAsync(h => Dto.PlugHistory(h, id, range ?? "24h", DateTime.Now))));
+
         g.MapGet("/devices/{id}/comparisons", async (string id, HubService hub) =>
             Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id)).Select(Dto.Comparison).ToList())));
 
