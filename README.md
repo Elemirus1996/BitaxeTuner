@@ -56,6 +56,12 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   aus `history.db`, jetzt mit viertem Diagramm **Effizienz (J/TH)**.
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export – Dateiformat unverändert.
+- **Monats- und Jahresbericht** (Browser *Berichte*, Desktop *Bericht …*): Verfügbarkeit, Ø Hashrate/Temperatur/Leistung,
+  J/TH, kWh, Stromkosten und Zuflüsse – als CSV oder druckbare Seite (PDF), optional Monats-Push. Im Steuer-Bereich
+  Stromkosten je Monat neben den Zuflüssen.
+- **Gesundheits-Frühwarnung**: täglicher Vergleich der letzten 7 Tage mit den 4 Wochen davor – Kühlung, Effizienz,
+  Lüfter-Drehzahl, abgelehnte Shares, Verfügbarkeit; Hinweis per Push und im Tab *Gesundheit*.
+- **Stromtarif** brutto oder netto (mit MwSt.-Satz), optional mit Stundenpreisen von aWATTar/Tibber.
 - **Smart Plugs** (Shelly Gen1, Plus/Pro/Gen3 mit Leistungsmessung): echter Verbrauch an der Steckdose inklusive Netzteil
   und Zusatzlüftern – je Plug für bestimmte Miner, Nebenverbraucher oder als Gesamtmessung. Kosten, Tagesbericht und
   Effizienz wahlweise mit Steckdosenwerten, Differenz zu AxeOS sichtbar, Verlauf in `history.db`, MQTT/Home Assistant

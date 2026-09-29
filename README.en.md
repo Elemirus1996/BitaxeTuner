@@ -59,6 +59,12 @@ Corrections to the English texts are welcome: they all live in
   from `history.db`, including an **efficiency (J/TH)** chart.
 - **Network**: recently found blocks, pool ranking, solo chances BTC/BCH.
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export.
+- **Monthly and annual report** (browser *Reports*, desktop *Report …*): availability, avg hashrate/temperature/power,
+  J/TH, kWh, electricity cost and income – as CSV or printable page (PDF), optional monthly push. In the tax section,
+  electricity cost per month next to the income.
+- **Health early warning**: daily comparison of the last 7 days with the 4 weeks before – cooling, efficiency,
+  fan speed, rejected shares, availability; notice via push and in the *Health* tab.
+- **Electricity tariff** gross or net (with VAT rate), optionally with hourly prices from aWATTar/Tibber.
 - **Smart plugs** (Shelly Gen1, Plus/Pro/Gen3 with power metering): real consumption at the socket including power supply
   and extra fans – per plug for specific miners, other consumers or as a total measurement. Costs, daily report and
   efficiency optionally use socket values, the difference to AxeOS is shown, history in `history.db`, MQTT/Home Assistant
