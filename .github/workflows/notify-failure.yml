@@ -1,0 +1,31 @@
+name: Fehler melden
+
+# Schlägt CI, Release, Anleitungen oder der tägliche Bericht fehl, kommt sofort eine ntfy-Meldung
+# (Secret NTFY_URL wie beim täglichen Bericht). Nur Läufe aus diesem Repository – keine Meldungen für Forks.
+on:
+  workflow_run:
+    workflows: [CI, Release, "Anleitungen (GitHub Pages)", "Täglicher Bericht"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  notify:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: ntfy
+        env:
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+          # Werte aus dem Lauf nur über Umgebungsvariablen – nie direkt in den Befehl einsetzen
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          [ -n "$NTFY_URL" ] || { echo "Secret NTFY_URL fehlt – keine Meldung."; exit 0; }
+          printf '%s\nBranch/Tag: %s\n' "$TITLE" "$BRANCH" > body.txt
+          curl -fsS -H "Title: BitaxeTuner: $WORKFLOW fehlgeschlagen" -H "Tags: rotating_light" -H "Priority: high" \
+            -H "Click: $RUN_URL" --data-binary @body.txt "$NTFY_URL" > /dev/null
