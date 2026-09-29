@@ -120,7 +120,10 @@ public class PiOsSetupTests
         Assert.Equal("Europe/Berlin", PiRegion.IanaTimezone(berlin, "DE"));
         var region = PiRegion.FromSystem();
         Assert.Matches("^[A-Z]{2}$", region.Country);
-        Assert.Contains("/", region.Timezone);
+        // Kontinent/Stadt oder „UTC“ (GitHub-Runner laufen in UTC) – beides nimmt der Pi an
+        Assert.Matches(@"^([A-Za-z_]+/[A-Za-z0-9_+\-/]+|UTC)$", region.Timezone);
+        Assert.Equal("UTC", PiRegion.IanaTimezone(TimeZoneInfo.Utc));
+        PiOsSetup.Validate(new PiOsOptions("pi", "pi-passwort-1", Timezone: "UTC"));
     }
 
     [Fact]
