@@ -35,6 +35,7 @@ public sealed class SystemInfo
     // Shares / Difficulty
     public double sharesAccepted { get; set; }
     public double sharesRejected { get; set; }
+    public double poolDifficulty { get; set; }        // aktuelle Share-Difficulty des Pools (AxeOS ≥ 2.x)
 
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string? bestDiff { get; set; }
@@ -87,6 +88,7 @@ public sealed class SystemInfo
         autofanspeed = m.AutoFanMode ?? 0,
         sharesAccepted = m.SharesAccepted,
         sharesRejected = m.SharesRejected,
+        poolDifficulty = m.PoolDifficulty ?? 0,
         uptimeSeconds = m.UptimeSeconds,
         AsicModel = m.AsicModel,
         boardVersion = m.BoardVersion,

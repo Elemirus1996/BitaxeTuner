@@ -75,7 +75,8 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 - **Automatische Geräteerkennung** (Netzwerkscan in Desktop und Browser) und passende **Geräteprofile** mit sinnvollen Grenzen.
 - **Einstellungen übertragen**: Pool/Fallback und Lüfter eines Miners auf andere übernehmen – Vorschau alt → neu,
   vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
-- **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander.
+- **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander
+  (inkl. aktueller **Pool-Difficulty**, sofern die Firmware sie meldet).
 
 ### Zusammenspiel Tuning ↔ Überwachung
 
@@ -91,7 +92,9 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 
 ### Miner-Logs, Alarme, Sicherungen
 
-- **Miner-Logs** je Gerät live (`ws://<host>/api/ws`) und als Puffer (`/api/system/logs`), mit Filter, Stufen, Speichern.
+- **Miner-Logs** je Gerät live (`ws://<host>/api/ws`) und als Puffer (`/api/system/logs`), mit Textfilter, Stufen,
+  **Kategorien** (Shares, Pool/Stratum, ASIC/Jobs, Temperatur/Lüfter/Strom, System/WLAN – mit Anzahl je Art) und Speichern;
+  Desktop und Browser gleich.
 - **Log-Alarme** (Einstellungen → Log-Alarme, Haken je Miner): Push bei Fehlerzeilen und frei definierbaren Mustern
   (Stratum getrennt, Overheat, Spannungsfehler, Fallback …), Sperrzeit je Regel, still während Tuning/Neustart.
   Log-Tab und Alarme teilen sich eine WebSocket-Verbindung; aktivierte Alarme belegen dauerhaft einen Platz am Miner.

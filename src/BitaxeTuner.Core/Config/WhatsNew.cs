@@ -26,6 +26,12 @@ public static class WhatsNew
             server ? L.T("In der Desktop-App öffnet „SSH-Terminal“ oben direkt eine Konsole auf dem Server – ohne Passwort.")
                    : L.T("„SSH-Terminal“ oben öffnet direkt eine Konsole auf deinem Server – ohne Passwort. Einrichtung unter „Betriebsart …“."),
             null),
+        new("0.8.0", L.T("Miner-Log mit Filtern"),
+            L.T("Im Protokoll-Tab eines Miners blendest du Arten von Meldungen ein und aus – Shares, Pool/Stratum, ASIC, Temperatur/Lüfter, System – mit Anzahl je Art."),
+            null),
+        new("0.8.0", L.T("Pool-Difficulty"),
+            L.T("Vergleich und Live-Ansicht zeigen, mit welcher Share-Difficulty der Pool den Miner gerade arbeiten lässt."),
+            null),
         new("0.8.0", L.T("Einführung „Erste Schritte“"),
             server ? L.T("Checkliste für die Einrichtung – jederzeit wieder einblenden unter Einstellungen → Allgemein.")
                    : L.T("Checkliste für die Einrichtung – jederzeit wieder aufrufen unter Einstellungen → Programm und Tuning."),

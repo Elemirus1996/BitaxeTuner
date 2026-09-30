@@ -145,6 +145,7 @@ public static class Dto
             sharesAccepted = i?.sharesAccepted,
             sharesRejected = i?.sharesRejected,
             bestDiff = i?.bestDiff,
+            poolDifficulty = n?.PoolDifficulty,
             errorPercent = n?.ErrorPercent,
             pool = admin ? hub.PoolText(s) : (i is null ? null : i.isUsingFallbackStratum != 0 ? L.T("Fallback-Pool") : L.T("Primär-Pool")),
             // Enthält den Pool-Benutzer (Wallet-Adresse) – daher nur für Admins

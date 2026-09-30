@@ -106,6 +106,7 @@ public sealed class SimulatedMinerClient : IMinerClient
                 FanRpm = 3000 + _fanPercent * 30,
                 SharesAccepted = _shares,
                 SharesRejected = _shares / 200,
+                PoolDifficulty = 1024,
                 UptimeSeconds = (long)(DateTime.Now - _bootTime).TotalSeconds,
             });
         }

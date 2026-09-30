@@ -684,6 +684,7 @@ function updateCompare() {
     [t('Lüfter'), d => d.fanRpm != null ? t('{0} rpm ({1} %)', d.fanRpm, d.fanPercent ?? '–') : '–'],
     [t('Shares'), d => d.sharesAccepted != null ? t('{0} / {1} abgelehnt', d.sharesAccepted, d.sharesRejected) : '–'],
     [t('Best Diff'), d => d.bestDiff || '–'],
+    [t('Pool-Difficulty'), d => diffText(d.poolDifficulty)],
     [t('Laufzeit'), d => dur(d.uptimeSeconds)],
     [t('Firmware'), d => d.firmwareText || '–'],
     [t('Pool'), d => d.pool || '–'],
@@ -883,6 +884,13 @@ function tabLive() {
       S.detail.profile.notes ? h('p', { class: 'muted small' }, S.detail.profile.notes) : null) : null);
 }
 
+/** Difficulty kurz wie AxeOS: 1260 → „1,26k“, 2,4·10⁹ → „2,40G“. */
+function diffText(v) {
+  if (!v) return '–';
+  const u = [[1e15, 'P'], [1e12, 'T'], [1e9, 'G'], [1e6, 'M'], [1e3, 'k']].find(([x]) => v >= x);
+  return u ? n(v / u[0], 2) + u[1] : n(v, 0);
+}
+
 function liveTiles(d) {
   return [
     tile(t('Hashrate'), hash(d.hashrate), d.expectedHashrate ? t('Soll {0}', hash(d.expectedHashrate)) : '', d.online ? 'ok' : 'danger'),
@@ -890,7 +898,8 @@ function liveTiles(d) {
     tile(t('Leistung'), d.power != null ? t('{0} W', n(d.power, 1)) : '–', d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : ''),
     tile(t('Frequenz'), d.frequency != null ? t('{0} MHz', d.frequency) : '–', d.voltage != null ? t('{0} mV', d.voltage) : ''),
     tile(t('Lüfter'), d.fanRpm != null ? t('{0} rpm', d.fanRpm) : '–', d.fanPercent != null ? `${d.fanPercent} %` : ''),
-    tile(t('Shares'), d.sharesAccepted ?? '–', d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : ''),
+    tile(t('Shares'), d.sharesAccepted ?? '–', [d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : '',
+      d.poolDifficulty ? t('Pool-Diff {0}', diffText(d.poolDifficulty)) : ''].filter(Boolean).join(' · ')),
     tile(t('Laufzeit'), dur(d.uptimeSeconds), d.bestDiff ? t('Best {0}', d.bestDiff) : ''),
     tile(t('Status'), d.online ? 'online' : d.maintenance ? t('Neustart …') : 'offline', d.pool || d.error || '', d.online ? 'ok' : 'warn'),
     d.fan ? tile(t('VR-Lüfter K{0}', d.fan.channel), `${d.fan.percent} %`, d.fan.stalled ? t('Lüfter steht!') : d.fan.rpm != null ? t('{0} U/min', d.fan.rpm) : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,
@@ -1157,14 +1166,54 @@ function tabLog() {
   const minerLog = h('div', { class: 'log', id: 'miner-log' });
   const state = h('span', { class: 'muted small' }, t('verbinde …'));
   const follow = h('input', { type: 'checkbox', checked: true });
+  // Filter wie in der Desktop-App: Kategorie (Mehrfachauswahl), Level und Freitext über Modul und Nachricht
+  const cats = [['Shares', t('Shares')], ['Pool', t('Pool/Stratum')], ['Asic', t('ASIC/Jobs')], ['Thermal', t('Temperatur/Lüfter/Strom')],
+    ['System', t('System/WLAN')], ['Other', t('Sonstige')]];
+  const levels = [['E', t('Fehler')], ['W', t('Warnungen')], ['I', 'Info'], ['D', 'Debug']];
+  let off = new Set();
+  try { off = new Set(JSON.parse(localStorageGet('logFilterOff') || '[]')); } catch { /* egal */ }
+  const counts = {};
+  const text = h('input', { type: 'search', placeholder: t('Filter nach Text oder Modul (z. B. asic_result, stratum, fan)'), style: 'max-width:320px', oninput: () => refilter() });
+  const chip = (key, label) => {
+    const cnt = h('span', { class: 'muted' });
+    const b = h('button', { type: 'button', class: 'btn small' + (off.has(key) ? '' : ' primary'), 'aria-pressed': String(!off.has(key)), onclick: () => {
+      off.has(key) ? off.delete(key) : off.add(key);
+      b.className = 'btn small' + (off.has(key) ? '' : ' primary');
+      b.setAttribute('aria-pressed', String(!off.has(key)));
+      localStorageSet('logFilterOff', JSON.stringify([...off]));
+      refilter();
+    } }, label, ' ', cnt);
+    b.count = cnt;
+    return b;
+  };
+  const catChips = cats.map(([k, l]) => chip(k, l));
+  const levelChips = levels.map(([k, l]) => chip(k, l));
+  const lvl = l => { const c = String(l.level || 'I')[0]; return c === 'V' ? 'D' : c; };
+  const visible = l => {
+    if (lvl(l) === 'A') return true;
+    if (off.has(l.category || 'Other') || off.has(lvl(l))) return false;
+    const f = text.value.trim().toLowerCase();
+    return !f || (l.tag || '').toLowerCase().includes(f) || (l.message || '').toLowerCase().includes(f);
+  };
+  const refilter = () => { for (const el of minerLog.children) el.style.display = visible(el.line) ? '' : 'none'; if (follow.checked) minerLog.scrollTop = minerLog.scrollHeight; };
+  const showCounts = () => cats.forEach(([k], i) => { catChips[i].count.textContent = counts[k] ? `(${counts[k]})` : ''; });
   S.logEs?.close();
   const es = new EventSource(`/api/v1/devices/${S.route.id}/minerlog`);
   S.logEs = es;
   es.addEventListener('line', e => {
     const l = JSON.parse(e.data);
     const tv = new Date(l.time).toLocaleTimeString(LOCALE);
-    minerLog.append(h('div', { class: (l.level || 'I')[0] }, `${tv} ${l.tag ? l.tag + ': ' : ''}${l.message}`));
-    while (minerLog.childElementCount > 2000) minerLog.firstChild.remove();
+    const el = h('div', { class: lvl(l) }, `${tv} ${l.tag ? l.tag + ': ' : ''}${l.message}`);
+    el.line = l;
+    if (!visible(l)) el.style.display = 'none';
+    minerLog.append(el);
+    counts[l.category || 'Other'] = (counts[l.category || 'Other'] || 0) + 1;
+    while (minerLog.childElementCount > 2000) {
+      const c = minerLog.firstChild.line?.category || 'Other';
+      counts[c] = Math.max(0, (counts[c] || 1) - 1);
+      minerLog.firstChild.remove();
+    }
+    showCounts();
     if (follow.checked) minerLog.scrollTop = minerLog.scrollHeight;
   });
   es.addEventListener('status', e => { state.textContent = JSON.parse(e.data).text; });
@@ -1172,6 +1221,8 @@ function tabLog() {
   return h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(340px,1fr))' },
     h('div', { class: 'card stack' }, h('h3', {}, t('App-Protokoll (Server)')), appLog),
     h('div', { class: 'card stack' }, h('div', { class: 'titlebar' }, h('h3', {}, t('Miner-Logs live')), h('span', { class: 'spacer' }), state),
+      h('div', { class: 'row wrap', role: 'group', 'aria-label': t('Kategorien') }, catChips),
+      h('div', { class: 'row wrap' }, levelChips, text),
       minerLog, h('label', { class: 'check' }, follow, t('automatisch mitscrollen'))));
 }
 

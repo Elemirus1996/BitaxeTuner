@@ -31,6 +31,7 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     public LogViewModel(MinerConnection connection)
     {
         _connection = connection;
+        Categories = LogCategories.All.Select(c => new LogCategoryFilter(c, () => View?.Refresh())).ToList();
         View = CollectionViewSource.GetDefaultView(Lines);
         View.Filter = o => o is LogLine l && Matches(l);
         _flush = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Flush(),
@@ -38,6 +39,8 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     }
 
     public ObservableCollection<LogLine> Lines { get; } = [];
+    /// <summary>Schnellfilter nach Art der Zeile (Shares, Pool …), mit Anzahl der Zeilen je Art.</summary>
+    public IReadOnlyList<LogCategoryFilter> Categories { get; }
     public ICollectionView View { get; }
 
     [ObservableProperty] private bool _isLive;
@@ -71,6 +74,7 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
             _ => ShowInfo,
         };
         if (!levelOk) return false;
+        if (l.Level != LogLevel.App && !Categories[(int)l.Category].IsChecked) return false;
         var f = FilterText.Trim();
         return f.Length == 0 || l.Tag.Contains(f, StringComparison.OrdinalIgnoreCase) || l.Message.Contains(f, StringComparison.OrdinalIgnoreCase);
     }
@@ -143,7 +147,11 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     private bool CanLoadBuffer() => !LoadingBuffer;
 
     [RelayCommand]
-    private void Clear() => Lines.Clear();
+    private void Clear()
+    {
+        Lines.Clear();
+        Trim();
+    }
 
     [RelayCommand]
     private void Save()
@@ -188,6 +196,10 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
     private void Trim()
     {
         while (Lines.Count > MaxLines) Lines.RemoveAt(0);
+        var counts = new int[Categories.Count];
+        foreach (var l in Lines)
+            if (l.Level != LogLevel.App) counts[(int)l.Category]++;
+        foreach (var c in Categories) c.Count = counts[(int)c.Category];
     }
 
     public void Dispose()
@@ -195,4 +207,14 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
         _subscription?.Dispose();
         _flush.Stop();
     }
+}
+
+/// <summary>Ein Kategorie-Schnellfilter im Miner-Log.</summary>
+public sealed partial class LogCategoryFilter(LogCategory category, Action changed) : ObservableObject
+{
+    public LogCategory Category { get; } = category;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Label))] private int _count;
+    [ObservableProperty] private bool _isChecked = true;
+    public string Label => Count > 0 ? $"{LogCategories.Label(Category)} ({Count})" : LogCategories.Label(Category);
+    partial void OnIsCheckedChanged(bool value) => changed();
 }

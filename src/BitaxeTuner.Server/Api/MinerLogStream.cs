@@ -10,7 +10,7 @@ namespace BitaxeTuner.Server.Api;
 /// </summary>
 public static class MinerLogStream
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
 
     public static async Task ServeAsync(HttpContext http, MinerConnection connection)
     {

@@ -55,6 +55,9 @@ public sealed record MinerInfo
 
     public long SharesAccepted { get; init; }
     public long SharesRejected { get; init; }
+    /// <summary>Share-Difficulty, die der Pool gerade vorgibt (AxeOS „poolDifficulty“); null, wenn die Firmware sie nicht liefert.</summary>
+    public double? PoolDifficulty { get; init; }
+    public string PoolDifficultyText => PoolDifficulty is { } p ? BitaxeTuner.Core.Monitoring.Difficulty.Format(p) : "–";
     public long UptimeSeconds { get; init; }
 
     public bool OverheatMode { get; init; }

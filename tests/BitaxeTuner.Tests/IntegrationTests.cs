@@ -40,6 +40,7 @@ public class AxeOsParsingTests
         Assert.NotNull(info.ErrorPercent);
         Assert.NotNull(info.ExpectedHashRateGh);
         Assert.NotNull(info.OverclockEnabled);
+        Assert.Equal(1260, info.PoolDifficulty);
 
         // Roh-DTO für die Überwachung aus derselben Antwort
         var d = Assert.IsType<SystemInfo>(info.Details);

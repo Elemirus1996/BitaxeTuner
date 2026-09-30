@@ -250,6 +250,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             FanRpm = Int(r, "fanrpm"),
             SharesAccepted = (long)(Dbl(r, "sharesAccepted") ?? 0),
             SharesRejected = (long)(Dbl(r, "sharesRejected") ?? 0),
+            PoolDifficulty = (Dbl(r, "poolDifficulty") ?? Dbl(r, "poolDiff")) is > 0 and var pd ? pd : null,
             UptimeSeconds = (long)(Dbl(r, "uptimeSeconds") ?? 0),
             OverheatMode = (Int(r, "overheat_mode") ?? 0) != 0,
             PowerFault = Str(r, "power_fault"),

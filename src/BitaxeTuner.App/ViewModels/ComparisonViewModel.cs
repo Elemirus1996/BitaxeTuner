@@ -11,7 +11,7 @@ namespace BitaxeTuner.App.ViewModels;
 public sealed record ComparisonRow(
     string Name, string Chip, string Current,
     double? Hash24, double? Eff24, double? Temp24, double? Availability7,
-    string BestHash, string BestEff, int? MaxStableFrequency, string Benchmark)
+    string BestHash, string BestEff, int? MaxStableFrequency, string Benchmark, string PoolDiff = "–")
 {
     public string Hash24Text => Hash24 is { } h ? L.T("{0:0} GH/s", h) : "–";
     public string Eff24Text => Eff24 is { } e ? L.T("{0:0.00} J/TH", e) : "–";
@@ -54,7 +54,8 @@ public sealed partial class ComparisonViewModel(AppHost host) : ObservableObject
                 i is null ? "offline" : L.T("{0} MHz / {1} mV", i.FrequencyMhz, i.CoreVoltageMv),
                 avg?.HashRateGh, avg?.EfficiencyJth, avg?.Temp, availability,
                 Format(bestHash), Format(bestEff), maxStable,
-                session is null ? L.T("kein Benchmark") : L.T("{0:d} · {1} Messungen", session.StartedAt, results.Count) + (session.IsFinished ? "" : L.T(" (unvollständig)"))));
+                session is null ? L.T("kein Benchmark") : L.T("{0:d} · {1} Messungen", session.StartedAt, results.Count) + (session.IsFinished ? "" : L.T(" (unvollständig)")),
+                i?.PoolDifficultyText ?? "–"));
         }
 
         var withBench = Rows.Where(r => r.MaxStableFrequency is not null).ToList();

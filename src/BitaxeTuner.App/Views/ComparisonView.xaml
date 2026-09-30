@@ -22,6 +22,7 @@
                     <DataGridTextColumn Header="{l:T 'Ø J/TH 24 h'}" Binding="{Binding Eff24Text}" Width="Auto" SortMemberPath="Eff24" />
                     <DataGridTextColumn Header="{l:T 'Ø Temp 24 h'}" Binding="{Binding Temp24Text}" Width="Auto" SortMemberPath="Temp24" />
                     <DataGridTextColumn Header="{l:T 'Verfügbar 7 T'}" Binding="{Binding AvailabilityText}" Width="Auto" SortMemberPath="Availability7" />
+                    <DataGridTextColumn Header="{l:T 'Pool-Difficulty'}" Binding="{Binding PoolDiff}" Width="Auto" />
                     <DataGridTextColumn Header="{l:T 'Stabil bis'}" Binding="{Binding MaxStableText}" Width="Auto" SortMemberPath="MaxStableFrequency" />
                     <DataGridTextColumn Header="{l:T 'Beste Hashrate (Benchmark)'}" Binding="{Binding BestHash}" Width="270" />
                     <DataGridTextColumn Header="{l:T 'Beste Effizienz (Benchmark)'}" Binding="{Binding BestEff}" Width="270" />

@@ -183,7 +183,7 @@
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
                                         <TextBlock Text="{l:T 'Shares (akzeptiert / abgelehnt)'}" Style="{StaticResource Muted}" />
-                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.SharesAccepted, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding Info.SharesRejected, Mode=OneWay}" /></TextBlock>
+                                        <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Info.SharesAccepted, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding Info.SharesRejected, Mode=OneWay}" /><Run Text="{l:T ' · Pool-Diff '}" FontSize="12" /><Run Text="{Binding Info.PoolDifficultyText, Mode=OneWay}" FontSize="12" /></TextBlock>
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}" Margin="0,0,0,10"><StackPanel>
                                         <TextBlock Text="{l:T 'Fehlerrate (ASIC)'}" Style="{StaticResource Muted}" />
@@ -629,6 +629,17 @@
                                 <Button Content="{l:T 'Leeren'}" Command="{Binding ClearCommand}" />
                                 <Button Content="{l:T 'Speichern …'}" Command="{Binding SaveCommand}" Margin="0" />
                             </WrapPanel>
+                            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Categories}" Margin="0,0,0,6"
+                                          ToolTip="{l:T 'Kategorien ein-/ausblenden – kombinierbar mit Level und Textfilter'}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}" Margin="0,0,0,6">
                                 <Run Text="{l:T 'Status: '}" /><Run Text="{Binding StatusText, Mode=OneWay}" />
                                 <Run Text="{l:T ' · Die Verbindung ist nur offen, solange dieser Tab sichtbar ist (der Miner hat nur wenige WebSocket-Plätze).'}" />

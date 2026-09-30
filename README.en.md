@@ -78,7 +78,8 @@ Corrections to the English texts are welcome: they all live in
 - **Automatic device discovery** (network scan in desktop and browser) and matching **device profiles** with sensible limits.
 - **Copy settings**: take over one miner's pool/fallback and fan settings to others – preview old → new, backup of
   each miner first, worker names are kept, frequency and voltage are never copied.
-- **Soak test for several miners** at once, **compare** all miners side by side.
+- **Soak test for several miners** at once, **compare** all miners side by side
+  (including the current **pool difficulty** if the firmware reports it).
 
 ### Tuning ↔ monitoring
 
@@ -93,7 +94,9 @@ Corrections to the English texts are welcome: they all live in
 
 ### Miner logs, alerts, backups
 
-- **Miner logs** per device live (`ws://<host>/api/ws`) and as a buffer (`/api/system/logs`), with filter, levels, saving.
+- **Miner logs** per device live (`ws://<host>/api/ws`) and as a buffer (`/api/system/logs`), with text filter, levels,
+  **categories** (shares, pool/stratum, ASIC/jobs, temperature/fan/power, system/Wi-Fi – with a count per type) and saving;
+  same in desktop and browser.
 - **Log alerts** (Settings → Log alerts, tick per miner): push on error lines and freely defined patterns
   (stratum disconnected, overheat, voltage errors, fallback …), cooldown per rule, silent during tuning/restart.
   The log tab and the alerts share one WebSocket connection; enabled alerts permanently use one slot on the miner.

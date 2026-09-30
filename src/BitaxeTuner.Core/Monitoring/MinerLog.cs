@@ -31,6 +31,9 @@ public sealed record LogLine(DateTime Time, LogLevel Level, long? UptimeMs, stri
         _ => "»",
     };
 
+    /// <summary>Art der Zeile für die Schnellfilter; eigene App-Zeilen zählen als „Sonstige“.</summary>
+    public LogCategory Category => Level == LogLevel.App ? LogCategory.Other : LogCategories.Of(Tag, Message);
+
     public override string ToString() =>
         $"{Time:HH:mm:ss} {LevelText} {(UptimeMs is { } u ? $"({u}) " : "")}{(Tag.Length > 0 ? Tag + ": " : "")}{Message}";
 }
