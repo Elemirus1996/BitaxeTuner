@@ -38,6 +38,18 @@ public partial class MainWindow : Window
         PlaceMonitor();
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;
         _ = vm.CheckForUpdateAsync();
+        // Einführung „Erste Schritte“: automatisch nur, solange noch kein Miner eingetragen ist
+        if (Onboarding.ShouldShow(vm.Host.Config) && vm.Host.Config.Devices.Count == 0)
+            Loaded += (_, _) => Dispatcher.BeginInvoke(ShowOnboarding, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>Einführung anzeigen; ihre Schritte öffnen die Einstellungen am passenden Abschnitt bzw. die Betriebsart.</summary>
+    private void ShowOnboarding()
+    {
+        var host = Vm.Host;
+        new OnboardingWindow(host.Config,
+            (section, owner) => OpenSettings(section, owner),
+            owner => new ServerModeWindow(host.Config, host) { Owner = owner }.ShowDialog()) { Owner = this }.ShowDialog();
     }
 
     /// <summary>Pool-Symbol in der Geräteliste: Nutzerseite des Pools im Browser öffnen.</summary>
@@ -125,13 +137,14 @@ public partial class MainWindow : Window
     private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings(null);
 
     /// <summary>Einstellungen öffnen, optional direkt an einem Abschnitt (z. B. „Smart Plugs“).</summary>
-    private async void OpenSettings(string? section)
+    private async void OpenSettings(string? section, Window? owner = null)
     {
         var host = Vm.Host;
         var language = host.Config.Language;
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
-            () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false), host, section) { Owner = this };
+            () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false), host, section) { Owner = owner ?? this };
         if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowOnboardingRequested) Dispatcher.BeginInvoke(ShowOnboarding);
         await host.Hub.ApplyPlugSettingsAsync();
 
         ThemeManager.Apply(host.Config.Theme);

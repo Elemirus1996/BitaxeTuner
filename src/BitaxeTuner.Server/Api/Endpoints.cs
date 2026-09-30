@@ -16,6 +16,7 @@ public sealed record LoginRequest(string Password);
 public sealed record SetupRequest(string Code, string Password);
 public sealed record PasswordRequest(string Current, string Password);
 public sealed record NotifyTestRequest(string? TargetId);
+public sealed record OnboardingRequest(bool Show);
 /// <summary>SoakHours: nach der Änderung automatisch einen Dauertest dieser Dauer starten (Effizienz-Ratgeber).</summary>
 public sealed record ChangeRequest(int Frequency, int Voltage, int? SoakHours = null);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
@@ -611,6 +612,14 @@ public static class Endpoints
             Loc.Configure(h.Config.Language);
             h.SyncLogAlerts();
             await h.ApplySettingsChangedAsync();
+            return new { ok = true };
+        })));
+
+        // Einführung „Erste Schritte“ ausblenden (später wieder: Einstellungen → Allgemein)
+        g.MapPost("/onboarding", async (OnboardingRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            Onboarding.SetVisible(h.Config, req.Show);
+            h.Config.Save();
             return new { ok = true };
         })));
 

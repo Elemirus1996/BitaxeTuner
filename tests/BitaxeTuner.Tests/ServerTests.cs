@@ -164,6 +164,24 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Onboarding_checklist_in_status_for_admins_until_hidden()
+    {
+        var admin = await AdminAsync();
+        var hub = _factory.Services.GetRequiredService<HubService>();
+        await hub.RunAsync(h => { BitaxeTuner.Core.Config.Onboarding.SetVisible(h.Config, true); return true; });
+
+        var status = await Json(await admin.GetAsync("/api/v1/status"));
+        var steps = status.GetProperty("onboarding").EnumerateArray().ToList();
+        Assert.Equal("miners", steps[0].GetProperty("id").GetString());
+        Assert.True(steps[0].GetProperty("done").GetBoolean());       // Testserver hat schon einen Miner
+        Assert.Equal("Geräte", steps[0].GetProperty("section").GetString());
+
+        await Json(await admin.PostAsJsonAsync("/api/v1/onboarding", new { show = false }));
+        Assert.Equal(JsonValueKind.Null, (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("onboarding").ValueKind);
+        Assert.True(await hub.RunAsync(h => h.Config.OnboardingDone));
+    }
+
+    [Fact]
     public async Task Push_targets_are_offered_saved_validated_and_mirrored()
     {
         var admin = await AdminAsync();

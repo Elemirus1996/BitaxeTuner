@@ -55,6 +55,10 @@ public static class Dto
             devices = devices.Select(d => Summary(hub, d, role)).ToList(),
             fans = Fans(hub, role),
             plugs = Plugs(hub, role),
+            // Einführung „Erste Schritte“ – nur für Admins und nur solange nicht ausgeblendet
+            onboarding = role == Role.Admin && Onboarding.ShouldShow(hub.Config)
+                ? Onboarding.Steps(hub.Config, server: true).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
+                : null,
         };
     }
 

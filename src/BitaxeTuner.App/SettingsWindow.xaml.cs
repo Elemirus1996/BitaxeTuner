@@ -481,6 +481,18 @@ public partial class SettingsWindow : Window
         TestResultText.Text = error is null ? L.T("Gesendet – kam sie an?") : L.T("Fehler: ") + error;
     }
 
+    // ---------- Einführung ----------
+
+    /// <summary>Nach dem Schließen die Einführung öffnen (Knopf unter „Programm und Tuning“).</summary>
+    public bool ShowOnboardingRequested { get; private set; }
+
+    private void ShowOnboarding_Click(object sender, RoutedEventArgs e)
+    {
+        Onboarding.SetVisible(_config, true);
+        ShowOnboardingRequested = true;
+        Save_Click(sender, e); // speichert und schließt – bei Eingabefehlern bleibt das Fenster offen
+    }
+
     // ---------- Inhaltsverzeichnis ----------
 
     private readonly List<TextBlock> _sections = [];

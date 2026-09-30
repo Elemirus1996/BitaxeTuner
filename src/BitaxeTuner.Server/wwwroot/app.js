@@ -424,6 +424,7 @@ function renderOverview() {
       tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
       s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 2)), s.price.source) : null),
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
+    s.onboarding ? onboardingCard(s.onboarding) : null,
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
@@ -490,6 +491,20 @@ async function renderReports() {
     h('p', { class: 'muted small' }, t('Druckbare Seite: im Browser „Drucken“ → „Als PDF speichern“. Abgeschlossene Monate werden gespeichert und bleiben auch erhalten, wenn ältere Minutenwerte bereinigt werden.')),
     view);
   load();
+}
+
+/** Einführung „Erste Schritte“: Checkliste, die sich selbst abhakt; Links springen zum passenden Einstellungs-Abschnitt. */
+function onboardingCard(steps) {
+  const done = steps.filter(x => x.done).length;
+  const hide = async () => { if (await run(() => api('/onboarding', { method: 'POST', body: { show: false } }))) { S.status.onboarding = null; renderOverview(); } };
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Erste Schritte')), h('span', { class: 'muted small' }, t('{0} von {1} erledigt', done, steps.length)),
+      h('span', { class: 'spacer' }), h('button', { class: 'btn small', onclick: hide }, done === steps.length ? t('Fertig – ausblenden') : t('Ausblenden'))),
+    h('p', { class: 'muted small' }, t('Willkommen bei BitaxeTuner! Diese Schritte richten das Wichtigste ein – jeder hakt sich selbst ab. Später wieder einblenden: Einstellungen → Allgemein.')),
+    h('div', { class: 'stack' }, steps.map((x, i) => h('div', { class: 'row', style: 'align-items:flex-start' },
+      h('span', { class: x.done ? 'ok' : 'muted', style: 'font-size:18px;line-height:1' }, x.done ? '✔' : String(i + 1)),
+      h('div', { style: 'flex:1' }, h('b', {}, x.title), h('div', { class: 'small muted' }, x.text)),
+      x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = x.section; } }, x.done ? t('Ansehen') : t('Einrichten')) : null))));
 }
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
@@ -1288,6 +1303,9 @@ async function renderSettings() {
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
     copyCard,
     h('div', { class: 'card stack' }, h('h2', {}, t('Allgemein')),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: async () => {
+        if (await run(() => api('/onboarding', { method: 'POST', body: { show: true } }))) toast(t('„Erste Schritte“ steht wieder in der Übersicht.'), 'ok', 8000);
+      } }, t('Einführung „Erste Schritte“ wieder anzeigen'))),
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('Abfrage alle (s)')), text(s, 'intervalSeconds', 'number')),
         h('div', {}, h('label', {}, t('Live-Verlauf (min)')), text(s, 'historyMinutes', 'number')),
