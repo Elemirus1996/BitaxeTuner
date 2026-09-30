@@ -173,3 +173,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 .top .btn.ghost { color: #E9EEF6; border-color: #2A3444; }
 .top .btn.ghost:hover { border-color: var(--accent); }
 .grid > .card + .card, .devices > .card + .card { margin-top: 0; }
+
+/* Inhaltsverzeichnis langer Seiten (Einstellungen) */
+.toc {
+  position: sticky; z-index: 5; display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 8px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.toc a { padding: 3px 9px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 13px; white-space: nowrap; }
+.toc a:hover { color: var(--text); background: var(--accent-soft); }
+.toc a.active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
+@media (max-width: 640px) { .toc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } }

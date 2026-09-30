@@ -105,7 +105,7 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 
 ### Push-Benachrichtigungen
 
-*Einstellungen → Push-Benachrichtigungen* (Browser) bzw. *Push-Dienste …* (Desktop). **Mehrere Dienste gleichzeitig**
+*Einstellungen → Push-Benachrichtigungen* (Desktop und Browser). **Mehrere Dienste gleichzeitig**
 sind möglich – z. B. ntfy für dich und Discord für eine Community-Gruppe. Je Dienst wählst du, **welche Meldungen**
 (offline, Blockfund, Tagesbericht …) und **für welche Miner** (alle oder einzelne) er bekommt; „Test“ prüft jeden Dienst
 einzeln. Ein bisher eingerichteter Dienst wird automatisch als erster übernommen.
@@ -137,7 +137,7 @@ Monatsersten. Jede Meldung hat eine Sperrzeit, damit ein wackelnder Miner das Ha
 
 ### Smart Plugs (Shelly)
 
-*Smart Plugs …* (Desktop) bzw. *Einstellungen → Smart Plugs* (Browser):
+*Einstellungen → Smart Plugs* (Desktop und Browser; in der Desktop-App führt auch *Smart Plugs …* direkt dorthin):
 
 1. **Plug hinzufügen**, IP-Adresse (oder Name) eintragen – nur Adressen im Heimnetz. Kanal bei Steckdosen 0.
    Geschützte Shellys: Benutzer (Gen2+ immer `admin`) und Passwort; das Passwort liegt in `secrets.json`.

@@ -8,9 +8,9 @@ namespace BitaxeTuner.App.Views;
 
 /// <summary>
 /// Mehrere Push-Dienste gleichzeitig (z. B. ntfy privat + Discord für eine Community-Gruppe), je Dienst eigene
-/// Meldungen und Miner – wie in der Server-Oberfläche. Übernommen wird mit „Einstellungen speichern“.
+/// Meldungen und Miner – eingebettet in die Einstellungen (wie in der Server-Oberfläche), gespeichert mit „Speichern“.
 /// </summary>
-public sealed class PushTargetsWindow : Window
+public sealed class PushTargetsPanel : StackPanel
 {
     private static readonly (NotifyCategory Cat, string Label)[] Categories =
     [
@@ -30,20 +30,20 @@ public sealed class PushTargetsWindow : Window
     private readonly StackPanel _list = new();
     private readonly List<Func<PushTarget>> _readers = [];
 
-    public List<PushTarget> Result { get; private set; } = [];
+    /// <summary>Aktueller Stand aller Karten.</summary>
+    public List<PushTarget> Targets
+    {
+        get
+        {
+            Collect();
+            return _targets.Select(t => t.Clone()).ToList();
+        }
+    }
 
-    public PushTargetsWindow(IEnumerable<PushTarget> targets, IReadOnlyList<(string Name, string Host)> miners)
+    public PushTargetsPanel(IEnumerable<PushTarget> targets, IReadOnlyList<(string Name, string Host)> miners)
     {
         _targets = targets.Select(t => t.Clone()).ToList();
         _miners = miners;
-        Title = L.T("Push-Dienste");
-        Width = 760;
-        SizeToContent = SizeToContent.Height;
-        MaxHeight = 860;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        SetResourceReference(BackgroundProperty, "WindowBrush");
-        SetResourceReference(ForegroundProperty, "TextBrush");
-        FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
 
         var hint = new TextBlock
         {
@@ -59,25 +59,9 @@ public sealed class PushTargetsWindow : Window
             _targets.Add(new PushTarget());
             Draw();
         };
-        var ok = new Button { Content = L.T("Übernehmen"), Padding = new Thickness(14, 4, 14, 4), IsDefault = true };
-        ok.SetResourceReference(StyleProperty, "PrimaryButton");
-        ok.Click += (_, _) =>
-        {
-            Collect();
-            Result = _targets;
-            DialogResult = true;
-        };
-        var cancel = new Button { Content = L.T("Abbrechen"), Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        buttons.Children.Add(ok);
-        buttons.Children.Add(cancel);
-
-        var root = new StackPanel { Margin = new Thickness(16) };
-        root.Children.Add(hint);
-        root.Children.Add(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 620 });
-        root.Children.Add(add);
-        root.Children.Add(buttons);
-        Content = root;
+        Children.Add(hint);
+        Children.Add(_list);
+        Children.Add(add);
         Draw();
     }
 
@@ -98,7 +82,7 @@ public sealed class PushTargetsWindow : Window
 
     private Border Card(PushTarget t, int index)
     {
-        var name = new TextBox { Text = t.Name, MinWidth = 220 };
+        var name = new TextBox { Text = t.Name, Width = 170 };
         var enabled = new CheckBox { Content = L.T("aktiv"), IsChecked = t.Enabled, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
         var provider = new ComboBox { Width = 150, DisplayMemberPath = "Label", SelectedValuePath = "Value", Margin = new Thickness(12, 0, 0, 0) };
         provider.ItemsSource = Providers.Select(p => new { p.Value, p.Label }).ToList();

@@ -9,10 +9,10 @@ using BitaxeTuner.Core.Plugs;
 namespace BitaxeTuner.App.Views;
 
 /// <summary>
-/// Smart Plugs (Shelly) einrichten wie in der Server-Oberfläche: Adresse, Rolle, Miner, Test.
-/// Es wird nur gemessen, nie geschaltet. Passwörter liegen in secrets.json.
+/// Smart Plugs (Shelly) einrichten wie in der Server-Oberfläche: Adresse, Rolle, Miner, Test – eingebettet in die
+/// Einstellungen, gespeichert mit „Speichern“. Es wird nur gemessen, nie geschaltet. Passwörter liegen in secrets.json.
 /// </summary>
-public sealed class SmartPlugsWindow : Window
+public sealed class SmartPlugsPanel : StackPanel
 {
     private sealed class Row
     {
@@ -37,17 +37,9 @@ public sealed class SmartPlugsWindow : Window
         ("total", L.T("Gesamtmessung (alles dahinter)")),
     ];
 
-    public SmartPlugsWindow(AppHost host)
+    public SmartPlugsPanel(AppHost host)
     {
         _host = host;
-        Title = L.T("Smart Plugs");
-        Width = 720;
-        SizeToContent = SizeToContent.Height;
-        MaxHeight = 820;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        SetResourceReference(BackgroundProperty, "WindowBrush");
-        SetResourceReference(ForegroundProperty, "TextBrush");
-        FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
 
         var hint = new TextBlock
         {
@@ -69,22 +61,11 @@ public sealed class SmartPlugsWindow : Window
         intervalRow.Children.Add(new TextBlock { Text = L.T("abfragen alle (s)"), VerticalAlignment = VerticalAlignment.Center });
         intervalRow.Children.Add(_interval);
 
-        var save = new Button { Content = L.T("Speichern"), Padding = new Thickness(14, 4, 14, 4), IsDefault = true };
-        save.SetResourceReference(StyleProperty, "PrimaryButton");
-        save.Click += async (_, _) => await SaveAsync();
-        var close = new Button { Content = L.T("Schließen"), Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        buttons.Children.Add(save);
-        buttons.Children.Add(close);
-
-        var root = new StackPanel { Margin = new Thickness(16) };
-        root.Children.Add(hint);
-        root.Children.Add(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 520 });
-        root.Children.Add(add);
-        root.Children.Add(_useForCosts);
-        root.Children.Add(intervalRow);
-        root.Children.Add(buttons);
-        Content = root;
+        Children.Add(hint);
+        Children.Add(_list);
+        Children.Add(add);
+        Children.Add(_useForCosts);
+        Children.Add(intervalRow);
         ShowEmptyHint();
     }
 
@@ -218,32 +199,34 @@ public sealed class SmartPlugsWindow : Window
         finally { IsEnabled = true; }
     }
 
-    private async Task SaveAsync()
+    /// <summary>Fehlertext, wenn die Eingaben nicht gespeichert werden können; sonst null.</summary>
+    public string? Validate()
     {
         var items = _rows.Select(Read).ToList();
         try
         {
             foreach (var p in items.Where(p => !SimulatedPlugClient.IsSimAddress(p.Host))) ShellyClient.BaseUri(p.Host);
             if (items.Count(p => p.Role == "total") > 1) throw new LocalizedException("Höchstens ein Plug als Gesamtmessung.");
+            return null;
         }
         catch (LocalizedException ex)
         {
-            MessageBox.Show(this, ex.In(Loc.Current), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            return ex.In(Loc.Current);
         }
+    }
 
-        var hub = _host.Hub;
-        hub.Config.Plugs = new SmartPlugSettings
+    /// <summary>In die Konfiguration übernehmen und Passwörter in secrets.json schreiben (Speichern der Einstellungen).</summary>
+    public void Apply(AppConfig config)
+    {
+        config.Plugs = new SmartPlugSettings
         {
-            Items = items,
+            Items = _rows.Select(Read).ToList(),
             UseForCosts = _useForCosts.IsChecked == true,
             IntervalSeconds = int.TryParse(_interval.Text, out var s) ? Math.Clamp(s, 5, 300) : 10,
         };
-        foreach (var id in _removed) hub.Secrets.Set(SmartPlugConfig.SecretKey(id), null);
+        var secrets = _host.Hub.Secrets;
+        foreach (var id in _removed) secrets.Set(SmartPlugConfig.SecretKey(id), null);
         foreach (var r in _rows.Where(r => r.Password.Password.Length > 0))
-            hub.Secrets.Set(SmartPlugConfig.SecretKey(r.Plug.Id), r.Password.Password);
-        hub.Config.Save();
-        await hub.ApplyPlugSettingsAsync();
-        DialogResult = true;
+            secrets.Set(SmartPlugConfig.SecretKey(r.Plug.Id), r.Password.Password);
     }
 }

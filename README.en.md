@@ -107,7 +107,7 @@ Corrections to the English texts are welcome: they all live in
 
 ### Push notifications
 
-*Settings → Push notifications* (browser) or *Push services …* (desktop). **Several services at once** are possible –
+*Settings → Push notifications* (desktop and browser). **Several services at once** are possible –
 e.g. ntfy for you and Discord for a community group. For each service you choose **which notifications** (offline,
 block found, daily report …) and **for which miners** (all or selected) it gets; “Test” checks each service on its own.
 A previously configured service is taken over automatically as the first one.
@@ -139,7 +139,7 @@ availability per miner, electricity cost, best diff record, tuning changes, wort
 
 ### Smart plugs (Shelly)
 
-*Smart plugs …* (desktop) or *Settings → Smart plugs* (browser):
+*Settings → Smart plugs* (desktop and browser; in the desktop app *Smart plugs …* also jumps there):
 
 1. **Add plug**, enter the IP address (or name) – home-network addresses only. Channel 0 for sockets.
    Protected Shellys: user (Gen2+ always `admin`) and password; the password is kept in `secrets.json`.

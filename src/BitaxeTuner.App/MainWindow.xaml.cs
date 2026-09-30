@@ -122,13 +122,17 @@ public partial class MainWindow : Window
         });
     }
 
-    private async void OnSettingsClick(object sender, RoutedEventArgs e)
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings(null);
+
+    /// <summary>Einstellungen öffnen, optional direkt an einem Abschnitt (z. B. „Smart Plugs“).</summary>
+    private async void OpenSettings(string? section)
     {
         var host = Vm.Host;
         var language = host.Config.Language;
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
-            () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false)) { Owner = this };
+            () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false), host, section) { Owner = this };
         if (dialog.ShowDialog() != true) return;
+        await host.Hub.ApplyPlugSettingsAsync();
 
         ThemeManager.Apply(host.Config.Theme);
         Vm.Rebuild();
@@ -179,8 +183,7 @@ public partial class MainWindow : Window
     private void OnReportClick(object sender, RoutedEventArgs e) =>
         new ReportWindow(Vm.Host) { Owner = this }.ShowDialog();
 
-    private void OnSmartPlugsClick(object sender, RoutedEventArgs e) =>
-        new SmartPlugsWindow(Vm.Host) { Owner = this }.ShowDialog();
+    private void OnSmartPlugsClick(object sender, RoutedEventArgs e) => OpenSettings(L.T("Smart Plugs"));
 
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)

@@ -26,9 +26,16 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(AppConfig config, string dataDirectory,
                           Func<string, Task<DataDirectoryMigrator.Result>>? moveDataDirectory = null,
-                          Func<Task<string?>>? sendReportNow = null)
+                          Func<Task<string?>>? sendReportNow = null,
+                          AppHost? host = null, string? section = null)
     {
         InitializeComponent();
+        _host = host;
+        Loaded += (_, _) =>
+        {
+            BuildToc();
+            if (section is not null) ScrollToSection(section);
+        };
         _config = config;
         _dataDirectory = dataDirectory;
         _moveDataDirectory = moveDataDirectory;
@@ -61,7 +68,15 @@ public partial class SettingsWindow : Window
         CoinGeckoKeyBox.Text = config.CoinGeckoApiKey;
 
         _notify = config.Notifications.ForEditing();
-        UpdatePushSummary();
+        _pushPanel = new Views.PushTargetsPanel(_notify.Targets,
+            _devices.Select(d => (string.IsNullOrWhiteSpace(d.Name) ? d.Host : d.Name, d.Host)).ToList());
+        PushHost.Content = _pushPanel;
+        if (host is not null)
+        {
+            _plugsPanel = new Views.SmartPlugsPanel(host);
+            PlugsHost.Content = _plugsPanel;
+        }
+        else PlugsCard.Visibility = Visibility.Collapsed;
 
         DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
                           L.T("Feste IP ist zuverlässiger.");
@@ -328,6 +343,14 @@ public partial class SettingsWindow : Window
             CooldownMinutes = watchdogCooldown
         };
         _config.CoinGeckoApiKey = CoinGeckoKeyBox.Text.Trim();
+        if (_plugsPanel?.Validate() is { } plugError)
+        {
+            ErrorText.Text = plugError;
+            ScrollToSection(L.T("Smart Plugs"));
+            return;
+        }
+        _plugsPanel?.Apply(_config);
+        _notify.Targets = _pushPanel.Targets;
         _notify.ApplyTargets(_config.Devices.Select(d => d.Host));
         _config.Notifications = _notify;
         _config.ElectricityCtPerKwh = price;
@@ -440,40 +463,75 @@ public partial class SettingsWindow : Window
 
     /// <summary>Arbeitskopie der Push-Ziele; übernommen erst mit „Speichern“.</summary>
     private NotificationSettings _notify = new();
-
-    private void UpdatePushSummary()
-    {
-        if (PushSummaryText is null) return;
-        PushSummaryText.Text = _notify.Targets.Count == 0
-            ? L.T("Noch kein Push-Dienst eingerichtet.")
-            : string.Join("\n", _notify.Targets.Select(t =>
-                (t.Enabled ? "● " : "○ ") + (string.IsNullOrWhiteSpace(t.Name) ? t.Provider : $"{t.Name} ({t.Provider})") + " – " +
-                L.T("{0} Meldungsarten, {1}", t.Categories.Count,
-                    t.Miners.Count == 0 ? L.T("alle Miner") : L.T("{0} Miner", t.Miners.Count))));
-    }
-
-    private void PushTargets_Click(object sender, RoutedEventArgs e)
-    {
-        var miners = _devices.Select(d => (string.IsNullOrWhiteSpace(d.Name) ? d.Host : d.Name, d.Host)).ToList();
-        var dialog = new Views.PushTargetsWindow(_notify.Targets, miners) { Owner = this };
-        if (dialog.ShowDialog() != true) return;
-        _notify.Targets = dialog.Result;
-        UpdatePushSummary();
-        TestResultText.Text = L.T("Übernommen – mit „Speichern“ sichern.");
-    }
+    private readonly Views.PushTargetsPanel _pushPanel;
+    private readonly Views.SmartPlugsPanel? _plugsPanel;
+    private readonly AppHost? _host;
 
     private async void TestNotify_Click(object sender, RoutedEventArgs e)
     {
-        if (!_notify.Targets.Any(t => t.Enabled))
+        var settings = new NotificationSettings { Targets = _pushPanel.Targets };
+        if (!settings.Targets.Any(t => t.Enabled))
         {
             TestResultText.Text = L.T("Erst einen Dienst auswählen.");
             return;
         }
         TestResultText.Text = L.T("Sende …");
-        var settings = _notify.Clone();
         using var service = new NotificationService(() => settings);
         var error = await service.TestAsync(settings);
         TestResultText.Text = error is null ? L.T("Gesendet – kam sie an?") : L.T("Fehler: ") + error;
+    }
+
+    // ---------- Inhaltsverzeichnis ----------
+
+    private readonly List<TextBlock> _sections = [];
+    private bool _tocScrolling;
+
+    /// <summary>Alle Abschnittsüberschriften (Stil „Section“) sichtbarer Karten als Einträge links.</summary>
+    private void BuildToc()
+    {
+        _sections.Clear();
+        var style = (Style)FindResource("Section");
+        void Walk(DependencyObject node)
+        {
+            foreach (var child in LogicalTreeHelper.GetChildren(node).OfType<DependencyObject>())
+            {
+                if (child is FrameworkElement { Visibility: not Visibility.Visible }) continue;
+                if (child is TextBlock tb && tb.Style == style) _sections.Add(tb);
+                Walk(child);
+            }
+        }
+        Walk(SettingsContent);
+        TocList.ItemsSource = _sections.Select(t => t.Text).ToList();
+    }
+
+    private double OffsetOf(FrameworkElement element) =>
+        element.TransformToAncestor(SettingsContent).Transform(new Point(0, 0)).Y;
+
+    private void ScrollToSection(string title)
+    {
+        var index = _sections.FindIndex(t => string.Equals(t.Text, title, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0) TocList.SelectedIndex = index;
+    }
+
+    private void TocList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_tocScrolling || TocList.SelectedIndex < 0 || TocList.SelectedIndex >= _sections.Count) return;
+        SettingsScroll.ScrollToVerticalOffset(Math.Max(0, OffsetOf(_sections[TocList.SelectedIndex]) - 18));
+    }
+
+    /// <summary>Beim Scrollen den aktuellen Abschnitt markieren (ohne selbst zu scrollen).</summary>
+    private void SettingsScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_sections.Count == 0) return;
+        var top = SettingsScroll.VerticalOffset + 40;
+        var current = 0;
+        for (var i = 0; i < _sections.Count; i++)
+            if (OffsetOf(_sections[i]) <= top) current = i;
+        if (SettingsScroll.VerticalOffset + SettingsScroll.ViewportHeight >= SettingsScroll.ExtentHeight - 2) current = _sections.Count - 1;
+        if (TocList.SelectedIndex == current) return;
+        _tocScrolling = true;
+        TocList.SelectedIndex = current;
+        _tocScrolling = false;
     }
 
     // ---------- Hilfen ----------

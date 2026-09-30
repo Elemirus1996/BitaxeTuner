@@ -497,7 +497,7 @@ function plugOverviewCard(plugs) {
   const roleText = { miners: t('Miner'), other: t('Nebenverbraucher'), total: t('Gesamtmessung') };
   return h('div', { class: 'card stack' },
     h('div', { class: 'titlebar' }, h('h3', {}, t('Smart Plugs')), h('span', { class: 'spacer' }),
-      isAdmin() ? h('a', { class: 'btn small', href: '#/settings' }, t('Einstellungen')) : null),
+      isAdmin() ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = t('Smart Plugs'); } }, t('Einstellungen')) : null),
     h('div', { class: 'kv num' }, plugs.map(p => h('a', { href: `#/plug/${p.id}`, title: t('Verlauf anzeigen'), style: 'display:block;color:inherit;text-decoration:none' },
       h('span', {}, `${p.name} · ${roleText[p.role] ?? p.role}`),
       p.online
@@ -1351,6 +1351,48 @@ async function renderSettings() {
     h('p', { class: 'muted small' }, t('BitaxeTuner – Copyright © 2026 BitaxeTuner contributors. Freie Software unter der GNU GPL v3.0, '),
       h('b', {}, t('ohne jede Gewähr')), t('. Quelltext, Lizenz und Hinweise zu enthaltenen Komponenten: '),
       h('a', { href: 'https://github.com/Elemirus1996/BitaxeTuner', target: '_blank', rel: 'noopener' }, 'github.com/Elemirus1996/BitaxeTuner'), '.')));
+  addToc();
+  if (S.settingsSection) { jumpTo(S.settingsSection); S.settingsSection = null; }
+}
+
+/**
+ * Inhaltsverzeichnis für lange Seiten: mitlaufende Leiste mit allen Karten-Überschriften (h2), Klick springt dorthin,
+ * beim Scrollen wird der aktuelle Abschnitt markiert.
+ */
+function addToc() {
+  const root = $('#app').firstElementChild;
+  if (!root) return;
+  const heads = [...root.querySelectorAll('.card > h2, .card > .titlebar > h2')];
+  if (heads.length < 4) return;
+  const links = heads.map((hd, i) => {
+    const card = hd.closest('.card');
+    card.id = card.id || `abschnitt-${i}`;
+    return h('a', { href: '#', 'data-target': card.id, onclick: e => { e.preventDefault(); jumpTo(card.id); } }, hd.textContent);
+  });
+  const toc = h('nav', { class: 'toc', 'aria-label': t('Inhalt') }, links);
+  toc.style.top = `${($('.top')?.offsetHeight || 0)}px`;
+  root.prepend(toc);
+  const mark = () => {
+    const top = toc.getBoundingClientRect().bottom + 12;
+    let current = links[0];
+    heads.forEach((hd, i) => { if (hd.closest('.card').getBoundingClientRect().top <= top) current = links[i]; });
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) current = links[links.length - 1];
+    links.forEach(a => a.classList.toggle('active', a === current));
+  };
+  window.removeEventListener('scroll', S.tocScroll || (() => {}));
+  S.tocScroll = () => { if (document.body.contains(toc)) mark(); };
+  window.addEventListener('scroll', S.tocScroll, { passive: true });
+  mark();
+}
+
+/** Zu einer Karte springen – per Kennung oder Überschrift (z. B. „Smart Plugs“). */
+function jumpTo(idOrTitle) {
+  let card = document.getElementById(idOrTitle);
+  if (!card) card = [...document.querySelectorAll('.card')].find(c => c.querySelector('h2')?.textContent === idOrTitle);
+  if (!card) return;
+  const toc = $('.toc');
+  const offset = ($('.top')?.offsetHeight || 0) + (toc?.offsetHeight || 0) + 8;
+  window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
 }
 
 // ---------- Zusatzlüfter (Pico) ----------
