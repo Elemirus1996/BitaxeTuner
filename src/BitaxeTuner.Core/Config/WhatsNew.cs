@@ -22,6 +22,10 @@ public static class WhatsNew
             server ? L.T("Oben auf der Einstellungsseite springt eine Leiste direkt zu jedem Abschnitt.")
                    : L.T("Links in den Einstellungen springt ein Inhaltsverzeichnis zu jedem Abschnitt; Push-Dienste und Smart Plugs stehen jetzt direkt dort."),
             null),
+        new("0.8.0", L.T("SSH-Terminal mit einem Klick"),
+            server ? L.T("In der Desktop-App öffnet „SSH-Terminal“ oben direkt eine Konsole auf dem Server – ohne Passwort.")
+                   : L.T("„SSH-Terminal“ oben öffnet direkt eine Konsole auf deinem Server – ohne Passwort. Einrichtung unter „Betriebsart …“."),
+            null),
         new("0.8.0", L.T("Einführung „Erste Schritte“"),
             server ? L.T("Checkliste für die Einrichtung – jederzeit wieder einblenden unter Einstellungen → Allgemein.")
                    : L.T("Checkliste für die Einrichtung – jederzeit wieder aufrufen unter Einstellungen → Programm und Tuning."),

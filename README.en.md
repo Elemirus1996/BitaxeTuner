@@ -245,7 +245,8 @@ record per minute and miner (easy on the SD card).
 2. Re-insert the SD card; in the desktop app choose *Mode … → Prepare Raspberry Pi*: select the “bootfs” drive,
    set the admin password, enter user/password for the Pi and Wi-Fi, optionally *Include my data*.
    Country, time zone and keyboard are taken from Windows (editable); optionally store an *SSH key* for password-less
-   login (*Open SSH terminal* or *Transfer key* for a running Pi).
+   login. Afterwards **“SSH terminal”** at the top of the app opens a console on the server; for a Pi or Linux server
+   that is already running, once *Mode … → SSH terminal to server → Transfer key …*.
    The app writes the cloud-init files (`user-data`, `network-config`, `ssh`) and a setup package to the card
    (all passwords only as hashes) and remembers address and token.
 3. Insert the card into the Pi and power it on (first boot 3–5 minutes). The Pi applies the package, deletes it from the

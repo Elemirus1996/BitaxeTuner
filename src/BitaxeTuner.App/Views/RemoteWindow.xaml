@@ -25,6 +25,8 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="{l:T 'Neu laden'}" Click="Reload_Click" />
                     <Button Content="{l:T 'Im Browser öffnen'}" Click="OpenBrowser_Click" />
+                    <Button Content="{l:T 'SSH-Terminal'}" Click="Ssh_Click"
+                            ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" />
                     <Button Content="{l:T 'Betriebsart …'}" Click="Mode_Click" Style="{StaticResource PrimaryButton}" Margin="0" />
                 </StackPanel>
             </DockPanel>

@@ -100,6 +100,31 @@ public static class SshKeyService
             throw new InvalidOperationException(L.T("Ungültiger Rechnername oder IP-Adresse."));
     }
 
+    /// <summary>Rechner für SSH: eigener Eintrag oder aus der Server-Adresse; null, wenn keiner bekannt ist.</summary>
+    public static string? HostFor(Core.Config.ServerConnectionSettings s) =>
+        s.SshHost.Trim() is { Length: > 0 } h ? h : HostOf(s.Url);
+
+    /// <summary>
+    /// Konsole auf dem Server öffnen (Hauptfenster und Server-Fenster). Fehlen Angaben oder schlägt es fehl, wird
+    /// gefragt, ob „Betriebsart …“ geöffnet werden soll (dort Benutzer, Rechner und „Schlüssel übertragen …“).
+    /// </summary>
+    public static async Task OpenForServerAsync(System.Windows.Window owner, Core.Config.ServerConnectionSettings s, Action openMode)
+    {
+        try
+        {
+            var host = HostFor(s) ?? "";
+            Validate(s.SshUser, host);
+            await EnsureKeyAsync();
+            OpenTerminal(s.SshUser, host);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
+        {
+            if (System.Windows.MessageBox.Show(owner, ex.Message + L.T("\n\nEinstellungen unter „Betriebsart …“ öffnen?"), L.T("SSH-Terminal zum Server"),
+                    System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes)
+                openMode();
+        }
+    }
+
     /// <summary>Host aus der Server-Adresse („http://bitaxetuner.local:8484/“ → „bitaxetuner.local“).</summary>
     public static string? HostOf(string serverUrl) =>
         Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri) && uri.Host.Length > 0 ? uri.Host : null;

@@ -244,7 +244,8 @@ Datensatz pro Minute und Miner (schont die SD-Karte).
 2. SD-Karte neu einstecken, in der Desktop-App *Betriebsart … → Raspberry Pi vorbereiten*: Laufwerk „bootfs“ wählen,
    Admin-Passwort festlegen, Benutzer/Passwort für den Pi und WLAN eintragen, optional *Meine Daten mitgeben*.
    Land, Zeitzone und Tastatur übernimmt die App aus Windows (änderbar); optional *SSH-Schlüssel hinterlegen* für
-   Anmeldung ohne Passwort (*SSH-Terminal öffnen* bzw. *Schlüssel übertragen* für einen laufenden Pi).
+   Anmeldung ohne Passwort. Danach öffnet **„SSH-Terminal“** oben in der App eine Konsole auf dem Server; für einen
+   schon laufenden Pi oder Linux-Server einmal *Betriebsart … → SSH-Terminal zum Server → Schlüssel übertragen …*.
    Die App schreibt die cloud-init-Dateien (`user-data`, `network-config`, `ssh`) und ein Einrichtungspaket auf die
    Karte (alle Passwörter nur als Hash) und merkt sich Adresse und Token.
 3. Karte in den Pi, starten (erster Start 3–5 Minuten). Der Pi übernimmt das Paket, löscht es von der Karte und

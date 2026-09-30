@@ -86,6 +86,33 @@
                     </StackPanel>
                 </Border>
 
+                <Border Style="{StaticResource Card}" x:Name="SshCard">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'SSH-Terminal zum Server'}"/>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="{l:T 'Konsole auf deinem Server (Raspberry Pi oder anderer Linux-Rechner) öffnen, ohne Passwort – auch direkt über „SSH-Terminal“ oben im Hauptfenster. Der Schlüssel dieses PCs liegt in %USERPROFILE%\\.ssh\\bitaxetuner_ed25519. Wurde er nicht schon beim Vorbereiten der SD-Karte eingetragen: einmal „Schlüssel übertragen …“ (fragt einmal das Passwort des Servers ab).'}"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{l:T 'BENUTZER'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="SshUserBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{l:T 'RECHNER (LEER = AUS DER SERVER-ADRESSE)'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="SshHostBox"/>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="{l:T 'SSH-Terminal öffnen'}" Click="SshOpen_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
+                            <Button Content="{l:T 'Schlüssel übertragen …'}" Click="SshInstall_Click" Margin="8,0,0,0" Padding="12,4"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource Card}" x:Name="PiCard">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="{l:T 'Raspberry Pi vorbereiten'}"/>
@@ -172,33 +199,6 @@
                                   Content="{l:T 'Meine Daten mitgeben (Geräte, Verlauf, Einstellungen, Steuerdaten, Ergebnisse)'}"/>
                         <Button Content="{l:T 'Einrichtungspaket auf die SD-Karte schreiben'}" Click="PreparePi_Click"
                                 Style="{StaticResource PrimaryButton}" Padding="12,4" HorizontalAlignment="Left"/>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}" x:Name="SshCard">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'SSH zum Pi'}"/>
-                        <TextBlock Style="{StaticResource Hint}"
-                                   Text="{l:T 'Konsole auf dem Pi öffnen, ohne Passwort. Der Schlüssel dieses PCs liegt in %USERPROFILE%\\.ssh\\bitaxetuner_ed25519. Wurde er nicht schon beim Vorbereiten der SD-Karte eingetragen: einmal „Schlüssel übertragen …“ (fragt einmal das Pi-Passwort ab).'}"/>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="10"/>
-                                <ColumnDefinition/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="{l:T 'BENUTZER'}" Style="{StaticResource Label}"/>
-                                <TextBox x:Name="SshUserBox"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="{l:T 'RECHNER (LEER = AUS DER SERVER-ADRESSE)'}" Style="{StaticResource Label}"/>
-                                <TextBox x:Name="SshHostBox"/>
-                            </StackPanel>
-                        </Grid>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="{l:T 'SSH-Terminal öffnen'}" Click="SshOpen_Click" Style="{StaticResource PrimaryButton}" Padding="12,4"/>
-                            <Button Content="{l:T 'Schlüssel übertragen …'}" Click="SshInstall_Click" Margin="8,0,0,0" Padding="12,4"/>
-                        </StackPanel>
                     </StackPanel>
                 </Border>
 

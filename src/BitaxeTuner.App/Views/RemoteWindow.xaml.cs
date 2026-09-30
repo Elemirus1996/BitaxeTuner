@@ -161,6 +161,10 @@ public partial class RemoteWindow : Window
     private void Mode_Click(object sender, RoutedEventArgs e) =>
         new ServerModeWindow(_config, null) { Owner = this }.ShowDialog();
 
+    /// <summary>Konsole auf dem Server öffnen (Benutzer/Rechner unter „Betriebsart … → SSH-Terminal zum Server“).</summary>
+    private async void Ssh_Click(object sender, RoutedEventArgs e) =>
+        await Services.SshKeyService.OpenForServerAsync(this, _config.Server, () => Mode_Click(sender, e));
+
     // ---------- App-Updates (wie im Modus „Lokal“) ----------
 
     private async Task CheckUpdateAsync()

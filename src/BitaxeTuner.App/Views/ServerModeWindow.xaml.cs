@@ -397,7 +397,7 @@ public partial class ServerModeWindow : Window
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, L.T("SSH-Terminal zum Server"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
         _config.Server.SshUser = user;
@@ -417,7 +417,7 @@ public partial class ServerModeWindow : Window
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException)
         {
-            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, L.T("SSH-Terminal zum Server"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -425,8 +425,8 @@ public partial class ServerModeWindow : Window
     {
         if (SshTarget() is not { } t) return;
         if (MessageBox.Show(this,
-                L.T("Den SSH-Schlüssel dieses PCs bei {0}@{1} eintragen?\n\nEs öffnet sich ein Konsolenfenster; dort einmal das Pi-Passwort eingeben. Danach meldet sich „SSH-Terminal öffnen“ ohne Passwort an.", t.User, t.Host),
-                L.T("SSH zum Pi"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                L.T("Den SSH-Schlüssel dieses PCs bei {0}@{1} eintragen?\n\nEs öffnet sich ein Konsolenfenster; dort einmal das Passwort des Servers eingeben. Danach meldet sich „SSH-Terminal öffnen“ ohne Passwort an.", t.User, t.Host),
+                L.T("SSH-Terminal zum Server"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         try
         {
@@ -435,7 +435,7 @@ public partial class ServerModeWindow : Window
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException)
         {
-            MessageBox.Show(this, ex.Message, L.T("SSH zum Pi"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, L.T("SSH-Terminal zum Server"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

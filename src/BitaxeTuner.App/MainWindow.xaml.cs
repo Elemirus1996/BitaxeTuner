@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         PlaceMonitor();
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;
         _ = vm.CheckForUpdateAsync();
+        UpdateSshButton();
         // Einführung „Erste Schritte“: automatisch nur, solange noch kein Miner eingetragen ist
         var config = vm.Host.Config;
         var version = MainViewModel.CurrentVersion.ToString(3);
@@ -185,8 +186,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnModeClick(object sender, RoutedEventArgs e) =>
+    private void OnModeClick(object sender, RoutedEventArgs e)
+    {
         new ServerModeWindow(Vm.Host.Config, Vm.Host) { Owner = this }.ShowDialog();
+        UpdateSshButton();
+    }
+
+    /// <summary>„SSH-Terminal“ oben nur, wenn ein Server bekannt ist (Adresse oder eigener SSH-Rechner).</summary>
+    private void UpdateSshButton()
+    {
+        var s = Vm.Host.Config.Server;
+        SshButton.Visibility = Services.SshKeyService.HostFor(s) is not null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Konsole auf dem Server öffnen – Benutzer und Rechner wie unter „Betriebsart … → SSH-Terminal zum Server“.</summary>
+    private async void OnSshClick(object sender, RoutedEventArgs e) =>
+        await Services.SshKeyService.OpenForServerAsync(this, Vm.Host.Config.Server, () => OnModeClick(sender, e));
 
     /// <summary>Rechtliche Hinweise nach GPL-3.0 §5(d): Copyright, keine Gewähr, Lizenz, Quelltext.</summary>
     private void OnLicenseClick(object sender, RoutedEventArgs e)

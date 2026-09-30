@@ -37,6 +37,8 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="{l:T 'Einstellungen'}" Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" />
+                    <Button x:Name="SshButton" Content="{l:T 'SSH-Terminal'}" Click="OnSshClick" Visibility="Collapsed"
+                            ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" />
                     <Button Content="{l:T 'Betriebsart …'}" Click="OnModeClick"
                             ToolTip="{l:T 'Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb'}" />
                     <Button Content="{l:T 'Dauertest …'}" Click="OnSoakBatchClick"
