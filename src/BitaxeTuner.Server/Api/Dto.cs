@@ -56,6 +56,15 @@ public static class Dto
             fans = Fans(hub, role),
             plugs = Plugs(hub, role),
             // Einführung „Erste Schritte“ – nur für Admins und nur solange nicht ausgeblendet
+            // „Neu in dieser Version“ nach einem Update – nur für Admins, bis gesehen oder abgelehnt
+            whatsNew = role == Role.Admin && WhatsNew.ShouldAsk(hub.Config, Endpoints.Version, server: true)
+                ? new
+                {
+                    version = Endpoints.Version,
+                    features = WhatsNew.Since(hub.Config.LastSeenVersion, Endpoints.Version, server: true)
+                        .Select(f => new { f.Version, f.Title, f.Text, f.Section }).ToList(),
+                }
+                : null,
             onboarding = role == Role.Admin && Onboarding.ShouldShow(hub.Config)
                 ? Onboarding.Steps(hub.Config, server: true).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
                 : null,

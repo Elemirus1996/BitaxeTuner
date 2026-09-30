@@ -424,6 +424,7 @@ function renderOverview() {
       tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
       s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 2)), s.price.source) : null),
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
+    s.whatsNew ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     s.plugs?.length ? plugOverviewCard(s.plugs) : null,
@@ -491,6 +492,23 @@ async function renderReports() {
     h('p', { class: 'muted small' }, t('Druckbare Seite: im Browser „Drucken“ → „Als PDF speichern“. Abgeschlossene Monate werden gespeichert und bleiben auch erhalten, wenn ältere Minutenwerte bereinigt werden.')),
     view);
   load();
+}
+
+/** Nach einem Update: kurze Einführung nur in die neuen Funktionen anbieten (einmal je Version). */
+function whatsNewCard(w) {
+  const seen = async () => { if (await run(() => api('/whatsnew/seen', { method: 'POST', body: {} }))) { S.status.whatsNew = null; S.whatsNewOpen = false; renderOverview(); } };
+  if (!S.whatsNewOpen)
+    return h('div', { class: 'banner row' },
+      h('span', { style: 'flex:1' }, t('BitaxeTuner wurde auf {0} aktualisiert. Kurze Einführung in die {1} neuen Funktionen?', w.version, w.features.length)),
+      h('button', { class: 'btn primary small', onclick: () => { S.whatsNewOpen = true; renderOverview(); } }, t('Zeigen')),
+      h('button', { class: 'btn small', onclick: seen }, t('Nein danke')));
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Neu in {0}', w.version)), h('span', { class: 'spacer' }),
+      h('button', { class: 'btn small primary', onclick: seen }, t('Verstanden'))),
+    h('div', { class: 'stack' }, w.features.map(f => h('div', { class: 'row', style: 'align-items:flex-start' },
+      h('span', { class: 'ok', style: 'font-size:16px;line-height:1.2' }, '★'),
+      h('div', { style: 'flex:1' }, h('b', {}, f.title), h('div', { class: 'small muted' }, f.text)),
+      f.section ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = f.section; } }, t('Ansehen')) : null))));
 }
 
 /** Einführung „Erste Schritte“: Checkliste, die sich selbst abhakt; Links springen zum passenden Einstellungs-Abschnitt. */

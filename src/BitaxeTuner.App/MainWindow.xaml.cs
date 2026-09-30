@@ -39,8 +39,29 @@ public partial class MainWindow : Window
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;
         _ = vm.CheckForUpdateAsync();
         // Einführung „Erste Schritte“: automatisch nur, solange noch kein Miner eingetragen ist
-        if (Onboarding.ShouldShow(vm.Host.Config) && vm.Host.Config.Devices.Count == 0)
+        var config = vm.Host.Config;
+        var version = MainViewModel.CurrentVersion.ToString(3);
+        if (Onboarding.ShouldShow(config) && config.Devices.Count == 0)
+        {
+            WhatsNew.MarkSeen(config, version); // neue Installation: „Erste Schritte“ statt „Neu in …“
             Loaded += (_, _) => Dispatcher.BeginInvoke(ShowOnboarding, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+        // Nach einem Update einmal fragen, ob eine Einführung nur in die neuen Funktionen gewünscht ist
+        else if (WhatsNew.ShouldAsk(config, version, server: false))
+            Loaded += (_, _) => Dispatcher.BeginInvoke(() => AskWhatsNew(version), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private void AskWhatsNew(string version)
+    {
+        var config = Vm.Host.Config;
+        var features = WhatsNew.Since(config.LastSeenVersion, version, server: false);
+        WhatsNew.MarkSeen(config, version);
+        config.Save();
+        if (features.Count == 0) return;
+        if (MessageBox.Show(this, L.T("BitaxeTuner wurde auf {0} aktualisiert. Kurze Einführung in die {1} neuen Funktionen?", version, features.Count),
+                L.T("Neu in {0}", version), MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
+            return;
+        new WhatsNewWindow(version, features, (section, owner) => OpenSettings(section, owner)) { Owner = this }.ShowDialog();
     }
 
     /// <summary>Einführung anzeigen; ihre Schritte öffnen die Einstellungen am passenden Abschnitt bzw. die Betriebsart.</summary>

@@ -68,6 +68,9 @@ public sealed class AppConfig
     /// <summary>0.8.0: Einführung läuft (neue Installation oder wieder eingeblendet) – bleibt, bis sie ausgeblendet wird.</summary>
     public bool OnboardingStarted { get; set; }
 
+    /// <summary>0.8.0: zuletzt gesehene Version für „Neu in dieser Version“ (null = vor 0.8.0 oder neue Installation).</summary>
+    public string? LastSeenVersion { get; set; }
+
     /// <summary>Beim Start und alle 6 h auf neue BitaxeTuner-Version prüfen.</summary>
     public bool CheckForUpdates { get; set; } = true;
 

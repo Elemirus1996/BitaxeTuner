@@ -615,6 +615,14 @@ public static class Endpoints
             return new { ok = true };
         })));
 
+        // „Neu in dieser Version“ gesehen oder abgelehnt – bis zum nächsten Update nicht mehr fragen
+        g.MapPost("/whatsnew/seen", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            WhatsNew.MarkSeen(h.Config, Version);
+            h.Config.Save();
+            return new { ok = true };
+        })));
+
         // Einführung „Erste Schritte“ ausblenden (später wieder: Einstellungen → Allgemein)
         g.MapPost("/onboarding", async (OnboardingRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {

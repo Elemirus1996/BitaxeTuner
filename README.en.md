@@ -209,6 +209,10 @@ All profiles can be adjusted or extended via **“Edit profiles”** (`profiles.
 
 ## Installation
 
+On first start, **“First steps”** guides you through the essentials (miners, electricity price, push service, backup
+or 24/7 server) – each step ticks itself off and jumps to the right setting. After an update, BitaxeTuner asks once
+whether you want a short **introduction to just the new features**.
+
 1. Download `BitaxeTuner-Setup-x.y.z.exe` from [Releases](https://github.com/Elemirus1996/BitaxeTuner/releases).
 2. Run the setup – the target folder is up to you, no admin rights needed.
 3. Alternatively: unpack `BitaxeTuner-x.y.z-portable-win-x64.zip` and start `BitaxeTuner.exe`.
