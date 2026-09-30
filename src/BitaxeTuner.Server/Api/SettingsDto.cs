@@ -55,7 +55,7 @@ public sealed class SettingsDto
         Language = c.Language,
         BlockchairApiKey = c.BlockchairApiKey,
         CoinGeckoApiKey = c.CoinGeckoApiKey,
-        Notifications = c.Notifications,
+        Notifications = c.Notifications.ForEditing(),
         Watchdog = c.Watchdog,
         LogAlerts = c.LogAlerts,
         PoolWatch = c.PoolWatch,
@@ -87,12 +87,14 @@ public sealed class SettingsDto
         c.Language = Language is "de" or "en" ? Language : "auto";
         c.BlockchairApiKey = BlockchairApiKey.Trim();
         c.CoinGeckoApiKey = CoinGeckoApiKey.Trim();
+        Notifications.ApplyTargets(c.Devices.Select(d => d.Host));
         c.Notifications = Notifications;
         c.Watchdog = Watchdog;
         c.LogAlerts = LogAlerts;
         c.PoolWatch = PoolWatch;
         // Datum des letzten Tagesberichts bleibt (sonst käme er doppelt)
         DailyReport.LastSent = c.DailyReport.LastSent;
+        DailyReport.LastMonthlySent = c.DailyReport.LastMonthlySent;
         c.DailyReport = DailyReport;
         PriceSource.SurchargeCt = Math.Clamp(PriceSource.SurchargeCt, 0, 200);
         c.PriceSource = PriceSource;

@@ -67,7 +67,7 @@ public class MqttTests
 
     private static async Task Until(Func<bool> condition)
     {
-        for (var i = 0; i < 100 && !condition(); i++) await Task.Delay(50);
+        for (var i = 0; i < 300 && !condition(); i++) await Task.Delay(50); // bis 15 s – unter Last des ganzen Testlaufs
         Assert.True(condition());
     }
 

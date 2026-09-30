@@ -1306,12 +1306,9 @@ async function renderSettings() {
         select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ['de', 'Deutsch'], ['en', 'English']]))),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('PIN für „Nur ansehen“ (mind. 4 Ziffern, „-“ = entfernen)')), pin))),
     h('div', { class: 'card stack' }, h('h2', {}, t('Push-Benachrichtigungen')),
-      notifyForm(nt, text, select),
-      h('div', { class: 'row' }, checkInput(nt, 'onOffline', 'offline'), checkInput(nt, 'onOverheat', t('Überhitzung')), checkInput(nt, 'onFinds', t('Blockfund/Zufluss')),
-        checkInput(nt, 'onMaintenance', t('Watchdog/Automatik/Firmware')), checkInput(nt, 'onRecord', t('Rekorde')), checkInput(nt, 'onLogAlerts', t('Log-Alarme')), checkInput(nt, 'onPool', t('Pool')),
-        checkInput(nt, 'onPlugs', t('Smart Plugs')), checkInput(nt, 'onHealth', t('Gesundheit'))),
+      pushTargetsEditor(nt, text, select, status?.devices || [], save),
       h('div', { class: 'row' },
-        h('button', { class: 'btn', onclick: async () => { await save(); const r = await run(() => api('/notifications/test', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Testnachricht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Speichern & testen')),
+        h('button', { class: 'btn', onclick: async () => { await save(); const r = await run(() => api('/notifications/test', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Testnachricht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Speichern & alle testen')),
         h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/report/send', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Tagesbericht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Tagesbericht jetzt senden')))),
     h('div', { class: 'card stack' }, h('h2', {}, t('Überwachung')),
       checkInput(wd, 'enabled', t('Watchdog: Miner ohne Hashrate neu starten')),
@@ -1492,7 +1489,57 @@ function curveInputs(curve) {
 }
 
 /** Dienst-Auswahl für Push: nur die Felder des gewählten Dienstes sind sichtbar. */
-function notifyForm(nt, text, select) {
+/**
+ * Push-Ziele: mehrere Dienste gleichzeitig (z. B. ntfy privat + Discord für die Community), je Ziel eigene
+ * Bereiche und Miner. Gespeichert wird mit „Einstellungen speichern“.
+ */
+function pushTargetsEditor(nt, text, select, devices, save) {
+  const cats = [['Offline', t('offline')], ['Overheat', t('Überhitzung')], ['Finds', t('Blockfund/Zufluss')], ['Maintenance', t('Watchdog/Automatik/Firmware')],
+    ['Record', t('Rekorde')], ['LogAlerts', t('Log-Alarme')], ['Pool', t('Pool')], ['Plugs', t('Smart Plugs')], ['Health', t('Gesundheit')],
+    ['DailyReport', t('Tagesbericht')], ['MonthlyReport', t('Monatsbericht')]];
+  nt.targets = nt.targets || [];
+  const box = h('div', { class: 'stack' });
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, '0')).join('');
+  const draw = () => fill(box, nt.targets.length ? nt.targets.map((tg, i) => {
+    tg.categories = tg.categories || [];
+    tg.miners = tg.miners || [];
+    const catBox = h('div', { class: 'row', style: 'flex-wrap:wrap' }, cats.map(([k, label]) => h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: tg.categories.includes(k), onchange: e => { tg.categories = e.target.checked ? [...tg.categories, k] : tg.categories.filter(x => x !== k); } }),
+      h('span', {}, label))));
+    const minerList = h('div', { class: 'row', style: 'flex-wrap:wrap' }, devices.filter(d => d.host).map(d => h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: tg.miners.includes(d.host), onchange: e => { tg.miners = e.target.checked ? [...tg.miners, d.host] : tg.miners.filter(x => x !== d.host); } }),
+      h('span', {}, d.name))));
+    minerList.style.display = tg.miners.length ? '' : 'none';
+    const allMiners = h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: !tg.miners.length, onchange: e => { if (e.target.checked) { tg.miners = []; draw(); } else minerList.style.display = ''; } }),
+      h('span', {}, t('alle Miner')));
+    const test = async () => {
+      await save();
+      const r = await run(() => api('/notifications/test', { method: 'POST', body: { targetId: tg.id } }));
+      if (r) toast(r.ok ? t('Testnachricht an „{0}“ gesendet.', tg.name || tg.provider) : r.error, r.ok ? 'ok' : 'error');
+    };
+    return h('div', { class: 'card stack' },
+      h('div', { class: 'row' },
+        h('input', { value: tg.name || '', placeholder: t('Name, z. B. Privat oder Community'), style: 'flex:1', oninput: e => { tg.name = e.target.value; } }),
+        checkInput(tg, 'enabled', t('aktiv')),
+        h('button', { class: 'btn small', onclick: test }, t('Speichern & testen')),
+        h('button', { class: 'btn small danger', onclick: () => { nt.targets.splice(i, 1); draw(); } }, t('Entfernen'))),
+      notifyForm(tg, text, select, false),
+      h('div', { class: 'small muted' }, t('Meldungen')), catBox,
+      h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList);
+  }) : h('p', { class: 'muted small' }, t('Noch kein Push-Dienst eingerichtet.')));
+  draw();
+  return h('div', { class: 'stack' },
+    h('p', { class: 'muted small' }, t('Mehrere Dienste gleichzeitig möglich – z. B. ntfy für dich und Discord für eine Community-Gruppe. Je Dienst wählst du die Meldungen und die Miner.')),
+    box,
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => {
+      nt.targets.push({ id: newId(), name: '', enabled: true, provider: 'ntfy', ntfyServer: 'https://ntfy.sh', ntfyTopic: '',
+        categories: cats.map(c => c[0]).filter(c => c !== 'Record'), miners: [] });
+      draw();
+    } }, t('Push-Dienst hinzufügen'))));
+}
+
+function notifyForm(nt, text, select, withNone = true) {
   const field = (provider, label, el) => { const d = h('div', { 'data-provider': provider }, h('label', {}, label), el); return d; };
   const fields = [
     field('ntfy', t('ntfy-Server'), text(nt, 'ntfyServer')), field('ntfy', t('ntfy-Topic'), text(nt, 'ntfyTopic')),
@@ -1502,7 +1549,7 @@ function notifyForm(nt, text, select) {
     field('webhook', t('Webhook-URL (JSON-POST: title, message, priority)'), text(nt, 'webhookUrl')),
   ];
   const show = () => fields.forEach(f => { f.style.display = f.dataset.provider === nt.provider ? '' : 'none'; });
-  const sel = select(nt, 'provider', [['none', t('aus')], ['ntfy', 'ntfy'], ['telegram', 'Telegram'], ['discord', 'Discord'], ['pushover', 'Pushover'], ['webhook', t('Eigener Webhook')]]);
+  const sel = select(nt, 'provider', [...(withNone ? [['none', t('aus')]] : []), ['ntfy', 'ntfy'], ['telegram', 'Telegram'], ['discord', 'Discord'], ['pushover', 'Pushover'], ['webhook', t('Eigener Webhook')]]);
   sel.addEventListener('change', show);
   show();
   return h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Dienst')), sel), ...fields);

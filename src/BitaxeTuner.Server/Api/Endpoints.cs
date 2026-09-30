@@ -15,6 +15,7 @@ namespace BitaxeTuner.Server.Api;
 public sealed record LoginRequest(string Password);
 public sealed record SetupRequest(string Code, string Password);
 public sealed record PasswordRequest(string Current, string Password);
+public sealed record NotifyTestRequest(string? TargetId);
 /// <summary>SoakHours: nach der Änderung automatisch einen Dauertest dieser Dauer starten (Effizienz-Ratgeber).</summary>
 public sealed record ChangeRequest(int Frequency, int Voltage, int? SoakHours = null);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
@@ -613,9 +614,12 @@ public static class Endpoints
             return new { ok = true };
         })));
 
-        g.MapPost("/notifications/test", async (HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        // Test: ein Ziel (targetId) oder alle aktiven Ziele
+        g.MapPost("/notifications/test", async (NotifyTestRequest? req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            var error = await h.Notify.TestAsync(h.Config.Notifications);
+            var target = req?.TargetId is { Length: > 0 } id ? h.Config.Notifications.Targets.FirstOrDefault(t => t.Id == id) : null;
+            if (req?.TargetId is { Length: > 0 } && target is null) throw new LocalizedException("Push-Ziel nicht gefunden – zuerst speichern.") { Status = 404 };
+            var error = target is not null ? await h.Notify.TestAsync(target) : await h.Notify.TestAsync(h.Config.Notifications);
             return new { ok = error is null, error };
         })));
 

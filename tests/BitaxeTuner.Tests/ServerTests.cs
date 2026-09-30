@@ -164,6 +164,52 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Push_targets_are_offered_saved_validated_and_mirrored()
+    {
+        var admin = await AdminAsync();
+        var hub = _factory.Services.GetRequiredService<HubService>();
+        await hub.RunAsync(h =>
+        {
+            h.Config.Notifications.Provider = "ntfy";
+            h.Config.Notifications.NtfyTopic = "bisher";
+            h.Config.DailyReport.LastMonthlySent = "2026-08";
+            return true;
+        });
+
+        // Bisherige Einzel-Einstellung erscheint als erstes Ziel
+        var settings = System.Text.Json.Nodes.JsonNode.Parse((await Json(await admin.GetAsync("/api/v1/settings"))).GetRawText())!;
+        var targets = settings["notifications"]!["targets"]!.AsArray();
+        Assert.Equal("bisher", Assert.Single(targets)!["ntfyTopic"]!.GetValue<string>());
+
+        // Zweites Ziel: Discord nur für Blockfunde eines Miners (+ unbekannter Miner wird entfernt)
+        targets.Add(System.Text.Json.Nodes.JsonNode.Parse("""
+            {"id":"a1b2c3d4","name":"Community","enabled":true,"provider":"discord","discordWebhookUrl":"https://discord.com/api/webhooks/1/x",
+             "categories":["Finds","Quatsch"],"miners":["192.168.50.10","10.9.9.9"]}
+            """));
+        await Json(await admin.PutAsync("/api/v1/settings", JsonContent.Create(settings)));
+        var saved = await hub.RunAsync(h => h.Config.Notifications.Clone());
+        Assert.Equal(2, saved.Targets.Count);
+        var community = saved.Targets.Single(t => t.Name == "Community");
+        Assert.Equal(["Finds"], community.Categories);
+        Assert.Equal(["192.168.50.10"], community.Miners);
+        Assert.Equal("ntfy", saved.Provider);                                   // erstes Ziel gespiegelt
+        Assert.Equal("2026-08", await hub.RunAsync(h => h.Config.DailyReport.LastMonthlySent));
+
+        // Test eines einzelnen Ziels / unbekanntes Ziel
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync("/api/v1/notifications/test", new { targetId = "ffffffff" })).StatusCode);
+
+        // Unbekannter Dienst → 400
+        settings["notifications"]!["targets"]![1]!["provider"] = "fax";
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsync("/api/v1/settings", JsonContent.Create(settings))).StatusCode);
+
+        // Alle entfernt → auch Einzel-Einstellung aus
+        settings["notifications"]!["targets"] = new System.Text.Json.Nodes.JsonArray();
+        await Json(await admin.PutAsync("/api/v1/settings", JsonContent.Create(settings)));
+        Assert.Equal("none", await hub.RunAsync(h => h.Config.Notifications.Provider));
+        Assert.False(await hub.RunAsync(h => h.Notify.Enabled));
+    }
+
+    [Fact]
     public async Task Reports_are_available_as_json_csv_and_html_for_admins()
     {
         var admin = await AdminAsync();

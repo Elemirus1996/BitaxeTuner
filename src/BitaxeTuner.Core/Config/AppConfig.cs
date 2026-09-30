@@ -325,6 +325,48 @@ public sealed class NotificationSettings
         };
     }
 
+    /// <summary>
+    /// Nach Bearbeiten der Liste: Ziele prüfen (Dienst, Kennung, Bereiche, nur bekannte Miner), erstes Ziel in die
+    /// Einzel-Felder spiegeln. Eine leere Liste schaltet auch die Einzel-Einstellung ab – sonst sendete sie weiter.
+    /// </summary>
+    public void ApplyTargets(IEnumerable<string> knownHosts)
+    {
+        var hosts = knownHosts.Select(h => h.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ids = new HashSet<string>();
+        foreach (var t in Targets)
+        {
+            if (t.Provider is not ("ntfy" or "telegram" or "discord" or "pushover" or "webhook"))
+                throw new I18n.LocalizedException("Unbekannter Push-Dienst: {0}", t.Provider);
+            if (string.IsNullOrWhiteSpace(t.Id) || !System.Text.RegularExpressions.Regex.IsMatch(t.Id, "^[a-z0-9]{4,32}$") || !ids.Add(t.Id))
+            {
+                t.Id = Guid.NewGuid().ToString("N")[..8];
+                ids.Add(t.Id);
+            }
+            t.Name = (t.Name ?? "").Trim();
+            (t.NtfyServer, t.NtfyTopic) = (string.IsNullOrWhiteSpace(t.NtfyServer) ? "https://ntfy.sh" : t.NtfyServer.Trim(), (t.NtfyTopic ?? "").Trim());
+            (t.TelegramBotToken, t.TelegramChatId) = ((t.TelegramBotToken ?? "").Trim(), (t.TelegramChatId ?? "").Trim());
+            (t.DiscordWebhookUrl, t.WebhookUrl) = ((t.DiscordWebhookUrl ?? "").Trim(), (t.WebhookUrl ?? "").Trim());
+            (t.PushoverUserKey, t.PushoverAppToken) = ((t.PushoverUserKey ?? "").Trim(), (t.PushoverAppToken ?? "").Trim());
+            t.Categories = (t.Categories ?? []).Where(c => Enum.TryParse<NotifyCategory>(c, true, out _))
+                .Select(c => Enum.Parse<NotifyCategory>(c, true).ToString()).Distinct().ToList();
+            t.Miners = (t.Miners ?? []).Where(h => hosts.Contains(h.Trim())).Select(h => h.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        if (Targets.Count == 0) Provider = "none";
+        else SyncLegacyFromTargets();
+    }
+
+    /// <summary>Kopie für die Bearbeitung: ohne Liste wird die Einzel-Einstellung als erstes Ziel angeboten.</summary>
+    public NotificationSettings ForEditing()
+    {
+        var c = Clone();
+        if (c.Targets.Count == 0 && LegacyTarget() is { } t)
+        {
+            t.Id = Guid.NewGuid().ToString("N")[..8];
+            c.Targets = [t];
+        }
+        return c;
+    }
+
     /// <summary>Erstes Ziel in die Einzel-Felder spiegeln (Rückweg auf ältere Versionen); ohne Ziele: Dienst aus.</summary>
     public void SyncLegacyFromTargets()
     {

@@ -60,22 +60,8 @@ public partial class SettingsWindow : Window
         WatchdogCooldownBox.Text = config.Watchdog.CooldownMinutes.ToString();
         CoinGeckoKeyBox.Text = config.CoinGeckoApiKey;
 
-        var n = config.Notifications;
-        SelectByTag(ProviderBox, n.Provider);
-        NtfyServerBox.Text = n.NtfyServer;
-        NtfyTopicBox.Text = n.NtfyTopic;
-        TelegramTokenBox.Text = n.TelegramBotToken;
-        TelegramChatBox.Text = n.TelegramChatId;
-        DiscordUrlBox.Text = n.DiscordWebhookUrl;
-        PushoverUserBox.Text = n.PushoverUserKey;
-        PushoverTokenBox.Text = n.PushoverAppToken;
-        WebhookUrlBox.Text = n.WebhookUrl;
-        NotifyOfflineBox.IsChecked = n.OnOffline;
-        NotifyOverheatBox.IsChecked = n.OnOverheat;
-        NotifyFindsBox.IsChecked = n.OnFinds;
-        NotifyMaintenanceBox.IsChecked = n.OnMaintenance;
-        NotifyRecordBox.IsChecked = n.OnRecord;
-        UpdateProviderPanels();
+        _notify = config.Notifications.ForEditing();
+        UpdatePushSummary();
 
         DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
                           L.T("Feste IP ist zuverlässiger.");
@@ -87,10 +73,6 @@ public partial class SettingsWindow : Window
         AutostartBox.IsChecked = AutostartService.IsEnabled;
         DataDirText.Text = dataDirectory;
 
-        NotifyLogBox.IsChecked = n.OnLogAlerts;
-        NotifyPoolBox.IsChecked = n.OnPool;
-        NotifyPlugsBox.IsChecked = n.OnPlugs;
-        NotifyHealthBox.IsChecked = n.OnHealth;
         LogErrorsBox.IsChecked = config.LogAlerts.OnErrors;
         LogCooldownBox.Text = config.LogAlerts.CooldownMinutes.ToString();
         LogPatternsBox.Text = string.Join(Environment.NewLine, config.LogAlerts.Patterns);
@@ -346,7 +328,8 @@ public partial class SettingsWindow : Window
             CooldownMinutes = watchdogCooldown
         };
         _config.CoinGeckoApiKey = CoinGeckoKeyBox.Text.Trim();
-        _config.Notifications = ReadNotificationSettings();
+        _notify.ApplyTargets(_config.Devices.Select(d => d.Host));
+        _config.Notifications = _notify;
         _config.ElectricityCtPerKwh = price;
         _config.ElectricityPriceIsNet = SelectedTag(PriceNetBox) == "net";
         _config.VatPercent = vat;
@@ -455,51 +438,39 @@ public partial class SettingsWindow : Window
 
     // ---------- Benachrichtigungen ----------
 
-    private NotificationSettings ReadNotificationSettings() => new()
-    {
-        Provider = SelectedTag(ProviderBox) ?? "none",
-        NtfyServer = string.IsNullOrWhiteSpace(NtfyServerBox.Text) ? "https://ntfy.sh" : NtfyServerBox.Text.Trim(),
-        NtfyTopic = NtfyTopicBox.Text.Trim(),
-        TelegramBotToken = TelegramTokenBox.Text.Trim(),
-        TelegramChatId = TelegramChatBox.Text.Trim(),
-        DiscordWebhookUrl = DiscordUrlBox.Text.Trim(),
-        PushoverUserKey = PushoverUserBox.Text.Trim(),
-        PushoverAppToken = PushoverTokenBox.Text.Trim(),
-        WebhookUrl = WebhookUrlBox.Text.Trim(),
-        OnOffline = NotifyOfflineBox.IsChecked == true,
-        OnOverheat = NotifyOverheatBox.IsChecked == true,
-        OnFinds = NotifyFindsBox.IsChecked == true,
-        OnMaintenance = NotifyMaintenanceBox.IsChecked == true,
-        OnRecord = NotifyRecordBox.IsChecked == true,
-        OnLogAlerts = NotifyLogBox.IsChecked == true,
-        OnPool = NotifyPoolBox.IsChecked == true,
-        OnPlugs = NotifyPlugsBox.IsChecked == true,
-        OnHealth = NotifyHealthBox.IsChecked == true,
-    };
+    /// <summary>Arbeitskopie der Push-Ziele; übernommen erst mit „Speichern“.</summary>
+    private NotificationSettings _notify = new();
 
-    private void ProviderBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateProviderPanels();
-
-    private void UpdateProviderPanels()
+    private void UpdatePushSummary()
     {
-        if (NtfyPanel is null || TelegramPanel is null || DiscordPanel is null || PushoverPanel is null || WebhookPanel is null) return;
-        var provider = SelectedTag(ProviderBox);
-        NtfyPanel.Visibility = provider == "ntfy" ? Visibility.Visible : Visibility.Collapsed;
-        TelegramPanel.Visibility = provider == "telegram" ? Visibility.Visible : Visibility.Collapsed;
-        DiscordPanel.Visibility = provider == "discord" ? Visibility.Visible : Visibility.Collapsed;
-        PushoverPanel.Visibility = provider == "pushover" ? Visibility.Visible : Visibility.Collapsed;
-        WebhookPanel.Visibility = provider == "webhook" ? Visibility.Visible : Visibility.Collapsed;
+        if (PushSummaryText is null) return;
+        PushSummaryText.Text = _notify.Targets.Count == 0
+            ? L.T("Noch kein Push-Dienst eingerichtet.")
+            : string.Join("\n", _notify.Targets.Select(t =>
+                (t.Enabled ? "● " : "○ ") + (string.IsNullOrWhiteSpace(t.Name) ? t.Provider : $"{t.Name} ({t.Provider})") + " – " +
+                L.T("{0} Meldungsarten, {1}", t.Categories.Count,
+                    t.Miners.Count == 0 ? L.T("alle Miner") : L.T("{0} Miner", t.Miners.Count))));
+    }
+
+    private void PushTargets_Click(object sender, RoutedEventArgs e)
+    {
+        var miners = _devices.Select(d => (string.IsNullOrWhiteSpace(d.Name) ? d.Host : d.Name, d.Host)).ToList();
+        var dialog = new Views.PushTargetsWindow(_notify.Targets, miners) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        _notify.Targets = dialog.Result;
+        UpdatePushSummary();
+        TestResultText.Text = L.T("Übernommen – mit „Speichern“ sichern.");
     }
 
     private async void TestNotify_Click(object sender, RoutedEventArgs e)
     {
-        var settings = ReadNotificationSettings();
-        if (settings.Provider == "none")
+        if (!_notify.Targets.Any(t => t.Enabled))
         {
             TestResultText.Text = L.T("Erst einen Dienst auswählen.");
             return;
         }
-
         TestResultText.Text = L.T("Sende …");
+        var settings = _notify.Clone();
         using var service = new NotificationService(() => settings);
         var error = await service.TestAsync(settings);
         TestResultText.Text = error is null ? L.T("Gesendet – kam sie an?") : L.T("Fehler: ") + error;

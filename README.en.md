@@ -107,7 +107,10 @@ Corrections to the English texts are welcome: they all live in
 
 ### Push notifications
 
-*Settings → Push notifications* (desktop and browser), one service of your choice, **“Send test”** checks the setup:
+*Settings → Push notifications* (browser) or *Push services …* (desktop). **Several services at once** are possible –
+e.g. ntfy for you and Discord for a community group. For each service you choose **which notifications** (offline,
+block found, daily report …) and **for which miners** (all or selected) it gets; “Test” checks each service on its own.
+A previously configured service is taken over automatically as the first one.
 
 | Service | What to enter |
 |---|---|
@@ -117,7 +120,7 @@ Corrections to the English texts are welcome: they all live in
 | **Pushover** | user key and app token (pushover.net) |
 | **Custom webhook** | URL; BitaxeTuner sends `POST` with JSON `{"source":"BitaxeTuner","title":…,"message":…,"priority":"high","priorityLevel":4,"time":…}` – e.g. to Home Assistant or n8n |
 
-Notifications can be switched per area: offline, overheating, block found/income, watchdog/automation/firmware,
+Notification types per service: offline, overheating, block found/income, watchdog/automation/firmware,
 records, log alerts, pool, smart plugs, health. Plus the **daily report** (avg hashrate, J/TH, temperature,
 availability per miner, electricity cost, best diff record, tuning changes, worthwhile advisor suggestions) and the
 **monthly report** on the 1st. Every notification has a cooldown so a flapping miner does not flood your phone.

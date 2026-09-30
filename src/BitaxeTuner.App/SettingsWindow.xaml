@@ -350,87 +350,15 @@
             <StackPanel>
                 <TextBlock Text="{l:T 'Push-Benachrichtigungen'}" Style="{StaticResource Section}"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="{l:T 'DIENST'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <ComboBox x:Name="ProviderBox" Width="160" SelectionChanged="ProviderBox_SelectionChanged">
-                        <ComboBoxItem Content="{l:T 'Aus'}" Tag="none"/>
-                        <ComboBoxItem Content="ntfy" Tag="ntfy"/>
-                        <ComboBoxItem Content="Telegram" Tag="telegram"/>
-                        <ComboBoxItem Content="Discord" Tag="discord"/>
-                        <ComboBoxItem Content="Pushover" Tag="pushover"/>
-                        <ComboBoxItem Content="{l:T 'Eigener Webhook'}" Tag="webhook"/>
-                    </ComboBox>
-                    <Button Content="{l:T 'Test senden'}" Click="TestNotify_Click" Padding="10,4" Margin="10,0,0,0"/>
+                <TextBlock x:Name="PushSummaryText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{l:T 'Push-Dienste …'}" Click="PushTargets_Click" Padding="10,4"/>
+                    <Button Content="{l:T 'Alle testen'}" Click="TestNotify_Click" Padding="10,4" Margin="10,0,0,0"/>
                     <TextBlock x:Name="TestResultText" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center"
-                               Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="260"/>
+                               Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="320"/>
                 </StackPanel>
-
-                <Grid x:Name="NtfyPanel">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="{l:T 'NTFY-SERVER'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="NtfyServerBox"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="0,0,0,10">
-                        <TextBlock Text="{l:T 'TOPIC (SCHWER ZU ERRATEN WÄHLEN)'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="NtfyTopicBox"/>
-                    </StackPanel>
-                </Grid>
-
-                <Grid x:Name="TelegramPanel">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="{l:T 'BOT-TOKEN'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="TelegramTokenBox"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="0,0,0,10">
-                        <TextBlock Text="{l:T 'CHAT-ID'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="TelegramChatBox"/>
-                    </StackPanel>
-                </Grid>
-
-                <StackPanel x:Name="DiscordPanel" Margin="0,0,0,10">
-                    <TextBlock Text="{l:T 'DISCORD-WEBHOOK-URL (KANAL → INTEGRATIONEN → WEBHOOKS)'}" Style="{StaticResource Label}"/>
-                    <TextBox x:Name="DiscordUrlBox"/>
-                </StackPanel>
-
-                <Grid x:Name="PushoverPanel">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,10,10">
-                        <TextBlock Text="{l:T 'USER-KEY'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="PushoverUserBox"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="0,0,0,10">
-                        <TextBlock Text="{l:T 'APP-TOKEN'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="PushoverTokenBox"/>
-                    </StackPanel>
-                </Grid>
-
-                <StackPanel x:Name="WebhookPanel" Margin="0,0,0,10">
-                    <TextBlock Text="{l:T 'WEBHOOK-URL (JSON-POST: TITLE, MESSAGE, PRIORITY)'}" Style="{StaticResource Label}"/>
-                    <TextBox x:Name="WebhookUrlBox"/>
-                </StackPanel>
-
-                <WrapPanel>
-                    <CheckBox x:Name="NotifyOfflineBox" Content="{l:T 'Miner offline'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyOverheatBox" Content="{l:T 'Überhitzung'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyFindsBox" Content="{l:T 'Blockfund und Zufluss'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyMaintenanceBox" Content="{l:T 'Watchdog, Firmware, Automatik'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyRecordBox" Content="{l:T 'Neuer Best-Diff-Rekord'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyLogBox" Content="{l:T 'Treffer in Miner-Logs'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyPoolBox" Content="{l:T 'Pool (Fallback, Ablehnungen, langsam)'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyPlugsBox" Content="{l:T 'Smart Plugs (nicht erreichbar, Mehrverbrauch)'}" Margin="0,0,16,6"/>
-                    <CheckBox x:Name="NotifyHealthBox" Content="{l:T 'Gesundheit (Kühlung, Effizienz, Lüfter, Shares)'}" Margin="0,0,16,6"/>
-                </WrapPanel>
+                <TextBlock Text="{l:T 'Mehrere Dienste gleichzeitig möglich – z. B. ntfy für dich und Discord für eine Community-Gruppe. Je Dienst wählst du die Meldungen und die Miner.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
 

@@ -105,7 +105,10 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 
 ### Push-Benachrichtigungen
 
-*Einstellungen → Push-Benachrichtigungen* (Desktop und Browser), ein Dienst nach Wahl, **„Test senden“** prüft die Einrichtung:
+*Einstellungen → Push-Benachrichtigungen* (Browser) bzw. *Push-Dienste …* (Desktop). **Mehrere Dienste gleichzeitig**
+sind möglich – z. B. ntfy für dich und Discord für eine Community-Gruppe. Je Dienst wählst du, **welche Meldungen**
+(offline, Blockfund, Tagesbericht …) und **für welche Miner** (alle oder einzelne) er bekommt; „Test“ prüft jeden Dienst
+einzeln. Ein bisher eingerichteter Dienst wird automatisch als erster übernommen.
 
 | Dienst | Einzutragen |
 |---|---|
@@ -115,7 +118,7 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 | **Pushover** | User-Key und App-Token (pushover.net) |
 | **Eigener Webhook** | URL; BitaxeTuner sendet `POST` mit JSON `{"source":"BitaxeTuner","title":…,"message":…,"priority":"high","priorityLevel":4,"time":…}` – z. B. an Home Assistant oder n8n |
 
-Meldungen gibt es je Bereich schaltbar: offline, Überhitzung, Blockfund/Zufluss, Watchdog/Automatik/Firmware, Rekorde,
+Meldungsarten je Dienst: offline, Überhitzung, Blockfund/Zufluss, Watchdog/Automatik/Firmware, Rekorde,
 Log-Alarme, Pool, Smart Plugs, Gesundheit. Dazu **Tagesbericht** (Ø Hashrate, J/TH, Temperatur, Verfügbarkeit je
 Miner, Stromkosten, Best-Diff-Rekord, Tuning-Änderungen, lohnende Ratgeber-Vorschläge) und **Monatsbericht** am
 Monatsersten. Jede Meldung hat eine Sperrzeit, damit ein wackelnder Miner das Handy nicht flutet.
