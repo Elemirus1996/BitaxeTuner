@@ -56,9 +56,9 @@ public sealed partial class MinerHub
             foreach (var n in result.Notices)
             {
                 device.AddLog($"{n.Rule}: {n.Message}");
-                if (Config.Notifications.OnMaintenance)
+                if (Config.Notifications.Wants(NotifyCategory.Maintenance))
                     SendAlert(new Alert($"auto-notice:{n.Host}:{n.Message}", $"{device.Title}: {n.Rule}", n.Message,
-                        NotifyPriority.Normal, TimeSpan.FromHours(6)));
+                        NotifyPriority.Normal, TimeSpan.FromHours(6), NotifyCategory.Maintenance, n.Host));
             }
             if (result.Action is { } a) _ = ExecuteAutomationAsync(device, info, a);
         }
@@ -87,9 +87,9 @@ public sealed partial class MinerHub
 
             var text = L.T("{0}→{1} MHz / {2}→{3} mV – {4}", before.FrequencyMhz, a.FrequencyMhz, before.CoreVoltageMv, a.CoreVoltageMv, a.Reason);
             device.AddLog(L.T("Automatik: {0}", text));
-            if (Config.Notifications.OnMaintenance)
+            if (Config.Notifications.Wants(NotifyCategory.Maintenance))
                 SendAlert(new Alert($"auto:{device.Host}:{a.FrequencyMhz}:{a.CoreVoltageMv}", $"{device.Title}: {a.Rule}", text,
-                    a.Rule == "Temperaturschutz" ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1)));
+                    a.Rule == "Temperaturschutz" ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1), NotifyCategory.Maintenance, device.Host));
         }
         catch (Exception ex)
         {
@@ -148,10 +148,10 @@ public sealed partial class MinerHub
         catch { /* Verlauf nicht verfügbar – Dauertest-Ergebnis steht trotzdem im Protokoll */ }
         device.SoakStatus = r.Message;
         device.AddLog(r.Message);
-        if (Config.Notifications.OnMaintenance)
+        if (Config.Notifications.Wants(NotifyCategory.Maintenance))
             SendAlert(new Alert($"soak:{device.Host}:{soak.StartedAt:O}", L.T("{0}: Dauertest ", device.Title) +
                 (r.Outcome == SoakOutcome.Passed ? L.T("bestanden") : r.Outcome == SoakOutcome.Failed ? L.T("fehlgeschlagen") : L.T("beendet")),
-                r.Message, r.Outcome == SoakOutcome.Failed ? NotifyPriority.High : NotifyPriority.Normal, TimeSpan.FromDays(1)));
+                r.Message, r.Outcome == SoakOutcome.Failed ? NotifyPriority.High : NotifyPriority.Normal, TimeSpan.FromDays(1), NotifyCategory.Maintenance, device.Host));
 
         SoakSuggestion? suggestion = null;
         if (r.Outcome == SoakOutcome.Failed)

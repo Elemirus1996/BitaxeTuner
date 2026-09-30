@@ -15,7 +15,8 @@ public class NotificationTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Sent.Add((request, request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct)));
-            return new HttpResponseMessage(HttpStatusCode.NoContent);
+            // „kaputt.example“ simuliert einen ausgefallenen Dienst
+            return new HttpResponseMessage(request.RequestUri!.Host == "kaputt.example" ? HttpStatusCode.InternalServerError : HttpStatusCode.NoContent);
         }
     }
 
@@ -99,5 +100,89 @@ public class NotificationTests
         Assert.Equal("", s.WebhookUrl);
         Assert.True(new NotificationService(() => s).Enabled);
         Assert.False(new NotificationService(() => new NotificationSettings()).Enabled);
+    }
+
+    // ---------- 0.8.0: mehrere Ziele ----------
+
+    private static PushTarget Hook(string id, string url, params NotifyCategory[] cats) => new()
+    {
+        Id = id, Name = id, Provider = "webhook", WebhookUrl = url, Categories = cats.Select(c => c.ToString()).ToList(),
+    };
+
+    private static List<string> Hosts(Recorder rec) => rec.Sent.Select(x => x.Request.RequestUri!.Host).ToList();
+
+    [Fact]
+    public async Task Each_target_gets_only_its_categories_and_miners()
+    {
+        var privat = Hook("privat", "http://privat.local/hook", Enum.GetValues<NotifyCategory>());
+        var community = Hook("community", "http://community.local/hook", NotifyCategory.Finds, NotifyCategory.DailyReport);
+        community.Miners = ["10.0.0.2"];
+        var settings = new NotificationSettings { Targets = [privat, community] };
+        var (service, rec) = Create(settings);
+
+        await service.SendAsync("offline:a", "A offline", "…", category: NotifyCategory.Offline, host: "10.0.0.1");
+        Assert.Equal(["privat.local"], Hosts(rec));
+
+        rec.Sent.Clear();
+        await service.SendAsync("block:a", "Block A", "…", category: NotifyCategory.Finds, host: "10.0.0.1");
+        Assert.Equal(["privat.local"], Hosts(rec));                   // Community nur für Miner 10.0.0.2
+
+        rec.Sent.Clear();
+        await service.SendAsync("block:b", "Block B", "…", category: NotifyCategory.Finds, host: "10.0.0.2");
+        Assert.Equal(["privat.local", "community.local"], Hosts(rec));
+
+        rec.Sent.Clear();
+        await service.SendAsync("report", "Tagesbericht", "…", category: NotifyCategory.DailyReport);
+        Assert.Equal(["privat.local", "community.local"], Hosts(rec)); // ohne Miner-Bezug an alle, die den Bereich wollen
+
+        rec.Sent.Clear();
+        privat.Enabled = false;
+        await service.SendAsync("offline:c", "C offline", "…", category: NotifyCategory.Offline, host: "10.0.0.1");
+        Assert.Empty(rec.Sent);
+        Assert.False(settings.Wants(NotifyCategory.Offline));
+        Assert.True(settings.Wants(NotifyCategory.Finds));
+    }
+
+    [Fact]
+    public async Task A_failing_target_does_not_block_the_others()
+    {
+        var settings = new NotificationSettings { Targets = [Hook("kaputt", "http://kaputt.example/x", NotifyCategory.Offline), Hook("gut", "http://gut.local/x", NotifyCategory.Offline)] };
+        var (service, rec) = Create(settings);
+        await service.SendAsync("offline:a", "A", "…", category: NotifyCategory.Offline, host: "h");
+        Assert.Equal(["kaputt.example", "gut.local"], Hosts(rec));
+        Assert.Contains("kaputt", service.LastError);
+
+        rec.Sent.Clear();
+        await service.SendAsync("offline:a", "A", "…", category: NotifyCategory.Offline, host: "h");
+        Assert.Empty(rec.Sent);                                        // einer kam an → Sperrzeit gilt
+
+        Assert.Contains("kaputt", await service.TestAsync(settings));
+        Assert.Null(await service.TestAsync(settings.Targets[1]));
+    }
+
+    [Fact]
+    public void Single_setting_becomes_one_target_and_first_target_is_mirrored_back()
+    {
+        var old = JsonSerializer.Deserialize<NotificationSettings>("""{"Provider":"ntfy","NtfyTopic":"t","OnOffline":false,"OnRecord":true}""")!;
+        var t = Assert.Single(old.EffectiveTargets());
+        Assert.Equal("ntfy", t.Provider);
+        Assert.False(t.Wants(NotifyCategory.Offline));
+        Assert.True(t.Wants(NotifyCategory.Record));
+        Assert.True(t.Wants(NotifyCategory.DailyReport));
+        Assert.False(old.Wants(NotifyCategory.Offline));
+
+        var s = new NotificationSettings
+        {
+            Targets = [new PushTarget { Provider = "discord", DiscordWebhookUrl = "https://discord.com/api/webhooks/1/x", Categories = ["Finds"] }],
+        };
+        s.SyncLegacyFromTargets();
+        Assert.Equal("discord", s.Provider);
+        Assert.Equal("https://discord.com/api/webhooks/1/x", s.DiscordWebhookUrl);
+        Assert.True(s.OnFinds);
+        Assert.False(s.OnOffline);
+
+        var clone = s.Clone();
+        clone.Targets[0].Categories.Add("Offline");
+        Assert.DoesNotContain("Offline", s.Targets[0].Categories);    // tiefe Kopie
     }
 }

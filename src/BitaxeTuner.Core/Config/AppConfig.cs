@@ -278,7 +278,78 @@ public sealed class NotificationSettings
     /// <summary>0.7.0: Gesundheits-Frühwarnung (Kühlung, Effizienz, Lüfter, Shares, Verfügbarkeit).</summary>
     public bool OnHealth { get; set; } = true;
 
-    public NotificationSettings Clone() => (NotificationSettings)MemberwiseClone();
+    /// <summary>
+    /// 0.8.0: mehrere Push-Ziele mit eigener Auswahl. Leer = die Einzel-Einstellung oben gilt (bisheriges Verhalten).
+    /// Beim Speichern wird das erste Ziel zusätzlich in die Einzel-Felder geschrieben (ältere Versionen senden weiter).
+    /// </summary>
+    public List<PushTarget> Targets { get; set; } = [];
+
+    /// <summary>Tatsächlich genutzte Ziele: die Liste oder – ohne Liste – die Einzel-Einstellung als ein Ziel.</summary>
+    public IReadOnlyList<PushTarget> EffectiveTargets() => Targets.Count > 0 ? Targets : LegacyTarget() is { } t ? [t] : [];
+
+    /// <summary>
+    /// Möchte irgendein aktives Ziel Meldungen dieses Bereichs (vor aufwendiger Vorbereitung prüfen)?
+    /// Ohne Zielliste genau der bisherige Schalter – ob ein Dienst eingerichtet ist, prüft der Versand selbst.
+    /// </summary>
+    public bool Wants(NotifyCategory category) => Targets.Count > 0
+        ? Targets.Any(t => t.Enabled && t.Wants(category))
+        : category is NotifyCategory.Other or NotifyCategory.DailyReport or NotifyCategory.MonthlyReport
+          || LegacyCategories().Contains(category.ToString());
+
+    private List<string> LegacyCategories()
+    {
+        var cats = new List<string> { nameof(NotifyCategory.DailyReport), nameof(NotifyCategory.MonthlyReport) };
+        void Add(bool on, NotifyCategory c) { if (on) cats.Add(c.ToString()); }
+        Add(OnOffline, NotifyCategory.Offline);
+        Add(OnOverheat, NotifyCategory.Overheat);
+        Add(OnFinds, NotifyCategory.Finds);
+        Add(OnMaintenance, NotifyCategory.Maintenance);
+        Add(OnRecord, NotifyCategory.Record);
+        Add(OnLogAlerts, NotifyCategory.LogAlerts);
+        Add(OnPool, NotifyCategory.Pool);
+        Add(OnPlugs, NotifyCategory.Plugs);
+        Add(OnHealth, NotifyCategory.Health);
+        return cats;
+    }
+
+    /// <summary>Die Einzel-Einstellung als Ziel; null, wenn kein Dienst gewählt ist.</summary>
+    public PushTarget? LegacyTarget()
+    {
+        if (Provider is not ("ntfy" or "telegram" or "discord" or "pushover" or "webhook")) return null;
+        var cats = LegacyCategories();
+        return new PushTarget
+        {
+            Id = "legacy", Name = "", Provider = Provider, NtfyServer = NtfyServer, NtfyTopic = NtfyTopic,
+            TelegramBotToken = TelegramBotToken, TelegramChatId = TelegramChatId, DiscordWebhookUrl = DiscordWebhookUrl,
+            PushoverUserKey = PushoverUserKey, PushoverAppToken = PushoverAppToken, WebhookUrl = WebhookUrl, Categories = cats,
+        };
+    }
+
+    /// <summary>Erstes Ziel in die Einzel-Felder spiegeln (Rückweg auf ältere Versionen); ohne Ziele: Dienst aus.</summary>
+    public void SyncLegacyFromTargets()
+    {
+        if (Targets.Count == 0) return;
+        var t = Targets.FirstOrDefault(x => x.Enabled) ?? Targets[0];
+        Provider = t.Enabled ? t.Provider : "none";
+        (NtfyServer, NtfyTopic, TelegramBotToken, TelegramChatId) = (t.NtfyServer, t.NtfyTopic, t.TelegramBotToken, t.TelegramChatId);
+        (DiscordWebhookUrl, PushoverUserKey, PushoverAppToken, WebhookUrl) = (t.DiscordWebhookUrl, t.PushoverUserKey, t.PushoverAppToken, t.WebhookUrl);
+        OnOffline = t.Wants(NotifyCategory.Offline);
+        OnOverheat = t.Wants(NotifyCategory.Overheat);
+        OnFinds = t.Wants(NotifyCategory.Finds);
+        OnMaintenance = t.Wants(NotifyCategory.Maintenance);
+        OnRecord = t.Wants(NotifyCategory.Record);
+        OnLogAlerts = t.Wants(NotifyCategory.LogAlerts);
+        OnPool = t.Wants(NotifyCategory.Pool);
+        OnPlugs = t.Wants(NotifyCategory.Plugs);
+        OnHealth = t.Wants(NotifyCategory.Health);
+    }
+
+    public NotificationSettings Clone()
+    {
+        var c = (NotificationSettings)MemberwiseClone();
+        c.Targets = Targets.Select(t => t.Clone()).ToList();
+        return c;
+    }
 }
 
 public sealed class WatchdogSettings

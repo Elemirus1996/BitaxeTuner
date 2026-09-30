@@ -727,5 +727,12 @@ public sealed class HistoryStore : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    public void Dispose() => _db.Dispose();
+    /// <summary>Verbindung schließen und aus dem Pool nehmen – sonst hält SQLite die Datei (und das WAL) noch offen.</summary>
+    public void Dispose()
+    {
+        var cs = _db.ConnectionString;
+        _db.Dispose();
+        using var pooled = new SqliteConnection(cs);
+        SqliteConnection.ClearPool(pooled);
+    }
 }

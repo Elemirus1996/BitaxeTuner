@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Config;
 using System.Globalization;
 using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
@@ -74,7 +75,7 @@ public sealed partial class MinerHub
                 L.T("{0}: verfügbar {1} % · {2} J/TH", m.Name, ((m.Availability ?? 0) * 100).ToString("0.0", c), m.Jth?.ToString("0.0", c) ?? "–")));
             lines.Add(L.T("Ausführlich: Berichte (Browser) bzw. Bericht … (Desktop)"));
             var key = markSent ? $"monthly:{period}" : $"monthly-test:{now:O}";
-            await Notify.SendAsync(key, ReportRenderer.Title(r), string.Join("\n", lines), NotifyPriority.Low, TimeSpan.FromDays(20));
+            await Notify.SendAsync(key, ReportRenderer.Title(r), string.Join("\n", lines), NotifyPriority.Low, TimeSpan.FromDays(20), NotifyCategory.MonthlyReport);
             if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
             if (markSent)
             {

@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Config;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
@@ -115,7 +116,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
     /// <summary>Push nur einmal je Version, nur mit eingerichtetem Push-Dienst und „Wartung“ an.</summary>
     internal static bool ShouldNotify(Core.Config.AppConfig config, bool pushEnabled, string tag) =>
-        config.NotifiedServerVersion != tag && pushEnabled && config.Notifications.OnMaintenance;
+        config.NotifiedServerVersion != tag && pushEnabled && config.Notifications.Wants(NotifyCategory.Maintenance);
 
     public async Task<UpdateCheckResult> CheckAsync(bool notify, CancellationToken ct = default)
     {
@@ -132,7 +133,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
                 h.Config.Save();
                 h.SendAlert(new Alert($"server-update:{u.Tag}", L.T("BitaxeTuner-Server {0} verfügbar", u.Tag),
                     CanInstall ? L.T("Installation per Klick in der Server-Oberfläche (Einstellungen).") : "Update: docker compose pull && docker compose up -d",
-                    NotifyPriority.Low, TimeSpan.FromDays(30)));
+                    NotifyPriority.Low, TimeSpan.FromDays(30), NotifyCategory.Maintenance));
                 return true;
             });
         }

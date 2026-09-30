@@ -7,7 +7,8 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Monitoring;
 
 /// <summary>Eine zu versendende Meldung. <see cref="Key"/> dient der Sperrzeit im NotificationService.</summary>
-public sealed record Alert(string Key, string Title, string Message, NotifyPriority Priority, TimeSpan Cooldown);
+public sealed record Alert(string Key, string Title, string Message, NotifyPriority Priority, TimeSpan Cooldown,
+    NotifyCategory Category = NotifyCategory.Other, string? Host = null);
 
 // ---------------------------------------------------------------------------------------------
 // 1. Log-Alarme
@@ -113,10 +114,10 @@ public sealed class LogAlertService : IDisposable
         var name = device?.Name ?? host;
         Triggered?.Invoke(host, line, rule);
 
-        if (!_config().Notifications.OnLogAlerts) return;
+        if (!_config().Notifications.Wants(NotifyCategory.LogAlerts)) return;
         _send(new Alert(key, L.T("{0}: Log-Meldung", name),
             $"{line.LevelText} {line.Tag}: {Shorten(line.Message, 300)}",
-            line.Level == LogLevel.Error ? NotifyPriority.High : NotifyPriority.Normal, cooldown));
+            line.Level == LogLevel.Error ? NotifyPriority.High : NotifyPriority.Normal, cooldown, NotifyCategory.LogAlerts, host));
     }
 
     private static string Shorten(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
@@ -204,22 +205,22 @@ public sealed class PoolWatch
         if (fallbackBefore is 0 && info.isUsingFallbackStratum != 0)
             alerts.Add(new Alert($"pool-fallback:{host}", L.T("{0}: Fallback-Pool aktiv", name),
                 L.T("Der Primär-Pool ({0}:{1}) ist nicht erreichbar, {2} mined jetzt auf ", info.stratumURL, info.stratumPort, name) +
-                $"{info.fallbackStratumURL}:{info.fallbackStratumPort}.", NotifyPriority.High, TimeSpan.FromHours(1)));
+                $"{info.fallbackStratumURL}:{info.fallbackStratumPort}.", NotifyPriority.High, TimeSpan.FromHours(1), NotifyCategory.Pool, host));
         else if (fallbackBefore is { } f && f != 0 && info.isUsingFallbackStratum == 0)
             alerts.Add(new Alert($"pool-primary:{host}", L.T("{0}: wieder auf Primär-Pool", name),
-                $"{info.stratumURL}:{info.stratumPort}", NotifyPriority.Normal, TimeSpan.FromMinutes(5)));
+                $"{info.stratumURL}:{info.stratumPort}", NotifyPriority.Normal, TimeSpan.FromMinutes(5), NotifyCategory.Pool, host));
 
         if (RejectRate(host, s) is { } rate && rate > s.RejectPercent)
             alerts.Add(new Alert($"pool-reject:{host}", L.T("{0}: viele abgelehnte Shares", name),
                 L.T("{0} % abgelehnt in den letzten {1} min (Grenze {2} %).", rate.ToString("0.0", De), s.WindowMinutes, s.RejectPercent.ToString("0.#", De)),
-                NotifyPriority.High, TimeSpan.FromHours(2)));
+                NotifyPriority.High, TimeSpan.FromHours(2), NotifyCategory.Pool, host));
 
         // Antwortzeit erst bewerten, wenn das Fenster zur Hälfte gefüllt ist
         if (s.ResponseMs > 0 && AverageResponse(host) is { } avg && avg > s.ResponseMs &&
             st.Response.Count > 0 && now - st.Response.Peek().Time >= window / 2)
             alerts.Add(new Alert($"pool-slow:{host}", L.T("{0}: Pool antwortet langsam", name),
                 L.T("Ø {0} ms in den letzten {1} min (Grenze {2} ms).", avg.ToString("0", De), s.WindowMinutes, s.ResponseMs.ToString("0", De)),
-                NotifyPriority.Normal, TimeSpan.FromHours(3)));
+                NotifyPriority.Normal, TimeSpan.FromHours(3), NotifyCategory.Pool, host));
 
         return alerts;
     }

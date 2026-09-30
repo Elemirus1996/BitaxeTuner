@@ -210,20 +210,20 @@ public sealed partial class MinerHub
 
     private void CheckSensorAlerts(IReadOnlyList<TempSensorStatus> sensors, DateTime now)
     {
-        if (!Config.Notifications.OnOverheat) return;
+        if (!Config.Notifications.Wants(NotifyCategory.Overheat)) return;
         var de = L.Culture;
         foreach (var s in sensors)
         {
             if (s.Hot)
                 SendAlert(new Alert($"temp-hot:{s.Id}", L.T("{0} zu warm", s.Name), L.T("{0}: {1} °C (Grenze {2} °C).", s.Name, s.Temp!.Value.ToString("0.0", de), s.WarnTemp.ToString("0.#", de)),
-                    NotifyPriority.High, TimeSpan.FromMinutes(30)));
+                    NotifyPriority.High, TimeSpan.FromMinutes(30), NotifyCategory.Overheat));
             // Fühler fehlt, obwohl der Pico seit 2 Minuten verbunden ist
             else if (s.Temp is null && !s.Id.StartsWith('#') && _fanConnectedSince is { } since && now - since >= TimeSpan.FromMinutes(2)
                      && (!_sensorSeen.TryGetValue(s.Id, out var seen) || now - seen.Seen >= TimeSpan.FromMinutes(2)))
                 SendAlert(new Alert($"temp-missing:{s.Id}", L.T("Temperaturfühler {0} fehlt", s.Name),
                     L.T("{0} meldet keinen Wert. Kabel prüfen – oder den Fühler unter „Lüfter & Anzeige“ entfernen.", s.Name) +
                     (s.CaseFans ? L.T(" Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“.") : ""),
-                    NotifyPriority.High, TimeSpan.FromHours(6)));
+                    NotifyPriority.High, TimeSpan.FromHours(6), NotifyCategory.Overheat));
         }
     }
 
@@ -264,11 +264,11 @@ public sealed partial class MinerHub
         var (count, since) = _fanStall.TryGetValue(t.Channel, out var s) ? s : (0, now);
         _fanStall[t.Channel] = (count + 1, since);
         var stalled = count + 1 >= 3 && now - since >= TimeSpan.FromSeconds(10);
-        if (stalled && Config.Notifications.OnOverheat)
+        if (stalled && Config.Notifications.Wants(NotifyCategory.Overheat))
         {
             var name = c.Name.Length > 0 ? c.Name : DefaultFanName(c);
             SendAlert(new Alert($"fanstall:{t.Channel}", L.T("Lüfter K{0} steht", t.Channel), L.T("{0}: Soll {1} %, aber keine Drehzahl. Kabel und Lüfter prüfen.", name, t.Percent),
-                NotifyPriority.High, TimeSpan.FromHours(6)));
+                NotifyPriority.High, TimeSpan.FromHours(6), NotifyCategory.Overheat));
         }
         return stalled;
     }

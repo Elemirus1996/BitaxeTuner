@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 
@@ -42,7 +43,7 @@ public sealed partial class MinerHub
     {
         if (History is null || _healthCheckedDay == now.Date || now.Hour < 9) return;
         _healthCheckedDay = now.Date;
-        if (!Config.Notifications.OnHealth) return;
+        if (!Config.Notifications.Wants(NotifyCategory.Health)) return;
         foreach (var d in Devices.Where(d => !d.IsSimulated))
         {
             List<HealthFinding> findings;
@@ -50,7 +51,7 @@ public sealed partial class MinerHub
             catch { continue; }
             foreach (var f in findings)
                 _ = Notify.SendAsync($"health:{d.Host}:{f.Code}", L.T("{0}: {1}", d.Title, f.Title), f.Text,
-                    NotifyPriority.Normal, TimeSpan.FromDays(7));
+                    NotifyPriority.Normal, TimeSpan.FromDays(7), NotifyCategory.Health, d.Host);
         }
     }
 }

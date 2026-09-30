@@ -139,7 +139,7 @@ public sealed partial class MinerHub
                 {
                     ok = false;
                     results.Add(new BackupTargetStatus(target.Name, false, ex.Message));
-                    SendAlert(new Alert($"backup-failed:{target.Name}", L.T("Sicherung fehlgeschlagen"), $"{target.Name}: {ex.Message}", NotifyPriority.High, TimeSpan.FromHours(20)));
+                    SendAlert(new Alert($"backup-failed:{target.Name}", L.T("Sicherung fehlgeschlagen"), $"{target.Name}: {ex.Message}", NotifyPriority.High, TimeSpan.FromHours(20), NotifyCategory.Maintenance));
                 }
             }
         }
@@ -147,7 +147,7 @@ public sealed partial class MinerHub
         {
             ok = false;
             results.Add(new BackupTargetStatus(L.T("Datenordner"), false, ex.Message));
-            SendAlert(new Alert("backup-failed:local", L.T("Sicherung fehlgeschlagen"), ex.Message, NotifyPriority.High, TimeSpan.FromHours(20)));
+            SendAlert(new Alert("backup-failed:local", L.T("Sicherung fehlgeschlagen"), ex.Message, NotifyPriority.High, TimeSpan.FromHours(20), NotifyCategory.Maintenance));
             name = null;
         }
         finally

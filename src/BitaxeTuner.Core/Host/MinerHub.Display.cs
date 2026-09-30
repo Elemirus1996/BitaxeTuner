@@ -84,9 +84,9 @@ public sealed partial class MinerHub
     /// <summary>Bei „Aus“ musste die Sicherheitsregel einen Lüfter trotzdem einschalten → einmal melden.</summary>
     private void ReportSafetyOverrides(IReadOnlyList<FanTarget> targets)
     {
-        if (FanOverride != FanOverride.Off || !Config.Notifications.OnOverheat) return;
+        if (FanOverride != FanOverride.Off || !Config.Notifications.Wants(NotifyCategory.Overheat)) return;
         foreach (var t in targets.Where(t => t.SafetyOverride))
-            SendAlert(new Alert($"fan-safety:{t.Channel}", L.T("Lüfter K{0} läuft trotz „Aus“", t.Channel), t.Reason, NotifyPriority.High, TimeSpan.FromHours(1)));
+            SendAlert(new Alert($"fan-safety:{t.Channel}", L.T("Lüfter K{0} läuft trotz „Aus“", t.Channel), t.Reason, NotifyPriority.High, TimeSpan.FromHours(1), NotifyCategory.Overheat));
     }
 
     /// <summary>

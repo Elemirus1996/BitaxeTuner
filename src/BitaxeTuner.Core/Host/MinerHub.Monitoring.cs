@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Config;
 using System.Globalization;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Network;
@@ -75,13 +76,13 @@ public sealed partial class MinerHub
         // Dokumentierter Zufluss aus dem Steuer-Modul → Push (läuft auf einem Pool-Thread)
         TaxMonitor.NewRewardDetected += reward =>
         {
-            if (!Config.Notifications.OnFinds) return;
+            if (!Config.Notifications.Wants(NotifyCategory.Finds)) return;
             if (DateTime.UtcNow - reward.ReceivedAtUtc > TimeSpan.FromHours(6)) return; // Erstimport alter Eingänge
 
             var eur = reward.EurValue is { } v ? $" ≈ {v.ToString("N2", De)} €" : "";
             _ = Notify.SendAsync($"reward:{reward.Coin.Symbol()}:{reward.TxId}", L.T("Zufluss dokumentiert"),
                 L.T("{0} {1} auf {2}{3}", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel, eur),
-                NotifyPriority.High, TimeSpan.FromDays(365));
+                NotifyPriority.High, TimeSpan.FromDays(365), category: NotifyCategory.Finds);
         };
     }
 
@@ -216,12 +217,12 @@ public sealed partial class MinerHub
                 _failCount[host] = fails;
 
                 // Erst nach drei Fehlversuchen melden, einzelne Aussetzer im WLAN sind normal
-                if (fails >= 3 && n.OnOffline)
+                if (fails >= 3 && n.Wants(NotifyCategory.Offline))
                 {
                     _offlineNotified.Add(host);
                     _ = Notify.SendAsync($"offline:{host}", L.T("{0} offline", s.Config.Name),
                         L.T("{0} antwortet nicht ({1}).", host, s.Error ?? L.T("keine Verbindung")),
-                        NotifyPriority.High, TimeSpan.FromHours(6));
+                        NotifyPriority.High, TimeSpan.FromHours(6), NotifyCategory.Offline, host);
                 }
                 continue;
             }
@@ -231,26 +232,26 @@ public sealed partial class MinerHub
             {
                 Notify.Reset($"offline:{host}");
                 _ = Notify.SendAsync($"online:{host}", L.T("{0} wieder online", s.Config.Name),
-                    L.T("{0} antwortet wieder.", host), NotifyPriority.Normal, TimeSpan.FromMinutes(1));
+                    L.T("{0} antwortet wieder.", host), NotifyPriority.Normal, TimeSpan.FromMinutes(1), NotifyCategory.Offline, host);
             }
 
             var i = s.Info!;
-            if (n.OnOverheat && (i.temp >= Config.TempWarn || i.overheat_mode != 0))
+            if (n.Wants(NotifyCategory.Overheat) && (i.temp >= Config.TempWarn || i.overheat_mode != 0))
             {
                 var text = L.T("ASIC {0} °C, VR {1} °C", i.temp.ToString("0.0", De), i.vrTemp.ToString("0", De)) +
                            (i.overheat_mode != 0 ? L.T(", Overheat-Modus aktiv") : "");
                 _ = Notify.SendAsync($"hot:{host}", L.T("{0} zu heiß", s.Config.Name), text,
-                    NotifyPriority.Urgent, TimeSpan.FromMinutes(30));
+                    NotifyPriority.Urgent, TimeSpan.FromMinutes(30), NotifyCategory.Overheat, host);
             }
 
             // Blockfund laut Miner: Zähler gestiegen seit der letzten Abfrage
             if (_blockFoundSeen.TryGetValue(host, out var seen) && i.blockFound > seen)
                 OnBlockFound(s.Config.Name.Length > 0 ? s.Config.Name : host, i.blockFound, Options.Clock?.Invoke() ?? DateTime.Now);
-            if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.OnFinds)
+            if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.Wants(NotifyCategory.Finds))
             {
                 _ = Notify.SendAsync($"block:{host}:{i.blockFound}", L.T("BLOCK GEFUNDEN – {0}", s.Config.Name),
                     L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound),
-                    NotifyPriority.Urgent, TimeSpan.FromDays(365));
+                    NotifyPriority.Urgent, TimeSpan.FromDays(365), category: NotifyCategory.Finds, host: host);
             }
             _blockFoundSeen[host] = i.blockFound;
         }
@@ -269,7 +270,7 @@ public sealed partial class MinerHub
             foreach (var a in alerts)
             {
                 RaiseStatus(false, $"{a.Title}: {a.Message}");
-                if (Config.Notifications.OnPool) SendAlert(a);
+                if (Config.Notifications.Wants(NotifyCategory.Pool)) SendAlert(a);
             }
         }
     }
@@ -305,7 +306,7 @@ public sealed partial class MinerHub
             catch { /* Ratgeber optional */ }
             // Eigener Schlüssel je Tag; "Jetzt senden" umgeht die Sperre über einen eindeutigen Schlüssel
             var key = markSent ? $"report:{now:yyyy-MM-dd}" : $"report-test:{now:O}";
-            await Notify.SendAsync(key, title, text, NotifyPriority.Low, TimeSpan.FromHours(20));
+            await Notify.SendAsync(key, title, text, NotifyPriority.Low, TimeSpan.FromHours(20), NotifyCategory.DailyReport);
             if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
             if (markSent)
             {
@@ -346,9 +347,9 @@ public sealed partial class MinerHub
             // Ersteintrag (Value 0) nicht melden, nur echte Verbesserungen
             if (previous.Value > 0)
                 OnBestDiffRecord(s.Config.Name.Length > 0 ? s.Config.Name : s.Config.Host, coin, previous.Raw, raw, Options.Clock?.Invoke() ?? DateTime.Now);
-            if (previous.Value > 0 && Config.Notifications.OnRecord)
+            if (previous.Value > 0 && Config.Notifications.Wants(NotifyCategory.Record))
                 _ = Notify.SendAsync($"record:{s.Config.Host}:{coin}", L.T("Neuer Rekord – {0}", s.Config.Name),
-                    L.T("Best Diff {0} ({1}), bisher {2}", raw, coin, previous.Raw), NotifyPriority.Low, TimeSpan.FromMinutes(10));
+                    L.T("Best Diff {0} ({1}), bisher {2}", raw, coin, previous.Raw), NotifyPriority.Low, TimeSpan.FromMinutes(10), category: NotifyCategory.Record, host: s.Config.Host);
         }
 
         if (changed)
@@ -404,10 +405,10 @@ public sealed partial class MinerHub
 
         RaiseStatus(!result.Contains("fehlgeschlagen"), L.T("Watchdog {0}: {1}", s.Config.Name, result));
 
-        if (Config.Notifications.OnMaintenance)
+        if (Config.Notifications.Wants(NotifyCategory.Maintenance))
             await Notify.SendAsync($"watchdog:{s.Config.Host}", L.T("Watchdog: {0}", s.Config.Name),
                 L.T("{0} min ohne Hashrate. {1}.", Config.Watchdog.ZeroHashMinutes, result),
-                NotifyPriority.High, TimeSpan.FromMinutes(5));
+                NotifyPriority.High, TimeSpan.FromMinutes(5), category: NotifyCategory.Maintenance, host: s.Config.Host);
     }
 
     // ---------- Firmware ----------
@@ -419,7 +420,7 @@ public sealed partial class MinerHub
 
         await Firmware.RefreshAsync(States.Select(s => s.Config.FirmwareRepo));
 
-        if (!Config.Notifications.OnMaintenance || !Notify.Enabled) return;
+        if (!Config.Notifications.Wants(NotifyCategory.Maintenance) || !Notify.Enabled) return;
 
         foreach (var s in States.Where(s => !string.IsNullOrWhiteSpace(s.Info?.version)))
         {
@@ -434,7 +435,7 @@ public sealed partial class MinerHub
 
             await Notify.SendAsync($"fw:{repo}:{fw.Latest}", L.T("Firmware-Update verfügbar"),
                 L.T("{0}: {1} (installiert bei {2}: {3})", repo, fw.Latest, s.Config.Name, s.Info.version),
-                NotifyPriority.Low, TimeSpan.FromDays(30));
+                NotifyPriority.Low, TimeSpan.FromDays(30), category: NotifyCategory.Maintenance);
         }
     }
 

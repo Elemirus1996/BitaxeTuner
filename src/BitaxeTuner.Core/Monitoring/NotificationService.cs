@@ -14,7 +14,8 @@ public enum NotifyPriority
 }
 
 /// <summary>
-/// Push-Benachrichtigungen über ntfy, Telegram, Discord, Pushover oder einen eigenen Webhook.
+/// Push-Benachrichtigungen über ntfy, Telegram, Discord, Pushover oder einen eigenen Webhook – an ein oder mehrere
+/// Ziele, je Ziel nur die gewünschten Bereiche und Miner (<see cref="PushTarget"/>).
 ///
 /// Jede Meldung hat einen Schlüssel (z. B. "offline:192.168.1.50"). Innerhalb
 /// der Sperrzeit wird derselbe Schlüssel nicht erneut gesendet, damit ein
@@ -34,8 +35,11 @@ public sealed class NotificationService : IDisposable
     /// <summary>Jede Meldung, die die Sperrzeit passiert hat (für Meldungsverlauf im Browser und Tests).</summary>
     public event Action<string, string, string, NotifyPriority>? Sending;
 
-    /// <summary>Nur für Tests: statt ntfy/Telegram aufrufen.</summary>
+    /// <summary>Nur für Tests: statt ntfy/Telegram aufrufen (einmal je Ziel).</summary>
     internal Func<string, string, NotifyPriority, Task>? TransportOverride { get; set; }
+
+    /// <summary>Nur für Tests: je gesendete Meldung das Ziel (Id) – prüft die Verteilung.</summary>
+    internal event Action<string, string>? DeliveredTo;
 
     public NotificationService(Func<NotificationSettings> settings) : this(settings, null) { }
 
@@ -48,13 +52,18 @@ public sealed class NotificationService : IDisposable
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeMonitor/1.0");
     }
 
-    public bool Enabled => Providers.Contains(_settings().Provider);
+    public bool Enabled => _settings().EffectiveTargets().Any(t => t.Enabled && Providers.Contains(t.Provider));
 
-    /// <summary>Sendet, sofern aktiviert und nicht innerhalb der Sperrzeit schon gesendet.</summary>
+    /// <summary>
+    /// Sendet an alle aktiven Ziele, die den Bereich (und bei Miner-Meldungen den Miner) wollen – sofern nicht
+    /// innerhalb der Sperrzeit schon gesendet. Fehler eines Ziels halten die anderen nicht auf.
+    /// </summary>
     public async Task SendAsync(string key, string title, string message,
-                                NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null)
+                                NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
+                                NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
-        if (!Enabled) return;
+        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host)).ToList();
+        if (targets.Count == 0) return;
 
         var wait = cooldown ?? TimeSpan.FromMinutes(30);
         lock (_lastSent)
@@ -64,18 +73,23 @@ public sealed class NotificationService : IDisposable
         }
 
         Sending?.Invoke(key, title, message, priority);
-        try
+        var errors = new List<string>();
+        foreach (var target in targets)
         {
-            if (TransportOverride is { } transport) await transport(title, message, priority);
-            else await SendRawAsync(_settings(), title, message, priority);
-            LastError = null;
+            try
+            {
+                if (TransportOverride is { } transport) await transport(title, message, priority);
+                else await SendRawAsync(target, title, message, priority);
+                DeliveredTo?.Invoke(target.Id, key);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(targets.Count > 1 ? $"{target.Title}: {ex.Message}" : ex.Message);
+            }
         }
-        catch (Exception ex)
-        {
-            LastError = ex.Message;
-            // Sperre aufheben, damit der nächste Versuch nicht blockiert ist
-            lock (_lastSent) _lastSent.Remove(key);
-        }
+        LastError = errors.Count > 0 ? string.Join("; ", errors) : null;
+        // Kam bei keinem Ziel etwas an: Sperre aufheben, damit der nächste Versuch nicht blockiert ist
+        if (errors.Count == targets.Count) lock (_lastSent) _lastSent.Remove(key);
     }
 
     /// <summary>Sperre für einen Schlüssel aufheben, z. B. wenn ein Miner wieder online ist.</summary>
@@ -84,12 +98,23 @@ public sealed class NotificationService : IDisposable
         lock (_lastSent) _lastSent.Remove(key);
     }
 
-    /// <summary>Testnachricht mit übergebenen Einstellungen, ohne Sperrzeit. Liefert Fehlertext oder null.</summary>
+    /// <summary>Testnachricht an alle aktiven Ziele, ohne Sperrzeit. Liefert Fehlertext(e) oder null.</summary>
     public async Task<string?> TestAsync(NotificationSettings settings)
+    {
+        var targets = settings.EffectiveTargets().Where(t => t.Enabled).ToList();
+        if (targets.Count == 0) return L.T("Kein Dienst ausgewählt");
+        var errors = new List<string>();
+        foreach (var t in targets)
+            if (await TestAsync(t) is { } e) errors.Add(targets.Count > 1 ? $"{t.Title}: {e}" : e);
+        return errors.Count > 0 ? string.Join("; ", errors) : null;
+    }
+
+    /// <summary>Testnachricht an ein einzelnes Ziel. Liefert Fehlertext oder null.</summary>
+    public async Task<string?> TestAsync(PushTarget target)
     {
         try
         {
-            await SendRawAsync(settings, "Miner Monitor", L.T("Testnachricht – Benachrichtigungen funktionieren."), NotifyPriority.Normal);
+            await SendRawAsync(target, "Miner Monitor", L.T("Testnachricht – Benachrichtigungen funktionieren."), NotifyPriority.Normal);
             return null;
         }
         catch (Exception ex)
@@ -98,7 +123,7 @@ public sealed class NotificationService : IDisposable
         }
     }
 
-    private async Task SendRawAsync(NotificationSettings s, string title, string message, NotifyPriority priority)
+    private async Task SendRawAsync(PushTarget s, string title, string message, NotifyPriority priority)
     {
         switch (s.Provider)
         {

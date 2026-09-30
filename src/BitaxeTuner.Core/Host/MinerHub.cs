@@ -404,7 +404,7 @@ public sealed partial class MinerHub : IDisposable
     }
 
     /// <summary>Meldung über den gemeinsamen Benachrichtigungsdienst (mit Sperrzeit je Schlüssel).</summary>
-    public void SendAlert(Alert a) => _ = Notify.SendAsync(a.Key, a.Title, a.Message, a.Priority, a.Cooldown);
+    public void SendAlert(Alert a) => _ = Notify.SendAsync(a.Key, a.Title, a.Message, a.Priority, a.Cooldown, a.Category, a.Host);
 
     public void Dispose()
     {

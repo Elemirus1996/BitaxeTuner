@@ -96,23 +96,23 @@ public sealed partial class MinerHub
             if (_plugErrors.TryGetValue(plug.Id, out var error))
             {
                 var since = _plugFailSince.TryGetValue(plug.Id, out var s) ? s : _plugFailSince[plug.Id] = now;
-                if (now - since >= PlugOfflineAfter && n.OnPlugs && _plugOfflineNotified.Add(plug.Id))
+                if (now - since >= PlugOfflineAfter && n.Wants(NotifyCategory.Plugs) && _plugOfflineNotified.Add(plug.Id))
                     _ = Notify.SendAsync(key, L.T("Smart Plug {0} nicht erreichbar", plug.Name),
                         L.T("{0} antwortet seit {1} min nicht ({2}). Kosten rechnen so lange mit AxeOS-Werten.", plug.Name,
-                            (int)(now - since).TotalMinutes, error), NotifyPriority.Normal, TimeSpan.FromHours(6));
+                            (int)(now - since).TotalMinutes, error), NotifyPriority.Normal, TimeSpan.FromHours(6), category: NotifyCategory.Plugs);
                 continue;
             }
             _plugFailSince.Remove(plug.Id);
             if (_plugOfflineNotified.Remove(plug.Id))
             {
                 Notify.Reset(key);
-                if (n.OnPlugs)
+                if (n.Wants(NotifyCategory.Plugs))
                     _ = Notify.SendAsync($"plug-online:{plug.Id}", L.T("Smart Plug {0} wieder erreichbar", plug.Name),
-                        L.T("{0} misst wieder.", plug.Name), NotifyPriority.Low, TimeSpan.FromMinutes(1));
+                        L.T("{0} misst wieder.", plug.Name), NotifyPriority.Low, TimeSpan.FromMinutes(1), category: NotifyCategory.Plugs);
             }
         }
 
-        if (now < _plugOverheadCheck || History is not { } db || !n.OnPlugs) return;
+        if (now < _plugOverheadCheck || History is not { } db || !n.Wants(NotifyCategory.Plugs)) return;
         _plugOverheadCheck = now.AddHours(1);
         foreach (var plug in Config.Plugs.Items.Where(p => p.Role is "miners" or "total"))
         {
@@ -134,7 +134,7 @@ public sealed partial class MinerHub
                 L.T("An der Steckdose {0} W mehr als AxeOS ({1} %), in der Vorwoche {2} W ({3} %). Netzteil, Kabel und Zusatzverbraucher prüfen.",
                     change.RecentW.ToString("0.0", L.Culture), change.RecentPercent.ToString("0", L.Culture),
                     change.BaseW.ToString("0.0", L.Culture), change.BasePercent.ToString("0", L.Culture)),
-                NotifyPriority.Normal, TimeSpan.FromDays(1));
+                NotifyPriority.Normal, TimeSpan.FromDays(1), category: NotifyCategory.Plugs);
         }
     }
 
