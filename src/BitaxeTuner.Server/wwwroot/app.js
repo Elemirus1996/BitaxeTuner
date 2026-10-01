@@ -667,13 +667,98 @@ function drawChart(canvas, series, markers, opts = {}) {
 
 // ---------- Vergleich ----------
 
-/** Vergleichsseite: Tabelle wird bei neuen Messwerten nur ausgetauscht (kein Neuaufbau – die Scrollposition bleibt). */
+/** Ansicht der Vergleichsseite (Filter, Sortierung, Spaltengruppen) – je Browser gemerkt. */
+function compareView() {
+  if (S.cmp) return S.cmp;
+  const def = { q: '', status: 'all', model: '', sort: 'name', dir: 1, groups: { power: true, temp: true, shares: true, system: false } };
+  let saved = {};
+  try { saved = JSON.parse(localStorageGet('compareView') || '{}'); } catch { /* egal */ }
+  S.cmp = { ...def, ...saved, q: '', groups: { ...def.groups, ...(saved.groups || {}) } };
+  return S.cmp;
+}
+function saveCompareView() {
+  const { status, model, sort, dir, groups } = S.cmp;
+  localStorageSet('compareView', JSON.stringify({ status, model, sort, dir, groups }));
+}
+
+/** „1.23G“ → 1,23·10⁹ (Best Diff kommt als Text). */
+function parseDiff(v) {
+  if (v == null || v === '') return null;
+  const m = String(v).trim().match(/^([\d.,]+)\s*([kKMGTPE]?)$/);
+  if (!m) return null;
+  const f = { '': 1, k: 1e3, K: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15, E: 1e18 }[m[2]];
+  const x = parseFloat(m[1].replace(',', '.'));
+  return Number.isNaN(x) ? null : x * f;
+}
+
+/** Spalten des Vergleichs: value = Zahl zum Sortieren/Balken/Bestwert, text = Anzeige, best = 'max' | 'min'. */
+function compareColumns() {
+  const pct = (a, b) => a != null && b ? a / b * 100 : null;
+  const rej = d => d.sharesAccepted != null && d.sharesAccepted + d.sharesRejected > 0 ? d.sharesRejected / (d.sharesAccepted + d.sharesRejected) * 100 : null;
+  return [
+    { key: 'hashrate', group: 'power', label: t('Hashrate'), value: d => d.hashrate, text: d => hash(d.hashrate), best: 'max', bar: true },
+    { key: 'expected', group: 'power', label: t('Soll erreicht'), value: d => pct(d.hashrate, d.expectedHashrate), text: d => pct(d.hashrate, d.expectedHashrate) != null ? `${n(pct(d.hashrate, d.expectedHashrate), 0)} %` : '–', best: 'max' },
+    { key: 'power', group: 'power', label: t('Leistung'), value: d => d.power, text: d => d.power != null ? t('{0} W', n(d.power, 1)) : '–', bar: true },
+    { key: 'efficiency', group: 'power', label: t('Effizienz'), value: d => d.efficiency || null, text: d => d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–', best: 'min' },
+    { key: 'clock', group: 'power', label: t('Frequenz / Spannung'), value: d => d.frequency, text: d => d.frequency != null ? t('{0} MHz / {1} mV', d.frequency, d.voltage ?? '–') : '–' },
+    { key: 'temp', group: 'temp', label: t('ASIC-Temperatur'), value: d => d.temp, text: d => d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–', best: 'min' },
+    { key: 'vrTemp', group: 'temp', label: t('VR-Temperatur'), value: d => d.vrTemp, text: d => d.vrTemp != null ? t('{0} °C', n(d.vrTemp, 0)) : '–', best: 'min' },
+    { key: 'fan', group: 'temp', label: t('Lüfter'), value: d => d.fanRpm, text: d => d.fanRpm != null ? t('{0} rpm ({1} %)', d.fanRpm, d.fanPercent ?? '–') : '–' },
+    { key: 'shares', group: 'shares', label: t('Shares'), value: d => d.sharesAccepted, text: d => d.sharesAccepted ?? '–' },
+    { key: 'rejected', group: 'shares', label: t('abgelehnt'), value: rej, text: d => rej(d) != null ? `${n(rej(d), 2)} %` : '–', best: 'min' },
+    { key: 'errorPercent', group: 'shares', label: t('Fehlerrate'), value: d => d.errorPercent, text: d => d.errorPercent != null ? `${n(d.errorPercent, 2)} %` : '–', best: 'min' },
+    { key: 'bestDiff', group: 'shares', label: t('Best Diff'), value: d => parseDiff(d.bestDiff), text: d => d.bestDiff || '–', best: 'max' },
+    { key: 'poolDifficulty', group: 'shares', label: t('Pool-Difficulty'), value: d => d.poolDifficulty, text: d => diffText(d.poolDifficulty) },
+    { key: 'pool', group: 'shares', label: t('Pool'), value: d => d.pool || '', text: d => d.pool || '–' },
+    { key: 'uptime', group: 'system', label: t('Laufzeit'), value: d => d.uptimeSeconds, text: d => dur(d.uptimeSeconds) },
+    { key: 'firmware', group: 'system', label: t('Firmware'), value: d => d.firmwareText || '', text: d => d.firmwareText || '–' },
+    { key: 'profile', group: 'system', label: t('Profil'), value: d => d.profile || '', text: d => d.profile || '–' },
+    { key: 'automation', group: 'system', label: t('Automatik'), value: d => d.automation || '', text: d => d.automation || t('keine Automatik') },
+  ];
+}
+
+/** Vergleichsseite: Kennzahlen, Filterleiste und Tabelle (je Miner eine Zeile). Neue Messwerte tauschen nur den Inhalt aus. */
 function renderCompare() {
   const s = S.status;
   if (!s) { api('/status').then(x => { S.status = x; renderCompare(); }); return; }
-  S.compareTable = h('div', { class: 'table-wrap' });
+  const v = compareView();
+  S.compareKpis = h('div', { class: 'tiles' });
+  S.compareTable = h('div', { class: 'table-wrap cmp-wrap' });
+  S.compareCount = h('span', { class: 'muted small' });
+  const changed = () => { saveCompareView(); updateCompare(); };
+  const chips = (options, get, set) => h('div', { class: 'seg', role: 'group' }, options.map(([val, label]) => {
+    const b = h('button', { type: 'button', class: 'seg-btn' + (get() === val ? ' on' : ''), 'aria-pressed': String(get() === val), onclick: () => {
+      set(val);
+      [...b.parentNode.children].forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+      changed();
+    } }, label);
+    return b;
+  }));
+  const models = [...new Set(s.devices.map(d => d.model).filter(Boolean))].sort();
+  const modelSel = h('select', { style: 'width:auto;max-width:240px', 'aria-label': t('Modell'), onchange: e => { v.model = e.target.value; changed(); } },
+    h('option', { value: '' }, t('alle Modelle')), models.map(m => h('option', { value: m, selected: v.model === m }, m)));
+  const search = h('input', { type: 'search', value: v.q, placeholder: t('Miner suchen …'), 'aria-label': t('Miner suchen'), style: 'max-width:220px', oninput: e => { v.q = e.target.value; updateCompare(); } });
+  const groups = [['power', t('Leistung')], ['temp', t('Temperatur')], ['shares', t('Shares & Pool')], ['system', t('System')]];
+  const groupChips = h('div', { class: 'seg', role: 'group', 'aria-label': t('Spalten') }, groups.map(([g, label]) => {
+    const b = h('button', { type: 'button', class: 'seg-btn' + (v.groups[g] ? ' on' : ''), 'aria-pressed': String(!!v.groups[g]), onclick: () => {
+      v.groups[g] = !v.groups[g];
+      b.classList.toggle('on', v.groups[g]); b.setAttribute('aria-pressed', String(v.groups[g]));
+      changed();
+    } }, label);
+    return b;
+  }));
   mount(h('div', { class: 'stack' },
-    h('div', { class: 'card' }, h('h2', {}, t('Vergleich')), S.compareTable),
+    h('div', { class: 'card stack' },
+      h('div', { class: 'titlebar' }, h('h2', {}, t('Vergleich')), h('span', { class: 'spacer' }), S.compareCount),
+      S.compareKpis,
+      h('div', { class: 'cmp-toolbar' },
+        search,
+        chips([['all', t('alle')], ['online', 'online'], ['offline', 'offline']], () => v.status, x => { v.status = x; }),
+        models.length > 1 ? modelSel : null,
+        h('span', { class: 'spacer' }),
+        h('span', { class: 'muted small' }, t('Spalten:')), groupChips),
+      S.compareTable,
+      h('p', { class: 'muted small' }, t('Spaltenüberschrift anklicken zum Sortieren. ★ = bester Wert der angezeigten Miner; Balken bei Hashrate und Leistung = Anteil am höchsten Wert.'))),
     isAdmin() ? advisorCard() : null));
   updateCompare();
 }
@@ -681,30 +766,72 @@ function renderCompare() {
 function updateCompare() {
   const s = S.status;
   if (!s || !S.compareTable || !document.body.contains(S.compareTable)) return;
-  const rows = [
-    [t('Status'), d => d.online ? 'online' : d.error || 'offline'],
-    [t('Modell / Profil'), d => `${d.model || '–'} / ${d.profile}`],
-    [t('Hashrate'), d => hash(d.hashrate)],
-    [t('Soll-Hashrate'), d => hash(d.expectedHashrate)],
-    [t('ASIC-Temperatur'), d => d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–'],
-    [t('VR-Temperatur'), d => d.vrTemp != null ? t('{0} °C', n(d.vrTemp, 0)) : '–'],
-    [t('Leistung'), d => d.power != null ? t('{0} W', n(d.power, 1)) : '–'],
-    [t('Effizienz'), d => d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–'],
-    [t('Frequenz / Spannung'), d => t('{0} MHz / {1} mV', d.frequency ?? '–', d.voltage ?? '–')],
-    [t('Fehlerrate'), d => d.errorPercent != null ? `${n(d.errorPercent, 2)} %` : '–'],
-    [t('Lüfter'), d => d.fanRpm != null ? t('{0} rpm ({1} %)', d.fanRpm, d.fanPercent ?? '–') : '–'],
-    [t('Shares'), d => d.sharesAccepted != null ? t('{0} / {1} abgelehnt', d.sharesAccepted, d.sharesRejected) : '–'],
-    [t('Best Diff'), d => d.bestDiff || '–'],
-    [t('Pool-Difficulty'), d => diffText(d.poolDifficulty)],
-    [t('Laufzeit'), d => dur(d.uptimeSeconds)],
-    [t('Firmware'), d => d.firmwareText || '–'],
-    [t('Pool'), d => d.pool || '–'],
-    [t('Automatik'), d => d.automation || t('keine Automatik')],
-  ];
-  fill(S.compareTable, h('table', {},
-    h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name),
-      d.webUrl ? [' ', h('a', { href: d.webUrl, target: '_blank', rel: 'noopener', class: 'small', title: t('AxeOS von {0} öffnen', d.name) }, '↗')] : null)))),
-    h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))));
+  const v = compareView();
+  const q = v.q.trim().toLowerCase();
+  const rows = s.devices.filter(d =>
+    (v.status === 'all' || (v.status === 'online') === !!d.online) &&
+    (!v.model || d.model === v.model) &&
+    (!q || `${d.name} ${d.model || ''} ${d.profile || ''}`.toLowerCase().includes(q)));
+  const cols = compareColumns().filter(c => v.groups[c.group]);
+  const all = compareColumns();
+  const sortCol = all.find(c => c.key === v.sort);
+  const key = d => v.sort === 'name' ? d.name.toLowerCase() : sortCol ? sortCol.value(d) : null;
+  rows.sort((a, b) => {
+    const x = key(a), y = key(b);
+    if (x == null || x === '') return 1;           // ohne Wert immer ans Ende
+    if (y == null || y === '') return -1;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * v.dir;
+  });
+
+  // Kennzahlen der angezeigten Miner
+  const on = rows.filter(d => d.online);
+  const sum = f => on.reduce((a, d) => a + (f(d) || 0), 0);
+  const hr = sum(d => d.hashrate), pw = sum(d => d.power);
+  const eff = on.filter(d => d.efficiency).sort((a, b) => a.efficiency - b.efficiency)[0];
+  const hot = on.filter(d => d.temp != null).sort((a, b) => b.temp - a.temp)[0];
+  fill(S.compareKpis,
+    tile(t('Hashrate'), hash(hr), t('{0} von {1} online', on.length, rows.length), on.length ? 'ok' : 'danger'),
+    tile(t('Leistung'), t('{0} W', n(pw, 1)), hr > 0 ? t('Ø {0} J/TH', n(pw / (hr / 1000), 2)) : ''),
+    tile(t('Effizientester'), eff ? t('{0} J/TH', n(eff.efficiency, 2)) : '–', eff ? eff.name : ''),
+    tile(t('Heißester'), hot ? t('{0} °C', n(hot.temp, 1)) : '–', hot ? hot.name : ''));
+  S.compareCount.textContent = rows.length === s.devices.length ? t('{0} Miner', rows.length) : t('{0} von {1} Miner', rows.length, s.devices.length);
+
+  // Bestwerte und Balken nur über die angezeigten, laufenden Miner
+  const stats = {};
+  for (const c of cols) {
+    const vals = on.map(c.value).filter(x => typeof x === 'number' && !Number.isNaN(x));
+    stats[c.key] = { max: vals.length ? Math.max(...vals) : null, min: vals.length ? Math.min(...vals) : null, n: vals.length };
+  }
+  const sortBtn = (k, label) => {
+    const active = v.sort === k;
+    return h('button', { type: 'button', class: 'th-sort' + (active ? ' on' : ''), onclick: () => {
+      // erster Klick: Bester zuerst (bei „weniger ist besser“ aufsteigend), Namen A–Z
+      if (v.sort === k) v.dir = -v.dir; else { v.sort = k; v.dir = k === 'name' || all.find(c => c.key === k)?.best === 'min' ? 1 : -1; }
+      saveCompareView(); updateCompare();
+    } }, label, h('span', { class: 'arrow', 'aria-hidden': 'true' }, active ? (v.dir > 0 ? '▲' : '▼') : '↕'));
+  };
+  const ariaSort = k => v.sort === k ? (v.dir > 0 ? 'ascending' : 'descending') : null;
+  const cell = (c, d) => {
+    const val = c.value(d), st = stats[c.key];
+    // ★ nur, wenn sich die Werte unterscheiden – sonst wären alle „am besten“
+    const isBest = d.online && c.best && st.n > 1 && st.max !== st.min && typeof val === 'number' && val === (c.best === 'max' ? st.max : st.min);
+    const width = c.bar && d.online && typeof val === 'number' && st.max > 0 ? Math.max(4, val / st.max * 100) : null;
+    return h('td', { class: 'num' + (isBest ? ' best' : '') },
+      h('div', { class: 'cmp-val' }, c.text(d), isBest ? h('span', { class: 'star', title: t('bester Wert'), 'aria-label': t('bester Wert') }, ' ★') : null),
+      width != null ? h('div', { class: 'cmp-bar', 'aria-hidden': 'true' }, h('span', { style: `width:${width.toFixed(1)}%` })) : null);
+  };
+  fill(S.compareTable, rows.length
+    ? h('table', { class: 'cmp-table' },
+        h('thead', {}, h('tr', {},
+          h('th', { class: 'sticky', 'aria-sort': ariaSort('name') }, sortBtn('name', t('Miner'))),
+          cols.map(c => h('th', { 'aria-sort': ariaSort(c.key) }, sortBtn(c.key, c.label))))),
+        h('tbody', {}, rows.map(d => h('tr', { class: d.online ? '' : 'off' },
+          h('td', { class: 'sticky' },
+            h('div', { class: 'cmp-name' }, h('span', { class: `dot ${dotClass(d)}` }), h('a', { href: `#/device/${d.id}` }, d.name),
+              d.webUrl ? h('a', { href: d.webUrl, target: '_blank', rel: 'noopener', class: 'small', title: t('AxeOS von {0} öffnen', d.name) }, '↗') : null),
+            h('div', { class: 'muted small' }, d.online ? (d.model || '–') : (d.maintenance ? t('Neustart/Tuning …') : (d.error || 'offline')))),
+          cols.map(c => cell(c, d))))))
+    : h('p', { class: 'muted' }, t('Kein Miner passt zum Filter.')));
 }
 
 /** Effizienz-Ratgeber: beste geprüfte Einstellung je Ziel, Vergleich mit dem aktuellen Betrieb. Ändert nie selbst etwas. */

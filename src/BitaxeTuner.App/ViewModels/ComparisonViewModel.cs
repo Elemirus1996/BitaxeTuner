@@ -11,7 +11,8 @@ namespace BitaxeTuner.App.ViewModels;
 public sealed record ComparisonRow(
     string Name, string Chip, string Current,
     double? Hash24, double? Eff24, double? Temp24, double? Availability7,
-    string BestHash, string BestEff, int? MaxStableFrequency, string Benchmark, string PoolDiff = "–")
+    string BestHash, string BestEff, int? MaxStableFrequency, string Benchmark, string PoolDiff = "–",
+    string Model = "", bool Online = false)
 {
     public string Hash24Text => Hash24 is { } h ? L.T("{0:0} GH/s", h) : "–";
     public string Eff24Text => Eff24 is { } e ? L.T("{0:0.00} J/TH", e) : "–";
@@ -24,10 +25,39 @@ public sealed record ComparisonRow(
 /// Alle Miner nebeneinander: aktuelle Einstellung, 24-h-Mittel aus history.db, Verfügbarkeit (7 Tage)
 /// und die besten Ergebnisse des letzten Benchmarks – zeigt, welcher Chip der gute ist.
 /// </summary>
-public sealed partial class ComparisonViewModel(AppHost host) : ObservableObject
+public sealed partial class ComparisonViewModel : ObservableObject
 {
+    private readonly AppHost host;
+
+    public ComparisonViewModel(AppHost host)
+    {
+        this.host = host;
+        View = System.Windows.Data.CollectionViewSource.GetDefaultView(Rows);
+        View.Filter = o => o is ComparisonRow r && Matches(r);
+    }
+
     public ObservableCollection<ComparisonRow> Rows { get; } = [];
+    /// <summary>Gefilterte Sicht auf <see cref="Rows"/> (Suche, Modell, nur online); Sortieren über die Spaltenköpfe.</summary>
+    public System.ComponentModel.ICollectionView View { get; }
+    public ObservableCollection<string> Models { get; } = [];
     [ObservableProperty] private string _summary = "";
+    [ObservableProperty] private string _filterText = "";
+    [ObservableProperty] private string _selectedModel = "";
+    [ObservableProperty] private bool _onlyOnline;
+
+    partial void OnFilterTextChanged(string value) => View.Refresh();
+    partial void OnSelectedModelChanged(string value) => View.Refresh();
+    partial void OnOnlyOnlineChanged(bool value) => View.Refresh();
+
+    private bool Matches(ComparisonRow r)
+    {
+        if (OnlyOnline && !r.Online) return false;
+        if (SelectedModel.Length > 0 && SelectedModel != AllModels && r.Model != SelectedModel) return false;
+        var f = FilterText.Trim();
+        return f.Length == 0 || r.Name.Contains(f, StringComparison.OrdinalIgnoreCase) || r.Chip.Contains(f, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string AllModels => L.T("alle Modelle");
 
     [RelayCommand]
     public void Refresh()
@@ -55,8 +85,15 @@ public sealed partial class ComparisonViewModel(AppHost host) : ObservableObject
                 avg?.HashRateGh, avg?.EfficiencyJth, avg?.Temp, availability,
                 Format(bestHash), Format(bestEff), maxStable,
                 session is null ? L.T("kein Benchmark") : L.T("{0:d} · {1} Messungen", session.StartedAt, results.Count) + (session.IsFinished ? "" : L.T(" (unvollständig)")),
-                i?.PoolDifficultyText ?? "–"));
+                i?.PoolDifficultyText ?? "–",
+                i?.DeviceModel ?? i?.AsicModel ?? "", state.Online));
         }
+
+        var selected = SelectedModel;
+        Models.Clear();
+        Models.Add(AllModels);
+        foreach (var m in Rows.Select(r => r.Model).Where(m => m.Length > 0).Distinct().Order()) Models.Add(m);
+        SelectedModel = Models.Contains(selected) ? selected : AllModels;
 
         var withBench = Rows.Where(r => r.MaxStableFrequency is not null).ToList();
         var bestChip = withBench.OrderByDescending(r => r.MaxStableFrequency).FirstOrDefault();

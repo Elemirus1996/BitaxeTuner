@@ -13,7 +13,14 @@
             </DockPanel>
             <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
                        Text="{l:T '24-h-Werte aus history.db (nur Online-Minuten), Verfügbarkeit über 7 Tage, Benchmark-Werte aus dem letzten Lauf je Miner. „Stabil bis“ = höchste Frequenz, die im Benchmark stabil lief – ein Maß für die Chip-Güte.'}" />
-            <DataGrid ItemsSource="{Binding Rows}" IsReadOnly="True" RowHeight="28">
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBox Width="200" Margin="0,0,8,0" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{l:T 'Miner suchen (Name oder Chip)'}" VerticalContentAlignment="Center" />
+                <ComboBox Width="220" Margin="0,0,8,0" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}"
+                          ToolTip="{l:T 'Nur dieses Modell anzeigen'}" />
+                <CheckBox Content="{l:T 'nur online'}" IsChecked="{Binding OnlyOnline}" VerticalAlignment="Center" />
+            </WrapPanel>
+            <DataGrid ItemsSource="{Binding View}" IsReadOnly="True" RowHeight="28">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{l:T 'Miner'}" Binding="{Binding Name}" Width="110" FontWeight="SemiBold" />
                     <DataGridTextColumn Header="Chip" Binding="{Binding Chip}" Width="130" />

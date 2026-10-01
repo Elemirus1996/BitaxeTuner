@@ -186,3 +186,34 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 
 .web-link { cursor: pointer; }
 .web-link:hover, .web-link:focus-visible { filter: brightness(1.1); text-decoration: underline; }
+
+/* Vergleich */
+.cmp-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg-btn { background: var(--field); color: var(--muted); border: 0; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn.on { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+.seg-btn:focus-visible, .th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cmp-wrap { border: 1px solid var(--border); border-radius: var(--radius); }
+.cmp-table th { position: sticky; top: 0; background: var(--alt); z-index: 1; padding: 0; }
+.cmp-table td { vertical-align: top; }
+.cmp-table tbody tr:hover td { background: var(--hover); }
+.cmp-table tr.off td { color: var(--muted); }
+.cmp-table .sticky { position: sticky; left: 0; background: var(--card); z-index: 2; box-shadow: 1px 0 0 var(--border); min-width: 170px; }
+.cmp-table th.sticky { background: var(--alt); z-index: 3; }
+.th-sort { display: inline-flex; gap: 4px; align-items: center; width: 100%; padding: 8px; background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.th-sort:hover, .th-sort.on { color: var(--text); }
+.th-sort .arrow { font-size: 10px; opacity: .6; }
+.th-sort.on .arrow { opacity: 1; color: var(--accent); }
+.cmp-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.cmp-name a { color: var(--text); }
+.cmp-name a.small { color: var(--accent); font-weight: 400; }
+.cmp-val { white-space: nowrap; }
+.cmp-table td.best .cmp-val { color: var(--ok); font-weight: 600; }
+.cmp-bar { height: 4px; margin-top: 4px; background: var(--alt); border-radius: 2px; min-width: 60px; }
+.cmp-bar span { display: block; height: 100%; border-radius: 2px; background: var(--accent); opacity: .7; }
+.cmp-table td.best .cmp-bar span { background: var(--ok); opacity: 1; }
+@media (max-width: 700px) {
+  .cmp-table .sticky { min-width: 130px; }
+  .cmp-toolbar input[type=search] { max-width: none !important; flex: 1 1 100%; }
+}
