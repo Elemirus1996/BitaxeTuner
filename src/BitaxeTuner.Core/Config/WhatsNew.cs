@@ -52,6 +52,9 @@ public static class WhatsNew
                 server ? tr.T("Im Browser gibt es jetzt alle Benchmark-Optionen wie am Desktop – auch „Pro Frequenz auch niedrigere Spannung testen“, Neustart nach jeder Änderung und Grenzen der Eingangsspannung.")
                        : tr.T("Die Bestätigung vor dem Benchmark nennt jetzt auch die niedrigste Spannung, wenn „Pro Frequenz auch niedrigere Spannung testen“ eingeschaltet ist."),
                 null),
+            new("0.8.1", tr.T("Browser kann jetzt alles wie die Desktop-App"),
+                tr.T("Je Miner Wallet-Adresse, Coin, Firmware-Repository und Log-Alarme (Einstellungen → Geräte → Details); Voreinstellungen aus der aktuellen Einstellung oder dem Benchmark übernehmen."),
+                null),
             new("0.8.1", tr.T("AxeOS mit einem Klick"),
                 server ? tr.T("Übersicht, Vergleich und Geräteseite verlinken direkt die Weboberfläche des Miners.")
                        : tr.T("In der Browser-Oberfläche verlinken Übersicht, Vergleich und Geräteseite direkt die Weboberfläche des Miners; in der Desktop-App wie bisher über „Weboberfläche“."),

@@ -1191,6 +1191,12 @@ function tabAutomation() {
   const presetOptions = () => [h('option', { value: '' }, '—'), ...presets.map(p => h('option', { value: p.name }, t('{0} ({1} MHz / {2} mV)', p.name, p.frequencyMhz, p.coreVoltageMv)))];
   const presetSelect = (obj, key) => { const s = h('select', { onchange: e => { obj[key] = e.target.value; } }, presetOptions()); s.value = obj[key] || ''; return s; };
 
+  const upsertPreset = (name, frequencyMhz, coreVoltageMv) => {
+    const i = presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+    const p = { name, frequencyMhz, coreVoltageMv };
+    if (i >= 0) presets[i] = p; else presets.push(p);
+    renderPresets();
+  };
   const renderPresets = () => fill(presetList, 
     ...presets.map((p, i) => h('div', { class: 'row' }, h('span', { style: 'flex:1' }, t('{0}: {1} MHz / {2} mV', p.name, p.frequencyMhz, p.coreVoltageMv)),
       h('button', { class: 'btn small ghost', onclick: () => { presets.splice(i, 1); renderPresets(); } }, t('Entfernen')))),
@@ -1243,10 +1249,26 @@ function tabAutomation() {
             if (i >= 0) presets[i] = p; else presets.push(p);
             pName.value = ''; renderPresets();
           },
-        }, t('Hinzufügen')))),
+        }, t('Hinzufügen'))),
+      // Abkürzungen wie in der Desktop-App; gespeichert wird erst mit „Speichern“ (der Server prüft die Profilgrenzen)
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small', onclick: () => {
+          const d = summaryOf(S.route.id);
+          if (!d?.online || d.frequency == null) return toast(t('Kein aktueller Wert – Miner nicht erreichbar.'), 'error');
+          upsertPreset(pName.value.trim() || t('{0} MHz', d.frequency), d.frequency, d.voltage);
+          pName.value = '';
+        } }, t('Aktuelle Einstellung übernehmen')),
+        h('button', { class: 'btn small', onclick: () => {
+          const r = S.detail.session?.ranking;
+          if (!r?.hashrate || !r?.efficiency) return toast(t('Es gibt noch keine stabilen Benchmark-Ergebnisse für dieses Gerät.'), 'error');
+          upsertPreset(t('Hashrate'), r.hashrate.frequencyMhz, r.hashrate.coreVoltageMv);
+          upsertPreset(t('Effizienz'), r.efficiency.frequencyMhz, r.efficiency.coreVoltageMv);
+        } }, t('Aus Benchmark (Hashrate + Effizienz)')),
+        h('span', { class: 'spacer' }),
+        h('button', { class: 'btn small primary', onclick: save }, t('Speichern')))),
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Temperaturschutz')), h('span', { class: `pill ${c.thermalGuardApproved ? '' : 'gray'}` }, c.thermalGuardApproved ? t('freigegeben') : t('nicht freigegeben'))),
-      checkInput(guard, 'enabled', 'eingeschaltet'),
+      checkInput(guard, 'enabled', t('eingeschaltet')),
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('Max. Chip (°C)')), numInput(guard, 'maxChipTempC', 0.5)), h('div', {}, h('label', {}, t('Max. VR (°C)')), numInput(guard, 'maxVrTempC', 0.5)),
         h('div', {}, h('label', {}, t('durchgehend (min)')), numInput(guard, 'minutes')), h('div', {}, h('label', {}, t('Absenken um (MHz)')), numInput(guard, 'stepMhz')),
@@ -1255,7 +1277,7 @@ function tabAutomation() {
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: () => approve('thermal') }, t('Speichern & freigeben …')))),
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Zeitplan / Strompreis')), h('span', { class: `pill ${c.scheduleApproved ? '' : 'gray'}` }, c.scheduleApproved ? t('freigegeben') : t('nicht freigegeben'))),
-      checkInput(sched, 'enabled', 'eingeschaltet'),
+      checkInput(sched, 'enabled', t('eingeschaltet')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)'))); s.value = sched.mode; return s; })())),
       h('h3', {}, t('Zeitplan')), entries,
       h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: presets[0]?.name || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
