@@ -210,18 +210,31 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         finally { _assigningProfile = false; }
     }
 
+    /// <summary>Benchmark-Werte, wie sie zuletzt automatisch gesetzt wurden – Abweichung = vom Benutzer geändert.</summary>
+    private string? _settingsBaseline;
+
+    private static string Snapshot(BenchmarkSettings s) => System.Text.Json.JsonSerializer.Serialize(s);
+
     partial void OnProfileChanged(DeviceProfile? value)
     {
         if (value is null) return;
         // Vom Benutzer gewählt: dauerhaft in der gemeinsamen Geräteliste merken
         if (!_assigningProfile && !IsRunning) _hub.SetProfile(_device, value);
         if (IsRunning) return;
+        // Profil automatisch erkannt (kurz nach dem Start): eigene Eingaben im Benchmark nicht überschreiben (Issue #9).
+        // Die Grenzen prüft PrepareAsync vor jedem Start ohnehin gegen das Profil.
+        if (_assigningProfile && Settings is not null && _settingsBaseline is not null && Snapshot(Settings) != _settingsBaseline)
+        {
+            AddLog(L.T("Profil „{0}“ erkannt – deine Benchmark-Werte bleiben; „Auf Profilwerte zurücksetzen“ übernimmt die Profilwerte.", value.Name));
+            return;
+        }
         Settings = BenchmarkSettings.FromProfile(value);
         if (Info is { FrequencyMhz: > 0 } i && i.FrequencyMhz >= value.MinFrequencyMhz && i.FrequencyMhz < value.MaxFrequencyMhz)
         {
             // Mit den aktuellen Werten des Geräts starten, wenn sie im Profilbereich liegen.
             Settings.StartFrequencyMhz = Math.Min(i.FrequencyMhz, value.DefaultFrequencyMhz);
         }
+        _settingsBaseline = Snapshot(Settings);
         OnPropertyChanged(nameof(Settings));
         OnPropertyChanged(nameof(EstimatedDurationText));
     }
@@ -234,6 +247,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     {
         if (Profile is null) return;
         Settings = BenchmarkSettings.FromProfile(Profile);
+        _settingsBaseline = Snapshot(Settings);
         OnPropertyChanged(nameof(EstimatedDurationText));
     }
 

@@ -922,13 +922,36 @@ function renderDevice() {
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
     h('div', { class: 'tabs' }, TABS().filter(tv => !tv[2] || isAdmin()).map(([k, label]) =>
       h('a', { href: `#/device/${d.id}/${k}`, class: k === tab ? 'active' : null }, label))),
-    h('div', { id: 'tab' })));
+    h('div', {
+      id: 'tab', oninput: markTabDirty, onchange: markTabDirty,
+      // Voreinstellungen/Zeitplan werden per Knopf bearbeitet – auch das sind ungespeicherte Änderungen
+      onclick: e => { if (S.route.tab === 'automation' && e.target.closest('button')) markTabDirty(); },
+    })));
   refreshDeviceTab();
+}
+
+/**
+ * Ungespeicherte Eingaben im Benchmark- oder Automatik-Tab: Neue Daten vom Server (z. B. Automatik-Status) bauen den Tab
+ * dann nicht neu auf – sonst wären die Eingaben nach ein paar Sekunden weg (Issue #9). Gespeichert/gestartet → cleanTab().
+ */
+function markTabDirty() {
+  const tab = $('#tab');
+  if (tab && ['benchmark', 'automation'].includes(S.route?.tab)) tab.dataset.dirty = S.route.tab;
+}
+function cleanTab() {
+  const tab = $('#tab');
+  if (tab) delete tab.dataset.dirty;
 }
 
 function refreshDeviceTab() {
   const tab = $('#tab');
   if (!tab) return;
+  if (tab.dataset.dirty === S.route.tab) {
+    const progress = $('#bench-progress');
+    if (progress) fill(progress, ...benchProgress(summaryOf(S.route.id)?.benchmark));
+    return;
+  }
+  delete tab.dataset.dirty;
   const render = { live: tabLive, benchmark: tabBenchmark, results: tabResults, compare: tabCompare, health: tabHealth, automation: tabAutomation, backups: tabBackups, log: tabLog }[S.route.tab];
   // Protokoll-Tab nicht bei jedem Neuladen neu aufbauen (Live-Log liefe sonst neu an)
   if (S.route.tab === 'log' && $('#miner-log')) { fillAppLog(); return; }
@@ -1094,7 +1117,7 @@ function tabBenchmark() {
     const plan = await run(() => api(`/devices/${S.route.id}/benchmark/prepare`, { method: 'POST', body }));
     if (!plan) return;
     if (!await confirmBox(resume ? t('Benchmark fortsetzen') : t('Benchmark starten'), plan.confirmText, t('Starten'))) return;
-    if (await run(() => api(`/devices/${S.route.id}/benchmark/start`, { method: 'POST', body }), t('Benchmark läuft auf dem Server.'))) reloadDetailSoon();
+    if (await run(() => api(`/devices/${S.route.id}/benchmark/start`, { method: 'POST', body }), t('Benchmark läuft auf dem Server.'))) { cleanTab(); reloadDetailSoon(); }
   };
   const session = S.detail.session;
   const running = d.benchmark?.running;
@@ -1226,14 +1249,14 @@ function tabAutomation() {
 
   const save = async () => {
     const r = await run(() => api(`/devices/${S.route.id}/automation`, { method: 'PUT', body: { presets, thermalGuard: guard, schedule: sched } }), t('Automatik gespeichert.'));
-    if (r) { await loadDevice(false); if ((guard.enabled && !r.thermalGuardApproved) || (sched.enabled && !r.scheduleApproved)) toast(t('Geänderte Regeln brauchen eine neue Freigabe.'), 'info'); }
+    if (r) { cleanTab(); await loadDevice(false); if ((guard.enabled && !r.thermalGuardApproved) || (sched.enabled && !r.scheduleApproved)) toast(t('Geänderte Regeln brauchen eine neue Freigabe.'), 'info'); }
     return r;
   };
   const approve = async rule => {
     if (!await save()) return;
     const tv = await run(() => api(`/devices/${S.route.id}/automation/approval-text`, { method: 'POST', body: { rule } }));
     if (!tv || !await confirmBox(t('Regel freigeben'), tv.text, t('Freigeben'))) return;
-    if (await run(() => api(`/devices/${S.route.id}/automation/approve`, { method: 'POST', body: { rule } }), t('Regel freigegeben.'))) loadDevice(false);
+    if (await run(() => api(`/devices/${S.route.id}/automation/approve`, { method: 'POST', body: { rule } }), t('Regel freigegeben.'))) { cleanTab(); loadDevice(false); }
   };
   const soakHours = h('select', {}, [6, 12, 24, 48].map(x => h('option', { value: x, selected: x === 24 }, t('{0} h', x))));
 

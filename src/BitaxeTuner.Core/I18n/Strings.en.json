@@ -1278,6 +1278,7 @@
   "Profil unbekannt.": "Unknown profile.",
   "Profil wählen": "Choose profile",
   "Profil {0}: {1}–{2} MHz, {3}–{4} mV · {5}": "Profile {0}: {1}–{2} MHz, {3}–{4} mV · {5}",
+  "Profil „{0}“ erkannt – deine Benchmark-Werte bleiben; „Auf Profilwerte zurücksetzen“ übernimmt die Profilwerte.": "Profile “{0}” detected – your benchmark values stay; “Reset to profile values” applies the profile values.",
   "Profil „{0}“ für dieses Gerät dauerhaft verwenden? Grenzen für Frequenz und Spannung richten sich danach.": "Use profile “{0}” for this device permanently? The frequency and voltage limits follow it.",
   "Profil:": "Profile:",
   "Profile bearbeiten": "Edit profiles",

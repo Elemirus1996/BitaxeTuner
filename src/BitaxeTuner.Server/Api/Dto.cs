@@ -143,7 +143,7 @@ public static class Dto
             frequency = n?.FrequencyMhz,
             voltage = n?.CoreVoltageMv,
             fanRpm = i?.fanrpm,
-            fanPercent = i?.fanspeed,
+            fanPercent = i is null ? (int?)null : (int)Math.Round(i.fanspeed),   // AxeOS liefert z. B. 12,2222 %
             uptimeSeconds = i?.uptimeSeconds,
             sharesAccepted = i?.sharesAccepted,
             sharesRejected = i?.sharesRejected,
