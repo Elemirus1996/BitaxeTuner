@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Version>0.8.0</Version>
+    <Version>0.8.1</Version>
     <Product>BitaxeTuner</Product>
     <Company>BitaxeTuner</Company>
     <Copyright>Copyright © 2026 BitaxeTuner contributors</Copyright>
