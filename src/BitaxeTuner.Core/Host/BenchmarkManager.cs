@@ -85,6 +85,9 @@ public sealed class BenchmarkManager
                    L.T("Aktuell: {0}\n", current) +
                    L.T("Frequenz: {0} → {1} MHz (Schritt {2})\n", settings.StartFrequencyMhz, settings.MaxFrequencyMhz, settings.FrequencyStepMhz) +
                    L.T("Spannung: {0} → {1} mV (Schritt {2})\n", settings.StartVoltageMv, settings.MaxVoltageMv, settings.VoltageStepMv) +
+                   (settings.TryLowerVoltage
+                       ? L.T("Je stabiler Frequenz zusätzlich weniger Spannung testen – bis hinunter auf {0} mV\n", settings.MinVoltageMv)
+                       : "") +
                    L.T("Grenzen: Chip {0} °C · VR {1} °C · {2} W\n", settings.MaxChipTempC, settings.MaxVrTempC, settings.MaxPowerW) +
                    L.T("Profilgrenzen {0}: {1}–{2} MHz, {3}–{4} mV\n", profile.Name, profile.MinFrequencyMhz, profile.MaxFrequencyMhz, profile.MinVoltageMv, profile.MaxVoltageMv) +
                    L.T("Am Ende gesetzt: {0}\n", restore) +

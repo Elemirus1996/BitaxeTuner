@@ -1063,7 +1063,14 @@ const BENCH_FIELDS = () => [
   ['startVoltageMv', t('Start-Spannung (mV)')], ['minVoltageMv', t('Min. Spannung (mV)')], ['maxVoltageMv', t('Max. Spannung (mV)')], ['voltageStepMv', t('Schritt (mV)')],
   ['warmupSeconds', t('Aufwärmen (s)')], ['measureSeconds', t('Messdauer (s)')], ['sampleIntervalSeconds', t('Messintervall (s)')],
   ['maxChipTempC', t('Max. Chip (°C)')], ['maxVrTempC', t('Max. VR (°C)')], ['maxPowerW', t('Max. Leistung (W)')],
-  ['stabilityThreshold', t('Stabil ab (Anteil Soll)')], ['maxErrorPercent', t('Max. Fehlerrate (%)')],
+  ['stabilityThreshold', t('Stabil ab (Anteil Soll)')], ['maxErrorPercent', t('Max. Fehlerrate (%)')], ['minSamples', t('Mindestanzahl Messwerte')],
+  ['minInputVoltageMv', t('Min. Eingangsspannung (mV, leer = aus)'), true], ['maxInputVoltageMv', t('Max. Eingangsspannung (mV, leer = aus)'), true],
+];
+
+/** Ja/Nein-Optionen des Benchmarks (wie in der Desktop-App). */
+const BENCH_CHECKS = () => [
+  ['tryLowerVoltage', t('Pro Frequenz auch niedrigere Spannung testen (effizienter, dauert länger)')],
+  ['restartAfterApply', t('Nach jeder Änderung neu starten (sauberere Messwerte)')],
 ];
 
 function tabBenchmark() {
@@ -1072,13 +1079,14 @@ function tabBenchmark() {
   const inputs = {};
   const sel = (key, opts) => { const s = h('select', {}, opts.map(([v, l]) => h('option', { value: v, selected: base[key] === v }, l))); inputs[key] = s; return s; };
   const form = h('div', { class: 'form' },
-    BENCH_FIELDS().map(([k, label]) => { const i = h('input', { type: 'number', step: 'any', value: base[k] }); inputs[k] = i; return h('div', {}, h('label', {}, label), i); }),
+    BENCH_FIELDS().map(([k, label, optional]) => { const i = h('input', { type: 'number', step: 'any', value: base[k] ?? '' }); i.optional = optional; inputs[k] = i; return h('div', {}, h('label', {}, label), i); }),
     h('div', {}, h('label', {}, t('Am Ende setzen')), sel('restoreMode', [['Best', t('Beste Einstellung')], ['Original', t('Ursprüngliche Einstellung')]])),
     h('div', {}, h('label', {}, t('Beste nach')), sel('restoreRanking', [['Balanced', t('Ausgewogen')], ['MaxHashrate', t('Hashrate')], ['Efficiency', t('Effizienz')]])),
     h('div', {}, h('label', {}, t('Lüfter')), sel('fanMode', [['KeepCurrent', t('unverändert')], ['Full', t('100 % während des Tests')]])));
   const settings = () => {
     const s = { ...base };
-    for (const [k, el] of Object.entries(inputs)) s[k] = el.tagName === 'SELECT' ? el.value : Number(el.value);
+    for (const [k, el] of Object.entries(inputs))
+      s[k] = el.tagName === 'SELECT' ? el.value : el.type === 'checkbox' ? el.checked : el.optional && el.value.trim() === '' ? null : Number(el.value);
     return s;
   };
   const start = async resume => {
@@ -1096,6 +1104,7 @@ function tabBenchmark() {
       h('h3', {}, t('Suchbereich')),
       h('p', { class: 'muted small' }, t('Profil {0}: {1}–{2} MHz, {3}–{4} mV · {5}', S.detail.profile.name, S.detail.profile.minFrequencyMhz, S.detail.profile.maxFrequencyMhz, S.detail.profile.minVoltageMv, S.detail.profile.maxVoltageMv, S.detail.estimatedDuration)),
       form,
+      h('div', { class: 'stack' }, BENCH_CHECKS().map(([k, label]) => { const c = h('input', { type: 'checkbox', checked: !!base[k] }); inputs[k] = c; return h('label', { class: 'check' }, c, label); })),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', disabled: running || !d.online, onclick: () => start(false) }, t('Benchmark starten')),
         session && !session.isFinished && session.results.length ? h('button', { class: 'btn', disabled: running, onclick: () => start(true) }, t('Fortsetzen')) : null,

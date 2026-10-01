@@ -163,11 +163,18 @@ public static class Dto
         };
     }
 
-    /// <summary>„192.168.0.5“ → „http://192.168.0.5/“; eine eingetragene Adresse mit Schema bleibt, wie sie ist.</summary>
-    public static string MinerWebUrl(string host)
+    /// <summary>
+    /// „192.168.0.5“ → „http://192.168.0.5/“; eine eingetragene http(s)-Adresse bleibt. Nur http/https – nie ein anderes
+    /// Schema (z. B. javascript:) als Link ausgeben; null, wenn sich keine gültige Adresse ergibt.
+    /// </summary>
+    public static string? MinerWebUrl(string host)
     {
         var h = host.Trim().TrimEnd('/');
-        return (h.Contains("://", StringComparison.Ordinal) ? h : "http://" + h) + "/";
+        if (!h.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !h.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            h = "http://" + h;
+        return Uri.TryCreate(h + "/", UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps) && u.Host.Length > 0
+            ? u.AbsoluteUri
+            : null;
     }
 
     public static object Run(BenchmarkRun b) => new
