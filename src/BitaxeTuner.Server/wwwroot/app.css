@@ -183,3 +183,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 .toc a:hover { color: var(--text); background: var(--accent-soft); }
 .toc a.active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
 @media (max-width: 640px) { .toc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } }
+
+.web-link { cursor: pointer; }
+.web-link:hover, .web-link:focus-visible { filter: brightness(1.1); text-decoration: underline; }

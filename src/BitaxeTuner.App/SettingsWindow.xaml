@@ -256,6 +256,38 @@
             </StackPanel>
         </Border>
 
+        <!-- Sicherung (lokaler Betrieb; im Modus „Server“ sichert der Server) -->
+        <Border x:Name="BackupCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'Sicherung'}" Style="{StaticResource Section}"/>
+                <TextBlock Text="{l:T 'Einmal täglich: Einstellungen, Verlauf (history.db), Steuerdaten, Benchmark-Ergebnisse und Sicherungen der Miner-Einstellungen als geprüftes Archiv (SHA-256, integrity_check). Passwörter werden nie mitgesichert. Immer im Datenordner (auto-backups), auf Wunsch zusätzlich in einen zweiten Ordner.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <CheckBox x:Name="BackupEnabledBox" Content="{l:T 'Täglich sichern ab'}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="BackupHourBox" Width="40" Margin="6,0,4,0"/>
+                    <TextBlock Text="{l:T 'Uhr'}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <CheckBox x:Name="BackupFolderEnabledBox" Content="{l:T 'Zusätzlich in diesen Ordner sichern (USB-Stick, zweite Festplatte oder NAS-Freigabe):'}" Margin="0,4,0,4"/>
+                <DockPanel Margin="0,0,0,6">
+                    <Button DockPanel.Dock="Right" Content="…" Click="BackupBrowse_Click" Margin="6,0,0,0" Padding="10,4" ToolTip="{l:T 'Ordner wählen'}"/>
+                    <TextBox x:Name="BackupFolderBox" ToolTip="{l:T 'Vollständiger Pfad zu USB-Stick, zweiter Festplatte oder Netzwerkfreigabe des NAS'}"/>
+                </DockPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="{l:T 'Im zweiten Ordner behalten:'}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="BackupKeepBox" Width="50" Margin="6,0,4,0"/>
+                    <TextBlock Text="{l:T 'Sicherungen'}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock x:Name="BackupStatusText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <WrapPanel>
+                    <Button x:Name="BackupNowButton" Content="{l:T 'Jetzt sichern'}" Click="BackupNow_Click" Padding="10,4" Margin="0,0,8,4"/>
+                    <Button Content="{l:T 'Sicherungsordner öffnen'}" Click="BackupOpen_Click" Padding="10,4" Margin="0,0,8,4"/>
+                    <Button x:Name="BackupRestoreButton" Content="{l:T 'Sicherung einspielen …'}" Click="BackupRestore_Click" Padding="10,4" Margin="0,0,0,4"/>
+                </WrapPanel>
+                <TextBlock Text="{l:T 'Einspielen: Die Datei wird vollständig geprüft, der jetzige Stand bleibt als Ordner „backup-…“ im Datenordner erhalten, dann startet die App neu. Die Miner selbst werden nicht verändert.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
         <!-- Strompreis und Handy-Ansicht -->
         <Border Style="{StaticResource Card}">
             <StackPanel>

@@ -33,11 +33,20 @@ public static class ServerTransfer
             Directory.Delete(pending, recursive: true);
             return null;
         }
+        var source = File.ReadAllText(marker);
         File.Delete(marker);
         var backup = DataArchive.Apply(pending, dataDirectory, KeepDesktopSettings);
         Directory.Delete(pending, recursive: true);
-        return L.T("Daten vom Server übernommen. Bisheriger lokaler Stand gesichert in {0}.", Path.GetFileName(backup));
+        return source.StartsWith(BackupPrefix, StringComparison.Ordinal)
+            ? L.T("Sicherung {0} eingespielt. Bisheriger Stand gesichert in {1}.", source[BackupPrefix.Length..], Path.GetFileName(backup))
+            : L.T("Daten vom Server übernommen. Bisheriger lokaler Stand gesichert in {0}.", Path.GetFileName(backup));
     }
+
+    private const string BackupPrefix = "backup:";
+
+    /// <summary>Geprüfte Daten zur Übernahme beim nächsten Start freigeben (vom Server geholt oder aus einer Sicherung).</summary>
+    public static void MarkReady(string pending, string? backupName = null) =>
+        File.WriteAllText(Path.Combine(pending, ReadyMarker), backupName is null ? DateTime.Now.ToString("O") : BackupPrefix + backupName);
 
     /// <summary>Einstellungen, die zu diesem PC gehören und nicht vom Server kommen.</summary>
     private static void KeepDesktopSettings(AppConfig local, AppConfig fromServer)
@@ -104,7 +113,7 @@ public static class ServerTransfer
                 using var fs = File.OpenRead(file);
                 return DataArchive.ExtractAndVerify(fs, pending);
             });
-            File.WriteAllText(Path.Combine(pending, ReadyMarker), DateTime.Now.ToString("O"));
+            MarkReady(pending);
             log.Report(L.T("Geprüft: {0} Dateien, {1:N0} Verlaufswerte.", manifest.Files.Count, manifest.HistoryRows.GetValueOrDefault("samples")));
             return manifest;
         }

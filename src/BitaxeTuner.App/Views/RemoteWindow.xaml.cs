@@ -50,10 +50,10 @@ public partial class RemoteWindow : Window
     }
 
     /// <summary>Einmal täglich eine geprüfte Sicherung des Servers auf diesen PC holen (Einstellung unter Betriebsart).</summary>
-    private async Task PickupBackupAsync()
+    private async Task PickupBackupAsync(bool force = false)
     {
         var s = _config.Server;
-        if (_pickupBusy || !Core.Backup.BackupPickup.IsDue(s, DateTime.Now)) return;
+        if (_pickupBusy || !(force || Core.Backup.BackupPickup.IsDue(s, DateTime.Now))) return;
         _pickupBusy = true;
         try
         {
@@ -73,6 +73,48 @@ public partial class RemoteWindow : Window
         {
             _pickupBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Nach dem ersten erfolgreichen Verbinden einmal fragen, ob täglich eine Sicherung auf diesen PC geholt werden soll –
+    /// sonst gibt es außerhalb des Servers keine Kopie (z. B. wenn die SD-Karte ausfällt).
+    /// </summary>
+    private async void AskPickupOnce()
+    {
+        var s = _config.Server;
+        if (s.BackupPickup || s.BackupPickupAsked) return;
+        s.BackupPickupAsked = true;
+        _config.Save();
+        var folder = Core.Backup.BackupPickup.FolderOf(s);
+        if (MessageBox.Show(this,
+                L.T("Soll diese App täglich eine geprüfte Sicherung des Servers auf diesen PC holen?\n\nOrdner: {0}\n\nDann gibt es eine Kopie außerhalb des Servers – z. B. falls dessen SD-Karte ausfällt. Ändern jederzeit unter „Sicherungen“ bzw. „Betriebsart …“.", folder),
+                L.T("Sicherung auf diesen PC"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        s.BackupPickup = true;
+        _config.Save();
+        await PickupBackupAsync(force: true);
+    }
+
+    private void Backup_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = BackupButton.ContextMenu!;
+        menu.PlacementTarget = BackupButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        PickupNowItem.IsEnabled = !_pickupBusy;
+        menu.IsOpen = true;
+    }
+
+    private async void PickupNow_Click(object sender, RoutedEventArgs e)
+    {
+        BackupText.Text = L.T("· Sicherung wird geholt …");
+        await PickupBackupAsync(force: true);
+    }
+
+    private void OpenBackupFolder_Click(object sender, RoutedEventArgs e) =>
+        Services.BackupActions.OpenFolder(this, Core.Backup.BackupPickup.FolderOf(_config.Server));
+
+    private async void RestoreToServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (await Services.BackupActions.RestoreToServerAsync(this, _config.Server)) await ConnectAsync();
     }
 
     private async Task ConnectAsync()
@@ -99,6 +141,7 @@ public partial class RemoteWindow : Window
             core.CookieManager.AddOrUpdateCookie(cookie);
             core.Navigate(client.BaseUri.ToString());
             ErrorPanel.Visibility = Visibility.Collapsed;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(AskPickupOnce));
         }
         catch (Exception ex) when (ex is ServerException or WebView2RuntimeNotFoundException)
         {

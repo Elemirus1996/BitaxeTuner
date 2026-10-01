@@ -318,9 +318,31 @@ einmal vollständig entpackt und geprüft). Ziele unter *Einstellungen → Siche
   `sudo sh /opt/bitaxetuner/current/install.sh --system` ausführen,
 - **Netzlaufwerk/NAS** (SMB, ohne Einbinden ins System; Passwort getrennt in `secrets.json`, nie in Sicherungen),
 - **PC holt ab**: Die Desktop-App im Modus „Server“ holt täglich eine geprüfte Sicherung in einen Ordner auf dem PC
-  (*Betriebsart …*).
+  (Standard `Dokumente\BitaxeTuner-Sicherungen`). Nach dem ersten Verbinden fragt sie einmal danach; später oben
+  unter **Sicherungen ▾** (jetzt holen, Ordner öffnen) bzw. *Betriebsart …*.
 
 Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen als Push-Meldung.
+
+Die **Desktop-App im lokalen Betrieb** sichert genauso täglich in ihren Datenordner (`auto-backups`); unter
+*Einstellungen → Sicherung* kommt ein zweiter Ordner dazu (USB-Stick, zweite Festplatte oder NAS-Freigabe wie
+`\\nas\backup\BitaxeTuner`), dazu „Jetzt sichern“ und „Sicherungsordner öffnen“.
+
+#### Sicherung einspielen
+
+Jede Sicherung wird vor dem Einspielen vollständig entpackt und geprüft; eine beschädigte Datei wird abgelehnt, ohne
+dass sich etwas ändert. Der bisherige Stand bleibt als Ordner `backup-<Datum>` im Datenordner erhalten – ein
+Einspielen lässt sich also rückgängig machen. Eingespielt werden Einstellungen, Geräte, Verlauf, Steuerdaten,
+Benchmark-Ergebnisse und Miner-Sicherungen. **Nicht** verändert werden: Admin-Passwort und API-Tokens (die Desktop-App
+bleibt verbunden), Sicherungsziele, MQTT, gespeicherte Passwörter und die Miner selbst (deren Einstellungen spielst du
+bei Bedarf je Gerät unter *Sicherungen* zurück).
+
+| Situation | So geht's |
+|---|---|
+| Server läuft, alter Stand gewünscht | Browser → *Einstellungen → Sicherung* → bei der Sicherung **Einspielen …** |
+| SD-Karte/Server defekt | Neu aufsetzen (Pi-Image bzw. Installer), Admin-Passwort festlegen, dann *Einstellungen → Sicherung → Hochladen und einspielen …* mit der Datei vom USB-Stick, NAS oder PC (`Dokumente\BitaxeTuner-Sicherungen`) – oder in der Desktop-App **Sicherungen ▾ → Sicherung auf den Server einspielen …** |
+| Desktop-App ohne Server | *Einstellungen → Sicherung → Sicherung einspielen …*; die App startet neu und spielt die Sicherung dabei ein |
+
+Sicherungsdateien heißen `bitaxetuner-backup-JJJJMMTT-HHMMSS.zip` und sind zwischen Desktop-App und Server austauschbar.
 
 ### Bedienung: Browser oder Desktop-App
 

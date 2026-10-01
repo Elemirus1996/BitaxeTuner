@@ -61,12 +61,13 @@ public static class Dto
                 ? new
                 {
                     version = Endpoints.Version,
-                    features = WhatsNew.Since(hub.Config.LastSeenVersion, Endpoints.Version, server: true)
+                    // Deutsch (= Übersetzungsschlüssel): jeder Browser übersetzt in seine Sprache
+                    features = WhatsNew.Since(hub.Config.LastSeenVersion, Endpoints.Version, server: true, Loc.For("de"))
                         .Select(f => new { f.Version, f.Title, f.Text, f.Section }).ToList(),
                 }
                 : null,
             onboarding = role == Role.Admin && Onboarding.ShouldShow(hub.Config)
-                ? Onboarding.Steps(hub.Config, server: true).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
+                ? Onboarding.Steps(hub.Config, server: true, Loc.For("de")).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
                 : null,
         };
     }
@@ -122,6 +123,8 @@ public static class Dto
             id = DeviceId(d.Host),
             name = d.Title,
             host = admin ? d.Host : null,
+            // Weboberfläche des Miners (AxeOS) – Adresse nur für Admins, nicht für simulierte Geräte
+            webUrl = admin && !d.IsSimulated ? MinerWebUrl(d.Host) : null,
             online = s.Online,
             error = s.Online ? null : s.Error,
             maintenance = d.Connection.InMaintenance,
@@ -158,6 +161,13 @@ public static class Dto
                 ? new { fc.Channel, fc.Percent, fc.Rpm, fc.Reason, fc.Stalled, fc.Mode } : null,
             history = s.History.TakeLast(120).Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }).ToList(),
         };
+    }
+
+    /// <summary>„192.168.0.5“ → „http://192.168.0.5/“; eine eingetragene Adresse mit Schema bleibt, wie sie ist.</summary>
+    public static string MinerWebUrl(string host)
+    {
+        var h = host.Trim().TrimEnd('/');
+        return (h.Contains("://", StringComparison.Ordinal) ? h : "http://" + h) + "/";
     }
 
     public static object Run(BenchmarkRun b) => new

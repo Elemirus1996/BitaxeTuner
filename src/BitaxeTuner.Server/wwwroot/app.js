@@ -387,6 +387,16 @@ function poolLinkIcon(d) {
   }, h('img', { src: 'pool.svg', alt: '', width: '18', height: '18' }));
 }
 
+/** Link zur Weboberfläche des Miners (AxeOS) – auf Karten, die selbst Links sind, als <span> wie poolLinkIcon. */
+function webUiIcon(d) {
+  if (!d.webUrl) return null;
+  const open = e => { e.preventDefault(); e.stopPropagation(); window.open(d.webUrl, '_blank', 'noopener,noreferrer'); };
+  return h('span', {
+    class: 'pill gray web-link', role: 'link', tabindex: '0', title: t('AxeOS von {0} öffnen', d.name), 'aria-label': t('AxeOS von {0} öffnen', d.name),
+    onclick: open, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') open(e); },
+  }, 'AxeOS ↗');
+}
+
 function renderOverview() {
   const s = S.status;
   const tv = s.totals;
@@ -396,6 +406,7 @@ function renderOverview() {
       d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
       d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
+      webUiIcon(d),
       poolLinkIcon(d)),
     d.online
       ? h('div', { class: 'kv num' },
@@ -507,8 +518,8 @@ function whatsNewCard(w) {
       h('button', { class: 'btn small primary', onclick: seen }, t('Verstanden'))),
     h('div', { class: 'stack' }, w.features.map(f => h('div', { class: 'row', style: 'align-items:flex-start' },
       h('span', { class: 'ok', style: 'font-size:16px;line-height:1.2' }, '★'),
-      h('div', { style: 'flex:1' }, h('b', {}, f.title), h('div', { class: 'small muted' }, f.text)),
-      f.section ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = f.section; } }, t('Ansehen')) : null))));
+      h('div', { style: 'flex:1' }, h('b', {}, t(f.title)), h('div', { class: 'small muted' }, t(f.text))),
+      f.section ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = t(f.section); } }, t('Ansehen')) : null))));
 }
 
 /** Einführung „Erste Schritte“: Checkliste, die sich selbst abhakt; Links springen zum passenden Einstellungs-Abschnitt. */
@@ -521,8 +532,8 @@ function onboardingCard(steps) {
     h('p', { class: 'muted small' }, t('Willkommen bei BitaxeTuner! Diese Schritte richten das Wichtigste ein – jeder hakt sich selbst ab. Später wieder einblenden: Einstellungen → Allgemein.')),
     h('div', { class: 'stack' }, steps.map((x, i) => h('div', { class: 'row', style: 'align-items:flex-start' },
       h('span', { class: x.done ? 'ok' : 'muted', style: 'font-size:18px;line-height:1' }, x.done ? '✔' : String(i + 1)),
-      h('div', { style: 'flex:1' }, h('b', {}, x.title), h('div', { class: 'small muted' }, x.text)),
-      x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = x.section; } }, x.done ? t('Ansehen') : t('Einrichten')) : null))));
+      h('div', { style: 'flex:1' }, h('b', {}, t(x.title)), h('div', { class: 'small muted' }, t(x.text))),
+      x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = t(x.section); } }, x.done ? t('Ansehen') : t('Einrichten')) : null))));
 }
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
@@ -691,7 +702,8 @@ function updateCompare() {
     [t('Automatik'), d => d.automation || t('keine Automatik')],
   ];
   fill(S.compareTable, h('table', {},
-    h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name))))),
+    h('thead', {}, h('tr', {}, h('th', {}), s.devices.map(d => h('th', {}, h('a', { href: `#/device/${d.id}` }, d.name),
+      d.webUrl ? [' ', h('a', { href: d.webUrl, target: '_blank', rel: 'noopener', class: 'small', title: t('AxeOS von {0} öffnen', d.name) }, '↗')] : null)))),
     h('tbody', {}, rows.map(([label, f]) => h('tr', {}, h('th', {}, label), s.devices.map(d => h('td', { class: 'num' }, f(d))))))));
 }
 
@@ -778,6 +790,7 @@ function renderDevice() {
       h('h2', {}, d.name),
       h('span', { class: 'muted' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · ')),
       h('span', { class: 'spacer' }),
+      d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
       h('span', { class: 'pill' }, S.detail.profile.name)),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
     h('div', { class: 'tabs' }, TABS().filter(tv => !tv[2] || isAdmin()).map(([k, label]) =>
@@ -1892,6 +1905,44 @@ function mqttCard() {
 }
 
 /** Tägliche Sicherung: Datenordner (immer), Ordner/USB-Stick, Netzlaufwerk; Status, Jetzt sichern, Download. */
+const RESTORE_WARNING = () => t('Ersetzt Einstellungen, Verlauf (history.db), Steuerdaten, Benchmark-Ergebnisse und Miner-Sicherungen durch den Stand der Sicherung. Der jetzige Stand wird vorher im Datenordner aufbewahrt (Ordner „backup-…“). Sicherungsziele, MQTT und Passwörter bleiben, wie sie sind. Die Miner selbst werden nicht verändert.');
+
+/** Sicherung aus dem Datenordner einspielen (nach Bestätigung). */
+async function restoreBackup(name) {
+  if (!await confirmBox(t('Sicherung einspielen'), t('Sicherung {0} einspielen?', name) + '\n\n' + RESTORE_WARNING(), t('Einspielen'))) return;
+  toast(t('Sicherung wird geprüft und eingespielt …'), 'info');
+  const r = await run(() => api(`/backup/files/${encodeURIComponent(name)}/restore`, { method: 'POST', body: {} }));
+  if (r) { toast(r.message, 'ok', 15000); setTimeout(() => location.reload(), 2500); }
+}
+
+/**
+ * Sicherungsdatei vom PC hochladen und einspielen – z. B. nach Ausfall der SD-Karte von USB-Stick, NAS oder
+ * aus „Dokumente\BitaxeTuner-Sicherungen“. Gleicher geprüfter Weg wie die Übernahme aus der Desktop-App.
+ */
+function restoreUploadBox() {
+  const file = h('input', { type: 'file', accept: '.zip,application/zip' });
+  const go = async () => {
+    const f = file.files[0];
+    if (!f) { toast(t('Bitte zuerst eine Sicherungsdatei (.zip) wählen.'), 'error'); return; }
+    if (!await confirmBox(t('Sicherung einspielen'), t('Datei {0} einspielen?', f.name) + '\n\n' + RESTORE_WARNING(), t('Einspielen'))) return;
+    toast(t('Lade hoch, prüfe und spiele ein …'), 'info');
+    const r = await run(async () => {
+      const res = await fetch('/api/v1/admin/import?replace=true', {
+        method: 'POST', credentials: 'same-origin', body: f,
+        headers: { 'Content-Type': 'application/zip', 'Accept-Language': LANG, ...(S.csrf ? { 'X-CSRF-Token': S.csrf } : {}) },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new ApiError(data?.error || t('Fehler {0}', res.status), res.status);
+      return data;
+    });
+    if (r) { toast(r.message, 'ok', 15000); setTimeout(() => location.reload(), 2500); }
+  };
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('Sicherung einspielen')),
+    h('p', { class: 'muted small' }, t('Eine Sicherungsdatei (bitaxetuner-backup-….zip) vom PC, USB-Stick oder NAS hochladen – z. B. auf einem neu aufgesetzten Server. Sie wird vor dem Einspielen vollständig geprüft.')),
+    h('div', { class: 'row' }, file, h('button', { class: 'btn', onclick: go }, t('Hochladen und einspielen …'))));
+}
+
 function backupCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const mb = b => t('{0} MB', n(b / 1024 / 1024, 1));
@@ -1958,8 +2009,11 @@ function backupCard() {
             h('thead', {}, h('tr', {}, [t('Sicherung im Datenordner'), t('Größe'), ''].map(x => h('th', {}, x)))),
             h('tbody', {}, d.files.map(f => h('tr', {},
               h('td', { class: 'mono small' }, f.name), h('td', { class: 'num' }, mb(f.size)),
-              h('td', {}, h('a', { class: 'btn small', href: `/api/v1/backup/files/${encodeURIComponent(f.name)}`, download: f.name }, t('Herunterladen'))))))))
-        : null);
+              h('td', { class: 'row' },
+                h('a', { class: 'btn small', href: `/api/v1/backup/files/${encodeURIComponent(f.name)}`, download: f.name }, t('Herunterladen')),
+                h('button', { class: 'btn small', onclick: () => restoreBackup(f.name) }, t('Einspielen …'))))))))
+        : null,
+      restoreUploadBox());
   };
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Sicherung')), body);

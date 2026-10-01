@@ -315,9 +315,31 @@ storing). Targets under *Settings → Backup* (browser):
 - **Folder or USB stick** – on the Pi, an inserted stick (FAT32, exFAT, ext4) is mounted automatically at
   `/media/bitaxetuner-usb`; on a Pi that is already set up, run `sudo sh /opt/bitaxetuner/current/install.sh --system` once,
 - **Network drive/NAS** (SMB, without mounting it in the system; password kept separately in `secrets.json`, never in backups),
-- **PC fetches**: the desktop app in “Server” mode fetches a verified backup to a folder on the PC every day (*Mode …*).
+- **PC fetches**: the desktop app in “Server” mode fetches a verified backup to a folder on the PC every day (default
+  `Documents\BitaxeTuner-Sicherungen`). It asks once after the first connection; later at the top under
+  **Backups ▾** (fetch now, open folder) or *Mode …*.
 
 Old backups are cleaned up per target (only our own files). Errors arrive as push notifications.
+
+The **desktop app in local mode** backs up daily to its data folder (`auto-backups`) in the same way; under
+*Settings → Backup* you can add a second folder (USB stick, second drive or NAS share such as
+`\\nas\backup\BitaxeTuner`), plus “Back up now” and “Open backup folder”.
+
+#### Restoring a backup
+
+Every backup is fully unpacked and verified before it is restored; a damaged file is rejected without changing
+anything. The previous state is kept as a `backup-<date>` folder in the data folder – so a restore can be undone.
+Restored are settings, devices, history, tax data, benchmark results and miner backups. **Not** changed: admin
+password and API tokens (the desktop app stays connected), backup targets, MQTT, stored passwords and the miners
+themselves (restore their settings per device under *Backups* if needed).
+
+| Situation | How |
+|---|---|
+| Server running, older state wanted | Browser → *Settings → Backup* → **Restore …** next to the backup |
+| SD card/server broken | Set up again (Pi image or installer), set the admin password, then *Settings → Backup → Upload and restore …* with the file from USB stick, NAS or PC (`Documents\BitaxeTuner-Sicherungen`) – or in the desktop app **Backups ▾ → Restore a backup to the server …** |
+| Desktop app without server | *Settings → Backup → Restore backup …*; the app restarts and restores the backup while doing so |
+
+Backup files are named `bitaxetuner-backup-YYYYMMDD-HHMMSS.zip` and can be used with both the desktop app and the server.
 
 ### Browser or desktop app
 

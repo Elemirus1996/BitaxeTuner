@@ -662,6 +662,8 @@ public sealed class ServerConnectionSettings
     public string BackupFolder { get; set; } = "";
     public int BackupKeep { get; set; } = 14;
     public string? BackupLastPickup { get; set; }
+    /// <summary>Nach dem ersten Verbinden einmal gefragt, ob die tägliche Sicherung auf diesen PC geholt werden soll.</summary>
+    public bool BackupPickupAsked { get; set; }
 
     /// <summary>Benutzer für SSH auf den Pi (wie bei „Raspberry Pi vorbereiten“ angelegt).</summary>
     public string SshUser { get; set; } = "pi";

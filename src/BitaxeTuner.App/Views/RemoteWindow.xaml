@@ -25,6 +25,19 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="{l:T 'Neu laden'}" Click="Reload_Click" />
                     <Button Content="{l:T 'Im Browser öffnen'}" Click="OpenBrowser_Click" />
+                    <Button x:Name="BackupButton" Content="{l:T 'Sicherungen ▾'}" Click="Backup_Click"
+                            ToolTip="{l:T 'Sicherungen auf diesem PC: holen, Ordner öffnen, auf den Server einspielen'}">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="PickupNowItem" Header="{l:T 'Jetzt eine Sicherung auf diesen PC holen'}" Click="PickupNow_Click" />
+                                <MenuItem Header="{l:T 'Sicherungsordner öffnen'}" Click="OpenBackupFolder_Click" />
+                                <Separator />
+                                <MenuItem Header="{l:T 'Sicherung auf den Server einspielen …'}" Click="RestoreToServer_Click" />
+                                <Separator />
+                                <MenuItem Header="{l:T 'Einstellungen (Betriebsart …)'}" Click="Mode_Click" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                     <Button Content="{l:T 'SSH-Terminal'}" Click="Ssh_Click"
                             ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" />
                     <Button Content="{l:T 'Betriebsart …'}" Click="Mode_Click" Style="{StaticResource PrimaryButton}" Margin="0" />

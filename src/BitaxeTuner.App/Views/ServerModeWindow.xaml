@@ -66,6 +66,7 @@
                         <CheckBox x:Name="PickupCheck" Margin="0,6,0,6" Click="Pickup_Changed"
                                   Content="{l:T 'Im Modus „Server“ täglich eine geprüfte Sicherung vom Server auf diesen PC holen'}"/>
                         <DockPanel Margin="0,0,0,4">
+                            <Button DockPanel.Dock="Right" Content="{l:T 'Ordner öffnen'}" Click="PickupOpen_Click" Margin="6,0,0,0" Padding="10,4"/>
                             <Button DockPanel.Dock="Right" Content="{l:T 'Jetzt holen'}" Click="PickupNow_Click" Margin="6,0,0,0" Padding="10,4"/>
                             <Button DockPanel.Dock="Right" Content="…" Click="PickupBrowse_Click" Margin="6,0,0,0" Padding="10,4" ToolTip="{l:T 'Ordner wählen'}"/>
                             <TextBox x:Name="PickupFolder" LostFocus="Pickup_Changed" ToolTip="{l:T 'Zielordner für die Sicherungen (die letzten 14 bleiben)'}"/>

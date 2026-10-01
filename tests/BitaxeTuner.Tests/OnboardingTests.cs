@@ -36,6 +36,8 @@ public class OnboardingTests
         Assert.True(Onboarding.ShouldShow(c));                 // auf Wunsch wieder da
 
         var desktop = Onboarding.Steps(c, server: false);
+        Assert.Equal(["miners", "price", "push", "backup", "server"], desktop.Select(s => s.Id));
+        Assert.Equal("Sicherung", desktop[3].Section);
         Assert.Equal("server", desktop[^1].Id);
         Assert.Equal("mode", desktop[^1].Action);
         Assert.Null(desktop[^1].Section);

@@ -1,6 +1,7 @@
 using BitaxeTuner.Core.Backup;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.I18n;
+using BitaxeTuner.Core.Transfer;
 
 namespace BitaxeTuner.Server.Api;
 
@@ -103,6 +104,37 @@ public static class BackupEndpoints
             return File.Exists(file)
                 ? Results.File(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read), "application/zip", name)
                 : Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
+        });
+
+        // Sicherung aus dem Datenordner einspielen: erst vollständig entpacken und prüfen, dann ersetzen –
+        // der bisherige Stand wird dabei als Ordner backup-<Zeit> im Datenordner aufbewahrt (DataArchive.Apply).
+        g.MapPost("/backup/files/{name}/restore", async (string name, HubService hub, HttpContext http) =>
+        {
+            if (!BackupNames.IsBackup(name)) return Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
+            var (file, dir) = await hub.RunAsync(h => (Path.Combine(h.BackupDirectory, name), h.DataDirectory));
+            if (!File.Exists(file)) return Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
+            var staging = Path.Combine(dir, $"restore-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..39]);
+            try
+            {
+                ArchiveManifest manifest;
+                try
+                {
+                    await using var zip = File.OpenRead(file);
+                    manifest = DataArchive.ExtractAndVerify(zip, staging);
+                }
+                catch (InvalidDataException ex) { return Endpoints.Error(400, L.N("Archiv abgelehnt: {0}"), ex.Message); }
+                var previous = await hub.ReplaceDataAsync(staging);
+                return Results.Json(new
+                {
+                    ok = true,
+                    message = Endpoints.LangOf(http).T("Sicherung {0} eingespielt: {1} Gerät(e), {2:N0} Verlaufswerte. Vorheriger Stand gesichert in {3}.",
+                        name, manifest.Devices, manifest.HistoryRows.GetValueOrDefault("samples"), Path.GetFileName(previous)),
+                });
+            }
+            finally
+            {
+                try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { /* egal */ }
+            }
         });
     }
 }

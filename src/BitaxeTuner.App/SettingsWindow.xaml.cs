@@ -87,6 +87,13 @@ public partial class SettingsWindow : Window
         UpdateCheckBox.IsChecked = config.CheckForUpdates;
         AutostartBox.IsChecked = AutostartService.IsEnabled;
         DataDirText.Text = dataDirectory;
+        BackupEnabledBox.IsChecked = config.Backup.Enabled;
+        BackupHourBox.Text = config.Backup.Hour.ToString();
+        BackupFolderEnabledBox.IsChecked = config.Backup.Folder.Enabled;
+        BackupFolderBox.Text = config.Backup.Folder.Path;
+        BackupKeepBox.Text = config.Backup.Keep.ToString();
+        BackupNowButton.IsEnabled = BackupRestoreButton.IsEnabled = host is not null;
+        ShowBackupStatus();
 
         LogErrorsBox.IsChecked = config.LogAlerts.OnErrors;
         LogCooldownBox.Text = config.LogAlerts.CooldownMinutes.ToString();
@@ -278,6 +285,9 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (ReadBackup() is not { } backup)
+            return;
+
         if (!int.TryParse(WebPortBox.Text, out var webPort) || webPort < 1024 || webPort > 65535)
         {
             ErrorText.Text = L.T("Port der Handy-Ansicht: 1024 bis 65535.");
@@ -365,12 +375,98 @@ public partial class SettingsWindow : Window
         _config.Language = SelectedTag(LanguageBox) ?? "auto";
         _config.RestartAfterApply = RestartAfterApplyBox.IsChecked == true;
         _config.CheckForUpdates = UpdateCheckBox.IsChecked == true;
+        _config.Backup = backup;
         _config.Save();
 
         ApplyAutostart(AutostartBox.IsChecked == true);
 
         DialogResult = true;
     }
+
+    // ---------- Sicherung ----------
+
+    /// <summary>Sicherungs-Einstellungen aus den Feldern (geprüft); null mit Fehlertext bei ungültigen Werten.</summary>
+    private BackupSettings? ReadBackup()
+    {
+        if (!int.TryParse(BackupHourBox.Text, out var hour) || hour is < 0 or > 23)
+        {
+            ErrorText.Text = L.T("Sicherung: Stunde 0 bis 23.");
+            ScrollToSection(L.T("Sicherung"));
+            return null;
+        }
+        if (!int.TryParse(BackupKeepBox.Text, out var keep) || keep is < 1 or > 365)
+        {
+            ErrorText.Text = L.T("Sicherung: 1 bis 365 Sicherungen behalten.");
+            ScrollToSection(L.T("Sicherung"));
+            return null;
+        }
+        var folder = BackupFolderBox.Text.Trim();
+        if (BackupFolderEnabledBox.IsChecked == true && !System.IO.Path.IsPathFullyQualified(folder))
+        {
+            ErrorText.Text = L.T("Sicherung: vollständigen Zielordner angeben (z. B. E:\\BitaxeTuner oder \\\\nas\\backup).");
+            ScrollToSection(L.T("Sicherung"));
+            return null;
+        }
+        var b = _config.Backup;
+        return new BackupSettings
+        {
+            Enabled = BackupEnabledBox.IsChecked == true,
+            Hour = hour,
+            LocalKeep = b.LocalKeep,
+            Keep = keep,
+            Folder = new BackupFolderTarget { Enabled = BackupFolderEnabledBox.IsChecked == true, Path = folder },
+            Smb = b.Smb,
+            LastRun = b.LastRun,
+        };
+    }
+
+    private void ShowBackupStatus()
+    {
+        if (_host is null) { BackupStatusText.Text = ""; return; }
+        var st = _host.Hub.BackupStatus;
+        BackupStatusText.Text = st.LastRun is { } last
+            ? L.T("Letzte Sicherung: {0:g}{1}", last, st.LastOk == true ? " ✓" : L.T(" – mit Fehlern")) +
+              string.Concat(st.Targets.Select(t => $"\n{(t.Ok ? "✓" : "✗")} {t.Target}: {t.Message}"))
+            : L.T("Noch keine Sicherung erstellt.");
+        if (st.LastOk == false) BackupStatusText.Foreground = System.Windows.Media.Brushes.IndianRed;
+        else BackupStatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "TextBrush");
+    }
+
+    private void BackupBrowse_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = L.T("Zielordner für Sicherungen"), InitialDirectory = BackupFolderBox.Text };
+        if (dlg.ShowDialog(this) != true) return;
+        BackupFolderBox.Text = dlg.FolderName;
+        BackupFolderEnabledBox.IsChecked = true;
+    }
+
+    /// <summary>Übernimmt die Sicherungs-Einstellungen sofort und sichert.</summary>
+    private async void BackupNow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_host is null || ReadBackup() is not { } backup) return;
+        ErrorText.Text = "";
+        _config.Backup = backup;
+        _config.Save();
+        BackupNowButton.IsEnabled = false;
+        BackupStatusText.Text = L.T("Sicherung läuft …");
+        try { await _host.Hub.RunBackupAsync(DateTime.Now); }
+        finally { BackupNowButton.IsEnabled = true; }
+        ShowBackupStatus();
+    }
+
+    /// <summary>Zweiter Ordner, wenn eingeschaltet und vorhanden; sonst auto-backups im Datenordner.</summary>
+    private string BackupFolderToShow()
+    {
+        var folder = BackupFolderBox.Text.Trim();
+        return BackupFolderEnabledBox.IsChecked == true && System.IO.Path.IsPathFullyQualified(folder) && System.IO.Directory.Exists(folder)
+            ? folder
+            : System.IO.Path.Combine(_dataDirectory, "auto-backups");
+    }
+
+    private void BackupOpen_Click(object sender, RoutedEventArgs e) => Services.BackupActions.OpenFolder(this, BackupFolderToShow());
+
+    private async void BackupRestore_Click(object sender, RoutedEventArgs e) =>
+        await Services.BackupActions.RestoreLocalAsync(this, _dataDirectory, BackupFolderToShow());
 
     // ---------- Strompreis ----------
 

@@ -61,4 +61,18 @@ public class EnglishOutputTests
         Assert.Equal("Sa,Su", InEnglish(() => e.DaysText));
         Assert.Equal("daily", InEnglish(() => new ScheduleEntry { Days = 127 }.DaysText));
     }
+
+    [Fact]
+    public void Onboarding_and_whats_new_for_browsers_stay_german_keys_on_an_english_server()
+    {
+        var c = new AppConfig();
+        var (english, keys, features) = InEnglish(() => (
+            Onboarding.Steps(c, server: true)[0].Title,
+            Onboarding.Steps(c, server: true, Loc.For("de")),
+            WhatsNew.All(server: true, Loc.For("de"))));
+        Assert.Equal("Add miners", english);                         // Desktop/Server-Sprache
+        Assert.Equal("Miner hinzufügen", keys[0].Title);              // an den Browser: Schlüssel, er übersetzt selbst
+        Assert.Equal("Sicherung", keys.Single(s => s.Id == "backup").Section);
+        Assert.Contains(features, f => f.Title == "Sicherung einfacher" && f.Section == "Sicherung");
+    }
 }

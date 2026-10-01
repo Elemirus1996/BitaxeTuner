@@ -231,6 +231,12 @@ public partial class ServerModeWindow : Window
         _config.Save();
     }
 
+    private void PickupOpen_Click(object sender, RoutedEventArgs e)
+    {
+        Pickup_Changed(sender, e);
+        Services.BackupActions.OpenFolder(this, Core.Backup.BackupPickup.FolderOf(_config.Server));
+    }
+
     private void PickupBrowse_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFolderDialog { Title = L.T("Ordner für Sicherungen vom Server"), InitialDirectory = PickupFolder.Text };

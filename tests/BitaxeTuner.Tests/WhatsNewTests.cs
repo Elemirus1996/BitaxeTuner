@@ -30,7 +30,10 @@ public class WhatsNewTests
         Assert.All(fromOld, f => Assert.Equal("0.8.0", f.Version));
         Assert.Empty(WhatsNew.Since(null, "0.7.0", server: false));   // Version ohne Einträge
         Assert.Empty(WhatsNew.Since("0.8.0", "0.8.0", server: false));
-        Assert.Equal(fromOld.Count, WhatsNew.Since("0.7.0", "0.8.1", server: false).Count); // alles dazwischen
+        var since081 = WhatsNew.Since("0.8.0", "0.8.1", server: false);                  // Update 0.8.0 → 0.8.1: nur die neuen
+        Assert.NotEmpty(since081);
+        Assert.All(since081, f => Assert.Equal("0.8.1", f.Version));
+        Assert.Equal(fromOld.Count + since081.Count, WhatsNew.Since("0.7.0", "0.8.1", server: false).Count); // alles dazwischen
         Assert.Contains(WhatsNew.All(server: true), f => f.Section == "Push-Benachrichtigungen" || f.Section == "Push notifications");
     }
 }

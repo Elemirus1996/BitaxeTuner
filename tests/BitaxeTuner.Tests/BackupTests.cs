@@ -195,4 +195,45 @@ public class BackupTests
         var download = await c.GetAsync($"/api/v1/backup/files/{name}");
         Assert.Equal("application/zip", download.Content.Headers.ContentType?.MediaType);
     }
+
+    [Fact]
+    public async Task Backup_from_data_folder_can_be_restored_and_keeps_the_previous_state()
+    {
+        using var dir = new TempDir();
+        using var f = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.ConfigureServices(s =>
+        {
+            s.RemoveAll<ServerSettings>();
+            s.AddSingleton(new ServerSettings { DataDirectory = dir.Path });
+            s.AddSingleton(new MinerHubOptions { OnlineChecks = false });
+        }));
+        var auth = f.Services.GetRequiredService<AuthStore>();
+        if (auth.SetupCode is { } code) auth.Setup(code, "sehr-geheim-123");
+        var (_, token) = auth.CreateToken("Test");
+        var c = f.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        c.DefaultRequestHeaders.Authorization = new("Bearer", token);
+
+        async Task SetPrice(double ct)
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(await c.GetStringAsync("/api/v1/settings"))!;
+            node["electricityCtPerKwh"] = ct;
+            var put = await c.PutAsync("/api/v1/settings", new StringContent(node.ToJsonString(), System.Text.Encoding.UTF8, "application/json"));
+            Assert.True(put.IsSuccessStatusCode, await put.Content.ReadAsStringAsync());
+        }
+        async Task<double> Price() =>
+            JsonDocument.Parse(await c.GetStringAsync("/api/v1/settings")).RootElement.GetProperty("electricityCtPerKwh").GetDouble();
+
+        await SetPrice(27.5);
+        Assert.True((await c.PostAsJsonAsync("/api/v1/backup/run", new { })).IsSuccessStatusCode);
+        var name = JsonDocument.Parse(await c.GetStringAsync("/api/v1/backup")).RootElement.GetProperty("files")[0].GetProperty("name").GetString()!;
+        await SetPrice(41);
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await c.PostAsJsonAsync("/api/v1/backup/files/config.json/restore", new { })).StatusCode);
+        var r = await c.PostAsJsonAsync($"/api/v1/backup/files/{name}/restore", new { });
+        Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
+
+        Assert.Equal(27.5, await Price());                                                    // Stand der Sicherung
+        var previous = Directory.GetDirectories(dir.Path, "backup-*").Single();                  // vorheriger Stand aufbewahrt
+        Assert.Contains("41", File.ReadAllText(Path.Combine(previous, "config.json")));
+        Assert.True(File.Exists(Path.Combine(dir.Path, "auto-backups", name)));                  // Sicherungen bleiben
+    }
 }
