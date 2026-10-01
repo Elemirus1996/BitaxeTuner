@@ -63,6 +63,9 @@ public static class WhatsNew
                 server ? tr.T("Vergleich → „Bericht …“: Miner, Zeitraum, Werte und Diagramme wählen und als druckbare Seite (PDF) öffnen. Vorauswahl „Kühlung“ für die Frage, warum ein Miner heißer läuft – ohne IP- und Wallet-Adressen, zum Teilen geeignet.")
                        : tr.T("Miner-Vergleich → „Bericht …“: Miner, Zeitraum, Werte und Diagramme wählen und als druckbare Seite (PDF) öffnen. Vorauswahl „Kühlung“ für die Frage, warum ein Miner heißer läuft – ohne IP- und Wallet-Adressen, zum Teilen geeignet."),
                 null),
+            new("0.8.2", tr.T("Berichte je Push-Dienst anpassen"),
+                tr.T("Tages- und Monatsbericht enthalten bei einem Push-Dienst mit Miner-Auswahl nur diese Miner (z. B. für eine Community-Gruppe) und nie Zuflüsse. Je Dienst abwählbar: Stromkosten, Zuflüsse, Empfehlungen, Best-Diff-Rekord, Tuning-Änderungen, Steckdosen-Details."),
+                tr.T("Push-Benachrichtigungen")),
         ];
     }
 

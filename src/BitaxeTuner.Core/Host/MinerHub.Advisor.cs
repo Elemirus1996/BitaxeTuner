@@ -72,12 +72,12 @@ public sealed partial class MinerHub
     }
 
     /// <summary>Zeilen für den Tagesbericht: Effizienz-Vorschläge ab 1 Währungseinheit Ersparnis pro Monat.</summary>
-    internal IEnumerable<string> AdvisorReportLines(DateTime now)
+    internal IEnumerable<(string Host, string Line)> AdvisorReportLines(DateTime now)
     {
         var de = L.Culture;
         foreach (var r in Advise(AdvisorGoal.Efficiency, now))
             if (r.Recommended is { MonthlyCostDelta: <= -1 } c)
-                yield return L.T("Vorschlag {0}: {1} MHz / {2} mV → ", r.Name, c.FrequencyMhz, c.CoreVoltageMv) +
-                             L.T("{0} J/TH, spart ca. {1} {2}/Monat ({3})", c.Jth.ToString("0.0", de), (-c.MonthlyCostDelta).ToString("0.00", de), Config.Currency, c.Confidence);
+                yield return (r.Host, L.T("Vorschlag {0}: {1} MHz / {2} mV → ", r.Name, c.FrequencyMhz, c.CoreVoltageMv) +
+                             L.T("{0} J/TH, spart ca. {1} {2}/Monat ({3})", c.Jth.ToString("0.0", de), (-c.MonthlyCostDelta).ToString("0.00", de), Config.Currency, c.Confidence));
     }
 }

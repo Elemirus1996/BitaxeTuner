@@ -48,6 +48,15 @@ public sealed class PushTarget
     /// <summary>Nur Meldungen dieser Miner (Hosts); leer = alle. Meldungen ohne Miner-Bezug kommen immer.</summary>
     public List<string> Miners { get; set; } = [];
 
+    /// <summary>
+    /// 0.8.2: Teile des Tages-/Monatsberichts, die dieses Ziel NICHT bekommt (<see cref="ReportParts"/>); leer = alles.
+    /// Mit Miner-Auswahl enthalten die Berichte außerdem nur diese Miner, Zuflüsse dann nie (nicht zuordenbar).
+    /// </summary>
+    public List<string> ReportExclude { get; set; } = [];
+
+    public bool ReportIncludes(string part) =>
+        !ReportExclude.Contains(part, StringComparer.OrdinalIgnoreCase) && !(part == ReportParts.Income && Miners.Count > 0);
+
     public static List<string> DefaultCategories() =>
         Enum.GetNames<NotifyCategory>().Where(c => c != nameof(NotifyCategory.Record)).ToList();
 
@@ -63,9 +72,22 @@ public sealed class PushTarget
         var c = (PushTarget)MemberwiseClone();
         c.Categories = [.. Categories];
         c.Miners = [.. Miners];
+        c.ReportExclude = [.. ReportExclude];
         return c;
     }
 
     /// <summary>Anzeigename: eigener Name oder Dienst.</summary>
     public string Title => string.IsNullOrWhiteSpace(Name) ? Provider : Name;
+}
+
+/// <summary>Abwählbare Teile von Tages- und Monatsbericht je Push-Ziel (z. B. für eine Community-Gruppe).</summary>
+public static class ReportParts
+{
+    public const string Costs = "costs";
+    public const string Income = "income";
+    public const string Tips = "tips";
+    public const string BestDiff = "bestDiff";
+    public const string Tuning = "tuning";
+    public const string Plugs = "plugs";
+    public static readonly string[] All = [Costs, Income, Tips, BestDiff, Tuning, Plugs];
 }

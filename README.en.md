@@ -131,6 +131,10 @@ records, log alerts, pool, smart plugs, health. Plus the **daily report** (avg h
 availability per miner, electricity cost, best diff record, tuning changes, worthwhile advisor suggestions) and the
 **monthly report** on the 1st. Every notification has a cooldown so a flapping miner does not flood your phone.
 
+**Daily and monthly report per service:** if a push service has a miner selection (e.g. a community group), the reports
+contain only these miners – totals and costs only for them, never income from the tax section. Per service you can also
+leave out electricity cost, income, advisor recommendations, best diff record, tuning changes and smart plug details.
+
 ### Electricity cost
 
 *Settings → Power and polling / Electricity price* (desktop) or *Settings → General / Electricity price source* (browser):

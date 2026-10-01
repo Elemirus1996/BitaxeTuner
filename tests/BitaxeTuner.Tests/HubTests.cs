@@ -53,6 +53,47 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Daily_and_monthly_report_are_tailored_per_push_target()
+    {
+        using var rig = new Rig("10.0.0.11", "10.0.0.12");
+        var n = rig.Hub.Config.Notifications;
+        var cats = new List<string> { "DailyReport", "MonthlyReport" };
+        n.Targets =
+        [
+            new PushTarget { Id = "privat01", Name = "Privat", NtfyTopic = "p", Categories = cats },
+            new PushTarget { Id = "commun01", Name = "Community", NtfyTopic = "c", Categories = cats, Miners = ["10.0.0.12"],
+                ReportExclude = [ReportParts.Costs, ReportParts.Tips] },
+        ];
+        var sent = new Dictionary<string, List<string>>();
+        rig.Hub.Notify.Delivered += (id, _, text) => { lock (sent) (sent.TryGetValue(id, out var l) ? l : sent[id] = []).Add(text); };
+        Assert.True(await rig.Hub.PollNowAsync());
+        var now = DateTime.Now;
+        for (var m = 600; m > 0; m -= 5)
+        {
+            rig.Hub.History!.AddSample("10.0.0.11", now.AddMinutes(-m), 1000, 55, 15, true);
+            rig.Hub.History.AddSample("10.0.0.12", now.AddMinutes(-m), 600, 60, 14, true);
+        }
+
+        Assert.Null(await rig.Hub.SendDailyReportAsync(now, markSent: false));
+        var privat = Assert.Single(sent["privat01"]);
+        var community = Assert.Single(sent["commun01"]);
+        Assert.Contains("Miner 10.0.0.11", privat);
+        Assert.Contains("kWh", privat);
+        Assert.Contains("Miner 10.0.0.12", community);
+        Assert.DoesNotContain("Miner 10.0.0.11", community);              // nur die eigenen Miner
+        Assert.DoesNotContain("kWh", community);                          // Stromkosten abgewählt
+
+        sent.Clear();
+        var period = now.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Null(await rig.Hub.SendMonthlyReportAsync(period, now, markSent: false));
+        Assert.Contains("Miner 10.0.0.11", Assert.Single(sent["privat01"]));
+        var monthly = Assert.Single(sent["commun01"]);
+        Assert.DoesNotContain("Miner 10.0.0.11", monthly);
+        Assert.DoesNotContain("kWh", monthly);
+        Assert.False(n.Targets[1].ReportIncludes(ReportParts.Income));    // mit Miner-Auswahl nie Zuflüsse
+    }
+
+    [Fact]
     public async Task Compare_report_shows_selected_values_charts_and_no_addresses()
     {
         using var rig = new Rig("10.0.0.11", "10.0.0.12");

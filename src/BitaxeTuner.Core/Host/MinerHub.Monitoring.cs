@@ -297,16 +297,26 @@ public sealed partial class MinerHub
         {
             var miners = States.Where(x => !IsSimulated(x.Config.Host))
                                .Select(x => (x.Config.Name, x.Config.Host)).ToList();
-            var (title, text) = DailyReport.Build(History, Config, miners, now);
-            try
-            {
-                var tips = AdvisorReportLines(now).ToList();
-                if (tips.Count > 0) text += "\n\n" + string.Join("\n", tips) + L.T("\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)");
-            }
+            List<(string Host, string Line)> tips = [];
+            try { tips = AdvisorReportLines(now).ToList(); }
             catch { /* Ratgeber optional */ }
+            var title = DailyReport.Build(History, Config, [], now).Title;
+            // Je Push-Ziel eigener Text: nur dessen Miner (falls ausgewählt) und nur die gewünschten Teile – gleiche Texte einmal bauen
+            var cache = new Dictionary<string, string>();
+            string? TextFor(PushTarget t)
+            {
+                var own = t.Miners.Count == 0 ? miners : miners.Where(m => t.Miners.Contains(m.Host, StringComparer.OrdinalIgnoreCase)).ToList();
+                if (own.Count == 0) return null;
+                var cacheKey = string.Join(",", own.Select(m => m.Host)) + "|" + string.Join(",", ReportParts.All.Where(t.ReportIncludes));
+                if (cache.TryGetValue(cacheKey, out var cached)) return cached;
+                var text = DailyReport.Build(History!, Config, own, now, t.ReportIncludes).Message;
+                var ownTips = t.ReportIncludes(ReportParts.Tips) ? tips.Where(x => own.Any(m => m.Host == x.Host)).Select(x => x.Line).ToList() : [];
+                if (ownTips.Count > 0) text += "\n\n" + string.Join("\n", ownTips) + L.T("\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)");
+                return cache[cacheKey] = text;
+            }
             // Eigener Schlüssel je Tag; "Jetzt senden" umgeht die Sperre über einen eindeutigen Schlüssel
             var key = markSent ? $"report:{now:yyyy-MM-dd}" : $"report-test:{now:O}";
-            await Notify.SendAsync(key, title, text, NotifyPriority.Low, TimeSpan.FromHours(20), NotifyCategory.DailyReport);
+            await Notify.SendAsync(key, title, TextFor, NotifyPriority.Low, TimeSpan.FromHours(20), NotifyCategory.DailyReport);
             if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
             if (markSent)
             {

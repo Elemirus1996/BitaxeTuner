@@ -241,9 +241,11 @@ public static class DailyReport
         s.Enabled && now.Hour >= Math.Clamp(s.Hour, 0, 23) && s.LastSent != now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>Bericht über die letzten 24 h aus history.db.</summary>
+    /// <param name="include">Welche Teile hinein (<see cref="ReportParts"/>); null = alle – je Push-Ziel einstellbar.</param>
     public static (string Title, string Message) Build(HistoryStore history, AppConfig config,
-        IReadOnlyList<(string Name, string Host)> miners, DateTime now)
+        IReadOnlyList<(string Name, string Host)> miners, DateTime now, Func<string, bool>? include = null)
     {
+        include ??= _ => true;
         var from = now.AddHours(-24);
         var lines = new List<string>();
         double totalHash = 0, totalPower = 0;
@@ -267,9 +269,9 @@ public static class DailyReport
             var changes = history.QueryTuningEvents(host, from, now).Count(e => e.Source != TuningSource.Benchmark);
             lines.Add(L.T("{0}: {1} · {2} J/TH · {3} °C", name, FormatHash(avg.HashRateGh), eff.ToString("0.0", De), avg.Temp.ToString("0", De)) +
                       (availability is { } a ? L.T(" · verfügbar {0} %", (a * 100).ToString("0.0", De)) : "") +
-                      (energy.WallPowerOf(host) is { } wall && avg.HashRateGh > 0
+                      (include(ReportParts.Plugs) && energy.WallPowerOf(host) is { } wall && avg.HashRateGh > 0
                           ? L.T(" · Steckdose {0} J/TH", (wall / (avg.HashRateGh / 1000.0)).ToString("0.0", De)) : "") +
-                      (changes > 0 ? L.T(" · {0} Tuning-Änderung(en)", changes) : ""));
+                      (include(ReportParts.Tuning) && changes > 0 ? L.T(" · {0} Tuning-Änderung(en)", changes) : ""));
         }
 
         if (energy.FromPlugs) totalPower = energy.TotalPowerW;
@@ -286,14 +288,16 @@ public static class DailyReport
             .Where(r => miners.Any(m => m.Host == r.Host))
             .OrderByDescending(r => r.Value).FirstOrDefault();
 
-        var header = L.T("Gesamt Ø {0} · {1} W · ", FormatHash(totalHash), totalPower.ToString("0.0", De)) +
-                     L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency);
-        if (dyn is { AvgCt: { } avgCt, DynamicHours: > 0 })
+        var header = include(ReportParts.Costs)
+            ? L.T("Gesamt Ø {0} · {1} W · ", FormatHash(totalHash), totalPower.ToString("0.0", De)) +
+              L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency)
+            : L.T("Gesamt Ø {0} · {1} W", FormatHash(totalHash), totalPower.ToString("0.0", De));
+        if (include(ReportParts.Costs) && dyn is { AvgCt: { } avgCt, DynamicHours: > 0 })
             header += L.T(" (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)", avgCt.ToString("0.0", De), dyn.DynamicHours, dyn.Hours);
-        if (energy.OverheadW is { } overhead)
+        if (include(ReportParts.Plugs) && energy.OverheadW is { } overhead)
             header += L.T("\nSteckdose gemessen: AxeOS {0} W, Netzteil/Nebenverbrauch {1} W", energy.MinerPowerW.ToString("0.0", De),
                 overhead.ToString("+0.0;-0.0", De));
-        if (best is not null)
+        if (include(ReportParts.BestDiff) && best is not null)
             header += L.T("\nBest Diff (Rekord): {0} ({1}, {2})", best.Raw, miners.First(m => m.Host == best.Host).Name, best.AchievedAt.ToString("d", De));
 
         return (L.T("Tagesbericht {0}", now.ToString("d", De)), header + "\n\n" + string.Join("\n", lines));

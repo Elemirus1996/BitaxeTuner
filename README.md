@@ -129,6 +129,10 @@ Log-Alarme, Pool, Smart Plugs, Gesundheit. Dazu **Tagesbericht** (Ø Hashrate, J
 Miner, Stromkosten, Best-Diff-Rekord, Tuning-Änderungen, lohnende Ratgeber-Vorschläge) und **Monatsbericht** am
 Monatsersten. Jede Meldung hat eine Sperrzeit, damit ein wackelnder Miner das Handy nicht flutet.
 
+**Tages- und Monatsbericht je Dienst:** Hat ein Push-Dienst eine Miner-Auswahl (z. B. eine Community-Gruppe), enthalten
+die Berichte nur diese Miner – Summen und Kosten nur für sie, Zuflüsse aus dem Steuer-Bereich nie. Je Dienst lassen sich
+außerdem Stromkosten, Zuflüsse, Empfehlungen des Ratgebers, Best-Diff-Rekord, Tuning-Änderungen und Steckdosen-Details abwählen.
+
 ### Stromkosten
 
 *Einstellungen → Strom und Abfrage / Strompreis* (Desktop) bzw. *Einstellungen → Allgemein / Strompreis-Quelle* (Browser):

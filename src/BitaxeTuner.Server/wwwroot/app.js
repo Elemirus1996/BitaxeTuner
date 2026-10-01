@@ -1914,6 +1914,9 @@ function pushTargetsEditor(nt, text, select, devices, save) {
   const cats = [['Offline', t('offline')], ['Overheat', t('Überhitzung')], ['Finds', t('Blockfund/Zufluss')], ['Maintenance', t('Watchdog/Automatik/Firmware')],
     ['Record', t('Rekorde')], ['LogAlerts', t('Log-Alarme')], ['Pool', t('Pool')], ['Plugs', t('Smart Plugs')], ['Health', t('Gesundheit')],
     ['DailyReport', t('Tagesbericht')], ['MonthlyReport', t('Monatsbericht')]];
+  // Teile von Tages-/Monatsbericht je Dienst (Schlüssel wie Core/Config/PushTarget.cs → ReportParts)
+  const parts = [['costs', t('Stromkosten')], ['income', t('Zuflüsse (Steuer)')], ['tips', t('Empfehlungen des Ratgebers')],
+    ['bestDiff', t('Best-Diff-Rekord')], ['tuning', t('Tuning-Änderungen')], ['plugs', t('Steckdosen-Details')]];
   nt.targets = nt.targets || [];
   const box = h('div', { class: 'stack' });
   const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, '0')).join('');
@@ -1930,6 +1933,10 @@ function pushTargetsEditor(nt, text, select, devices, save) {
     const allMiners = h('label', { class: 'row' },
       h('input', { type: 'checkbox', checked: !tg.miners.length, onchange: e => { if (e.target.checked) { tg.miners = []; draw(); } else minerList.style.display = ''; } }),
       h('span', {}, t('alle Miner')));
+    tg.reportExclude = tg.reportExclude || [];
+    const partBox = h('div', { class: 'row', style: 'flex-wrap:wrap' }, parts.map(([k, label]) => h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: !tg.reportExclude.includes(k), onchange: e => { tg.reportExclude = e.target.checked ? tg.reportExclude.filter(x => x !== k) : [...tg.reportExclude, k]; } }),
+      h('span', {}, label))));
     const test = async () => {
       await save();
       const r = await run(() => api('/notifications/test', { method: 'POST', body: { targetId: tg.id } }));
@@ -1943,7 +1950,9 @@ function pushTargetsEditor(nt, text, select, devices, save) {
         h('button', { class: 'btn small danger', onclick: () => { nt.targets.splice(i, 1); draw(); } }, t('Entfernen'))),
       notifyForm(tg, text, select, false),
       h('div', { class: 'small muted' }, t('Meldungen')), catBox,
-      h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList);
+      h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList,
+      h('div', { class: 'small muted' }, t('Tages- und Monatsbericht enthalten')), partBox,
+      h('div', { class: 'small muted' }, t('Mit Miner-Auswahl enthalten die Berichte nur diese Miner (Summen und Kosten nur für sie) und nie Zuflüsse.')));
   }) : h('p', { class: 'muted small' }, t('Noch kein Push-Dienst eingerichtet.')));
   draw();
   return h('div', { class: 'stack' },

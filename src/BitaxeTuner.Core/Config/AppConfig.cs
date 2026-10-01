@@ -359,6 +359,7 @@ public sealed class NotificationSettings
             t.Categories = (t.Categories ?? []).Where(c => Enum.TryParse<NotifyCategory>(c, true, out _))
                 .Select(c => Enum.Parse<NotifyCategory>(c, true).ToString()).Distinct().ToList();
             t.Miners = (t.Miners ?? []).Where(h => hosts.Contains(h.Trim())).Select(h => h.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            t.ReportExclude = (t.ReportExclude ?? []).Where(x => ReportParts.All.Contains(x)).Distinct().ToList();
         }
         if (Targets.Count == 0) Provider = "none";
         else SyncLegacyFromTargets();

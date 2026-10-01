@@ -65,17 +65,32 @@ public sealed partial class MinerHub
         {
             var r = BuildReport(period, now);
             var c = L.Culture;
-            var lines = new List<string>
+            // Je Push-Ziel: nur dessen Miner (falls ausgewählt), Kosten/Zuflüsse nur wenn gewünscht (Zuflüsse nie mit Miner-Auswahl)
+            string? TextFor(PushTarget t)
             {
-                L.T("Ø {0} · {1} kWh ≈ {2} {3}", r.TotalAvgHashGh is { } gh ? (gh / 1000).ToString("0.00", c) + " TH/s" : "–",
-                    r.Energy.Kwh.ToString("0.0", c), r.Energy.Cost.ToString("0.00", c), r.Currency),
-            };
-            if (r.Income.Count > 0) lines.Add(L.T("Zuflüsse: {0} € ({1})", r.IncomeEur.ToString("0.00", c), string.Join(", ", r.Income.Select(i => $"{i.Count}× {i.Coin}"))));
-            lines.AddRange(r.Miners.Where(m => m.TotalMinutes > 0).Select(m =>
-                L.T("{0}: verfügbar {1} % · {2} J/TH", m.Name, ((m.Availability ?? 0) * 100).ToString("0.0", c), m.Jth?.ToString("0.0", c) ?? "–")));
-            lines.Add(L.T("Ausführlich: Berichte (Browser) bzw. Bericht … (Desktop)"));
+                var all = t.Miners.Count == 0;
+                var own = all ? r.Miners : r.Miners.Where(m => t.Miners.Contains(m.Host, StringComparer.OrdinalIgnoreCase)).ToList();
+                if (own.Count == 0) return null;
+                var gh = all ? r.TotalAvgHashGh : own.Where(m => m.AvgHashGh is not null).Sum(m => m.AvgHashGh);
+                var kwh = all ? r.Energy.Kwh : own.Sum(m => m.Kwh);
+                var cost = all ? r.Energy.Cost : kwh * (r.Energy.AvgCt ?? Plugs.EnergyCost.FixedCt(Config)) / 100.0;
+                var hash = gh is { } g && g > 0 ? (g / 1000).ToString("0.00", c) + " TH/s" : "–";
+                var lines = new List<string>
+                {
+                    t.ReportIncludes(ReportParts.Costs)
+                        ? L.T("Ø {0} · {1} kWh ≈ {2} {3}", hash, kwh.ToString("0.0", c), cost.ToString("0.00", c), r.Currency)
+                        : L.T("Ø {0}", hash),
+                };
+                if (t.ReportIncludes(ReportParts.Income) && r.Income.Count > 0)
+                    lines.Add(L.T("Zuflüsse: {0} € ({1})", r.IncomeEur.ToString("0.00", c), string.Join(", ", r.Income.Select(i => $"{i.Count}× {i.Coin}"))));
+                lines.AddRange(own.Where(m => m.TotalMinutes > 0).Select(m =>
+                    L.T("{0}: verfügbar {1} % · {2} J/TH", m.Name, ((m.Availability ?? 0) * 100).ToString("0.0", c), m.Jth?.ToString("0.0", c) ?? "–") +
+                    (t.ReportIncludes(ReportParts.Tuning) && m.TuningChanges > 0 ? L.T(" · {0} Tuning-Änderung(en)", m.TuningChanges) : "")));
+                lines.Add(L.T("Ausführlich: Berichte (Browser) bzw. Bericht … (Desktop)"));
+                return string.Join("\n", lines);
+            }
             var key = markSent ? $"monthly:{period}" : $"monthly-test:{now:O}";
-            await Notify.SendAsync(key, ReportRenderer.Title(r), string.Join("\n", lines), NotifyPriority.Low, TimeSpan.FromDays(20), NotifyCategory.MonthlyReport);
+            await Notify.SendAsync(key, ReportRenderer.Title(r), TextFor, NotifyPriority.Low, TimeSpan.FromDays(20), NotifyCategory.MonthlyReport);
             if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
             if (markSent)
             {

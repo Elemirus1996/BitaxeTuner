@@ -144,6 +144,19 @@ public sealed class PushTargetsPanel : StackPanel
         all.Click += (_, _) => ShowMiners();
         ShowMiners();
 
+        // Teile von Tages-/Monatsbericht je Dienst (z. B. für eine Community-Gruppe ohne Kosten und Zuflüsse)
+        var partsPanel = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
+        var partBoxes = new (string Key, string Label)[]
+        {
+            (ReportParts.Costs, L.T("Stromkosten")), (ReportParts.Income, L.T("Zuflüsse (Steuer)")), (ReportParts.Tips, L.T("Empfehlungen des Ratgebers")),
+            (ReportParts.BestDiff, L.T("Best-Diff-Rekord")), (ReportParts.Tuning, L.T("Tuning-Änderungen")), (ReportParts.Plugs, L.T("Steckdosen-Details")),
+        }.Select(x =>
+        {
+            var cb = new CheckBox { Content = x.Label, IsChecked = !t.ReportExclude.Contains(x.Key), Margin = new Thickness(0, 2, 14, 2) };
+            partsPanel.Children.Add(cb);
+            return (x.Key, cb);
+        }).ToList();
+
         PushTarget Read() => new()
         {
             Id = t.Id, Name = name.Text.Trim(), Enabled = enabled.IsChecked == true, Provider = provider.SelectedValue as string ?? "ntfy",
@@ -151,6 +164,7 @@ public sealed class PushTargetsPanel : StackPanel
             DiscordWebhookUrl = discord.Text.Trim(), PushoverUserKey = poUser.Text.Trim(), PushoverAppToken = poToken.Text.Trim(), WebhookUrl = hook.Text.Trim(),
             Categories = catBoxes.Where(c => c.cb.IsChecked == true).Select(c => c.Cat.ToString()).ToList(),
             Miners = all.IsChecked == true ? [] : minerBoxes.Where(m => m.cb.IsChecked == true).Select(m => m.Host).ToList(),
+            ReportExclude = partBoxes.Where(x => x.cb.IsChecked != true).Select(x => x.Key).ToList(),
         };
         _readers.Add(Read);
 
@@ -193,6 +207,17 @@ public sealed class PushTargetsPanel : StackPanel
         content.Children.Add(minerLabel);
         content.Children.Add(all);
         content.Children.Add(minerPanel);
+        var partsLabel = new TextBlock { Text = L.T("Tages- und Monatsbericht enthalten"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
+        partsLabel.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+        content.Children.Add(partsLabel);
+        content.Children.Add(partsPanel);
+        var partsHint = new TextBlock
+        {
+            Text = L.T("Mit Miner-Auswahl enthalten die Berichte nur diese Miner (Summen und Kosten nur für sie) und nie Zuflüsse."),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+        };
+        partsHint.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+        content.Children.Add(partsHint);
         var card = new Border { Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 8), CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1), Child = content };
         card.SetResourceReference(Border.BorderBrushProperty, "CardBorderBrush");
         return card;

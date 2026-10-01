@@ -40,6 +40,8 @@ public sealed class NotificationService : IDisposable
 
     /// <summary>Nur für Tests: je gesendete Meldung das Ziel (Id) – prüft die Verteilung.</summary>
     internal event Action<string, string>? DeliveredTo;
+    /// <summary>Für Tests: Ziel-ID, Schlüssel und tatsächlich gesendeter Text.</summary>
+    internal event Action<string, string, string>? Delivered;
 
     public NotificationService(Func<NotificationSettings> settings) : this(settings, null) { }
 
@@ -58,11 +60,21 @@ public sealed class NotificationService : IDisposable
     /// Sendet an alle aktiven Ziele, die den Bereich (und bei Miner-Meldungen den Miner) wollen – sofern nicht
     /// innerhalb der Sperrzeit schon gesendet. Fehler eines Ziels halten die anderen nicht auf.
     /// </summary>
-    public async Task SendAsync(string key, string title, string message,
+    public Task SendAsync(string key, string title, string message,
+                          NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
+                          NotifyCategory category = NotifyCategory.Other, string? host = null) =>
+        SendAsync(key, title, _ => message, priority, cooldown, category, host);
+
+    /// <summary>
+    /// Wie oben, aber mit eigenem Text je Ziel (Tages-/Monatsbericht je Push-Dienst angepasst). Liefert
+    /// <paramref name="messageFor"/> null, bekommt dieses Ziel nichts.
+    /// </summary>
+    public async Task SendAsync(string key, string title, Func<PushTarget, string?> messageFor,
                                 NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
                                 NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
-        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host)).ToList();
+        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host))
+            .Select(t => (Target: t, Message: messageFor(t))).Where(x => x.Message is not null).ToList();
         if (targets.Count == 0) return;
 
         var wait = cooldown ?? TimeSpan.FromMinutes(30);
@@ -72,15 +84,16 @@ public sealed class NotificationService : IDisposable
             _lastSent[key] = DateTime.UtcNow;
         }
 
-        Sending?.Invoke(key, title, message, priority);
+        Sending?.Invoke(key, title, targets[0].Message!, priority);
         var errors = new List<string>();
-        foreach (var target in targets)
+        foreach (var (target, message) in targets)
         {
             try
             {
-                if (TransportOverride is { } transport) await transport(title, message, priority);
-                else await SendRawAsync(target, title, message, priority);
+                if (TransportOverride is { } transport) await transport(title, message!, priority);
+                else await SendRawAsync(target, title, message!, priority);
                 DeliveredTo?.Invoke(target.Id, key);
+                Delivered?.Invoke(target.Id, key, message!);
             }
             catch (Exception ex)
             {
