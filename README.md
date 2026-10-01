@@ -77,6 +77,9 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
 - **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander
   (inkl. aktueller **Pool-Difficulty**, sofern die Firmware sie meldet).
+- **Vergleichsbericht** zum Ausdrucken (Browser *Vergleich → Bericht …*, Desktop *Miner-Vergleich → Bericht …*): 1–6 Miner,
+  Zeitraum, Werte (aktuell, Ø über den Zeitraum, letzter Benchmark) und Diagramme frei wählbar; Vorauswahl **Kühlung**
+  (Temperatur je Watt, VR, Lüfter) für Fragen in der Community. Ohne IP- und Wallet-Adressen.
 
 ### Zusammenspiel Tuning ↔ Überwachung
 

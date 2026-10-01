@@ -217,3 +217,5 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   .cmp-table .sticky { min-width: 130px; }
   .cmp-toolbar input[type=search] { max-width: none !important; flex: 1 1 100%; }
 }
+.cmp-report-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); align-items: start; }
+.cmp-report-grid .check { display: flex; gap: 6px; align-items: flex-start; }

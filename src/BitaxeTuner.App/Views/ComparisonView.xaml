@@ -6,6 +6,8 @@
         <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                 <Button DockPanel.Dock="Right" Content="{l:T 'Aktualisieren'}" Command="{Binding RefreshCommand}" Margin="0" />
+                <Button DockPanel.Dock="Right" Content="{l:T 'Bericht …'}" Click="Report_Click" Margin="0,0,8,0"
+                        ToolTip="{l:T 'Miner, Werte und Diagramme wählen und als druckbare Seite öffnen'}" />
                 <StackPanel>
                     <TextBlock Text="{l:T 'Miner-Vergleich'}" Style="{StaticResource SectionTitle}" />
                     <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />

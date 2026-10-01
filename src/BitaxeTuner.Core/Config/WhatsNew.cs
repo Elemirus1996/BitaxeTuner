@@ -59,6 +59,10 @@ public static class WhatsNew
                 server ? tr.T("Übersicht, Vergleich und Geräteseite verlinken direkt die Weboberfläche des Miners.")
                        : tr.T("In der Browser-Oberfläche verlinken Übersicht, Vergleich und Geräteseite direkt die Weboberfläche des Miners; in der Desktop-App wie bisher über „Weboberfläche“."),
                 null),
+            new("0.8.2", tr.T("Vergleichsbericht zum Ausdrucken"),
+                server ? tr.T("Vergleich → „Bericht …“: Miner, Zeitraum, Werte und Diagramme wählen und als druckbare Seite (PDF) öffnen. Vorauswahl „Kühlung“ für die Frage, warum ein Miner heißer läuft – ohne IP- und Wallet-Adressen, zum Teilen geeignet.")
+                       : tr.T("Miner-Vergleich → „Bericht …“: Miner, Zeitraum, Werte und Diagramme wählen und als druckbare Seite (PDF) öffnen. Vorauswahl „Kühlung“ für die Frage, warum ein Miner heißer läuft – ohne IP- und Wallet-Adressen, zum Teilen geeignet."),
+                null),
         ];
     }
 

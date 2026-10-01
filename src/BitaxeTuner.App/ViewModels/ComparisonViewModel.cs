@@ -36,6 +36,9 @@ public sealed partial class ComparisonViewModel : ObservableObject
         View.Filter = o => o is ComparisonRow r && Matches(r);
     }
 
+    /// <summary>Für den Vergleichsbericht (Fenster aus der Ansicht).</summary>
+    public AppHost Host => host;
+
     public ObservableCollection<ComparisonRow> Rows { get; } = [];
     /// <summary>Gefilterte Sicht auf <see cref="Rows"/> (Suche, Modell, nur online); Sortieren über die Spaltenköpfe.</summary>
     public System.ComponentModel.ICollectionView View { get; }

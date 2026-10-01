@@ -80,6 +80,9 @@ Corrections to the English texts are welcome: they all live in
   each miner first, worker names are kept, frequency and voltage are never copied.
 - **Soak test for several miners** at once, **compare** all miners side by side
   (including the current **pool difficulty** if the firmware reports it).
+- **Comparison report** to print (browser *Compare → Report …*, desktop *Miner comparison → Report …*): 1–6 miners,
+  period, values (current, average over the period, last benchmark) and charts of your choice; **cooling** preset
+  (temperature per watt, VR, fan) for questions in the community. Without IP and wallet addresses.
 
 ### Tuning ↔ monitoring
 

@@ -717,6 +717,69 @@ function compareColumns() {
   ];
 }
 
+/**
+ * Vergleichsbericht zum Ausdrucken: Miner, Zeitraum, Werte und Diagramme wählen → druckbare Seite vom Server
+ * (Schlüssel wie Core/Reports/CompareReports.cs). Auswahl je Browser gemerkt.
+ */
+const REPORT_VALUES = () => [
+  ['now', t('Aktuell'), [['model', t('Modell / Profil')], ['hashrate', t('Hashrate')], ['expected', t('Soll erreicht')], ['power', t('Leistung')],
+    ['efficiency', t('Effizienz')], ['clock', t('Frequenz / Spannung')], ['temp', t('ASIC-Temperatur')], ['vrTemp', t('VR-Temperatur')],
+    ['fan', t('Lüfter')], ['errorPercent', t('Fehlerrate')], ['shares', t('Shares')], ['bestDiff', t('Best Diff')],
+    ['poolDifficulty', t('Pool-Difficulty')], ['uptime', t('Laufzeit')], ['firmware', t('Firmware')]]],
+  ['range', t('Über den Zeitraum'), [['avgHash', t('Ø Hashrate')], ['avgPower', t('Ø Leistung')], ['avgEff', t('Ø Effizienz')], ['avgTemp', t('Ø Temperatur')],
+    ['tempPerWatt', t('Ø Temperatur je Watt')], ['avgVrTemp', t('Ø VR-Temperatur')], ['avgFan', t('Ø Lüfter')], ['availability', t('Verfügbarkeit')],
+    ['tuning', t('Tuning-Änderungen')]]],
+  ['bench', t('Letzter Benchmark'), [['benchHash', t('Beste Hashrate (Benchmark)')], ['benchEff', t('Beste Effizienz (Benchmark)')], ['maxStable', t('Stabil bis')]]],
+];
+const REPORT_CHARTS = () => [['hashrate', t('Hashrate')], ['efficiency', t('Effizienz')], ['power', t('Leistung')], ['temp', t('ASIC-Temperatur')],
+  ['vrTemp', t('VR-Temperatur')], ['fan', t('Lüfter')]];
+const REPORT_PRESETS = {
+  standard: { values: ['model', 'hashrate', 'efficiency', 'temp', 'avgHash', 'avgEff', 'availability', 'benchHash', 'benchEff'], charts: ['hashrate', 'efficiency', 'temp'] },
+  cooling: { values: ['model', 'clock', 'power', 'temp', 'vrTemp', 'fan', 'avgTemp', 'tempPerWatt', 'avgVrTemp', 'avgFan', 'avgPower', 'firmware'], charts: ['temp', 'vrTemp', 'fan', 'power'] },
+};
+
+function compareReportCard(devices) {
+  let saved = {};
+  try { saved = JSON.parse(localStorageGet('compareReport') || '{}'); } catch { /* egal */ }
+  const sel = {
+    ids: new Set((saved.ids || []).filter(id => devices.some(d => d.id === id))),
+    range: saved.range || '24h',
+    values: new Set(saved.values || REPORT_PRESETS.standard.values),
+    charts: new Set(saved.charts || REPORT_PRESETS.standard.charts),
+  };
+  if (!sel.ids.size) devices.slice(0, 2).forEach(d => sel.ids.add(d.id));
+  const store = () => localStorageSet('compareReport', JSON.stringify({ ids: [...sel.ids], range: sel.range, values: [...sel.values], charts: [...sel.charts] }));
+  const box = h('div', { class: 'stack' });
+  const check = (set, key, label, onToggle) => {
+    const c = h('input', { type: 'checkbox', checked: set.has(key), onchange: () => { c.checked ? set.add(key) : set.delete(key); onToggle?.(c); store(); } });
+    return h('label', { class: 'check' }, c, label);
+  };
+  const render = () => fill(box,
+    h('div', { class: 'row' },
+      h('span', { class: 'muted small' }, t('Vorauswahl:')),
+      h('button', { class: 'btn small', onclick: () => { sel.values = new Set(REPORT_PRESETS.standard.values); sel.charts = new Set(REPORT_PRESETS.standard.charts); store(); render(); } }, t('Standard')),
+      h('button', { class: 'btn small', onclick: () => { sel.values = new Set(REPORT_PRESETS.cooling.values); sel.charts = new Set(REPORT_PRESETS.cooling.charts); store(); render(); } }, t('Kühlung (z. B. für eine Frage in der Community)'))),
+    h('div', { class: 'cmp-report-grid' },
+      h('div', { class: 'stack' }, h('h3', {}, t('Miner (bis 6)')),
+        devices.map(d => check(sel.ids, d.id, d.name, c => {
+          if (c.checked && sel.ids.size > 6) { sel.ids.delete(d.id); c.checked = false; toast(t('Höchstens {0} Miner je Bericht.', 6), 'error'); }
+        })),
+        h('h3', {}, t('Zeitraum')),
+        h('select', { style: 'width:auto', onchange: e => { sel.range = e.target.value; store(); } },
+          [['24h', t('24 h')], ['7d', t('7 Tage')], ['30d', t('30 Tage')]].map(([v, l]) => h('option', { value: v, selected: sel.range === v }, l))),
+        h('h3', {}, t('Diagramme')), REPORT_CHARTS().map(([k, l]) => check(sel.charts, k, l))),
+      REPORT_VALUES().map(([g, title, items]) => h('div', { class: 'stack' }, h('h3', {}, title), items.map(([k, l]) => check(sel.values, k, l))))),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', onclick: () => {
+        if (sel.ids.size < 1) return toast(t('Bitte mindestens einen Miner auswählen.'), 'error');
+        const q = new URLSearchParams({ ids: [...sel.ids].join(','), range: sel.range, values: [...sel.values].join(','), charts: [...sel.charts].join(',') });
+        window.open(`/api/v1/compare/report?${q}`, '_blank', 'noopener');
+      } }, t('Bericht öffnen')),
+      h('span', { class: 'muted small' }, t('Öffnet eine druckbare Seite – als PDF über „Drucken“. Ohne IP- und Wallet-Adressen.'))));
+  render();
+  return h('div', { class: 'card stack', id: 'cmp-report', hidden: true }, h('h2', {}, t('Vergleichsbericht')), box);
+}
+
 /** Vergleichsseite: Kennzahlen, Filterleiste und Tabelle (je Miner eine Zeile). Neue Messwerte tauschen nur den Inhalt aus. */
 function renderCompare() {
   const s = S.status;
@@ -749,7 +812,8 @@ function renderCompare() {
   }));
   mount(h('div', { class: 'stack' },
     h('div', { class: 'card stack' },
-      h('div', { class: 'titlebar' }, h('h2', {}, t('Vergleich')), h('span', { class: 'spacer' }), S.compareCount),
+      h('div', { class: 'titlebar' }, h('h2', {}, t('Vergleich')), h('span', { class: 'spacer' }), S.compareCount,
+        h('button', { class: 'btn small', onclick: () => { const c = $('#cmp-report'); c.hidden = !c.hidden; if (!c.hidden) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, t('Bericht …'))),
       S.compareKpis,
       h('div', { class: 'cmp-toolbar' },
         search,
@@ -759,6 +823,7 @@ function renderCompare() {
         h('span', { class: 'muted small' }, t('Spalten:')), groupChips),
       S.compareTable,
       h('p', { class: 'muted small' }, t('Spaltenüberschrift anklicken zum Sortieren. ★ = bester Wert der angezeigten Miner; Balken bei Hashrate und Leistung = Anteil am höchsten Wert.'))),
+    compareReportCard(s.devices),
     isAdmin() ? advisorCard() : null));
   updateCompare();
 }

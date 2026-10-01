@@ -3,6 +3,7 @@ using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Benchmark;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Host;
+using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
 using BitaxeTuner.Core.Simulation;
@@ -49,6 +50,48 @@ public class HubTests
             Hub.Dispose();
             Dir.Dispose();
         }
+    }
+
+    [Fact]
+    public async Task Compare_report_shows_selected_values_charts_and_no_addresses()
+    {
+        using var rig = new Rig("10.0.0.11", "10.0.0.12");
+        Assert.True(await rig.Hub.PollNowAsync());
+        var h = rig.Hub.History!;
+        var now = DateTime.Now;
+        // Miner .12 läuft bei gleicher Leistung 8 °C heißer, VR und Lüfter ebenso höher
+        for (var m = 120; m > 0; m -= 5)
+        {
+            h.AddSample("10.0.0.11", now.AddMinutes(-m), 1000, 55, 15, true);
+            h.AddSample("10.0.0.12", now.AddMinutes(-m), 1000, 63, 15, true);
+        }
+        for (var m = 120; m > 0; m -= 10)
+        {
+            h.AddHealthSample("10.0.0.11", now.AddMinutes(-m), 4000, 50, 60, 100, 0);
+            h.AddHealthSample("10.0.0.12", now.AddMinutes(-m), 5200, 75, 72, 100, 0);
+        }
+
+        var devices = new[] { rig.Device("10.0.0.11"), rig.Device("10.0.0.12") };
+        var r = Core.Reports.CompareReports.Build(rig.Hub, devices, "24h", Core.Reports.CompareReports.CoolingValues,
+            Core.Reports.CompareReports.CoolingCharts, now);
+
+        Assert.Equal(["Miner 10.0.0.11", "Miner 10.0.0.12"], r.Miners);
+        var avgTemp = r.Rows.Single(x => x.Label == "Ø Temperatur");
+        Assert.Equal([true, false], avgTemp.Best);                         // kühler = besser
+        var perWatt = r.Rows.Single(x => x.Label == "Ø Temperatur je Watt");
+        Assert.Contains("°C/W", perWatt.Cells[0]);
+        Assert.Equal([true, false], r.Rows.Single(x => x.Label == "Ø VR-Temperatur").Best);   // .12 hat den heißeren Spannungswandler
+        Assert.Equal(["Leistung", "ASIC-Temperatur", "VR-Temperatur", "Lüfter"], r.Charts.Select(c => c.Title));   // Reihenfolge des Katalogs
+        Assert.All(r.Charts, c => Assert.All(c.Series, x => Assert.NotEmpty(x.Points)));
+
+        var html = Core.Reports.CompareReports.Html(r);
+        Assert.Contains("<svg", html);
+        Assert.Contains("Miner 10.0.0.12", html);                         // Name (hier zufällig mit Adresse) ja …
+        var withoutNames = html.Replace("Miner 10.0.0.11", "").Replace("Miner 10.0.0.12", "");
+        Assert.DoesNotContain("10.0.0.1", withoutNames);                  // … die Adresse selbst nie
+        Assert.DoesNotContain("<script", html);                           // Content-Security-Policy
+
+        Assert.Throws<LocalizedException>(() => Core.Reports.CompareReports.Build(rig.Hub, [], "24h", [], [], now));
     }
 
     [Fact]

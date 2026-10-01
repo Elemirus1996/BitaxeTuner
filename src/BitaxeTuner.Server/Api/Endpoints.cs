@@ -291,6 +291,21 @@ public static class Endpoints
 
         g.MapGet("/events", (HttpContext http, EventStream events) => events.ServeAsync(http, AuthContext.Of(http).Role));
 
+        // Vergleichsbericht zum Ausdrucken – ohne IP- und Wallet-Adressen, daher auch für „Nur ansehen“
+        g.MapGet("/compare/report", async (string ids, string? range, string? values, string? charts, HubService hub) =>
+        {
+            static string[] Split(string? s) => (s ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var html = await hub.RunAsync(h =>
+            {
+                var devices = Split(ids).Distinct().Select(id => Device(h, id)).ToList();
+                var report = Core.Reports.CompareReports.Build(h, devices, range ?? "24h",
+                    values is null ? Core.Reports.CompareReports.DefaultValues : Split(values),
+                    charts is null ? Core.Reports.CompareReports.DefaultCharts : Split(charts), DateTime.Now);
+                return Core.Reports.CompareReports.Html(report);
+            });
+            return Results.Content(html, "text/html; charset=utf-8");
+        });
+
         g.MapGet("/display", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
         {
             status = h.DisplayStatus,
