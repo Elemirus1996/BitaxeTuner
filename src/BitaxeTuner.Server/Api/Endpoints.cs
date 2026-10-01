@@ -374,7 +374,7 @@ public static class Endpoints
             if (req.Name is { } name && name.Trim().Length > 0) c.Name = name.Trim();
             if (req.WalletAddress is { } w) c.WalletAddress = w.Trim();
             if (req.Coin is "Auto" or "BTC" or "BCH") c.Coin = req.Coin;
-            if (req.FirmwareRepo is { } repo && repo.Trim().Length > 0) c.FirmwareRepo = repo.Trim();
+            if (req.FirmwareRepo is { } repo) c.FirmwareRepo = repo.Trim();   // leer = keine Firmware-Prüfung (wie am Desktop)
             if (req.LogAlerts is { } la) c.LogAlerts = la;
             h.Config.Save();
             await h.ApplySettingsChangedAsync();

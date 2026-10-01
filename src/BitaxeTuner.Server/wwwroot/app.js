@@ -1489,16 +1489,45 @@ async function renderSettings() {
   }, t('Im Netz suchen'));
   const scanBox = h('div', { class: 'stack' }, h('div', { class: 'row' }, scanBtn), scanResult);
   const copyCard = copySettingsCard(status.devices);
-  const deviceRows = status.devices.map(d => {
+  const deviceRows = status.devices.flatMap(d => {
     const name = h('input', { value: d.name });
-    return h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
-      h('button', { class: 'btn small', onclick: () => run(() => api(`/devices/${d.id}`, { method: 'PUT', body: { name: name.value } }), t('Gespeichert.')) }, t('Speichern')), ' ',
+    // Weitere Felder wie in der Desktop-App – erst beim Aufklappen geladen
+    const more = h('tr', { hidden: true }, h('td', { colspan: 3 }, h('div', { class: 'muted small' }, t('Lade …'))));
+    const extra = {};
+    const toggle = h('button', { class: 'btn small', 'aria-expanded': 'false', onclick: async () => {
+      const open = more.hidden;
+      more.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      if (!open || extra.loaded) return;
+      const det = await run(() => api(`/devices/${d.id}`));
+      const c = det?.config;
+      if (!c) return;
+      extra.loaded = true;
+      extra.wallet = h('input', { value: c.walletAddress || '', placeholder: t('leer = aus Stratum-User'), class: 'mono' });
+      extra.coin = h('select', {}, [['Auto', t('Auto (aus Adresse)')], ['BTC', 'BTC'], ['BCH', 'BCH']].map(([v, l]) => h('option', { value: v, selected: c.coin === v }, l)));
+      extra.repo = h('input', { value: c.firmwareRepo || '', placeholder: t('leer = kein Check') });
+      extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
+      fill(more.firstChild, h('div', { class: 'stack' },
+        h('div', { class: 'form' },
+          h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Wallet-Adresse')), extra.wallet),
+          h('div', {}, h('label', {}, t('Coin')), extra.coin),
+          h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo)),
+        h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'))));
+    } }, t('Details'));
+    const save = () => {
+      const body = { name: name.value };
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked });
+      return run(() => api(`/devices/${d.id}`, { method: 'PUT', body }), t('Gespeichert.'));
+    };
+    return [h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
+      toggle, ' ',
+      h('button', { class: 'btn small', onclick: save }, t('Speichern')), ' ',
       h('button', {
         class: 'btn small danger', onclick: async () => {
           if (!await confirmBox(t('Gerät entfernen'), t('„{0}“ entfernen? Verlauf in history.db und Steuerdaten bleiben erhalten.', d.name), t('Entfernen'), true)) return;
           if (await run(() => api(`/devices/${d.id}`, { method: 'DELETE' }), t('Entfernt.'))) renderSettings();
         },
-      }, t('Entfernen'))));
+      }, t('Entfernen')))), more];
   });
 
   // Token für die Desktop-App
