@@ -344,6 +344,28 @@ bei Bedarf je Gerät unter *Sicherungen* zurück).
 
 Sicherungsdateien heißen `bitaxetuner-backup-JJJJMMTT-HHMMSS.zip` und sind zwischen Desktop-App und Server austauschbar.
 
+### Desktop-App oder Server – was geht wo?
+
+| | Desktop-App (lokal) | Server (Browser, Handy) | Desktop-App mit Server |
+|---|:---:|:---:|:---:|
+| Läuft rund um die Uhr, ohne dass der PC an ist | – | ✓ | ✓ (der Server) |
+| Bedienung | Windows-Fenster | Browser auf PC, Handy, Tablet | Windows-Fenster mit der Server-Oberfläche |
+| Überwachung, Verlauf, Push, Tagesbericht | ✓ | ✓ | ✓ |
+| Benchmark, Dauertest, Automatik, Watchdog | ✓ | ✓ | ✓ |
+| Miner-Suche, Einstellungen übertragen | ✓ | ✓ | ✓ |
+| Smart Plugs, Stromkosten, Monats-/Jahresbericht | ✓ | ✓ | ✓ |
+| Gesundheits-Frühwarnung | ✓ (Push, Einzelansicht) | ✓ (Push, Tab *Gesundheit*) | ✓ |
+| Vergleich mit Filtern, Vorher/Nachher, Effizienz-Ratgeber | Vergleich | ✓ | ✓ |
+| Home Assistant / MQTT | – | ✓ | ✓ |
+| Pico-Lüfter, E-Paper, Taster | – | ✓ | ✓ |
+| Steuer: Zuflüsse erfassen | ✓ (solange der PC läuft) | ✓ rund um die Uhr | ✓ |
+| Steuer: Wallets und Verkäufe bearbeiten | ✓ | nur Anzeige und CSV | nur Anzeige und CSV |
+| Sicherung | täglich, zweiter Ordner/USB/NAS | täglich, USB-Stick, NAS | dazu tägliche Kopie auf den PC |
+| Handy-Zugriff | nur ansehen (PIN) | voll (Admin) oder nur ansehen (PIN) | wie Server |
+| Raspberry Pi vorbereiten, SSH-Terminal | ✓ | – | ✓ |
+
+Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und Rückweg*).
+
 ### Bedienung: Browser oder Desktop-App
 
 - **Browser** (PC, Handy, Tablet): Übersicht, Vergleich, je Miner Live-Werte und Verlauf mit Tuning-Markierungen,

@@ -341,6 +341,28 @@ themselves (restore their settings per device under *Backups* if needed).
 
 Backup files are named `bitaxetuner-backup-YYYYMMDD-HHMMSS.zip` and can be used with both the desktop app and the server.
 
+### Desktop app or server – what works where?
+
+| | Desktop app (local) | Server (browser, phone) | Desktop app with server |
+|---|:---:|:---:|:---:|
+| Runs around the clock without the PC switched on | – | ✓ | ✓ (the server) |
+| Operation | Windows window | browser on PC, phone, tablet | Windows window showing the server interface |
+| Monitoring, history, push, daily report | ✓ | ✓ | ✓ |
+| Benchmark, soak test, automation, watchdog | ✓ | ✓ | ✓ |
+| Miner search, copy settings | ✓ | ✓ | ✓ |
+| Smart plugs, electricity cost, monthly/annual report | ✓ | ✓ | ✓ |
+| Health early warning | ✓ (push, single view) | ✓ (push, *Health* tab) | ✓ |
+| Compare with filters, before/after, efficiency advisor | compare | ✓ | ✓ |
+| Home Assistant / MQTT | – | ✓ | ✓ |
+| Pico fans, e-paper, buttons | – | ✓ | ✓ |
+| Tax: record incoming payments | ✓ (while the PC runs) | ✓ around the clock | ✓ |
+| Tax: edit wallets and sales | ✓ | view and CSV only | view and CSV only |
+| Backup | daily, second folder/USB/NAS | daily, USB stick, NAS | plus a daily copy on the PC |
+| Phone access | view only (PIN) | full (admin) or view only (PIN) | as server |
+| Prepare Raspberry Pi, SSH terminal | ✓ | – | ✓ |
+
+You can switch in both directions at any time with all your data (see *Switching and switching back*).
+
 ### Browser or desktop app
 
 - **Browser** (PC, phone, tablet): overview, compare, per miner live values and history with tuning markers,

@@ -76,6 +76,21 @@
     nav .links a:not(.gh):not(.lang) { display: none; }
     header.hero { padding-top: 48px; }
   }
+  .table-scroll { overflow-x: auto; margin-top: 18px; border: 1px solid var(--rule); border-radius: 14px; }
+  table.modes { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 15px; background: var(--bg); }
+  .modes th, .modes td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: center; vertical-align: top; }
+  .modes tr:last-child td { border-bottom: 0; }
+  .modes th:first-child, .modes td:first-child { text-align: left; }
+  .modes thead th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--surface); }
+  .modes .y { color: var(--ok); font-weight: 700; }
+  .modes .n { color: var(--muted); }
+  .modes small { color: var(--muted); display: block; font-size: 13px; font-weight: 400; }
+  .modes th[scope=row] { position: sticky; left: 0; background: var(--bg); z-index: 1; }
+  .modes thead th:first-child { position: sticky; left: 0; z-index: 2; }
+  @media (max-width: 700px) {
+    table.modes { min-width: 600px; font-size: 14px; }
+    .modes th[scope=row] { min-width: 150px; max-width: 170px; box-shadow: 1px 0 0 var(--rule); }
+  }
 </style>
 </head>
 <body>
@@ -152,6 +167,27 @@
       </ul>
     </div>
     <img class="shot" src="../assets/en/screen-advisor.png" alt="Recommendations of the efficiency advisor with savings per month">
+  </div>
+  <div class="wrap" style="margin-top:44px">
+    <h3 style="font-size:22px;margin:0 0 6px">Desktop app or server – what works where?</h3>
+    <p class="sub" style="margin-bottom:0">You can switch in both directions at any time – your data moves along, verified.</p>
+    <div class="table-scroll"><table class="modes">
+      <thead><tr><th scope="col"></th><th scope="col">Desktop app</th><th scope="col">Server<br><small>browser &amp; phone</small></th><th scope="col">Desktop app<br><small>with server</small></th></tr></thead>
+      <tbody>
+        <tr><th scope="row" style="font-weight:500">Runs around the clock without the PC switched on</th><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td><td class="y">✓<small>the server</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Monitoring, history, push, daily report</th><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Benchmark, soak test, automation, watchdog</th><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Smart plugs, electricity cost, monthly/annual report</th><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Compare with filters, before/after, efficiency advisor</th><td><small style="color:inherit">compare</small></td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Home Assistant / MQTT</th><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Pico fans, e-paper, buttons</th><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Tax: record incoming payments</th><td class="y">✓<small>while the PC runs</small></td><td class="y">✓<small>around the clock</small></td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Tax: edit wallets and sales</th><td class="y" aria-label="yes">✓</td><td><small style="color:inherit">view and CSV only</small></td><td><small style="color:inherit">view and CSV only</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Backup</th><td class="y">✓<small>second folder, USB, NAS</small></td><td class="y">✓<small>USB stick, NAS</small></td><td class="y">✓<small>plus a copy on the PC</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Phone access</th><td><small style="color:inherit">view only (PIN)</small></td><td class="y">✓<small>admin or view only</small></td><td class="y">✓<small>as server</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Prepare Raspberry Pi, SSH terminal</th><td class="y" aria-label="yes">✓</td><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td></tr>
+      </tbody>
+    </table></div>
   </div>
 </section>
 

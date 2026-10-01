@@ -76,6 +76,21 @@
     nav .links a:not(.gh):not(.lang) { display: none; }
     header.hero { padding-top: 48px; }
   }
+  .table-scroll { overflow-x: auto; margin-top: 18px; border: 1px solid var(--rule); border-radius: 14px; }
+  table.modes { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 15px; background: var(--bg); }
+  .modes th, .modes td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: center; vertical-align: top; }
+  .modes tr:last-child td { border-bottom: 0; }
+  .modes th:first-child, .modes td:first-child { text-align: left; }
+  .modes thead th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--surface); }
+  .modes .y { color: var(--ok); font-weight: 700; }
+  .modes .n { color: var(--muted); }
+  .modes small { color: var(--muted); display: block; font-size: 13px; font-weight: 400; }
+  .modes th[scope=row] { position: sticky; left: 0; background: var(--bg); z-index: 1; }
+  .modes thead th:first-child { position: sticky; left: 0; z-index: 2; }
+  @media (max-width: 700px) {
+    table.modes { min-width: 600px; font-size: 14px; }
+    .modes th[scope=row] { min-width: 150px; max-width: 170px; box-shadow: 1px 0 0 var(--rule); }
+  }
 </style>
 </head>
 <body>
@@ -152,6 +167,27 @@
       </ul>
     </div>
     <img class="shot" src="assets/screen-advisor.png" alt="Empfehlungen des Effizienz-Ratgebers mit Einsparung pro Monat">
+  </div>
+  <div class="wrap" style="margin-top:44px">
+    <h3 style="font-size:22px;margin:0 0 6px">Desktop-App oder Server – was geht wo?</h3>
+    <p class="sub" style="margin-bottom:0">Du kannst jederzeit in beide Richtungen umsteigen – deine Daten werden geprüft mitgenommen.</p>
+    <div class="table-scroll"><table class="modes">
+      <thead><tr><th scope="col"></th><th scope="col">Desktop-App</th><th scope="col">Server<br><small>Browser &amp; Handy</small></th><th scope="col">Desktop-App<br><small>mit Server</small></th></tr></thead>
+      <tbody>
+        <tr><th scope="row" style="font-weight:500">Läuft rund um die Uhr, ohne dass der PC an ist</th><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td><td class="y">✓<small>der Server</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Überwachung, Verlauf, Push, Tagesbericht</th><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Benchmark, Dauertest, Automatik, Watchdog</th><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Smart Plugs, Stromkosten, Monats-/Jahresbericht</th><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Vergleich mit Filtern, Vorher/Nachher, Effizienz-Ratgeber</th><td><small style="color:inherit">Vergleich</small></td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Home Assistant / MQTT</th><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Pico-Lüfter, E-Paper, Taster</th><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Steuer: Zuflüsse erfassen</th><td class="y">✓<small>solange der PC läuft</small></td><td class="y">✓<small>rund um die Uhr</small></td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Steuer: Wallets und Verkäufe bearbeiten</th><td class="y" aria-label="ja">✓</td><td><small style="color:inherit">nur Anzeige und CSV</small></td><td><small style="color:inherit">nur Anzeige und CSV</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Sicherung</th><td class="y">✓<small>zweiter Ordner, USB, NAS</small></td><td class="y">✓<small>USB-Stick, NAS</small></td><td class="y">✓<small>plus Kopie auf dem PC</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Handy-Zugriff</th><td><small style="color:inherit">nur ansehen (PIN)</small></td><td class="y">✓<small>Admin oder nur ansehen</small></td><td class="y">✓<small>wie Server</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Raspberry Pi vorbereiten, SSH-Terminal</th><td class="y" aria-label="ja">✓</td><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td></tr>
+      </tbody>
+    </table></div>
   </div>
 </section>
 
