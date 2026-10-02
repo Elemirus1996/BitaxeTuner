@@ -35,6 +35,36 @@ public class BackupTests
     }
 
     [Fact]
+    public async Task Update_backup_goes_to_all_targets_is_reused_and_blocks_the_update_on_failure()
+    {
+        using var dir = new TempDir();
+        using var usb = new TempDir();
+        var sent = new List<string>();
+        using var hub = Hub(dir, sent);
+        await hub.PollNowAsync();
+        hub.Config.Backup.Folder = new BackupFolderTarget { Enabled = true, Path = usb.File("Sicherungen") };
+
+        var first = await hub.BackupBeforeUpdateAsync("v9.9.9");
+        Assert.True(first.LastOk);
+        Assert.Single(Directory.GetFiles(usb.File("Sicherungen")));                        // auch auf dem USB-Stick
+        var again = await hub.BackupBeforeUpdateAsync("v9.9.9");                             // innerhalb von 15 min: wiederverwendet
+        Assert.Equal(first.LastFile, again.LastFile);
+        Assert.Single(hub.LocalBackups());
+        var log = hub.History!.QueryEvents(DateTime.Now.AddHours(-1), DateTime.Now.AddMinutes(1), host: "");
+        Assert.Contains(log, e => e.Message.Contains("v9.9.9") && e.Message.Contains(first.LastFile!));
+
+        // Ziel nicht beschreibbar (eine Datei statt eines Ordners): Update wird abgebrochen, Meldung geht raus
+        File.WriteAllText(usb.File("kein-ordner"), "x");
+        hub.Config.Backup.Folder.Path = usb.File("kein-ordner");
+        var failed = await hub.RunBackupAsync(DateTime.Now);                                 // schlägt am Ziel fehl …
+        Assert.False(failed.LastOk);
+        // … wird nicht wiederverwendet, die neue Sicherung schlägt ebenfalls fehl → kein Update
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => hub.BackupBeforeUpdateAsync("v9.9.10"));
+        Assert.Contains("Update abgebrochen", ex.Message);
+        Assert.Contains("update-backup:v9.9.10", sent);
+    }
+
+    [Fact]
     public async Task Backup_is_verified_copied_to_folder_rotated_and_never_contains_secrets()
     {
         using var dir = new TempDir();

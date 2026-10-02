@@ -2442,15 +2442,27 @@ function updateCard() {
       u.nextCheck ? time(u.nextCheck) : t('ausgeschaltet'))),
     h('p', { class: 'muted small' }, kinds[u.kind] || ''),
     u.notes ? h('div', { class: 'log', style: 'height:auto;max-height:180px' }, u.notes) : null,
+    u.latest && u.canInstall ? h('label', { class: 'check' }, download, t('Sicherung vorher auf diesen PC herunterladen')) : null,
     h('div', { class: 'row' },
       h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/admin/update/check', { method: 'POST', body: {} })); if (r) load(); } }, t('Nach Updates suchen')),
       u.latest && u.canInstall ? h('button', {
         class: 'btn primary', onclick: async () => {
-          if (!await confirmBox(t('Server aktualisieren'), t('BitaxeTuner-Server {0} installieren?\n\nDie Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft. Laufende Benchmarks werden gestoppt (Einstellungen wiederhergestellt), danach startet der Server neu. Die Seite verbindet sich anschließend von selbst wieder.', u.latest), t('Installieren'))) return;
+          if (!await confirmBox(t('Server aktualisieren'), t('BitaxeTuner-Server {0} installieren?\n\nVorher wird eine geprüfte Sicherung erstellt (Datenordner und eingerichtete Ziele wie USB-Stick oder NAS) – schlägt sie fehl, wird nichts installiert. Die Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft. Laufende Benchmarks werden gestoppt (Einstellungen wiederhergestellt), danach startet der Server neu. Die Seite verbindet sich anschließend von selbst wieder.', u.latest), t('Installieren'))) return;
+          localStorageSet('updateDownload', download.checked ? '1' : '0');
+          toast(t('Sicherung wird erstellt …'), 'info');
+          const b = await run(() => api('/backup/run', { method: 'POST', body: {} }));
+          if (!b) return;
+          if (!b.lastOk || !b.lastFile) { toast(t('Update abgebrochen: Sicherung mit Fehlern – siehe Einstellungen → Sicherung.'), 'error', 15000); return; }
+          if (download.checked) {
+            // Vor dem Neustart herunterladen (in der Desktop-App landet sie im Sicherungsordner der App)
+            h('a', { href: `/api/v1/backup/files/${encodeURIComponent(b.lastFile)}`, download: b.lastFile }).click();
+            await new Promise(res => setTimeout(res, 4000));
+          }
           const r = await run(() => api('/admin/update/install', { method: 'POST', body: {} }));
           if (r) toast(r.message, 'ok', 15000);
         },
       }, t('Update {0} installieren', u.latest)) : null));
+  const download = h('input', { type: 'checkbox', checked: localStorageGet('updateDownload') !== '0' });
   const load = () => api('/admin/update').then(u => { S.update = u; render(u); }).catch(e => toast(e.message, 'error'));
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Server-Update')), body);

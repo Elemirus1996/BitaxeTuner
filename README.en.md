@@ -332,6 +332,10 @@ storing). Targets under *Settings → Backup* (browser):
 
 Old backups are cleaned up per target (only our own files). Errors arrive as push notifications.
 
+**Before every server update** a verified backup is created automatically on all configured targets (data folder,
+USB stick, NAS); if it fails, nothing is installed. With “Download the backup to this PC first” (default: on) the browser
+also downloads it – in the desktop app straight into the app's backup folder.
+
 The **desktop app in local mode** backs up daily to its data folder (`auto-backups`) in the same way; under
 *Settings → Backup* you can add a second folder (USB stick, second drive or NAS share such as
 `\\nas\backup\BitaxeTuner`), plus “Back up now” and “Open backup folder”.

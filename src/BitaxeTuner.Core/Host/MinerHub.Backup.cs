@@ -161,4 +161,30 @@ public sealed partial class MinerHub
         RaiseStatus(ok, ok ? L.T("Sicherung erstellt: {0}", name) : L.T("Sicherung mit Fehlern – siehe Einstellungen → Sicherung."));
         return BackupStatus;
     }
+
+    /// <summary>
+    /// Sicherung vor einem Update (Datenordner und alle eingerichteten Ziele wie USB-Stick/NAS). Eine erfolgreiche Sicherung
+    /// der letzten 15 Minuten wird wiederverwendet. Schlägt sie fehl, wird eine Ausnahme geworfen – das Update unterbleibt.
+    /// </summary>
+    public async Task<BackupStatus> BackupBeforeUpdateAsync(string version)
+    {
+        var last = BackupStatus;
+        if (last is { LastOk: true, LastRun: { } at, LastFile: not null } && DateTime.Now - at < TimeSpan.FromMinutes(15))
+        {
+            LogEvent(null, EventCategories.System, L.T("Update {0}: Sicherung von {1:t} wird verwendet ({2}).", version, at, last.LastFile));
+            return last;
+        }
+        var status = await RunBackupAsync(DateTime.Now);
+        if (status.LastOk != true)
+        {
+            var reason = string.Join("; ", status.Targets.Where(t => !t.Ok).Select(t => $"{t.Target}: {t.Message}"));
+            LogEvent(null, EventCategories.System, L.T("Update {0} abgebrochen – Sicherung fehlgeschlagen: {1}", version, reason));
+            SendAlert(new Alert($"update-backup:{version}", L.T("Update abgebrochen"),
+                L.T("Vor dem Update auf {0} konnte keine vollständige Sicherung erstellt werden ({1}). Es wurde nichts verändert.", version, reason),
+                NotifyPriority.High, TimeSpan.FromHours(1), NotifyCategory.Maintenance));
+            throw new InvalidOperationException(L.T("Update abgebrochen: Sicherung fehlgeschlagen ({0}). Es wurde nichts verändert.", reason));
+        }
+        LogEvent(null, EventCategories.System, L.T("Sicherung vor Update {0}: {1}", version, status.LastFile));
+        return status;
+    }
 }

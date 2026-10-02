@@ -334,6 +334,10 @@ einmal vollständig entpackt und geprüft). Ziele unter *Einstellungen → Siche
 
 Alte Sicherungen werden je Ziel aufgeräumt (nur eigene Dateien). Fehler kommen als Push-Meldung.
 
+**Vor jedem Server-Update** entsteht automatisch eine geprüfte Sicherung auf allen eingerichteten Zielen (Datenordner,
+USB-Stick, NAS); schlägt sie fehl, wird nichts installiert. Mit „Sicherung vorher auf diesen PC herunterladen“ (Standard:
+an) lädt der Browser sie zusätzlich herunter – in der Desktop-App direkt in den Sicherungsordner der App.
+
 Die **Desktop-App im lokalen Betrieb** sichert genauso täglich in ihren Datenordner (`auto-backups`); unter
 *Einstellungen → Sicherung* kommt ein zweiter Ordner dazu (USB-Stick, zweite Festplatte oder NAS-Freigabe wie
 `\\nas\backup\BitaxeTuner`), dazu „Jetzt sichern“ und „Sicherungsordner öffnen“.

@@ -70,6 +70,9 @@ public static class WhatsNew
                 server ? tr.T("Neue Seite „Protokoll“: wer wann welche Frequenz/Spannung gesetzt hat (mit Quelle), Benchmarks, Dauertests, Automatik, Lüfterregelung, Verbindungen und Server-Ereignisse – mindestens 30 Tage, filterbar, als CSV. Läuft nach Updates weiter.")
                        : tr.T("Neues Fenster „Protokoll …“: wer wann welche Frequenz/Spannung gesetzt hat (mit Quelle), Benchmarks, Dauertests, Automatik, Lüfterregelung und Verbindungen – mindestens 30 Tage, filterbar, als CSV. Läuft nach Updates weiter."),
                 null),
+            new("0.9.0", tr.T("Sicherung vor jedem Update"),
+                tr.T("Vor jedem Server-Update entsteht automatisch eine geprüfte Sicherung (Datenordner, USB-Stick, NAS) – schlägt sie fehl, wird nichts installiert. Auf Wunsch lädt der Browser sie vorher auf den PC; in der Desktop-App landet sie im Sicherungsordner."),
+                tr.T("Sicherung")),
         ];
     }
 

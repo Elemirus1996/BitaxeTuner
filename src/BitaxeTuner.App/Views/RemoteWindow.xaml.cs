@@ -177,6 +177,19 @@ public partial class RemoteWindow : Window
         {
             if (!e.IsSuccess) ShowError(L.T("Seite konnte nicht geladen werden ({0}).", e.WebErrorStatus));
         };
+        // Sicherungen aus der Server-Oberfläche (z. B. „vor dem Update herunterladen“) direkt in den Sicherungsordner dieses PCs
+        core.DownloadStarting += (_, e) =>
+        {
+            var name = Path.GetFileName(e.ResultFilePath);
+            if (!Core.Backup.BackupNames.IsBackup(name)) return;
+            var folder = Core.Backup.BackupPickup.FolderOf(_config.Server);
+            try { Directory.CreateDirectory(folder); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }   // sonst normaler Download
+            e.ResultFilePath = Path.Combine(folder, name);
+            e.Handled = true;
+            BackupText.Text = L.T("· Sicherung {0:HH:mm} → PC", DateTime.Now);
+            BackupText.ToolTip = e.ResultFilePath;
+        };
         // Links nach außen (z. B. GitHub) im Standardbrowser öffnen
         core.NewWindowRequested += (_, e) =>
         {

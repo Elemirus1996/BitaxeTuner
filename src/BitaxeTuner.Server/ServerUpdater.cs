@@ -152,11 +152,15 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
             var file = await new UpdateService(_http, Repository, MatchesPlatform).DownloadAsync(u, work); // prüft SHA-256
             log.LogWarning("Update {Tag} geladen und geprüft – installiere …", u.Tag);
 
+            // Vor jedem Update eine geprüfte Sicherung (Datenordner + USB/NAS); schlägt sie fehl, bleibt alles, wie es ist
+            await hub.RunAsync(h => h.BackupBeforeUpdateAsync(u.Tag));
+
             // Laufende Benchmarks sauber beenden (Einstellungen wiederherstellen), Stand sichern
             await hub.RunAsync(async h =>
             {
                 await h.Benchmarks.StopAllAsync();
                 h.Config.Save();
+                h.LogEvent(null, Core.Monitoring.EventCategories.System, Core.I18n.L.T("Update auf {0} wird installiert.", u.Tag));
             });
 
             if (DetectKind() == InstallKind.WindowsService)

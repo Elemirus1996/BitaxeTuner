@@ -776,16 +776,19 @@ public static class Endpoints
             return Results.Json(new { available = r.Status == Core.Update.UpdateCheckStatus.UpdateAvailable, latest = r.Update?.Tag, message = r.Message });
         });
 
-        g.MapPost("/admin/update/install", (ServerUpdater updater, ILogger<ServerUpdater> log, HttpContext http) =>
+        g.MapPost("/admin/update/install", async (ServerUpdater updater, ILogger<ServerUpdater> log, HttpContext http, HubService hub) =>
         {
             if (updater.Latest is null) return Error(400, L.N("Kein Update verfügbar – zuerst nach Updates suchen."));
             if (!updater.CanInstall) return Error(400, L.N("Diese Installation aktualisiert sich nicht selbst. Docker: „docker compose pull && docker compose up -d“."));
+            // Erst die Sicherung (Datenordner + USB/NAS) – schlägt sie fehl, sieht der Browser den Grund sofort und es passiert nichts
+            var tag = updater.Latest.Tag;
+            var backup = await hub.RunAsync(h => h.BackupBeforeUpdateAsync(tag));
             _ = Task.Run(async () =>
             {
                 try { await updater.InstallAsync(); }
                 catch (Exception ex) { log.LogError(ex, "Update fehlgeschlagen"); }
             });
-            return Results.Json(new { ok = true, message = LangOf(http).T("Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute).") });
+            return Results.Json(new { ok = true, backup = backup.LastFile, message = LangOf(http).T("Sicherung {0} erstellt. Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute).", backup.LastFile) });
         });
 
         g.MapPost("/admin/pause", async (PauseRequest req, HubService hub) =>
