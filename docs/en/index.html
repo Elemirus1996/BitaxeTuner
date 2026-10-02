@@ -139,13 +139,17 @@
       <div class="card"><div class="icon">⚡</div><h3>Automatic benchmark</h3><p>Tests frequency and voltage step by step, measures every combination and finds the best setting – for hashrate, efficiency or both.</p></div>
       <div class="card"><div class="icon">🛡️</div><h3>Safe, not just fast</h3><p>Limits per model, a watchdog on every sample, stop on overheating. Every change only after confirmation showing the old and new value.</p></div>
       <div class="card"><div class="icon">🕒</div><h3>Around the clock</h3><p>The server runs on a Raspberry Pi, a Windows machine or in a Docker container – your PC can be switched off.</p></div>
-      <div class="card"><div class="icon">📈</div><h3>Monitoring &amp; push</h3><p>History, offline and temperature alerts, health early warning (cooling, fan, efficiency), pool changes, log alerts, best diff records, daily and monthly report on your phone – via ntfy, Telegram, Discord, Pushover or your own webhook.</p></div>
+      <div class="card"><div class="icon">📈</div><h3>Monitoring &amp; push</h3><p>History, offline and temperature alerts, health early warning (cooling, fan, efficiency), pool changes, log alerts, best diff records, daily and monthly report on your phone – via ntfy, Telegram, Discord, Pushover or your own webhook, also several at once: own messages, miners and report content per service, e.g. for a community group.</p></div>
       <div class="card"><div class="icon">💡</div><h3>Efficiency advisor</h3><p>Shows the best tested setting per miner and how much power it saves per month – applied only after your confirmation.</p></div>
       <div class="card"><div class="icon">⏱️</div><h3>Soak test</h3><p>Checks a setting for hours – for one or all miners at once – and suggests a more stable one if there are problems.</p></div>
       <div class="card"><div class="icon">🏠</div><h3>Home Assistant</h3><p>All values via MQTT with automatic device discovery. Frequency and voltage stay off-limits.</p></div>
       <div class="card"><div class="icon">🔌</div><h3>Smart plugs</h3><p>Shelly plugs measure the real consumption including power supply and extra fans. Costs – tariff gross or net, optionally with hourly prices from aWATTar or Tibber –, efficiency and the monthly and annual report (PDF, CSV) use it; extra consumption is reported.</p></div>
       <div class="card"><div class="icon">🧭</div><h3>Many miners at once</h3><p>Find and add miners in your home network, copy pool and fan settings from one miner to others – with preview and backup, never frequency or voltage.</p></div>
-      <div class="card"><div class="icon">💾</div><h3>Daily backup</h3><p>Verified backup to a USB stick, network drive or your PC. Passwords are never included.</p></div>
+      <div class="card"><div class="icon">💾</div><h3>Backup</h3><p>Daily and before every update a verified backup to a USB stick, network drive or your PC – restored in one click, the previous state is kept. Passwords are never included.</p></div>
+      <div class="card"><div class="icon">📋</div><h3>Log</h3><p>Who set which frequency and voltage when? Benchmarks, soak tests, automation, fan control and connections – kept for at least 30 days, filterable, as CSV.</p></div>
+      <div class="card"><div class="icon">📊</div><h3>Compare &amp; report</h3><p>All miners side by side with filters and best values; as a printable report with the values and charts you choose – with a “cooling” preset, ideal for a question in the community.</p></div>
+      <div class="card"><div class="icon">🌀</div><h3>Fans under control</h3><p>Set the miner fan to automatic with a target temperature or to a fixed value – within the model's limits and with confirmation.</p></div>
+      <div class="card"><div class="icon">🔄</div><h3>One-click updates</h3><p>Update server and Windows app together: backup first, then the server, then the app – if a step fails, everything stays as it was.</p></div>
       <div class="card"><div class="icon">🧾</div><h3>Tax overview</h3><p>Income with EUR rate, sales with holding period (FIFO) and CSV export – according to German tax law (§ 23 EStG).</p></div>
       <div class="card"><div class="icon">🌍</div><h3>English &amp; German</h3><p>Interface, push messages, daily report and e-paper in English or German; numbers and dates in your system's format.</p></div>
     </div>
@@ -163,10 +167,11 @@
         <li>Windows service or Docker container (NAS, home server)</li>
         <li>Password, view-only PIN and API tokens; reachable only on your home network</li>
         <li>One-time, verified move of your data from the PC to the server – and back</li>
-        <li>One-click updates, the old version stays as a fallback</li>
+        <li>One-click updates – server and Windows app together, with a backup first; the old version stays as a fallback</li>
+        <li>Introduction on first start and “What's new” after every update</li>
       </ul>
     </div>
-    <img class="shot" src="../assets/en/screen-advisor.png" alt="Recommendations of the efficiency advisor with savings per month">
+    <img class="shot" src="../assets/en/screen-compare.png" alt="Compare page: all miners with key figures, filters and best values">
   </div>
   <div class="wrap" style="margin-top:44px">
     <h3 style="font-size:22px;margin:0 0 6px">Desktop app or server – what works where?</h3>
