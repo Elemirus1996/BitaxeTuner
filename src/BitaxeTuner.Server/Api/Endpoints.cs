@@ -541,6 +541,24 @@ public static class Endpoints
             return new { thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host), scheduleApproved = c.Schedule.IsApproved(d.Host) };
         })));
 
+        // Ein Benchmark-Ergebnis als Voreinstellung speichern (gleicher Name = ersetzen). Am Miner ändert sich dabei nichts.
+        g.MapPost("/devices/{id}/presets", async (string id, TuningPreset req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var d = Device(h, id);
+            var name = (req.Name ?? "").Trim();
+            if (name.Length == 0) throw new LocalizedException("Bitte einen Namen angeben.");
+            if (name.Length > 40) name = name[..40];
+            var preset = new TuningPreset(name, req.FrequencyMhz, req.CoreVoltageMv);
+            if (MinerHub.CheckPreset(d, preset) is { } error) throw new InvalidOperationException(error);
+            var c = d.Config;
+            var i = c.Presets.FindIndex(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            var old = i >= 0 ? c.Presets[i] : null;
+            if (old is not null) c.Presets[i] = preset; else c.Presets.Add(preset);
+            h.Config.Save();
+            d.AddLog(old is null ? L.T("Voreinstellung gespeichert: {0}", preset) : L.T("Voreinstellung ersetzt: {0} → {1}", old, preset), EventCategories.Automation);
+            return new { ok = true, replaced = old is not null, presets = c.Presets.ToList() };
+        })));
+
         g.MapPost("/devices/{id}/automation/approval-text", async (string id, RuleRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             var d = Device(h, id);

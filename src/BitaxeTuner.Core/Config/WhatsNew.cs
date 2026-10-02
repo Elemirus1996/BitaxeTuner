@@ -88,6 +88,9 @@ public static class WhatsNew
             new("0.9.1", tr.T("Protokoll mit Erklärungen"),
                 tr.T("Ein Klick auf einen Protokolleintrag zeigt, was er bedeutet und was du tun kannst. Außerdem: keine falschen Grenzwert-Meldungen der Automatik mehr direkt nach dem Start, Watchdog-Neustarts stehen im Protokoll."),
                 null),
+            new("0.9.1", tr.T("Benchmark-Ergebnisse in die Automatik"),
+                tr.T("In der Ergebnisliste jedes stabile Ergebnis per „In Automatik speichern …“ als Voreinstellung für Zeitplan und Strompreis übernehmen – am Miner ändert sich dabei nichts. Die Liste lässt sich per Klick auf die Spalten sortieren, z. B. J/TH von niedrig nach hoch."),
+                null),
             new("0.9.1", tr.T("Ansicht-Zugänge je Gruppe"),
                 server ? tr.T("Eigene PIN zum Ansehen je Person (Einstellungen → Ansicht-Zugänge), auf Wunsch nur für bestimmte Miner-Gruppen – z. B. für Mitbewohner oder Community-Miner. Einzeln widerrufbar, Anmeldungen stehen im Protokoll.")
                        : tr.T("Im Server-Betrieb: eigene PIN zum Ansehen je Person, auf Wunsch nur für bestimmte Miner-Gruppen – einzeln widerrufbar, Anmeldungen stehen im Protokoll."),

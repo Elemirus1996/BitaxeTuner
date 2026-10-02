@@ -1363,26 +1363,93 @@ function updateBenchmark(b) {
 
 // ---------- Ergebnisse ----------
 
+/**
+ * Benchmark-Ergebnis als Voreinstellung der Automatik speichern: Name vorschlagen, beim Ersetzen alt → neu zeigen und
+ * warnen, wenn der Zeitplan diese Voreinstellung nutzt (die Freigabe gilt für den Namen, nicht für die Werte).
+ */
+async function saveResultAsPreset(r, suggested) {
+  const c = S.detail.config;
+  const name = h('input', { value: suggested || t('{0} MHz', r.frequencyMhz), maxlength: 40 });
+  const note = h('p', { class: 'small' });
+  const update = () => {
+    const old = (c?.presets || []).find(p => p.name.toLowerCase() === name.value.trim().toLowerCase());
+    const used = old && c?.schedule && [c.schedule.defaultPreset, c.schedule.cheapPreset, c.schedule.expensivePreset, ...(c.schedule.entries || []).map(e => e.preset)]
+      .some(p => (p || '').toLowerCase() === old.name.toLowerCase());
+    note.className = 'small ' + (used ? 'warn' : 'muted');
+    note.textContent = !old ? t('Neue Voreinstellung – am Miner ändert sich dabei nichts.')
+      : t('Ersetzt „{0}“: {1} MHz / {2} mV → {3} MHz / {4} mV.', old.name, old.frequencyMhz, old.coreVoltageMv, r.frequencyMhz, r.coreVoltageMv) +
+        (used ? ' ' + t('Achtung: Der Zeitplan nutzt diese Voreinstellung und setzt künftig die neuen Werte.') : '');
+  };
+  name.addEventListener('input', update);
+  update();
+  const body = h('div', { class: 'stack' },
+    h('p', {}, t('{0} MHz / {1} mV als Voreinstellung für Zeitplan und Strompreis-Automatik speichern.', r.frequencyMhz, r.coreVoltageMv)),
+    h('div', {}, h('label', {}, t('Name')), name), note);
+  setTimeout(() => { name.focus(); name.select(); }, 0);
+  if (!await confirmBox(t('In Automatik speichern'), body, t('Speichern'))) return;
+  const res = await run(() => api(`/devices/${S.route.id}/presets`, { method: 'POST', body: { name: name.value, frequencyMhz: r.frequencyMhz, coreVoltageMv: r.coreVoltageMv } }),
+    t('Voreinstellung gespeichert.'));
+  if (res && S.detail.config) S.detail.config.presets = res.presets;
+}
+
+// Sortierung der Ergebnisliste: erster Klick = Bester zuerst (weniger ist besser → aufsteigend); je Browser gemerkt
+const RESULT_COLS = () => [
+  ['frequencyMhz', 'MHz', -1], ['coreVoltageMv', 'mV', 1], ['isStable', t('Ergebnis'), -1], ['avgHashRateGh', t('Hashrate'), -1], ['expectedHashRateGh', t('Soll'), -1],
+  ['avgPowerW', t('Leistung'), 1], ['efficiencyJth', 'J/TH', 1], ['maxChipTempC', t('Chip max'), 1], ['maxVrTempC', t('VR max'), 1], ['avgErrorPercent', t('Fehler %'), 1],
+];
+function resultSort() {
+  if (S.resultSort === undefined) { try { S.resultSort = JSON.parse(localStorageGet('resultSort') || 'null'); } catch { S.resultSort = null; } }
+  return S.resultSort;
+}
+function sortedResults(results) {
+  const so = resultSort();
+  if (!so) return results;
+  const val = r => so.key === 'isStable' ? (r.isStable ? 1 : 0) : r[so.key];
+  // fehlende Werte immer ans Ende
+  return [...results].sort((a, b) => {
+    const x = val(a), y = val(b);
+    if (x == null || Number.isNaN(x)) return y == null ? 0 : 1;
+    if (y == null || Number.isNaN(y)) return -1;
+    return (x - y) * so.dir;
+  });
+}
+
 function tabResults() {
   const s = S.detail.session;
   if (!s || !s.results.length) return h('div', { class: 'card muted' }, t('Noch keine Benchmark-Ergebnisse.'));
   const best = s.ranking.balanced;
-  const bestCard = (label, r) => r ? h('div', { class: 'tile' }, h('div', { class: 'label' }, label),
+  const bestCard = (label, r, presetName) => r ? h('div', { class: 'tile' }, h('div', { class: 'label' }, label),
     h('div', { class: 'value' }, t('{0} MHz / {1} mV', r.frequencyMhz, r.coreVoltageMv)),
     h('div', { class: 'sub' }, `${hash(r.avgHashRateGh)} · ${r.efficiencyJth ? n(r.efficiencyJth, 2) + t(' J/TH') : '–'}`),
-    isAdmin() ? h('button', { class: 'btn small', style: 'margin-top:6px', onclick: () => applyChange(r.frequencyMhz, r.coreVoltageMv) }, t('Anwenden …')) : null) : null;
+    isAdmin() ? h('div', { class: 'row', style: 'margin-top:6px' },
+      h('button', { class: 'btn small', onclick: () => applyChange(r.frequencyMhz, r.coreVoltageMv) }, t('Anwenden …')),
+      h('button', { class: 'btn small', onclick: () => saveResultAsPreset(r, presetName) }, t('In Automatik speichern …'))) : null) : null;
+  const so = resultSort();
+  const sortBtn = ([k, label, firstDir]) => {
+    const active = so?.key === k;
+    return h('th', { 'aria-sort': active ? (so.dir > 0 ? 'ascending' : 'descending') : null }, h('button', {
+      type: 'button', class: 'th-sort' + (active ? ' on' : ''), title: t('Sortieren'), onclick: () => {
+        S.resultSort = active ? (so.dir === firstDir ? { key: k, dir: -firstDir } : null) : { key: k, dir: firstDir };  // dritter Klick: Reihenfolge des Laufs
+        localStorageSet('resultSort', JSON.stringify(S.resultSort));
+        refreshDeviceTab();
+      },
+    }, label, h('span', { class: 'arrow', 'aria-hidden': 'true' }, active ? (so.dir > 0 ? '▲' : '▼') : '↕')));
+  };
   return h('div', { class: 'stack' },
-    h('div', { class: 'tiles' }, bestCard(t('Beste Hashrate'), s.ranking.hashrate), bestCard(t('Beste Effizienz'), s.ranking.efficiency), bestCard(t('Ausgewogen'), s.ranking.balanced)),
+    h('div', { class: 'tiles' }, bestCard(t('Beste Hashrate'), s.ranking.hashrate, t('Hashrate')), bestCard(t('Beste Effizienz'), s.ranking.efficiency, t('Effizienz')),
+      bestCard(t('Ausgewogen'), s.ranking.balanced, t('Ausgewogen'))),
     h('div', { class: 'card' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Lauf vom {0}', time(s.startedAt))), h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, s.finishReason || (s.isFinished ? t('abgeschlossen') : t('nicht abgeschlossen')))),
       h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, ['MHz', 'mV', t('Ergebnis'), t('Hashrate'), t('Soll'), t('Leistung'), 'J/TH', t('Chip max'), t('VR max'), t('Fehler %'), ''].map(x => h('th', {}, x)))),
-        h('tbody', {}, s.results.map(r => h('tr', { class: best && r.frequencyMhz === best.frequencyMhz && r.coreVoltageMv === best.coreVoltageMv ? 'best' : null },
+        h('thead', {}, h('tr', {}, RESULT_COLS().map(sortBtn), h('th', {}, ''))),
+        h('tbody', {}, sortedResults(s.results).map(r => h('tr', { class: best && r.frequencyMhz === best.frequencyMhz && r.coreVoltageMv === best.coreVoltageMv ? 'best' : null },
           h('td', {}, r.frequencyMhz), h('td', {}, r.coreVoltageMv), h('td', { class: r.isStable ? 'ok' : 'danger' }, r.outcomeText),
           h('td', {}, hash(r.avgHashRateGh)), h('td', {}, hash(r.expectedHashRateGh)), h('td', {}, t('{0} W', n(r.avgPowerW, 1))),
           h('td', {}, r.efficiencyJth ? n(r.efficiencyJth, 2) : '–'), h('td', {}, r.maxChipTempC != null ? n(r.maxChipTempC, 1) : '–'),
           h('td', {}, r.maxVrTempC != null ? n(r.maxVrTempC, 0) : '–'), h('td', {}, r.avgErrorPercent != null ? n(r.avgErrorPercent, 2) : '–'),
-          h('td', {}, isAdmin() && r.isStable ? h('button', { class: 'btn small', onclick: () => applyChange(r.frequencyMhz, r.coreVoltageMv) }, t('Anwenden …')) : null))))))));
+          h('td', { class: 'nowrap' }, isAdmin() && r.isStable ? [
+            h('button', { class: 'btn small', onclick: () => applyChange(r.frequencyMhz, r.coreVoltageMv) }, t('Anwenden …')), ' ',
+            h('button', { class: 'btn small', title: t('Als Voreinstellung für Zeitplan und Strompreis-Automatik speichern'), onclick: () => saveResultAsPreset(r) }, t('Speichern …'))] : null))))))));
 }
 
 // ---------- Vorher/Nachher ----------

@@ -612,6 +612,14 @@ public sealed class PresetScheduleRule : AutomationRule
         $"schedule|{Mode}|{DefaultPreset}|{ThresholdCt}|{CheapPreset}|{ExpensivePreset}|") +
         string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour},{e.Preset}")));
 
+    /// <summary>
+    /// Nutzt der Zeitplan diese Voreinstellung? Die Freigabe merkt sich nur den Namen – wer eine benutzte Voreinstellung
+    /// überschreibt, ändert also, was der freigegebene Zeitplan setzt. Darauf weisen Desktop und Browser vorher hin.
+    /// </summary>
+    public bool UsesPreset(string name) =>
+        new[] { DefaultPreset, CheapPreset, ExpensivePreset }.Concat(Entries.Select(e => e.Preset))
+            .Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
+
     public PresetScheduleRule Clone()
     {
         var copy = (PresetScheduleRule)MemberwiseClone();

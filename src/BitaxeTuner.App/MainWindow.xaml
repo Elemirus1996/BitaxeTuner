@@ -390,6 +390,8 @@
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button Content="{l:T 'Beste anwenden'}" Command="{Binding ApplyBestCommand}" Style="{StaticResource PrimaryButton}" />
                                             <Button Content="{l:T 'Ausgewählte anwenden'}" Command="{Binding ApplyResultCommand}" />
+                                            <Button Content="{l:T 'In Automatik speichern …'}" Command="{Binding SaveResultAsPresetCommand}"
+                                                    ToolTip="{l:T 'Ausgewähltes Ergebnis als Voreinstellung für Zeitplan und Strompreis-Automatik speichern'}" />
                                             <Button Content="{l:T 'CSV exportieren'}" Command="{Binding ExportCsvCommand}" Margin="0" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding BestSummary}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />

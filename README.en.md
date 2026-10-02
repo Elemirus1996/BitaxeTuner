@@ -48,6 +48,8 @@ Corrections to the English texts are welcome: they all live in
   settings are restored.
 - **Parallel operation** of several miners, **pause/resume** and resuming interrupted runs.
 - **Live view** with hashrate/temperature history, **heatmap** frequency × voltage, results table, CSV export.
+  Sort results by clicking a column (e.g. J/TH ascending) and **save them to the automation** directly (as a preset for
+  schedule and electricity price – nothing changes on the miner).
 - **Soak test** and **efficiency advisor** (see [Usage](#automation-soak-test-compare-phone-view)).
 - **Simulation mode**: enter the address `sim` or `sim:<profile-id>` (e.g. `sim:nerdqaxe-plusplus`) –
   to try it out without real hardware (runs 30× faster).

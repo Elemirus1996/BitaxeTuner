@@ -446,6 +446,42 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Benchmark_result_can_be_saved_as_preset_without_touching_the_miner()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        var detail = await Json(await admin.GetAsync($"/api/v1/devices/{id}"));
+        var max = detail.GetProperty("profile").GetProperty("maxFrequencyMhz").GetInt32();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = "Zu hoch", frequencyMhz = max + 100, coreVoltageMv = 1150 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = " ", frequencyMhz = 500, coreVoltageMv = 1150 })).StatusCode);
+
+        var first = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = "Effizienz", frequencyMhz = 500, coreVoltageMv = 1150 }));
+        Assert.False(first.GetProperty("replaced").GetBoolean());
+        var second = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = "effizienz", frequencyMhz = 525, coreVoltageMv = 1150 }));
+        Assert.True(second.GetProperty("replaced").GetBoolean());
+        var presets = (await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("config").GetProperty("presets");
+        Assert.Equal(1, presets.GetArrayLength());
+        Assert.Equal(525, presets[0].GetProperty("frequencyMhz").GetInt32());
+
+        var journal = (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=automation"))).GetRawText();
+        Assert.Contains("Voreinstellung ersetzt", journal);
+        Assert.DoesNotContain("\"tuning\"", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=tuning"))).GetProperty("entries").GetRawText());
+
+        var viewer = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await viewer.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = "x", frequencyMhz = 500, coreVoltageMv = 1150 })).StatusCode);
+    }
+
+    [Fact]
+    public void Schedule_knows_which_presets_it_uses()
+    {
+        var s = new Core.Config.PresetScheduleRule { DefaultPreset = "Tag", Entries = [new Core.Config.ScheduleEntry { Preset = "Nacht" }] };
+        Assert.True(s.UsesPreset("nacht"));
+        Assert.True(s.UsesPreset("Tag"));
+        Assert.False(s.UsesPreset("Effizienz"));
+    }
+
+    [Fact]
     public async Task Api_token_for_desktop_works_without_cookie_and_can_be_revoked()
     {
         var admin = await AdminAsync();

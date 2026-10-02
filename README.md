@@ -45,6 +45,8 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   werden die ursprünglichen (oder die beste gefundene) Einstellungen wiederhergestellt.
 - **Parallelbetrieb** mehrerer Miner, **Pause/Fortsetzen** und Fortsetzen abgebrochener Läufe.
 - **Live-Ansicht** mit Hashrate-/Temperaturverlauf, **Heatmap** Frequenz × Spannung, Ergebnistabelle, CSV-Export.
+  Ergebnisse per Klick auf die Spalten sortieren (z. B. J/TH aufsteigend) und direkt **in der Automatik speichern**
+  (als Voreinstellung für Zeitplan und Strompreis – am Miner ändert sich dabei nichts).
 - **Dauertest** und **Effizienz-Ratgeber** (siehe [Bedienung](#automatik-dauertest-vergleich-handy-ansicht)).
 - **Simulationsmodus**: Adresse `sim` oder `sim:<profil-id>` eingeben (z. B. `sim:nerdqaxe-plusplus`) –
   zum Ausprobieren ohne echte Hardware (läuft 30× schneller).

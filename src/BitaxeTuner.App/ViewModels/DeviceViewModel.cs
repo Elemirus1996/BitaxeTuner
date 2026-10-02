@@ -123,6 +123,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private StepResult? _bestResult;
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ApplyResultCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveResultAsPresetCommand))]
     private StepResult? _selectedResult;
 
     /// <summary>Manuelles Einstellen (Tab Live).</summary>
@@ -398,6 +399,31 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private Task ApplyResult() => ApplyAsync(SelectedResult!);
 
     private Task ApplyAsync(StepResult r) => ApplyValuesAsync(r.FrequencyMhz, r.CoreVoltageMv);
+
+    private bool CanSaveResultAsPreset() => SelectedResult is { IsStable: true };
+
+    /// <summary>
+    /// Ausgewähltes Ergebnis als Voreinstellung der Automatik speichern (am Miner ändert sich nichts). Beim Ersetzen zeigt
+    /// der Dialog alt → neu und warnt, wenn der Zeitplan die Voreinstellung nutzt – die Freigabe gilt für den Namen.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanSaveResultAsPreset))]
+    private void SaveResultAsPreset()
+    {
+        if (SelectedResult is not { IsStable: true } r) return;
+        (string, bool) Note(string name)
+        {
+            var old = Presets.FirstOrDefault(p => string.Equals(p.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (old is null) return (L.T("Neue Voreinstellung – am Miner ändert sich dabei nichts."), false);
+            var used = Config.Schedule.UsesPreset(old.Name);
+            var text = L.T("Ersetzt „{0}“: {1} MHz / {2} mV → {3} MHz / {4} mV.", old.Name, old.FrequencyMhz, old.CoreVoltageMv, r.FrequencyMhz, r.CoreVoltageMv);
+            return (used ? text + " " + L.T("Achtung: Der Zeitplan nutzt diese Voreinstellung und setzt künftig die neuen Werte.") : text, used);
+        }
+        var name = Views.TextPromptWindow.Ask(L.T("In Automatik speichern"),
+            L.T("{0} MHz / {1} mV als Voreinstellung für Zeitplan und Strompreis-Automatik speichern.", r.FrequencyMhz, r.CoreVoltageMv) + "\n" + L.T("Name"),
+            L.T("{0} MHz", r.FrequencyMhz), Note);
+        if (name is null) return;
+        UpsertPreset(new TuningPreset(name, r.FrequencyMhz, r.CoreVoltageMv));
+    }
 
     private bool CanApplyManual() => !IsRunning;
 
