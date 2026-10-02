@@ -315,6 +315,8 @@ wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellunge
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
 stehen in der Bauanleitung
 [docs/pico-luefter](https://elemirus1996.github.io/BitaxeTuner/pico-luefter/) (Quelle: [`docs/pico-luefter/index.html`](docs/pico-luefter/index.html)).
+Ohne Löten und ohne Steckbrett: die fertig bestückbare **Lüfterplatine** für den Pico 2 H mit Bestelldateien für JLCPCB
+liegt in [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (Prototyp v1.0, vor dem Dauerbetrieb durchmessen).
 
 ### Home Assistant / MQTT
 

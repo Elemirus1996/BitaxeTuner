@@ -314,6 +314,8 @@ full-screen: **block found** (until button 1 or 24 h), **warnings** (until ackno
 **best diff record** (once) – each can be switched on or off. Settings and a preview of each page:
 browser → *Fans & display*. Wiring diagram, solder-free breadboard build and shopping list are in the build guide
 [docs/en/pico-fans](https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/).
+No soldering and no breadboard: the ready-to-assemble **fan board** for the Pico 2 H with order files for JLCPCB is in
+[`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (prototype v1.0, measure before continuous use; German readme).
 
 ### Home Assistant / MQTT
 

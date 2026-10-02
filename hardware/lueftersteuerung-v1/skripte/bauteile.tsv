@@ -1,0 +1,56 @@
+J1	Pico 2 H Pins 1-20	Connector_PinSocket_2.54mm:PinSocket_1x20_P2.54mm_Vertical	C2905423
+J2	Pico 2 H Pins 40-21	Connector_PinSocket_2.54mm:PinSocket_1x20_P2.54mm_Vertical	C2905423
+J11	Lüfter K1	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R11	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R21	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q1	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R31	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J12	Lüfter K2	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R12	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R22	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q2	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R32	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J13	Lüfter K3	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R13	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R23	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q3	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R33	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J14	Lüfter K4	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R14	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R24	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q4	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R34	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J15	Lüfter K5	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R15	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R25	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q5	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R35	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J16	Lüfter K6	Connector:FanPinHeader_1x04_P2.54mm_Vertical	C240840
+R16	1k	Resistor_SMD:R_0603_1608Metric	C21190
+R26	10k	Resistor_SMD:R_0603_1608Metric	C25804
+Q6	BC847B	Package_TO_SOT_SMD:SOT-23	C20069135
+R36	10k	Resistor_SMD:R_0603_1608Metric	C25804
+J3	USB-C 5V FAN POWER	Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal	C3151650
+R1	5.1k	Resistor_SMD:R_0603_1608Metric	C23186
+R2	5.1k	Resistor_SMD:R_0603_1608Metric	C23186
+F1	PTC 2A hold	Fuse:Fuse_1812_4532Metric	C960026
+Q7	AO3401A	Package_TO_SOT_SMD:SOT-23	C15127
+Q8	AO3401A	Package_TO_SOT_SMD:SOT-23	C15127
+R3	100k	Resistor_SMD:R_0603_1608Metric	C25803
+D1	MM1Z6V2	Diode_SMD:D_SOD-123	C22379464
+Q9	BC857C	Package_TO_SOT_SMD:SOT-23	C20069137
+R4	10k	Resistor_SMD:R_0603_1608Metric	C25804
+D2	BZT52C5V6	Diode_SMD:D_SOD-123	C173406
+R5	10k	Resistor_SMD:R_0603_1608Metric	C25804
+C1	470uF 25V	Capacitor_SMD:CP_Elec_8x10.5	C48935394
+C2	100nF	Capacitor_SMD:C_0603_1608Metric	C14663
+D3	SMAJ5.0A	Diode_SMD:D_SMA	C2925443
+TP1	VIN	TestPoint:TestPoint_Pad_D1.5mm	
+TP2	+5V_FAN	TestPoint:TestPoint_Pad_D1.5mm	
+TP3	GND	TestPoint:TestPoint_Pad_D1.5mm	
+J4	E-PAPER	Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical	C32713274
+J5	BUTTONS	Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical	C32713274
+J6	DS18B20 #1	TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-03P_1x03_P5.00mm	C5188435
+J7	DS18B20 #2	TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-03P_1x03_P5.00mm	C5188435
+J8	DS18B20 #3	TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-03P_1x03_P5.00mm	C5188435
+R6	4.7k	Resistor_SMD:R_0603_1608Metric	C23162

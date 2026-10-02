@@ -491,3 +491,6 @@ artifacts/
 
 # Quellcode der Sicherung (nicht die Visual-Studio-Backup-Ordner oben)
 !src/BitaxeTuner.Core/Backup/
+*.kicad_prl
+*-backups/
+fp-info-cache
