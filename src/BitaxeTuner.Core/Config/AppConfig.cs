@@ -153,9 +153,15 @@ public sealed class AppConfig
         AppConfig cfg;
         try
         {
-            cfg = File.Exists(filePath)
-                ? JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(filePath)) ?? new AppConfig()
-                : new AppConfig();
+            if (File.Exists(filePath))
+            {
+                // Tokens stehen als Verweis in config.json, die Werte in secrets.json (Audit P2)
+                var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(filePath));
+                var missing = root is null ? [] : ConfigSecrets.Resolve(root, new SecretStore(Path.GetDirectoryName(Path.GetFullPath(filePath))!));
+                cfg = root?.Deserialize<AppConfig>() ?? new AppConfig();
+                cfg.UnresolvedSecrets = missing;
+            }
+            else cfg = new AppConfig();
         }
         catch
         {
@@ -195,15 +201,24 @@ public sealed class AppConfig
     [JsonIgnore]
     public string? FilePath { get; set; }
 
+    /// <summary>Beim Laden nicht auflösbare Token-Verweise (z. B. Sicherung von einem anderen Rechner) – bleiben erhalten.</summary>
+    [JsonIgnore]
+    public Dictionary<string, string> UnresolvedSecrets { get; set; } = [];
+
     public void Save() => Save(FilePath ?? DataPaths.ConfigFile);
 
     public void Save(string filePath)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            var dir = Path.GetDirectoryName(Path.GetFullPath(filePath))!;
+            Directory.CreateDirectory(dir);
+            var root = JsonSerializer.SerializeToNode(this, WriteOptions)!;
+            // Tokens nach secrets.json; gelingt das nicht, bleiben sie wie bisher in config.json (nie verlieren)
+            try { ConfigSecrets.Externalize(root, new SecretStore(dir), UnresolvedSecrets); }
+            catch { root = JsonSerializer.SerializeToNode(this, WriteOptions)!; }
             var tmp = filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(this, WriteOptions));
+            File.WriteAllText(tmp, root.ToJsonString(WriteOptions));
             File.Move(tmp, filePath, overwrite: true);
         }
         catch { /* nicht kritisch */ }

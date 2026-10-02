@@ -53,6 +53,8 @@ public static class DataArchive
     }
 
     /// <summary>Archiv erstellen. Ist history.db im Prozess geöffnet, <paramref name="openHistory"/> übergeben (Backup über dieselbe Verbindung).</summary>
+    /// <param name="source">„backup“ = Sicherung: Tokens bleiben als Verweis (Werte nur in secrets.json, nicht im Archiv).
+    /// Sonst Übertragung (Desktop ↔ Server, Pi-Einrichtung): config.json mit aufgelösten Tokens, damit sie mitkommen.</param>
     public static ArchiveManifest Create(string dataDirectory, HistoryStore? openHistory, Stream output, string source, string appVersion)
     {
         var manifest = new ArchiveManifest { Source = source, AppVersion = appVersion };
@@ -65,6 +67,13 @@ public static class DataArchive
             {
                 var relative = Path.GetRelativePath(dataDirectory, file).Replace('\\', '/');
                 if (!IsTransferable(relative)) continue;
+                if (relative.Equals("config.json", StringComparison.OrdinalIgnoreCase) && source != "backup")
+                {
+                    var resolved = Path.Combine(temp, "config.json");
+                    ConfigSecrets.ResolveFile(file, resolved);
+                    Add(zip, manifest, relative, resolved);
+                    continue;
+                }
                 Add(zip, manifest, relative, file);
             }
 

@@ -476,7 +476,10 @@ Alle Daten liegen in **einem** Ordner, Standard `%AppData%\BitaxeMonitor\` (bish
 `config.json` (Geräte und alle Einstellungen), `history.db` (Verlauf, Tuning-Ereignisse, Dauertests, Smart-Plug-Werte,
 Strompreise, Monatsberichte, Frühwarnung), `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json` und
 `secrets.json` (Passwörter für NAS, MQTT und Smart Plugs – unter Windows verschlüsselt, unter Linux nur für den
-Dienst lesbar, nie in Sicherungen oder Übertragungen).
+Dienst lesbar, nie in Sicherungen oder Übertragungen). Auch Tokens und API-Schlüssel (Push-Dienste, Tibber, Blockchair,
+CoinGecko, Server-Token der Desktop-App) liegen dort; `config.json` enthält nur einen Verweis. Sicherungen enthalten sie
+daher nicht – nach dem Einspielen auf einem anderen Rechner einmal neu eintragen. Übertragungen (Desktop ↔ Server,
+Pi-Einrichtung) nehmen die Tokens mit.
 
 - Beim ersten Start wird der Ordner vollständig nach `backup-<datum>\` gesichert (history.db über die SQLite-Backup-API).
 - Geräte und Ergebnisse des früheren eigenständigen BitaxeTuner (`%LocalAppData%\BitaxeTuner`) werden einmalig

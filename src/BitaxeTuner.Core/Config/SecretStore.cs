@@ -6,8 +6,8 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Config;
 
 /// <summary>
-/// Passwörter für Integrationen (NAS, MQTT) – getrennt von config.json, damit sie nie in Datenarchive, Sicherungen
-/// oder Übertragungen gelangen. Windows: DPAPI (Rechner-gebunden); Linux: nur für den Dienstbenutzer lesbar (600).
+/// Passwörter für Integrationen (NAS, MQTT) und Tokens aus config.json (<see cref="ConfigSecrets"/>) – getrennt von
+/// config.json, damit sie nie in Sicherungen gelangen. Windows: DPAPI (Rechner-gebunden); Linux: nur für den Dienstbenutzer lesbar (600).
 /// </summary>
 public sealed class SecretStore(string dataDirectory)
 {
@@ -21,7 +21,9 @@ public sealed class SecretStore(string dataDirectory)
     /// rechnerweit – ein Zurücksetzen des Windows-Kennworts würde sonst gespeicherte Passwörter unlesbar machen.
     /// </summary>
     public static bool UseServiceAccountScope { get; set; }
-    private readonly object _lock = new();
+    // Eine Sperre je Datei, auch über mehrere Instanzen hinweg (Hub und config.json-Speichern schreiben dieselbe Datei)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> Locks = new(StringComparer.OrdinalIgnoreCase);
+    private object _lock => Locks.GetOrAdd(Path.GetFullPath(FilePath), _ => new object());
 
     public string FilePath { get; } = Path.Combine(dataDirectory, "secrets.json");
 
@@ -53,6 +55,34 @@ public sealed class SecretStore(string dataDirectory)
             if (string.IsNullOrEmpty(value)) all.Remove(key);
             else all[key] = Protect(value);
             Write(all);
+        }
+    }
+
+    /// <summary>
+    /// Alle Einträge mit <paramref name="prefix"/> in einem Schritt setzen; nicht mehr benutzte entfernen (außer
+    /// <paramref name="keep"/>). Unveränderte Werte werden nicht neu verschlüsselt, die Datei nur bei Änderungen geschrieben.
+    /// </summary>
+    public void ReplaceGroup(string prefix, IReadOnlyDictionary<string, string> values, IReadOnlySet<string> keep)
+    {
+        lock (_lock)
+        {
+            var all = Load();
+            var changed = false;
+            foreach (var old in all.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal) && !keep.Contains(k) && !values.ContainsKey(k)).ToList())
+            {
+                all.Remove(old);
+                changed = true;
+            }
+            foreach (var (k, v) in values)
+            {
+                if (all.TryGetValue(k, out var stored))
+                {
+                    try { if (Unprotect(stored) == v) continue; } catch { /* neu schreiben */ }
+                }
+                all[k] = Protect(v);
+                changed = true;
+            }
+            if (changed) Write(all);
         }
     }
 

@@ -90,6 +90,8 @@ public class ConfigAndDataTests
 
         var before = JsonNode.Parse(MonitorConfig)!.AsObject();
         var after = JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        // Tokens stehen jetzt als Verweis in config.json (Audit P2) – aufgelöst muss jeder Wert noch da sein
+        Assert.Empty(ConfigSecrets.Resolve(after, new SecretStore(dir.Path)));
         AssertContainsAll(before, after, "");
     }
 
