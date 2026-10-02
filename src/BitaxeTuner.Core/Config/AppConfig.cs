@@ -208,6 +208,9 @@ public sealed class DeviceConfig
     public string Name { get; set; } = "Miner";
     public string Host { get; set; } = "";
 
+    /// <summary>0.9.1: Gruppen/Tags, z. B. „Community“, „Keller“ (Filter, Summen, Push-Ziele je Gruppe). Additiv.</summary>
+    public List<string> Groups { get; set; } = [];
+
     /// <summary>Leer = Adresse automatisch aus dem Stratum-User des Geräts.</summary>
     public string WalletAddress { get; set; } = "";
 
@@ -242,6 +245,7 @@ public sealed class DeviceConfig
     public DeviceConfig Clone()
     {
         var copy = (DeviceConfig)MemberwiseClone();
+        copy.Groups = [.. Groups];
         copy.Presets = Presets.Select(p => p with { }).ToList();
         copy.ThermalGuard = ThermalGuard.Clone();
         copy.Schedule = Schedule.Clone();
@@ -360,6 +364,7 @@ public sealed class NotificationSettings
                 .Select(c => Enum.Parse<NotifyCategory>(c, true).ToString()).Distinct().ToList();
             t.Miners = (t.Miners ?? []).Where(h => hosts.Contains(h.Trim())).Select(h => h.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             t.ReportExclude = (t.ReportExclude ?? []).Where(x => ReportParts.All.Contains(x)).Distinct().ToList();
+            t.Groups = MinerGroups.Normalize(t.Groups);
         }
         if (Targets.Count == 0) Provider = "none";
         else SyncLegacyFromTargets();
@@ -671,4 +676,22 @@ public sealed class ServerConnectionSettings
 
     /// <summary>Rechner für SSH; leer = Host der Server-Adresse.</summary>
     public string SshHost { get; set; } = "";
+}
+
+/// <summary>Miner-Gruppen: Namen bereinigen und Mitglieder finden (Groß-/Kleinschreibung egal).</summary>
+public static class MinerGroups
+{
+    public const int MaxLength = 40;
+
+    /// <summary>Getrimmt, ohne leere und doppelte Einträge, höchstens 40 Zeichen, höchstens 10 je Miner.</summary>
+    public static List<string> Normalize(IEnumerable<string>? groups) =>
+        (groups ?? []).Select(g => (g ?? "").Trim()).Where(g => g.Length > 0)
+            .Select(g => g.Length > MaxLength ? g[..MaxLength] : g)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToList();
+
+    /// <summary>Alle vorkommenden Gruppen, alphabetisch.</summary>
+    public static List<string> All(IEnumerable<DeviceConfig> devices) =>
+        devices.SelectMany(d => d.Groups).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+
+    public static bool Contains(DeviceConfig device, string group) => device.Groups.Contains(group, StringComparer.OrdinalIgnoreCase);
 }

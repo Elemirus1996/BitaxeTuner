@@ -40,6 +40,9 @@ public sealed class NotificationService : IDisposable
 
     /// <summary>Nur für Tests: je gesendete Meldung das Ziel (Id) – prüft die Verteilung.</summary>
     internal event Action<string, string>? DeliveredTo;
+
+    /// <summary>Gruppen eines Miners (vom Hub gesetzt) – für Push-Ziele mit Gruppenauswahl.</summary>
+    public Func<string, IReadOnlyCollection<string>>? GroupsOf { get; set; }
     /// <summary>Für Tests: Ziel-ID, Schlüssel und tatsächlich gesendeter Text.</summary>
     internal event Action<string, string, string>? Delivered;
 
@@ -73,7 +76,7 @@ public sealed class NotificationService : IDisposable
                                 NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
                                 NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
-        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host))
+        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host, GroupsOf))
             .Select(t => (Target: t, Message: messageFor(t))).Where(x => x.Message is not null).ToList();
         if (targets.Count == 0) return;
 

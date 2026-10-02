@@ -12,7 +12,7 @@ public sealed record ComparisonRow(
     string Name, string Chip, string Current,
     double? Hash24, double? Eff24, double? Temp24, double? Availability7,
     string BestHash, string BestEff, int? MaxStableFrequency, string Benchmark, string PoolDiff = "–",
-    string Model = "", bool Online = false)
+    string Model = "", bool Online = false, IReadOnlyList<string>? Groups = null)
 {
     public string Hash24Text => Hash24 is { } h ? L.T("{0:0} GH/s", h) : "–";
     public string Eff24Text => Eff24 is { } e ? L.T("{0:0.00} J/TH", e) : "–";
@@ -47,6 +47,10 @@ public sealed partial class ComparisonViewModel : ObservableObject
     [ObservableProperty] private string _filterText = "";
     [ObservableProperty] private string _selectedModel = "";
     [ObservableProperty] private bool _onlyOnline;
+    [ObservableProperty] private string _selectedGroup = "";
+    public ObservableCollection<string> Groups { get; } = [];
+    public static string AllGroups => L.T("alle Gruppen");
+    partial void OnSelectedGroupChanged(string value) => View.Refresh();
 
     partial void OnFilterTextChanged(string value) => View.Refresh();
     partial void OnSelectedModelChanged(string value) => View.Refresh();
@@ -56,6 +60,7 @@ public sealed partial class ComparisonViewModel : ObservableObject
     {
         if (OnlyOnline && !r.Online) return false;
         if (SelectedModel.Length > 0 && SelectedModel != AllModels && r.Model != SelectedModel) return false;
+        if (SelectedGroup.Length > 0 && SelectedGroup != AllGroups && !(r.Groups ?? []).Contains(SelectedGroup, StringComparer.OrdinalIgnoreCase)) return false;
         var f = FilterText.Trim();
         return f.Length == 0 || r.Name.Contains(f, StringComparison.OrdinalIgnoreCase) || r.Chip.Contains(f, StringComparison.OrdinalIgnoreCase);
     }
@@ -89,7 +94,7 @@ public sealed partial class ComparisonViewModel : ObservableObject
                 Format(bestHash), Format(bestEff), maxStable,
                 session is null ? L.T("kein Benchmark") : L.T("{0:d} · {1} Messungen", session.StartedAt, results.Count) + (session.IsFinished ? "" : L.T(" (unvollständig)")),
                 i?.PoolDifficultyText ?? "–",
-                i?.DeviceModel ?? i?.AsicModel ?? "", state.Online));
+                i?.DeviceModel ?? i?.AsicModel ?? "", state.Online, state.Config.Groups));
         }
 
         var selected = SelectedModel;
@@ -97,6 +102,11 @@ public sealed partial class ComparisonViewModel : ObservableObject
         Models.Add(AllModels);
         foreach (var m in Rows.Select(r => r.Model).Where(m => m.Length > 0).Distinct().Order()) Models.Add(m);
         SelectedModel = Models.Contains(selected) ? selected : AllModels;
+        var selectedGroup = SelectedGroup;
+        Groups.Clear();
+        Groups.Add(AllGroups);
+        foreach (var g in BitaxeTuner.Core.Config.MinerGroups.All(host.Hub.Config.Devices)) Groups.Add(g);
+        SelectedGroup = Groups.Contains(selectedGroup) ? selectedGroup : AllGroups;
 
         var withBench = Rows.Where(r => r.MaxStableFrequency is not null).ToList();
         var bestChip = withBench.OrderByDescending(r => r.MaxStableFrequency).FirstOrDefault();

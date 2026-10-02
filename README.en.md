@@ -78,6 +78,8 @@ Corrections to the English texts are welcome: they all live in
 - **Automatic device discovery** (network scan in desktop and browser) and matching **device profiles** with sensible limits.
 - **Copy settings**: take over one miner's pool/fallback and fan settings to others – preview old → new, backup of
   each miner first, worker names are kept, frequency and voltage are never copied.
+- **Miner groups** (e.g. “Community”, “Basement”): filter and totals in the overview (browser), group filter in
+  compare, push services for whole groups – new members get alerts and reports automatically.
 - **Soak test for several miners** at once, **compare** all miners side by side
   (including the current **pool difficulty** if the firmware reports it).
 - **Comparison report** to print (browser *Compare → Report …*, desktop *Miner comparison → Report …*): 1–6 miners,

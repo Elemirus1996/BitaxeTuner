@@ -46,7 +46,7 @@
         <StackPanel x:Name="SettingsContent" Margin="0,0,6,0">
 
         <!-- Miner -->
-        <Border Style="{StaticResource Card}" Height="450">
+        <Border Style="{StaticResource Card}" Height="510">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="{l:T 'Miner'}" Style="{StaticResource Section}"/>
 
@@ -84,6 +84,9 @@
 
                         <TextBlock Text="{l:T 'FIRMWARE-REPOSITORY (GITHUB, LEER = KEIN CHECK)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="RepoBox" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="{l:T 'GRUPPEN (MIT KOMMA GETRENNT, Z. B. COMMUNITY, KELLER)'}" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="GroupsBox" Margin="0,0,0,10"/>
 
                         <CheckBox x:Name="DeviceLogAlertsBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'}"/>

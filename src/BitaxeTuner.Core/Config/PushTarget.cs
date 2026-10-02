@@ -54,8 +54,19 @@ public sealed class PushTarget
     /// </summary>
     public List<string> ReportExclude { get; set; } = [];
 
+    /// <summary>0.9.1: Meldungen für alle Miner dieser Gruppen (zusätzlich zu <see cref="Miners"/>); neue Mitglieder automatisch.</summary>
+    public List<string> Groups { get; set; } = [];
+
+    /// <summary>Auf bestimmte Miner oder Gruppen beschränkt (sonst: alle).</summary>
+    public bool HasMinerFilter => Miners.Count > 0 || Groups.Count > 0;
+
+    /// <summary>Gehört dieser Miner zu den Meldungen des Ziels? <paramref name="hostGroups"/> = Gruppen des Miners.</summary>
+    public bool CoversHost(string host, IEnumerable<string>? hostGroups) =>
+        !HasMinerFilter || Miners.Contains(host, StringComparer.OrdinalIgnoreCase) ||
+        (hostGroups ?? []).Any(g => Groups.Contains(g, StringComparer.OrdinalIgnoreCase));
+
     public bool ReportIncludes(string part) =>
-        !ReportExclude.Contains(part, StringComparer.OrdinalIgnoreCase) && !(part == ReportParts.Income && Miners.Count > 0);
+        !ReportExclude.Contains(part, StringComparer.OrdinalIgnoreCase) && !(part == ReportParts.Income && HasMinerFilter);
 
     public static List<string> DefaultCategories() =>
         Enum.GetNames<NotifyCategory>().Where(c => c != nameof(NotifyCategory.Record)).ToList();
@@ -63,9 +74,8 @@ public sealed class PushTarget
     public bool Wants(NotifyCategory category) =>
         category == NotifyCategory.Other || Categories.Contains(category.ToString(), StringComparer.OrdinalIgnoreCase);
 
-    public bool Accepts(NotifyCategory category, string? host) =>
-        Enabled && Wants(category) &&
-        (host is null || Miners.Count == 0 || Miners.Contains(host, StringComparer.OrdinalIgnoreCase));
+    public bool Accepts(NotifyCategory category, string? host, Func<string, IReadOnlyCollection<string>>? groupsOf = null) =>
+        Enabled && Wants(category) && (host is null || CoversHost(host, groupsOf?.Invoke(host)));
 
     public PushTarget Clone()
     {
@@ -73,6 +83,7 @@ public sealed class PushTarget
         c.Categories = [.. Categories];
         c.Miners = [.. Miners];
         c.ReportExclude = [.. ReportExclude];
+        c.Groups = [.. Groups];
         return c;
     }
 

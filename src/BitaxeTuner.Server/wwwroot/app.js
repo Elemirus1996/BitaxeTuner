@@ -398,11 +398,37 @@ function webUiIcon(d) {
   }, 'AxeOS ↗');
 }
 
+/** Gehört der Miner zur Gruppe? (Groß-/Kleinschreibung egal; leere Gruppe = alle) */
+const inGroup = (d, g) => !g || (d.groups || []).some(x => x.toLowerCase() === g.toLowerCase());
+
+/** Gruppen-Chips (Übersicht): Auswahl je Browser gemerkt. */
+function groupChips(groups, devices, onPick) {
+  if (!groups?.length) return null;
+  // Die Übersicht wird bei jedem Messwert neu aufgebaut – schon beim Drücken reagieren, sonst geht der Klick verloren
+  const pick = g => { if ((S.group || '') === g) return; S.group = g; localStorageSet('group', g); onPick(); };
+  const chip = (g, label) => h('button', { type: 'button', class: 'seg-btn chip' + ((S.group || '') === g ? ' on' : ''), 'aria-pressed': String((S.group || '') === g),
+    onpointerdown: () => pick(g), onclick: () => pick(g) }, label);
+  return h('div', { class: 'row', role: 'group', 'aria-label': t('Gruppen') },
+    chip('', t('Alle ({0})', devices.length)), groups.map(g => chip(g, `${g} (${devices.filter(d => inGroup(d, g)).length})`)));
+}
+
 function renderOverview() {
   const s = S.status;
   const tv = s.totals;
   const chart = h('canvas');
-  const devs = s.devices.map(d => h('a', { class: 'card device', href: `#/device/${d.id}` },
+  if (S.group === undefined) S.group = localStorageGet('group') || '';
+  if (S.group && !(s.groups || []).some(g => g.toLowerCase() === S.group.toLowerCase())) S.group = '';
+  const shown = s.devices.filter(d => inGroup(d, S.group));
+  // Summen der gewählten Gruppe (Kosten anteilig nach Leistung)
+  const gOn = shown.filter(d => d.online);
+  const gHash = gOn.reduce((a, d) => a + (d.hashrate || 0), 0), gPower = gOn.reduce((a, d) => a + (d.wallPower ?? d.power ?? 0), 0);
+  const allPower = tv.wallPower ?? tv.power;
+  const groupCard = S.group ? h('div', { class: 'card row' },
+    h('b', {}, S.group), h('span', { class: 'muted' }, t('{0} von {1} online', gOn.length, shown.length)),
+    h('span', {}, hash(gHash)), h('span', {}, t('{0} W', n(gPower, 1))),
+    h('span', {}, gHash > 0 ? t('{0} J/TH', n(gPower / (gHash / 1000), 2)) : '–'),
+    tv.costPerDay != null && allPower > 0 ? h('span', { class: 'muted' }, t('≈ {0} {1} pro Tag', n(tv.costPerDay * gPower / allPower, 2), tv.currency)) : null) : null;
+  const devs = shown.map(d => h('a', { class: 'card device', href: `#/device/${d.id}` },
     h('div', { class: 'head' }, h('span', { class: `dot ${dotClass(d)}` }), h('b', {}, d.name),
       d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
@@ -438,6 +464,8 @@ function renderOverview() {
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.whatsNew ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
+    groupChips(s.groups, s.devices, renderOverview),
+    groupCard,
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
@@ -731,15 +759,15 @@ function drawChart(canvas, series, markers, opts = {}) {
 /** Ansicht der Vergleichsseite (Filter, Sortierung, Spaltengruppen) – je Browser gemerkt. */
 function compareView() {
   if (S.cmp) return S.cmp;
-  const def = { q: '', status: 'all', model: '', sort: 'name', dir: 1, groups: { power: true, temp: true, shares: true, system: false } };
+  const def = { q: '', status: 'all', model: '', group: '', sort: 'name', dir: 1, groups: { power: true, temp: true, shares: true, system: false } };
   let saved = {};
   try { saved = JSON.parse(localStorageGet('compareView') || '{}'); } catch { /* egal */ }
   S.cmp = { ...def, ...saved, q: '', groups: { ...def.groups, ...(saved.groups || {}) } };
   return S.cmp;
 }
 function saveCompareView() {
-  const { status, model, sort, dir, groups } = S.cmp;
-  localStorageSet('compareView', JSON.stringify({ status, model, sort, dir, groups }));
+  const { status, model, group, sort, dir, groups } = S.cmp;
+  localStorageSet('compareView', JSON.stringify({ status, model, group, sort, dir, groups }));
 }
 
 /** „1.23G“ → 1,23·10⁹ (Best Diff kommt als Text). */
@@ -859,6 +887,8 @@ function renderCompare() {
     return b;
   }));
   const models = [...new Set(s.devices.map(d => d.model).filter(Boolean))].sort();
+  const groupSel = s.groups?.length ? h('select', { style: 'width:auto;max-width:200px', 'aria-label': t('Gruppe'), onchange: e => { v.group = e.target.value; changed(); } },
+    h('option', { value: '' }, t('alle Gruppen')), s.groups.map(g => h('option', { value: g, selected: v.group === g }, g))) : null;
   const modelSel = h('select', { style: 'width:auto;max-width:240px', 'aria-label': t('Modell'), onchange: e => { v.model = e.target.value; changed(); } },
     h('option', { value: '' }, t('alle Modelle')), models.map(m => h('option', { value: m, selected: v.model === m }, m)));
   const search = h('input', { type: 'search', value: v.q, placeholder: t('Miner suchen …'), 'aria-label': t('Miner suchen'), style: 'max-width:220px', oninput: e => { v.q = e.target.value; updateCompare(); } });
@@ -880,6 +910,7 @@ function renderCompare() {
         search,
         chips([['all', t('alle')], ['online', 'online'], ['offline', 'offline']], () => v.status, x => { v.status = x; }),
         models.length > 1 ? modelSel : null,
+        groupSel,
         h('span', { class: 'spacer' }),
         h('span', { class: 'muted small' }, t('Spalten:')), groupChips),
       S.compareTable,
@@ -897,6 +928,7 @@ function updateCompare() {
   const rows = s.devices.filter(d =>
     (v.status === 'all' || (v.status === 'online') === !!d.online) &&
     (!v.model || d.model === v.model) &&
+    inGroup(d, v.group) &&
     (!q || `${d.name} ${d.model || ''} ${d.profile || ''}`.toLowerCase().includes(q)));
   const cols = compareColumns().filter(c => v.groups[c.group]);
   const all = compareColumns();
@@ -1710,16 +1742,20 @@ async function renderSettings() {
       extra.coin = h('select', {}, [['Auto', t('Auto (aus Adresse)')], ['BTC', 'BTC'], ['BCH', 'BCH']].map(([v, l]) => h('option', { value: v, selected: c.coin === v }, l)));
       extra.repo = h('input', { value: c.firmwareRepo || '', placeholder: t('leer = kein Check') });
       extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
+      extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       fill(more.firstChild, h('div', { class: 'stack' },
         h('div', { class: 'form' },
           h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Wallet-Adresse')), extra.wallet),
           h('div', {}, h('label', {}, t('Coin')), extra.coin),
-          h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo)),
+          h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo),
+          h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Gruppen (mit Komma getrennt)')), extra.groups)),
+        h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'))));
     } }, t('Details'));
     const save = () => {
       const body = { name: name.value };
-      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked });
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked,
+        groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean) });
       return run(() => api(`/devices/${d.id}`, { method: 'PUT', body }), t('Gespeichert.'));
     };
     return [h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
@@ -2022,11 +2058,16 @@ function pushTargetsEditor(nt, text, select, devices, save) {
     const minerList = h('div', { class: 'row', style: 'flex-wrap:wrap' }, devices.filter(d => d.host).map(d => h('label', { class: 'row' },
       h('input', { type: 'checkbox', checked: tg.miners.includes(d.host), onchange: e => { tg.miners = e.target.checked ? [...tg.miners, d.host] : tg.miners.filter(x => x !== d.host); } }),
       h('span', {}, d.name))));
-    minerList.style.display = tg.miners.length ? '' : 'none';
+    minerList.style.display = tg.miners.length || tg.groups?.length ? '' : 'none';
     const allMiners = h('label', { class: 'row' },
-      h('input', { type: 'checkbox', checked: !tg.miners.length, onchange: e => { if (e.target.checked) { tg.miners = []; draw(); } else minerList.style.display = ''; } }),
+      h('input', { type: 'checkbox', checked: !tg.miners.length && !tg.groups?.length, onchange: e => { if (e.target.checked) { tg.miners = []; tg.groups = []; draw(); } else { minerList.style.display = ''; if (groupBox) groupBox.style.display = ''; } } }),
       h('span', {}, t('alle Miner')));
     tg.reportExclude = tg.reportExclude || [];
+    tg.groups = tg.groups || [];
+    const allGroups = [...new Set(devices.flatMap(d => d.groups || []))].sort((a, b) => a.localeCompare(b));
+    const groupBox = allGroups.length ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('span', { class: 'small muted' }, t('oder ganze Gruppen:')), allGroups.map(g => h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: tg.groups.some(x => x.toLowerCase() === g.toLowerCase()), onchange: e => { tg.groups = e.target.checked ? [...tg.groups, g] : tg.groups.filter(x => x.toLowerCase() !== g.toLowerCase()); } }),
+      h('span', {}, g)))) : null;
     const partBox = h('div', { class: 'row', style: 'flex-wrap:wrap' }, parts.map(([k, label]) => h('label', { class: 'row' },
       h('input', { type: 'checkbox', checked: !tg.reportExclude.includes(k), onchange: e => { tg.reportExclude = e.target.checked ? tg.reportExclude.filter(x => x !== k) : [...tg.reportExclude, k]; } }),
       h('span', {}, label))));
@@ -2043,7 +2084,7 @@ function pushTargetsEditor(nt, text, select, devices, save) {
         h('button', { class: 'btn small danger', onclick: () => { nt.targets.splice(i, 1); draw(); } }, t('Entfernen'))),
       notifyForm(tg, text, select, false),
       h('div', { class: 'small muted' }, t('Meldungen')), catBox,
-      h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList,
+      h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList, groupBox,
       h('div', { class: 'small muted' }, t('Tages- und Monatsbericht enthalten')), partBox,
       h('div', { class: 'small muted' }, t('Mit Miner-Auswahl enthalten die Berichte nur diese Miner (Summen und Kosten nur für sie) und nie Zuflüsse.')));
   }) : h('p', { class: 'muted small' }, t('Noch kein Push-Dienst eingerichtet.')));

@@ -101,7 +101,7 @@ public sealed partial class MinerHub : IDisposable
             TuningApplied?.Invoke(e);
         };
 
-        Notify = new NotificationService(() => Config.Notifications);
+        Notify = new NotificationService(() => Config.Notifications) { GroupsOf = GroupsOfHost };
         Firmware = new FirmwareChecker();
 
         Blockchair = new BlockchairBlockchainService(config.BlockchairApiKey);
@@ -190,6 +190,10 @@ public sealed partial class MinerHub : IDisposable
 
     internal void RaiseStatus(bool ok, string text) => StatusMessage?.Invoke(ok, text);
     internal void RaiseDeviceChanged(HubDevice device) => DeviceChanged?.Invoke(device);
+
+    /// <summary>Gruppen eines Miners laut Einstellungen (leer, wenn unbekannt).</summary>
+    public IReadOnlyCollection<string> GroupsOfHost(string host) =>
+        Config.Devices.FirstOrDefault(d => string.Equals(d.Host.Trim(), host.Trim(), StringComparison.OrdinalIgnoreCase))?.Groups ?? [];
 
     /// <summary>
     /// Eintrag im dauerhaften Protokoll (history.db). Host null = Server/allgemein. Simulierte Miner (Demo) werden

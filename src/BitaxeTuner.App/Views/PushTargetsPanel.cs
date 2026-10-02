@@ -40,10 +40,13 @@ public sealed class PushTargetsPanel : StackPanel
         }
     }
 
-    public PushTargetsPanel(IEnumerable<PushTarget> targets, IReadOnlyList<(string Name, string Host)> miners)
+    private readonly IReadOnlyList<string> _groups;
+
+    public PushTargetsPanel(IEnumerable<PushTarget> targets, IReadOnlyList<(string Name, string Host)> miners, IReadOnlyList<string>? groups = null)
     {
         _targets = targets.Select(t => t.Clone()).ToList();
         _miners = miners;
+        _groups = groups ?? [];
 
         var hint = new TextBlock
         {
@@ -139,8 +142,16 @@ public sealed class PushTargetsPanel : StackPanel
             minerPanel.Children.Add(cb);
             return (m.Host, cb);
         }).ToList();
-        var all = new CheckBox { Content = L.T("alle Miner"), IsChecked = t.Miners.Count == 0, Margin = new Thickness(0, 4, 0, 2) };
-        void ShowMiners() => minerPanel.Visibility = all.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
+        var groupPanel = new WrapPanel { Margin = new Thickness(18, 0, 0, 0) };
+        if (_groups.Count > 0) groupPanel.Children.Add(new TextBlock { Text = L.T("oder ganze Gruppen:"), Margin = new Thickness(0, 2, 10, 2), VerticalAlignment = VerticalAlignment.Center });
+        var groupBoxes = _groups.Select(g =>
+        {
+            var cb = new CheckBox { Content = g, IsChecked = t.Groups.Contains(g, StringComparer.OrdinalIgnoreCase), Margin = new Thickness(0, 2, 14, 2) };
+            groupPanel.Children.Add(cb);
+            return (Group: g, cb);
+        }).ToList();
+        var all = new CheckBox { Content = L.T("alle Miner"), IsChecked = !t.HasMinerFilter, Margin = new Thickness(0, 4, 0, 2) };
+        void ShowMiners() => minerPanel.Visibility = groupPanel.Visibility = all.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
         all.Click += (_, _) => ShowMiners();
         ShowMiners();
 
@@ -164,6 +175,7 @@ public sealed class PushTargetsPanel : StackPanel
             DiscordWebhookUrl = discord.Text.Trim(), PushoverUserKey = poUser.Text.Trim(), PushoverAppToken = poToken.Text.Trim(), WebhookUrl = hook.Text.Trim(),
             Categories = catBoxes.Where(c => c.cb.IsChecked == true).Select(c => c.Cat.ToString()).ToList(),
             Miners = all.IsChecked == true ? [] : minerBoxes.Where(m => m.cb.IsChecked == true).Select(m => m.Host).ToList(),
+            Groups = all.IsChecked == true ? [] : groupBoxes.Where(g => g.cb.IsChecked == true).Select(g => g.Group).ToList(),
             ReportExclude = partBoxes.Where(x => x.cb.IsChecked != true).Select(x => x.Key).ToList(),
         };
         _readers.Add(Read);
@@ -207,6 +219,7 @@ public sealed class PushTargetsPanel : StackPanel
         content.Children.Add(minerLabel);
         content.Children.Add(all);
         content.Children.Add(minerPanel);
+        content.Children.Add(groupPanel);
         var partsLabel = new TextBlock { Text = L.T("Tages- und Monatsbericht enthalten"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
         partsLabel.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
         content.Children.Add(partsLabel);

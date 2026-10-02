@@ -20,6 +20,8 @@
                          ToolTip="{l:T 'Miner suchen (Name oder Chip)'}" VerticalContentAlignment="Center" />
                 <ComboBox Width="220" Margin="0,0,8,0" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}"
                           ToolTip="{l:T 'Nur dieses Modell anzeigen'}" />
+                <ComboBox Width="180" Margin="0,0,8,0" ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}"
+                          ToolTip="{l:T 'Nur Miner dieser Gruppe anzeigen'}" />
                 <CheckBox Content="{l:T 'nur online'}" IsChecked="{Binding OnlyOnline}" VerticalAlignment="Center" />
             </WrapPanel>
             <DataGrid ItemsSource="{Binding View}" IsReadOnly="True" RowHeight="28">

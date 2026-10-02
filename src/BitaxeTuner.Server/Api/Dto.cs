@@ -53,6 +53,7 @@ public static class Dto
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },
             history = hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),
             devices = devices.Select(d => Summary(hub, d, role)).ToList(),
+            groups = MinerGroups.All(hub.Config.Devices),
             fans = Fans(hub, role),
             plugs = Plugs(hub, role),
             // Einführung „Erste Schritte“ – nur für Admins und nur solange nicht ausgeblendet
@@ -122,6 +123,7 @@ public static class Dto
         {
             id = DeviceId(d.Host),
             name = d.Title,
+            groups = d.Config.Groups,
             host = admin ? d.Host : null,
             // Weboberfläche des Miners (AxeOS) – Adresse nur für Admins, nicht für simulierte Geräte
             webUrl = admin && !d.IsSimulated ? MinerWebUrl(d.Host) : null,

@@ -28,7 +28,7 @@ public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
-public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts);
+public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null);
 public sealed record TokenRequest(string? Name);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
@@ -392,6 +392,7 @@ public static class Endpoints
             if (req.Coin is "Auto" or "BTC" or "BCH") c.Coin = req.Coin;
             if (req.FirmwareRepo is { } repo) c.FirmwareRepo = repo.Trim();   // leer = keine Firmware-Prüfung (wie am Desktop)
             if (req.LogAlerts is { } la) c.LogAlerts = la;
+            if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
             return new { ok = true };

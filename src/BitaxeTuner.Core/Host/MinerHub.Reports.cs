@@ -68,8 +68,8 @@ public sealed partial class MinerHub
             // Je Push-Ziel: nur dessen Miner (falls ausgewählt), Kosten/Zuflüsse nur wenn gewünscht (Zuflüsse nie mit Miner-Auswahl)
             string? TextFor(PushTarget t)
             {
-                var all = t.Miners.Count == 0;
-                var own = all ? r.Miners : r.Miners.Where(m => t.Miners.Contains(m.Host, StringComparer.OrdinalIgnoreCase)).ToList();
+                var all = !t.HasMinerFilter;
+                var own = all ? r.Miners : r.Miners.Where(m => t.CoversHost(m.Host, GroupsOfHost(m.Host))).ToList();
                 if (own.Count == 0) return null;
                 var gh = all ? r.TotalAvgHashGh : own.Where(m => m.AvgHashGh is not null).Sum(m => m.AvgHashGh);
                 var kwh = all ? r.Energy.Kwh : own.Sum(m => m.Kwh);

@@ -75,6 +75,8 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 - **Automatische Geräteerkennung** (Netzwerkscan in Desktop und Browser) und passende **Geräteprofile** mit sinnvollen Grenzen.
 - **Einstellungen übertragen**: Pool/Fallback und Lüfter eines Miners auf andere übernehmen – Vorschau alt → neu,
   vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
+- **Miner-Gruppen** (z. B. „Community“, „Keller“): Filter und Summen in der Übersicht (Browser), Gruppenfilter im
+  Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder bekommen Meldungen und Berichte automatisch.
 - **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander
   (inkl. aktueller **Pool-Difficulty**, sofern die Firmware sie meldet).
 - **Vergleichsbericht** zum Ausdrucken (Browser *Vergleich → Bericht …*, Desktop *Miner-Vergleich → Bericht …*): 1–6 Miner,

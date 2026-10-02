@@ -69,7 +69,7 @@ public partial class SettingsWindow : Window
 
         _notify = config.Notifications.ForEditing();
         _pushPanel = new Views.PushTargetsPanel(_notify.Targets,
-            _devices.Select(d => (string.IsNullOrWhiteSpace(d.Name) ? d.Host : d.Name, d.Host)).ToList());
+            _devices.Select(d => (string.IsNullOrWhiteSpace(d.Name) ? d.Host : d.Name, d.Host)).ToList(), MinerGroups.All(_devices));
         PushHost.Content = _pushPanel;
         if (host is not null)
         {
@@ -132,11 +132,12 @@ public partial class SettingsWindow : Window
         WalletBox.Text = _current?.WalletAddress ?? "";
         SelectByTag(CoinBox, _current?.Coin ?? "Auto");
         RepoBox.Text = _current?.FirmwareRepo ?? "";
+        GroupsBox.Text = _current is null ? "" : string.Join(", ", _current.Groups);
         DeviceLogAlertsBox.IsChecked = _current?.LogAlerts == true;
 
         var enabled = _current is not null;
         NameBox.IsEnabled = HostBox.IsEnabled = WalletBox.IsEnabled = enabled;
-        CoinBox.IsEnabled = RepoBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = enabled;
+        CoinBox.IsEnabled = RepoBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = GroupsBox.IsEnabled = enabled;
     }
 
     /// <summary>Eingaben in das aktuell gewählte Gerät zurückschreiben.</summary>
@@ -150,6 +151,7 @@ public partial class SettingsWindow : Window
         _current.WalletAddress = WalletBox.Text.Trim();
         _current.Coin = SelectedTag(CoinBox) ?? "Auto";
         _current.FirmwareRepo = RepoBox.Text.Trim();
+        _current.Groups = MinerGroups.Normalize(GroupsBox.Text.Split(','));
         _current.LogAlerts = DeviceLogAlertsBox.IsChecked == true;
 
         DeviceList.Items.Refresh();

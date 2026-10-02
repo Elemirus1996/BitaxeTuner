@@ -183,6 +183,46 @@ public class HubTests
     }
 
     [Fact]
+    public void Group_names_are_cleaned_up()
+    {
+        Assert.Equal(["Community", "Keller"], MinerGroups.Normalize([" Community ", "", "community", "Keller", null!]));
+        Assert.Equal(MinerGroups.MaxLength, MinerGroups.Normalize([new string('x', 80)])[0].Length);
+        var devs = new[] { new DeviceConfig { Groups = ["b", "A"] }, new DeviceConfig { Groups = ["a"] } };
+        Assert.Equal(["A", "b"], MinerGroups.All(devs));
+    }
+
+    [Fact]
+    public async Task Push_target_for_a_group_gets_only_that_groups_miners_and_new_members()
+    {
+        using var rig = new Rig("10.0.0.61", "10.0.0.62", "10.0.0.63");
+        rig.Hub.Config.Devices.Single(d => d.Host == "10.0.0.62").Groups = ["Community"];
+        var n = rig.Hub.Config.Notifications;
+        n.Targets = [new PushTarget { Id = "commun02", Name = "Community", NtfyTopic = "c", Categories = ["DailyReport", "Offline"], Groups = ["community"] }];
+        var sent = new List<string>();
+        rig.Hub.Notify.Delivered += (_, key, text) => { lock (sent) sent.Add(key + "|" + text); };
+        Assert.True(await rig.Hub.PollNowAsync());
+        var now = DateTime.Now;
+        foreach (var host in new[] { "10.0.0.61", "10.0.0.62", "10.0.0.63" })
+            for (var m = 300; m > 0; m -= 5) rig.Hub.History!.AddSample(host, now.AddMinutes(-m), 1000, 55, 15, true);
+
+        Assert.Null(await rig.Hub.SendDailyReportAsync(now, markSent: false));
+        var report = Assert.Single(sent);
+        Assert.Contains("Miner 10.0.0.62", report);
+        Assert.DoesNotContain("Miner 10.0.0.61", report);
+
+        // Später in die Gruppe aufgenommen: automatisch dabei, ohne den Push-Dienst anzufassen
+        rig.Hub.Config.Devices.Single(d => d.Host == "10.0.0.63").Groups = ["Community"];
+        sent.Clear();
+        Assert.Null(await rig.Hub.SendDailyReportAsync(now.AddMinutes(1), markSent: false));
+        Assert.Contains("Miner 10.0.0.63", Assert.Single(sent));
+        Assert.False(n.Targets[0].ReportIncludes(ReportParts.Income));                       // Gruppe = Auswahl → nie Zuflüsse
+
+        // Meldungen mit Miner-Bezug: nur für Mitglieder
+        Assert.True(n.Targets[0].Accepts(NotifyCategory.Offline, "10.0.0.62", rig.Hub.GroupsOfHost));
+        Assert.False(n.Targets[0].Accepts(NotifyCategory.Offline, "10.0.0.61", rig.Hub.GroupsOfHost));
+    }
+
+    [Fact]
     public async Task Compare_report_shows_selected_values_charts_and_no_addresses()
     {
         using var rig = new Rig("10.0.0.11", "10.0.0.12");

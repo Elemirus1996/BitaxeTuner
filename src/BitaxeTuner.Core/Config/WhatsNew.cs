@@ -81,6 +81,10 @@ public static class WhatsNew
                 server ? tr.T("Geräteseite → Live: Lüfter des Miners auf Automatik mit Zieltemperatur oder auf einen festen Wert stellen – mit Bestätigung, innerhalb der Profilgrenzen, im Protokoll.")
                        : tr.T("Miner → „Manuell einstellen“: Lüfter des Miners auf Automatik mit Zieltemperatur oder auf einen festen Wert stellen – mit Bestätigung, innerhalb der Profilgrenzen, im Protokoll."),
                 null),
+            new("0.9.1", tr.T("Miner-Gruppen"),
+                server ? tr.T("Miner in Gruppen ordnen (Einstellungen → Geräte → Details), z. B. „Community“ oder „Keller“: Filter und Summen in der Übersicht, Filter im Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder sind automatisch dabei.")
+                       : tr.T("Miner in Gruppen ordnen (Einstellungen → Miner), z. B. „Community“ oder „Keller“: Filter im Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder sind automatisch dabei."),
+                null),
         ];
     }
 

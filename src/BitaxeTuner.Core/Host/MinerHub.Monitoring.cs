@@ -310,7 +310,7 @@ public sealed partial class MinerHub
             var cache = new Dictionary<string, string>();
             string? TextFor(PushTarget t)
             {
-                var own = t.Miners.Count == 0 ? miners : miners.Where(m => t.Miners.Contains(m.Host, StringComparer.OrdinalIgnoreCase)).ToList();
+                var own = miners.Where(m => t.CoversHost(m.Host, GroupsOfHost(m.Host))).ToList();
                 if (own.Count == 0) return null;
                 var cacheKey = string.Join(",", own.Select(m => m.Host)) + "|" + string.Join(",", ReportParts.All.Where(t.ReportIncludes));
                 if (cache.TryGetValue(cacheKey, out var cached)) return cached;
