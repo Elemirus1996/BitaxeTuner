@@ -21,6 +21,8 @@ public sealed partial class MinerHub
     private readonly Watchdog _watchdog = new();
     private readonly Dictionary<string, DateTime> _lastHistoryWrite = new();
     private DateTime _lastAggWrite = DateTime.MinValue;
+    /// <summary>Für das Protokoll: als offline eingetragen (unabhängig von Push-Einstellungen).</summary>
+    private readonly HashSet<string> _offlineLogged = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastPrune = DateTime.MinValue;
     private DateTime _lastFirmwareRefresh = DateTime.MinValue;
 
@@ -215,6 +217,8 @@ public sealed partial class MinerHub
             {
                 var fails = _failCount.GetValueOrDefault(host) + 1;
                 _failCount[host] = fails;
+                if (fails == 3 && _offlineLogged.Add(host))
+                    LogEvent(host, EventCategories.Connection, L.T("offline: {0}", s.Error ?? L.T("keine Verbindung")));
 
                 // Erst nach drei Fehlversuchen melden, einzelne Aussetzer im WLAN sind normal
                 if (fails >= 3 && n.Wants(NotifyCategory.Offline))
@@ -228,6 +232,7 @@ public sealed partial class MinerHub
             }
 
             _failCount[host] = 0;
+            if (_offlineLogged.Remove(host)) LogEvent(host, EventCategories.Connection, L.T("wieder online"));
             if (_offlineNotified.Remove(host))
             {
                 Notify.Reset($"offline:{host}");

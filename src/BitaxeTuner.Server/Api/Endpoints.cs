@@ -433,7 +433,7 @@ public static class Endpoints
             var d = Device(h, id);
             if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
             await d.Connection.RestartAsync(); // öffnet das Wartungsfenster: keine Offline-Meldung
-            d.AddLog(L.T("Neustart ausgelöst (Browser)."));
+            d.AddLog(L.T("Neustart ausgelöst (Browser)."), EventCategories.Connection);
             return new { ok = true };
         })));
 
@@ -449,7 +449,7 @@ public static class Endpoints
         {
             var d = Device(h, id);
             var plan = await h.Benchmarks.PrepareAsync(d, req.Settings ?? BenchmarkSettings.FromProfile(d.Profile), req.Resume);
-            d.AddLog(L.T("Benchmark im Browser bestätigt."));
+            d.AddLog(L.T("Benchmark im Browser bestätigt."), EventCategories.Benchmark);
             _ = h.Benchmarks.RunAsync(d, plan); // läuft im Hub weiter, Fortschritt über /events
             return new { ok = true };
         })));
@@ -488,7 +488,7 @@ public static class Endpoints
                 c.Schedule = s;
             }
             h.Config.Save();
-            d.AddLog(L.T("Automatik-Einstellungen gespeichert (Browser)."));
+            d.AddLog(L.T("Automatik-Einstellungen gespeichert (Browser)."), EventCategories.Automation);
             return new { thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host), scheduleApproved = c.Schedule.IsApproved(d.Host) };
         })));
 
@@ -842,6 +842,41 @@ public static class Endpoints
                 try { File.Delete(upload); } catch { /* egal */ }
                 try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { /* egal */ }
             }
+        });
+
+        // Dauerhaftes Protokoll (history.db): Tuning, Benchmark, Dauertest, Automatik, Lüfter, Verbindung, Einstellungen, Server.
+        // Nur Admin – Meldungen können Pool-Adressen enthalten.
+        g.MapGet("/journal", async (string? range, string? device, string? cats, string? q, string? format, HubService hub) =>
+        {
+            var span = range switch { "7d" => TimeSpan.FromDays(7), "30d" => TimeSpan.FromDays(30), _ => TimeSpan.FromHours(24) };
+            var categories = (cats ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(c => EventCategories.All.Contains(c)).ToList();
+            var (entries, names) = await hub.RunAsync(h =>
+            {
+                string? host = device is null or "" ? null : device == "server" ? "" : Device(h, device).Host;
+                var now = DateTime.Now;
+                var list = h.History?.QueryEvents(now - span, now, host, categories, q) ?? [];
+                var titles = h.Devices.ToDictionary(d => d.Host, d => (Id: Dto.DeviceId(d.Host), d.Title), StringComparer.OrdinalIgnoreCase);
+                return (list, titles);
+            });
+            string Name(string? host) => host is null ? L.T("Server") : names.TryGetValue(host, out var n) ? n.Title : host;
+            if (format == "csv")
+            {
+                var sb = new System.Text.StringBuilder("\uFEFFZeit;Miner;Kategorie;Meldung\r\n");
+                static string Csv(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
+                foreach (var e in entries)
+                    sb.Append($"{e.Time:yyyy-MM-dd HH:mm:ss};{Csv(Name(e.Host))};{Csv(EventCategories.Label(e.Category))};{Csv(e.Message)}\r\n");
+                return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8", $"BitaxeTuner-Protokoll-{DateTime.Now:yyyyMMdd-HHmm}.csv");
+            }
+            return Results.Json(new
+            {
+                entries = entries.Select(e => new
+                {
+                    time = e.Time, device = e.Host is not null && names.TryGetValue(e.Host, out var n) ? n.Id : null,
+                    name = Name(e.Host), category = e.Category, message = e.Message,
+                }),
+                truncated = entries.Count >= 5000,
+            });
         });
 
         g.MapGet("/tax/rewards", async (HubService hub) => Results.Json(await hub.RunAsync(h => new

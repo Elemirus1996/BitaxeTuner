@@ -66,6 +66,10 @@ public static class WhatsNew
             new("0.8.2", tr.T("Berichte je Push-Dienst anpassen"),
                 tr.T("Tages- und Monatsbericht enthalten bei einem Push-Dienst mit Miner-Auswahl nur diese Miner (z. B. für eine Community-Gruppe) und nie Zuflüsse. Je Dienst abwählbar: Stromkosten, Zuflüsse, Empfehlungen, Best-Diff-Rekord, Tuning-Änderungen, Steckdosen-Details."),
                 tr.T("Push-Benachrichtigungen")),
+            new("0.9.0", tr.T("Protokoll"),
+                server ? tr.T("Neue Seite „Protokoll“: wer wann welche Frequenz/Spannung gesetzt hat (mit Quelle), Benchmarks, Dauertests, Automatik, Lüfterregelung, Verbindungen und Server-Ereignisse – mindestens 30 Tage, filterbar, als CSV. Läuft nach Updates weiter.")
+                       : tr.T("Neues Fenster „Protokoll …“: wer wann welche Frequenz/Spannung gesetzt hat (mit Quelle), Benchmarks, Dauertests, Automatik, Lüfterregelung und Verbindungen – mindestens 30 Tage, filterbar, als CSV. Läuft nach Updates weiter."),
+                null),
         ];
     }
 

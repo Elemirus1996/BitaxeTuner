@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Benchmark;
 using BitaxeTuner.Core.I18n;
@@ -123,7 +124,7 @@ public sealed class BenchmarkManager
         {
             Delay = _hub.Options.BenchmarkDelay ?? (simulated ? (t, ct) => Task.Delay(t / SimulationSpeedup, ct) : Task.Delay),
             Progress = new Progress<BenchmarkProgress>(p => OnProgress(device, run, p)),
-            Log = device.AddLog,
+            Log = m => device.AddLog(m, EventCategories.Benchmark),
             StepCompleted = s => _hub.Results.SaveAsync(s),
         };
         StateChanged?.Invoke(device);
@@ -143,7 +144,7 @@ public sealed class BenchmarkManager
         catch (Exception ex)
         {
             run.PhaseText = L.T("Fehler");
-            device.AddLog(L.T("Fehler: {0}", ex.Message));
+            device.AddLog(L.T("Fehler: {0}", ex.Message), EventCategories.Benchmark);
         }
         finally
         {

@@ -97,6 +97,10 @@ Corrections to the English texts are welcome: they all live in
 
 ### Miner logs, alerts, backups
 
+- **Log** (browser *Log*, desktop *Log …*): stored permanently in `history.db`, at least 30 days – every
+  frequency/voltage change with its source (manual, benchmark, automation, restore …), benchmark start/abort, soak
+  tests, automation/watchdog, fan control (VR and case), offline/online, settings and server events. Filter by period,
+  miner, category and text, CSV export; continues after restarts and updates.
 - **Miner logs** per device live (`ws://<host>/api/ws`) and as a buffer (`/api/system/logs`), with text filter, levels,
   **categories** (shares, pool/stratum, ASIC/jobs, temperature/fan/power, system/Wi-Fi – with a count per type) and saving;
   same in desktop and browser.

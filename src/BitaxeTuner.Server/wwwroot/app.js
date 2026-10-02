@@ -74,7 +74,7 @@ async function loadLanguage(serverDefault) {
 
 /** Feste Texte aus index.html. */
 function applyStaticTexts() {
-  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), settings: t('Einstellungen') };
+  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), journal: t('Protokoll'), settings: t('Einstellungen') };
   for (const [k, v] of Object.entries(nav)) { const a = $(`[data-nav="${k}"]`); if (a) a.textContent = v; }
   $('#live').title = t('Live-Verbindung');
   $('#theme').title = t('Hell/Dunkel');
@@ -360,6 +360,7 @@ function route() {
   if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'reports' && isAdmin()) return renderReports();
+  if (view === 'journal' && isAdmin()) return renderJournal();
   if (view === 'settings' && isAdmin()) return renderSettings();
   S.route = { view: 'overview' };
   if (S.status) renderOverview(); else api('/status').then(s => { S.status = s; renderOverview(); });
@@ -455,6 +456,66 @@ function renderOverview() {
 }
 
 /** Monats- und Jahresberichte: Zusammenfassung, druckbare Seite (PDF über „Drucken“), CSV, Push. */
+/** Kategorien des dauerhaften Protokolls (Schlüssel wie Core/Monitoring/EventCategories.cs). */
+const JOURNAL_CATS = () => [['tuning', t('Frequenz/Spannung')], ['benchmark', t('Benchmark')], ['soak', t('Dauertest')],
+  ['automation', t('Automatik/Watchdog')], ['fans', t('Lüfter')], ['connection', t('Verbindung')], ['settings', t('Einstellungen/Profil')],
+  ['system', t('Server/System')], ['other', t('Sonstige')]];
+
+/**
+ * Protokoll: dauerhaft in history.db (mindestens 30 Tage, übersteht Neustarts und Updates) – wer hat wann welche
+ * Frequenz/Spannung gesetzt, Benchmarks, Lüfterregelung, Verbindungen. Filter je Browser gemerkt.
+ */
+function renderJournal() {
+  let saved = {};
+  try { saved = JSON.parse(localStorageGet('journal') || '{}'); } catch { /* egal */ }
+  const f = { range: saved.range || '24h', device: saved.device || '', cats: new Set(saved.cats || []), q: '' };
+  const store = () => localStorageSet('journal', JSON.stringify({ range: f.range, device: f.device, cats: [...f.cats] }));
+  const devices = S.status?.devices || [];
+  const table = h('div', { class: 'table-wrap cmp-wrap' }, h('p', { class: 'muted', style: 'padding:8px' }, t('Lade …')));
+  const count = h('span', { class: 'muted small' });
+  const query = () => new URLSearchParams({ range: f.range, device: f.device, cats: [...f.cats].join(','), q: f.q });
+  let timer;
+  const load = async () => {
+    const d = await api(`/journal?${query()}`).catch(e => { fill(table, h('p', { class: 'danger', style: 'padding:8px' }, e.message)); return null; });
+    if (!d) return;
+    const label = Object.fromEntries(JOURNAL_CATS());
+    count.textContent = d.truncated ? t('neueste {0} Einträge', d.entries.length) : t('{0} Einträge', d.entries.length);
+    fill(table, d.entries.length
+      ? h('table', { class: 'journal' },
+          h('thead', {}, h('tr', {}, [t('Zeit'), t('Miner'), t('Kategorie'), t('Meldung')].map(x => h('th', {}, x)))),
+          h('tbody', {}, d.entries.map(e => h('tr', {},
+            h('td', { class: 'num nowrap' }, new Date(e.time).toLocaleString(LOCALE)),
+            h('td', { class: 'nowrap' }, e.device ? h('a', { href: `#/device/${e.device}` }, e.name) : h('span', { class: 'muted' }, e.name)),
+            h('td', {}, h('span', { class: `pill cat-${e.category}` }, label[e.category] || e.category)),
+            h('td', { class: 'msg' }, e.message)))))
+      : h('p', { class: 'muted', style: 'padding:8px' }, t('Keine Einträge für diese Auswahl.')));
+  };
+  const chips = h('div', { class: 'row', role: 'group', 'aria-label': t('Kategorien') }, JOURNAL_CATS().map(([k, l]) => {
+    const b = h('button', { type: 'button', class: 'seg-btn chip' + (f.cats.has(k) ? ' on' : ''), 'aria-pressed': String(f.cats.has(k)), onclick: () => {
+      f.cats.has(k) ? f.cats.delete(k) : f.cats.add(k);
+      b.classList.toggle('on', f.cats.has(k)); b.setAttribute('aria-pressed', String(f.cats.has(k)));
+      store(); load();
+    } }, l);
+    return b;
+  }));
+  mount(h('div', { class: 'stack' }, h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h2', {}, t('Protokoll')), h('span', { class: 'spacer' }), count,
+      h('a', { class: 'btn small', href: '#', onclick: e => { e.preventDefault(); location.href = `/api/v1/journal?${query()}&format=csv`; } }, t('CSV exportieren'))),
+    h('p', { class: 'muted small' }, t('Frequenz/Spannung (mit Quelle), Benchmarks, Dauertests, Automatik, Lüfterregelung, Verbindungen und Server-Ereignisse. Dauerhaft gespeichert (mindestens 30 Tage) – läuft nach Neustarts und Updates weiter und ist in jeder Sicherung enthalten.')),
+    h('div', { class: 'cmp-toolbar' },
+      h('select', { style: 'width:auto', 'aria-label': t('Zeitraum'), onchange: e => { f.range = e.target.value; store(); load(); } },
+        [['24h', t('24 h')], ['7d', t('7 Tage')], ['30d', t('30 Tage')]].map(([v, l]) => h('option', { value: v, selected: f.range === v }, l))),
+      h('select', { style: 'width:auto;max-width:240px', 'aria-label': t('Miner'), onchange: e => { f.device = e.target.value; store(); load(); } },
+        h('option', { value: '' }, t('alle Miner und Server')), h('option', { value: 'server', selected: f.device === 'server' }, t('nur Server')),
+        devices.map(d => h('option', { value: d.id, selected: f.device === d.id }, d.name))),
+      h('input', { type: 'search', placeholder: t('Suchen …'), 'aria-label': t('Suchen'), style: 'max-width:240px',
+        oninput: e => { f.q = e.target.value; clearTimeout(timer); timer = setTimeout(load, 300); } })),
+    chips,
+    h('p', { class: 'muted small' }, t('Keine Kategorie gewählt = alle.')),
+    table)));
+  load();
+}
+
 async function renderReports() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   mount(h('div', { class: 'stack' }, h('div', { class: 'card stack' }, h('h2', {}, t('Berichte')), body)));

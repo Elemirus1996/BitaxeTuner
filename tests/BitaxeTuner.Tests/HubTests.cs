@@ -94,6 +94,64 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Journal_keeps_tuning_offline_and_server_events_in_history_db()
+    {
+        using var rig = new Rig("10.0.0.41", "10.0.0.42");
+        await rig.Hub.StartAsync();
+        var d = rig.Device("10.0.0.41");
+        await rig.Hub.ApplyChangeAsync(d, 500, 1150);
+
+        rig.Sims["10.0.0.42"].Offline = true;
+        for (var i = 0; i < 3; i++)
+        {
+            await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100));
+            await rig.Hub.PollNowAsync();
+        }
+        rig.Sims["10.0.0.42"].Offline = false;
+        await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100));
+        await rig.Hub.PollNowAsync();
+        d.AddLog("nur Sitzung", category: null);
+
+        var now = DateTime.Now;
+        var all = rig.Hub.History!.QueryEvents(now.AddHours(-1), now.AddMinutes(1));
+        var tuning = Assert.Single(all, e => e.Category == EventCategories.Tuning);
+        Assert.Equal("10.0.0.41", tuning.Host);
+        Assert.Contains("500 MHz / 1150 mV", tuning.Message);
+        Assert.Contains("manuell", tuning.Message);                                       // Quelle
+        Assert.Equal(2, all.Count(e => e.Category == EventCategories.Connection && e.Host == "10.0.0.42"));   // offline + wieder online
+        Assert.Contains(all, e => e.Category == EventCategories.System && e.Host is null);                     // Überwachung gestartet
+        Assert.DoesNotContain(all, e => e.Message == "nur Sitzung");
+
+        // Filter: nur ein Miner, nur Kategorie, nur Server, Suchtext
+        Assert.All(rig.Hub.History.QueryEvents(now.AddHours(-1), now.AddMinutes(1), host: "10.0.0.42"), e => Assert.Equal("10.0.0.42", e.Host));
+        Assert.Single(rig.Hub.History.QueryEvents(now.AddHours(-1), now.AddMinutes(1), categories: [EventCategories.Tuning]));
+        Assert.All(rig.Hub.History.QueryEvents(now.AddHours(-1), now.AddMinutes(1), host: ""), e => Assert.Null(e.Host));
+        Assert.Single(rig.Hub.History.QueryEvents(now.AddHours(-1), now.AddMinutes(1), text: "1150 mV"));
+        Assert.Empty(rig.Hub.History.QueryEvents(now.AddHours(-1), now.AddMinutes(1), text: "%"));   // Platzhalter wörtlich
+    }
+
+    [Fact]
+    public void Journal_survives_reopening_and_is_kept_at_least_30_days()
+    {
+        using var dir = new TempDir();
+        var file = Path.Combine(dir.Path, "history.db");
+        var now = DateTime.Now;
+        using (var h = new HistoryStore(file))
+        {
+            h.AddEvent("10.0.0.5", EventCategories.Benchmark, "alt (40 Tage)", now.AddDays(-40));
+            h.AddEvent("10.0.0.5", EventCategories.Benchmark, "20 Tage", now.AddDays(-20));
+            h.AddEvent(null, EventCategories.System, "heute", now);
+        }
+        using (var h = new HistoryStore(file))          // wie nach einem Neustart/Update
+        {
+            Assert.Equal(3, h.QueryEvents(now.AddDays(-60), now.AddMinutes(1)).Count);
+            h.Prune(7);                                  // Verlauf nur 7 Tage – Protokoll trotzdem 30
+            var left = h.QueryEvents(now.AddDays(-60), now.AddMinutes(1));
+            Assert.Equal(["heute", "20 Tage"], left.Select(e => e.Message));
+        }
+    }
+
+    [Fact]
     public async Task Compare_report_shows_selected_values_charts_and_no_addresses()
     {
         using var rig = new Rig("10.0.0.11", "10.0.0.12");

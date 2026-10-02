@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Monitoring;
 using System.Globalization;
 using BitaxeTuner.Core.Advisor;
 using BitaxeTuner.Core.Api;
@@ -68,7 +69,7 @@ public sealed partial class MinerHub
     {
         if (hours is < 1 or > 168) throw new InvalidOperationException(L.T("Dauertest: 1 bis 168 Stunden."));
         device.PendingSoak = (hours, Options.Clock?.Invoke() ?? DateTime.Now);
-        device.AddLog(L.T("Dauertest ({0} h) startet, sobald der Miner wieder läuft.", hours));
+        device.AddLog(L.T("Dauertest ({0} h) startet, sobald der Miner wieder läuft.", hours), EventCategories.Soak);
     }
 
     /// <summary>Zeilen für den Tagesbericht: Effizienz-Vorschläge ab 1 Währungseinheit Ersparnis pro Monat.</summary>

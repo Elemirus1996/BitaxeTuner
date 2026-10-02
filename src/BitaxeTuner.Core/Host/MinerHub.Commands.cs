@@ -84,7 +84,7 @@ public sealed partial class MinerHub
         await device.Connection.ApplySettingsAsync(frequencyMhz, coreVoltageMv, source);
         if (Config.RestartAfterApply) await device.Connection.RestartAsync();
         device.PendingSuggestion = null;
-        device.AddLog(L.T("Angewendet: {0} → {1} MHz / {2} mV", (before is null ? "?" : L.T("{0} MHz / {1} mV", before.FrequencyMhz, before.CoreVoltageMv)), frequencyMhz, coreVoltageMv));
+        device.AddLog(L.T("Angewendet: {0} → {1} MHz / {2} mV", (before is null ? "?" : L.T("{0} MHz / {1} mV", before.FrequencyMhz, before.CoreVoltageMv)), frequencyMhz, coreVoltageMv), category: null);
         RaiseDeviceChanged(device);
     }
 
@@ -145,7 +145,7 @@ public sealed partial class MinerHub
         if (!rule.Enabled) throw new InvalidOperationException(L.T("{0} ist nicht eingeschaltet.", label));
         rule.Approve(device.Host);
         Config.Save();
-        device.AddLog(L.T("{0} freigegeben.", label));
+        device.AddLog(L.T("{0} freigegeben.", label), EventCategories.Automation);
     }
 
     // ---------- Dauertest ----------
@@ -171,7 +171,7 @@ public sealed partial class MinerHub
         device.SoakMonitor = null;
         device.SoakStatus = L.T("Dauertest gestartet – Anlaufphase");
         device.PendingSuggestion = null;
-        device.AddLog(L.T("Dauertest gestartet: {0} MHz / {1} mV für {2} h", info.FrequencyMhz, info.CoreVoltageMv, hours));
+        device.AddLog(L.T("Dauertest gestartet: {0} MHz / {1} mV für {2} h", info.FrequencyMhz, info.CoreVoltageMv, hours), EventCategories.Soak);
         RaiseDeviceChanged(device);
     }
 
@@ -182,7 +182,7 @@ public sealed partial class MinerHub
         Config.Save();
         device.SoakMonitor = null;
         device.SoakStatus = L.T("Dauertest abgebrochen");
-        device.AddLog(L.T("Dauertest abgebrochen."));
+        device.AddLog(L.T("Dauertest abgebrochen."), EventCategories.Soak);
         RaiseDeviceChanged(device);
     }
 
@@ -247,7 +247,7 @@ public sealed partial class MinerHub
     {
         var raw = await device.Connection.GetRawInfoAsync();
         var snap = Snapshots.Save(device.Host, device.Title, raw, reason);
-        device.AddLog(reason == "manuell" ? L.T("Einstellungen gesichert: {0}", snap.DisplayText) : L.T("Automatische Sicherung ({0})", reason));
+        device.AddLog(reason == "manuell" ? L.T("Einstellungen gesichert: {0}", snap.DisplayText) : L.T("Automatische Sicherung ({0})", reason), EventCategories.Settings);
         return snap;
     }
 
@@ -255,7 +255,7 @@ public sealed partial class MinerHub
     {
         if (device.IsSimulated) return;
         try { await BackupSettingsAsync(device, reason); }
-        catch (Exception ex) { device.AddLog(L.T("Automatische Sicherung ({0}) fehlgeschlagen: {1}", reason, ex.Message)); }
+        catch (Exception ex) { device.AddLog(L.T("Automatische Sicherung ({0}) fehlgeschlagen: {1}", reason, ex.Message), EventCategories.Settings); }
     }
 
     /// <summary>Unterschiede zwischen Sicherung und aktuellem Stand des Miners.</summary>
@@ -300,7 +300,7 @@ public sealed partial class MinerHub
         if (restart) await device.Connection.RestartAsync();
 
         device.AddLog(L.T("Wiederhergestellt ({0}): ", snapshot.DisplayText) +
-                      string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
+                      string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")), EventCategories.Settings);
     }
 
     // ---------- Einstellungen auf mehrere Miner übertragen ----------
@@ -344,7 +344,7 @@ public sealed partial class MinerHub
                 await p.Device.Connection.PatchSettingsAsync(p.Changes.ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value)));
                 if (Config.RestartAfterApply || p.Changes.Any(c => c.Group == SettingGroup.Pool)) await p.Device.Connection.RestartAsync();
                 p.Device.AddLog(L.T("Einstellungen übernommen von {0}: ", source.Title) +
-                                string.Join(", ", p.Changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")));
+                                string.Join(", ", p.Changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")), EventCategories.Settings);
                 results.Add(p);
             }
             catch (Exception ex) when (ex is InvalidOperationException or MinerApiException or NotSupportedException)

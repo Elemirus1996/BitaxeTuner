@@ -54,7 +54,7 @@ public sealed partial class MinerHub
             };
             RaiseStatus(true, $"{text} – {source}");
             foreach (var c in Config.Fans.Channels.Where(c => c.Role == "miner"))
-                Device(c.MinerHost ?? "")?.AddLog(L.T("Lüfter K{0}: {1} ({2})", c.Channel, text, source));
+                Device(c.MinerHost ?? "")?.AddLog(L.T("Lüfter K{0}: {1} ({2})", c.Channel, text, source), EventCategories.Fans);
             _displayRequested = true;
         }
         await FanTickAsync();

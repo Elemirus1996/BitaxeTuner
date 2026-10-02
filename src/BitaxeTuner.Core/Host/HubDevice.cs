@@ -69,8 +69,13 @@ public sealed class HubDevice
         get { lock (_logLock) return _log.ToList(); }
     }
 
-    public void AddLog(string message)
+    /// <summary>Für das dauerhaften Protokoll: Kategorie und Text (nur Zeilen mit Kategorie).</summary>
+    public event Action<string, string>? Logged;
+
+    /// <param name="category">Kategorie für das dauerhafte Protokoll (<see cref="EventCategories"/>); null = nur hier in der Sitzung.</param>
+    public void AddLog(string message, string? category = EventCategories.Other)
     {
+        if (category is not null) Logged?.Invoke(category, message);
         var line = $"{DateTime.Now:HH:mm:ss}  {message}";
         lock (_logLock)
         {

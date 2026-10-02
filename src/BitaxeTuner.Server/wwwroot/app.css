@@ -219,3 +219,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 }
 .cmp-report-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); align-items: start; }
 .cmp-report-grid .check { display: flex; gap: 6px; align-items: flex-start; }
+
+/* Protokoll */
+.seg-btn.chip { border: 1px solid var(--border); border-radius: 999px; }
+table.journal td { vertical-align: top; }
+table.journal td.msg { white-space: normal; min-width: 280px; }
+.nowrap { white-space: nowrap; }
+.pill.cat-tuning { background: var(--accent-soft); color: var(--accent-dark); }
+.pill.cat-benchmark, .pill.cat-soak { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+.pill.cat-automation { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.pill.cat-fans { background: color-mix(in srgb, var(--temp) 15%, transparent); color: var(--temp); }
+.pill.cat-connection { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.pill.cat-settings, .pill.cat-system, .pill.cat-other { background: var(--alt); color: var(--muted); }

@@ -55,7 +55,7 @@ public sealed partial class MinerHub
 
             foreach (var n in result.Notices)
             {
-                device.AddLog($"{n.Rule}: {n.Message}");
+                device.AddLog($"{n.Rule}: {n.Message}", EventCategories.Automation);
                 if (Config.Notifications.Wants(NotifyCategory.Maintenance))
                     SendAlert(new Alert($"auto-notice:{n.Host}:{n.Message}", $"{device.Title}: {n.Rule}", n.Message,
                         NotifyPriority.Normal, TimeSpan.FromHours(6), NotifyCategory.Maintenance, n.Host));
@@ -86,14 +86,14 @@ public sealed partial class MinerHub
             if (Config.RestartAfterApply) await device.Connection.RestartAsync();
 
             var text = L.T("{0}→{1} MHz / {2}→{3} mV – {4}", before.FrequencyMhz, a.FrequencyMhz, before.CoreVoltageMv, a.CoreVoltageMv, a.Reason);
-            device.AddLog(L.T("Automatik: {0}", text));
+            device.AddLog(L.T("Automatik: {0}", text), EventCategories.Automation);
             if (Config.Notifications.Wants(NotifyCategory.Maintenance))
                 SendAlert(new Alert($"auto:{device.Host}:{a.FrequencyMhz}:{a.CoreVoltageMv}", $"{device.Title}: {a.Rule}", text,
                     a.Rule == "Temperaturschutz" ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1), NotifyCategory.Maintenance, device.Host));
         }
         catch (Exception ex)
         {
-            device.AddLog(L.T("Automatik fehlgeschlagen ({0}): {1}", a.Rule, ex.Message));
+            device.AddLog(L.T("Automatik fehlgeschlagen ({0}): {1}", a.Rule, ex.Message), EventCategories.Automation);
         }
         finally
         {
@@ -114,7 +114,7 @@ public sealed partial class MinerHub
             else if (now - pending.Since > TimeSpan.FromMinutes(30))
             {
                 device.PendingSoak = null;
-                device.AddLog(L.T("Geplanter Dauertest nicht gestartet: Miner war 30 min nach der Änderung nicht bereit."));
+                device.AddLog(L.T("Geplanter Dauertest nicht gestartet: Miner war 30 min nach der Änderung nicht bereit."), EventCategories.Soak);
             }
         }
         if (device.Config.Soak is not { } soak)
@@ -147,7 +147,7 @@ public sealed partial class MinerHub
         }
         catch { /* Verlauf nicht verfügbar – Dauertest-Ergebnis steht trotzdem im Protokoll */ }
         device.SoakStatus = r.Message;
-        device.AddLog(r.Message);
+        device.AddLog(r.Message, EventCategories.Soak);
         if (Config.Notifications.Wants(NotifyCategory.Maintenance))
             SendAlert(new Alert($"soak:{device.Host}:{soak.StartedAt:O}", L.T("{0}: Dauertest ", device.Title) +
                 (r.Outcome == SoakOutcome.Passed ? L.T("bestanden") : r.Outcome == SoakOutcome.Failed ? L.T("fehlgeschlagen") : L.T("beendet")),
@@ -161,7 +161,7 @@ public sealed partial class MinerHub
                 suggestion = new SoakSuggestion(s.Frequency, s.Voltage,
                     L.T("Dauertest fehlgeschlagen: {0}\n\nVorschlag: nächstniedrigere stabile Einstellung aus dem letzten Benchmark.", r.Message));
             else
-                device.AddLog(L.T("Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz."));
+                device.AddLog(L.T("Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz."), EventCategories.Soak);
         }
         device.PendingSuggestion = suggestion;
         RaiseDeviceChanged(device);

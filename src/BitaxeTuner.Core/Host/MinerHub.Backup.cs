@@ -156,6 +156,8 @@ public sealed partial class MinerHub
             _backupBusy = false;
         }
         BackupStatus = new BackupStatus(now, ok, name, results, false);
+        LogEvent(null, EventCategories.System, ok ? L.T("Sicherung erstellt: {0}", name) : L.T("Sicherung mit Fehlern: {0}",
+            string.Join("; ", results.Where(x => !x.Ok).Select(x => $"{x.Target}: {x.Message}"))));
         RaiseStatus(ok, ok ? L.T("Sicherung erstellt: {0}", name) : L.T("Sicherung mit Fehlern – siehe Einstellungen → Sicherung."));
         return BackupStatus;
     }

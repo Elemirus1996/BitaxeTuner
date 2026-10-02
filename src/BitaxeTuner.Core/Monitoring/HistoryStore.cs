@@ -151,6 +151,60 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (plug, ts)
             );
             """);
+        // 0.9.0: dauerhaftes Protokoll (Tuning, Benchmark, Lüfter, Verbindung …) – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                ts       INTEGER NOT NULL,
+                host     TEXT,
+                category TEXT    NOT NULL,
+                message  TEXT    NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_events_ts ON events (ts);
+            """);
+    }
+
+    // ---------- Protokoll ----------
+
+    public void AddEvent(string? host, string category, string message, DateTime time)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT INTO events (ts, host, category, message) VALUES ($ts, $h, $c, $m);";
+            cmd.Parameters.AddWithValue("$ts", new DateTimeOffset(time).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$h", (object?)host ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$c", category);
+            cmd.Parameters.AddWithValue("$m", message);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Einträge im Zeitraum, neueste zuerst; optional nur ein Host ("" = nur Server), bestimmte Kategorien, Suchtext.</summary>
+    public List<EventEntry> QueryEvents(DateTime from, DateTime to, string? host = null, IReadOnlyCollection<string>? categories = null,
+        string? text = null, int limit = 5000)
+    {
+        var list = new List<EventEntry>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            var where = "ts BETWEEN $from AND $to";
+            if (host == "") where += " AND host IS NULL";                     // nur Server/allgemein
+            else if (host is not null) { where += " AND host = $host"; cmd.Parameters.AddWithValue("$host", host); }
+            if (categories is { Count: > 0 })
+            {
+                var names = categories.Select((c, i) => { cmd.Parameters.AddWithValue($"$c{i}", c); return $"$c{i}"; });
+                where += $" AND category IN ({string.Join(",", names)})";
+            }
+            if (!string.IsNullOrWhiteSpace(text)) { where += " AND message LIKE $q ESCAPE '\\'"; cmd.Parameters.AddWithValue("$q", "%" + text.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%"); }
+            cmd.CommandText = $"SELECT ts, host, category, message FROM events WHERE {where} ORDER BY ts DESC, rowid DESC LIMIT $limit;";
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 50000));
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new EventEntry(DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime, r.IsDBNull(1) ? null : r.GetString(1), r.GetString(2), r.GetString(3)));
+        }
+        return list;
     }
 
     // ---------- Gesundheit ----------
@@ -656,8 +710,11 @@ public sealed class HistoryStore : IDisposable
         lock (_lock)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;";
+            cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
+                              " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
+            // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist
+            cmd.Parameters.AddWithValue("$eventCutoff", DateTimeOffset.Now.AddDays(-Math.Max(keepDays, EventCategories.MinKeepDays)).ToUnixTimeSeconds());
             cmd.ExecuteNonQuery();
         }
     }

@@ -234,6 +234,8 @@ public partial class MainWindow : Window
 
     private void OnSmartPlugsClick(object sender, RoutedEventArgs e) => OpenSettings(L.T("Smart Plugs"));
 
+    private void OnJournalClick(object sender, RoutedEventArgs e) => new Views.JournalWindow(Vm.Host) { Owner = this }.Show();
+
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)
     {

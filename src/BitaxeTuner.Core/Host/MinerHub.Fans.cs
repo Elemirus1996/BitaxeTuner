@@ -138,6 +138,7 @@ public sealed partial class MinerHub
                     c.Role == "case" ? settings.Case.Mode : c.Mode, t.Percent, rpm, t.Reason, stalled);
             }).ToList();
             if (!settings.Enabled) channels.Clear();
+            LogFanChanges(channels);
             sensors = SensorStatus(settings, now);
             FanStatus = new FanStatus(settings.Enabled, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels, FanOverride, sensors)
             {
@@ -151,6 +152,27 @@ public sealed partial class MinerHub
         finally
         {
             _fanBusy = false;
+        }
+    }
+
+    private readonly Dictionary<int, (int Percent, bool Stalled)> _fanLogged = new();
+
+    /// <summary>
+    /// Protokoll der Lüftersteuerung (VR je Miner und Gehäuse): nur deutliche Änderungen (±15 %) und „steht/läuft wieder“,
+    /// sonst würde jede Regelstufe eine Zeile erzeugen.
+    /// </summary>
+    private void LogFanChanges(IReadOnlyList<FanChannelStatus> channels)
+    {
+        foreach (var c in channels)
+        {
+            if (c.Role is not ("miner" or "case")) continue;   // unbelegte Kanäle nicht protokollieren
+            var known = _fanLogged.TryGetValue(c.Channel, out var last);
+            if (known && Math.Abs(last.Percent - c.Percent) < 15 && last.Stalled == c.Stalled) continue;
+            _fanLogged[c.Channel] = (c.Percent, c.Stalled);
+            var text = c.Stalled ? L.T("Lüfter K{0} ({1}) steht!", c.Channel, c.Name)
+                : known && last.Stalled ? L.T("Lüfter K{0} ({1}) läuft wieder: {2} %", c.Channel, c.Name, c.Percent)
+                : L.T("Lüfter K{0} ({1}): {2} % – {3}", c.Channel, c.Name, c.Percent, c.Reason);
+            LogEvent(c.Role == "miner" ? c.MinerHost : null, EventCategories.Fans, text);
         }
     }
 
@@ -288,9 +310,9 @@ public sealed partial class MinerHub
             var a = before.Channel(ch);
             var b = after.Channel(ch);
             if (b.Role != "miner" || Device(b.MinerHost ?? "") is not { } device) continue;
-            if (a.Role != b.Role || a.MinerHost != b.MinerHost) device.AddLog(L.T("Lüfter K{0} zugeordnet ({1}).", ch, (b.Mode == "manual" ? L.T("manuell {0} %", b.ManualPercent) : L.T("Automatik"))));
-            else if (a.Mode != b.Mode) device.AddLog(L.T("Lüfter K{0}: {1} → {2}", ch, (a.Mode == "manual" ? L.T("Manuell") : L.T("Automatik")), (b.Mode == "manual" ? L.T("Manuell {0} %", b.ManualPercent) : L.T("Automatik"))));
-            else if (b.Mode == "manual" && a.ManualPercent != b.ManualPercent) device.AddLog(L.T("Lüfter K{0}: manuell {1} % → {2} %", ch, a.ManualPercent, b.ManualPercent));
+            if (a.Role != b.Role || a.MinerHost != b.MinerHost) device.AddLog(L.T("Lüfter K{0} zugeordnet ({1}).", ch, (b.Mode == "manual" ? L.T("manuell {0} %", b.ManualPercent) : L.T("Automatik"))), EventCategories.Fans);
+            else if (a.Mode != b.Mode) device.AddLog(L.T("Lüfter K{0}: {1} → {2}", ch, (a.Mode == "manual" ? L.T("Manuell") : L.T("Automatik")), (b.Mode == "manual" ? L.T("Manuell {0} %", b.ManualPercent) : L.T("Automatik"))), EventCategories.Fans);
+            else if (b.Mode == "manual" && a.ManualPercent != b.ManualPercent) device.AddLog(L.T("Lüfter K{0}: manuell {1} % → {2} %", ch, a.ManualPercent, b.ManualPercent), EventCategories.Fans);
         }
     }
 }

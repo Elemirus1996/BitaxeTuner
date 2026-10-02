@@ -95,6 +95,9 @@ public sealed partial class MinerHub : IDisposable
         {
             if (SimulatedMinerClient.IsSimAddress(e.Host)) return;
             try { History?.AddTuningEvent(e); } catch { /* nicht kritisch */ }
+            LogEvent(e.Host, EventCategories.Tuning, L.T("{0}: {1} → {2} MHz / {3} mV", e.SourceText,
+                e.OldFrequencyMhz is { } of ? L.T("{0} MHz / {1} mV", of, e.OldCoreVoltageMv?.ToString() ?? "?") : "?", e.NewFrequencyMhz, e.NewCoreVoltageMv) +
+                (string.IsNullOrWhiteSpace(e.Note) ? "" : $" ({e.Note})"));
             TuningApplied?.Invoke(e);
         };
 
@@ -188,6 +191,16 @@ public sealed partial class MinerHub : IDisposable
     internal void RaiseStatus(bool ok, string text) => StatusMessage?.Invoke(ok, text);
     internal void RaiseDeviceChanged(HubDevice device) => DeviceChanged?.Invoke(device);
 
+    /// <summary>
+    /// Eintrag im dauerhaften Protokoll (history.db). Host null = Server/allgemein. Simulierte Miner (Demo) werden
+    /// wie im Verlauf nicht gespeichert. Fehler beim Schreiben sind nicht kritisch.
+    /// </summary>
+    public void LogEvent(string? host, string category, string message)
+    {
+        if (History is null || (host is not null && SimulatedMinerClient.IsSimAddress(host))) return;
+        try { History.AddEvent(host, category, message, DateTime.Now); } catch { /* nicht kritisch */ }
+    }
+
     // ---------- Geräteliste ----------
 
     /// <summary>Geräteliste aus config.json übernehmen (Start, Hinzufügen, Entfernen, Einstellungen gespeichert).</summary>
@@ -221,20 +234,22 @@ public sealed partial class MinerHub : IDisposable
 
     private void InitDevice(HubDevice device)
     {
-        device.AddLog(L.T("Gerät: {0} ({1})", device.Title, device.Host));
+        // Zeilen mit Kategorie dauerhaft in history.db (Protokoll; übersteht Neustarts und Updates)
+        device.Logged += (category, message) => LogEvent(device.Host, category, message);
+        device.AddLog(L.T("Gerät: {0} ({1})", device.Title, device.Host), category: null);
 
         // Manuell gewähltes Profil aus config.json, sonst Erkennung beim ersten Datenpunkt
         if (device.Config.ProfileId is { } id && Profiles.Profiles.FirstOrDefault(p => p.Id == id) is { } chosen)
         {
             device.Profile = chosen.Clone();
             device.ProfileResolved = true;
-            device.AddLog(L.T("Profil aus den Einstellungen: „{0}“", chosen.Name));
+            device.AddLog(L.T("Profil aus den Einstellungen: „{0}“", chosen.Name), category: null);
         }
 
         var last = Results.LoadLatest(device.Host, null);
         if (last is not null)
             device.AddLog(L.T("Letzter Lauf vom {0:g} geladen ({1} Ergebnisse", last.StartedAt, last.Results.Count) +
-                          (last.IsFinished ? ")." : L.T(", nicht abgeschlossen – kann fortgesetzt werden).")));
+                          (last.IsFinished ? ")." : L.T(", nicht abgeschlossen – kann fortgesetzt werden).")), category: null);
     }
 
     /// <summary>Log-Alarme an Geräteliste und Einstellungen angleichen.</summary>
@@ -257,7 +272,7 @@ public sealed partial class MinerHub : IDisposable
         device.ProfileResolved = true;
         device.Config.ProfileId = profile.Id;
         Config.Save();
-        device.AddLog(L.T("Profil gewählt: „{0}“ (gespeichert)", profile.Name));
+        device.AddLog(L.T("Profil gewählt: „{0}“ (gespeichert)", profile.Name), EventCategories.Settings);
         RaiseDeviceChanged(device);
     }
 
@@ -269,7 +284,7 @@ public sealed partial class MinerHub : IDisposable
         var matched = Profiles.Match(info, asic);
         device.MatchedProfile = matched;
         device.Profile = matched;
-        device.AddLog(L.T("Erkannt: {0} ({1} {2}) → Profil „{3}“", info.DeviceModel ?? info.AsicModel, FirmwareName(info.Firmware), info.FirmwareVersion, matched.Name));
+        device.AddLog(L.T("Erkannt: {0} ({1} {2}) → Profil „{3}“", info.DeviceModel ?? info.AsicModel, FirmwareName(info.Firmware), info.FirmwareVersion, matched.Name), category: null);
         RaiseDeviceChanged(device);
     }
 
@@ -299,6 +314,7 @@ public sealed partial class MinerHub : IDisposable
         StartFanLoop();
         // Home Assistant bekommt auch im Pausenzustand Werte (Lüfter, Fühler, „pausiert“)
         if (Config.Mqtt.Enabled) _ = ApplyMqttSettingsAsync();
+        LogEvent(null, EventCategories.System, L.T("Überwachung gestartet ({0} Miner)", Devices.Count));
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();
         await PollNowAsync();
