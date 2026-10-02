@@ -429,6 +429,10 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
 3. **Benchmark starten**. Standard: 90 s Aufwärmen + 10 min Messung pro Kombination.
 4. Im Tab **Ergebnisse** das Ranking wählen und die beste Einstellung anwenden.
 
+**Desktop-App im Modus „Server“:** Ein Knopf oben („Update vX: Server + App“) aktualisiert beides nacheinander – geprüfte
+Sicherung auf den PC, Server-Update (der Server sichert zusätzlich auf USB/NAS), Warten auf den Neustart mit der neuen
+Version, danach die App. Schlägt ein Schritt fehl, wird nicht weitergemacht.
+
 ### Automatik, Dauertest, Vergleich, Handy-Ansicht
 
 - **Voreinstellungen** je Miner (z. B. „Hashrate“, „Effizienz“ – auch direkt aus dem letzten Benchmark).

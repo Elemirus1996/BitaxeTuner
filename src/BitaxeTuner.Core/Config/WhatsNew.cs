@@ -73,6 +73,10 @@ public static class WhatsNew
             new("0.9.0", tr.T("Sicherung vor jedem Update"),
                 tr.T("Vor jedem Server-Update entsteht automatisch eine geprüfte Sicherung (Datenordner, USB-Stick, NAS) – schlägt sie fehl, wird nichts installiert. Auf Wunsch lädt der Browser sie vorher auf den PC; in der Desktop-App landet sie im Sicherungsordner."),
                 tr.T("Sicherung")),
+            new("0.9.0", tr.T("Server und App mit einem Klick aktualisieren"),
+                server ? tr.T("In der Desktop-App (Modus „Server“) aktualisiert ein Klick oben beides: erst Sicherung auf den PC, dann der Server, danach die App.")
+                       : tr.T("Im Modus „Server“ aktualisiert ein Klick oben beides: erst Sicherung auf den PC, dann der Server (mit eigener Sicherung auf USB/NAS), danach die App – schlägt ein Schritt fehl, wird nicht weitergemacht."),
+                null),
         ];
     }
 

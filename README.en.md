@@ -425,6 +425,10 @@ You can switch in both directions at any time with all your data (see *Switching
 3. **Start benchmark**. Default: 90 s warm-up + 10 min measurement per combination.
 4. In the **Results** tab choose the ranking and apply the best setting.
 
+**Desktop app in “Server” mode:** one button at the top (“Update vX: server + app”) updates both in turn – verified
+backup to the PC, server update (the server also backs up to USB/NAS), waiting for the restart with the new version,
+then the app. If a step fails, nothing further is done.
+
 ### Automation, soak test, compare, phone view
 
 - **Presets** per miner (e.g. “Hashrate”, “Efficiency” – also directly from the last benchmark).

@@ -9,6 +9,9 @@ using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Transfer;
 
+/// <summary>Update-Stand des Servers: installierte und neueste Version, ob er sich selbst aktualisieren kann.</summary>
+public sealed record ServerUpdateStatus(string Current, string? Latest, bool CanInstall, string Kind);
+
 public sealed record ServerInfo(string Name, string Version, int ApiVersion, bool SetupRequired, string Role, bool Paused, int Devices, string? Os);
 
 /// <summary>Fehler vom Server mit Klartext aus der API ({"error": …}).</summary>
@@ -124,6 +127,26 @@ public sealed class ServerClient : IDisposable
         content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
         var e = await SendAsync(HttpMethod.Post, $"api/v1/admin/import?replace={(replace ? "true" : "false")}", content, ct, TimeSpan.FromMinutes(10));
         return e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+    }
+
+    /// <summary>Update-Stand des Servers (nach einer frischen Prüfung bei GitHub).</summary>
+    public async Task<ServerUpdateStatus> CheckServerUpdateAsync(CancellationToken ct = default)
+    {
+        await SendAsync(HttpMethod.Post, "api/v1/admin/update/check", JsonContent.Create(new { }), ct, TimeSpan.FromMinutes(1));
+        var e = await GetJsonAsync("api/v1/admin/update", ct);
+        static string? Str(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        return new ServerUpdateStatus(Str(e, "current") ?? "", Str(e, "latest"),
+            e.TryGetProperty("canInstall", out var ci) && ci.ValueKind == JsonValueKind.True, Str(e, "kind") ?? "");
+    }
+
+    /// <summary>
+    /// Server-Update anstoßen. Ab 0.9.0 sichert der Server vorher selbst (Datenordner, USB/NAS) und meldet einen Fehler,
+    /// ohne etwas zu installieren. Liefert die Meldung des Servers; danach startet er neu.
+    /// </summary>
+    public async Task<string> InstallServerUpdateAsync(CancellationToken ct = default)
+    {
+        var e = await SendAsync(HttpMethod.Post, "api/v1/admin/update/install", JsonContent.Create(new { }), ct, TimeSpan.FromMinutes(15));
+        return e.ValueKind == JsonValueKind.Object && e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
     }
 
     private async Task<JsonElement> GetJsonAsync(string path, CancellationToken ct)

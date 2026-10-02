@@ -221,38 +221,125 @@ public partial class RemoteWindow : Window
     private async void Ssh_Click(object sender, RoutedEventArgs e) =>
         await Services.SshKeyService.OpenForServerAsync(this, _config.Server, () => Mode_Click(sender, e));
 
-    // ---------- App-Updates (wie im Modus „Lokal“) ----------
+    // ---------- Updates: Server und App mit einem Klick ----------
 
+    private ServerUpdateStatus? _serverUpdate;
+
+    private static string Plain(string? version) => (version ?? "").Trim().TrimStart('v', 'V');
+
+    /// <summary>
+    /// App-Update (GitHub) und Server-Update (über die Server-API) prüfen. Ein Knopf für beides: „Server + App“,
+    /// nur Server oder nur App – je nachdem, was neu ist und ob sich der Server selbst aktualisieren kann.
+    /// </summary>
     private async Task CheckUpdateAsync()
     {
         if (!_config.CheckForUpdates) return;
-        var result = await new UpdateService(_updateHttp, UpdateChecker.Repository).CheckAsync(MainViewModel.CurrentVersion);
-        if (result.Status != UpdateCheckStatus.UpdateAvailable || result.Update is not { } u) return;
-        _update = u;
-        UpdateButton.Content = L.T("Update {0} installieren", u.Tag);
-        UpdateButton.Visibility = Visibility.Visible;
+        try
+        {
+            var result = await new UpdateService(_updateHttp, UpdateChecker.Repository).CheckAsync(MainViewModel.CurrentVersion);
+            _update = result.Status == UpdateCheckStatus.UpdateAvailable ? result.Update : null;
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException) { _update = null; }
+        try
+        {
+            using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
+            var s = await client.CheckServerUpdateAsync();
+            _serverUpdate = s.Latest is not null && s.CanInstall && Plain(s.Latest) != Plain(s.Current) ? s : null;
+        }
+        catch (ServerException) { _serverUpdate = null; }   // ältere/abweichende Server: nur App-Update anbieten
+        ShowUpdateButton();
+    }
+
+    private void ShowUpdateButton()
+    {
+        UpdateButton.Content = (_update, _serverUpdate) switch
+        {
+            ({ } u, { } s) => Plain(u.Tag) == Plain(s.Latest) ? L.T("Update {0}: Server + App", u.Tag) : L.T("Updates: Server {0} + App {1}", s.Latest!, u.Tag),
+            ({ } u, null) => L.T("Update {0} installieren", u.Tag),
+            (null, { } s) => L.T("Server-Update {0}", s.Latest!),
+            _ => null,
+        };
+        UpdateButton.Visibility = UpdateButton.Content is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void Update_Click(object sender, RoutedEventArgs e)
     {
-        if (_update is not { } u) return;
-        if (MessageBox.Show(this, L.T("BitaxeTuner {0} installieren?\n\nDie App wird beendet, aktualisiert und neu gestartet. ", u.Tag) +
-                                  L.T("Der Server läuft währenddessen weiter (er wird in seiner Oberfläche separat aktualisiert)."),
-                L.T("Update"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        var app = _update;
+        var server = _serverUpdate;
+        if (app is null && server is null) return;
+        var folder = Core.Backup.BackupPickup.FolderOf(_config.Server);
+        var text = new System.Text.StringBuilder();
+        if (server is not null) text.AppendLine(L.T("Server: {0} → {1}", server.Current, server.Latest!));
+        if (app is not null) text.AppendLine(L.T("App: {0} → {1}", MainViewModel.CurrentVersion.ToString(3), app.Tag));
+        text.AppendLine();
+        text.AppendLine(L.T("Ablauf:"));
+        text.AppendLine(L.T("1. Geprüfte Sicherung des Servers auf diesen PC ({0})", folder));
+        if (server is not null)
+        {
+            text.AppendLine(L.T("2. Server-Update (der Server sichert vorher zusätzlich auf USB/NAS, laufende Benchmarks werden gestoppt)"));
+            text.AppendLine(L.T("3. Warten, bis der Server mit der neuen Version wieder läuft"));
+        }
+        if (app is not null) text.AppendLine(server is null ? L.T("2. App-Update – die App startet neu") : L.T("4. App-Update – die App startet neu"));
+        text.AppendLine();
+        text.Append(L.T("Schlägt ein Schritt fehl, wird nicht weitergemacht."));
+        if (MessageBox.Show(this, text.ToString(), L.T("Update"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+
         UpdateButton.IsEnabled = false;
         try
         {
-            var file = await new UpdateService(_updateHttp, UpdateChecker.Repository)
-                .DownloadAsync(u, Path.Combine(Path.GetTempPath(), L.T("BitaxeTuner-Update")),
-                    new Progress<double>(p => UpdateButton.Content = L.T("Lade … {0:P0}", p)));
-            Process.Start(new ProcessStartInfo(file, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
-            Application.Current.Shutdown();
+            using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
+
+            // 1. Sicherung auf den PC (unabhängig von der täglichen Abholung)
+            UpdateButton.Content = L.T("Sicherung auf den PC …");
+            var name = await Core.Backup.BackupPickup.RunAsync(client, folder, Math.Clamp(_config.Server.BackupKeep, 1, 365), DateTime.Now);
+            BackupText.Text = L.T("· Sicherung {0:HH:mm} ✓", DateTime.Now);
+            BackupText.ToolTip = Path.Combine(folder, name);
+
+            if (server is not null)
+            {
+                // 2. Server-Update anstoßen, 3. auf die neue Version warten (Neustart dauert ca. 1 Minute)
+                UpdateButton.Content = L.T("Server wird aktualisiert …");
+                await client.InstallServerUpdateAsync();
+                var deadline = DateTime.Now.AddMinutes(8);
+                string? running = null;
+                while (DateTime.Now < deadline)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    try
+                    {
+                        running = (await client.InfoAsync()).Version;
+                        if (Plain(running) == Plain(server.Latest)) break;
+                    }
+                    catch (ServerException) { /* startet gerade neu */ }
+                }
+                if (Plain(running) != Plain(server.Latest))
+                    throw new InvalidOperationException(L.T("Der Server meldet sich nach dem Update nicht mit Version {0} (zuletzt: {1}). Die App wurde nicht aktualisiert – bitte die Server-Oberfläche prüfen.",
+                        server.Latest!, running ?? L.T("nicht erreichbar")));
+                _serverUpdate = null;
+                await ConnectAsync();
+            }
+
+            if (app is not null)
+            {
+                // 4. App-Update (wie bisher): Installer starten, App beendet sich und startet neu
+                var file = await new UpdateService(_updateHttp, UpdateChecker.Repository)
+                    .DownloadAsync(app, Path.Combine(Path.GetTempPath(), L.T("BitaxeTuner-Update")),
+                        new Progress<double>(p => UpdateButton.Content = L.T("Lade … {0:P0}", p)));
+                Process.Start(new ProcessStartInfo(file, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
+                Application.Current.Shutdown();
+                return;
+            }
+            MessageBox.Show(this, L.T("Server läuft jetzt mit Version {0}.", server!.Latest!), L.T("Update"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ServerException or IOException or InvalidDataException or InvalidOperationException
+                                       or System.Net.Http.HttpRequestException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            MessageBox.Show(this, ex.Message, L.T("Update"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
         {
             UpdateButton.IsEnabled = true;
-            UpdateButton.Content = L.T("Update {0} installieren", u.Tag);
-            MessageBox.Show(this, ex.Message, L.T("Update"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowUpdateButton();
         }
     }
 }
