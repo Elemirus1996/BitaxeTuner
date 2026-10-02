@@ -97,6 +97,9 @@ Corrections to the English texts are welcome: they all live in
 
 ### Miner logs, alerts, backups
 
+- **Miner fan** (browser *Device → Live*, desktop *Set manually*): automatic with a target temperature (AxeOS
+  `temptarget`, NerdQAxe `pidTargetTemp`; 45 °C up to the profile's chip limit) or a fixed value from 20 % – with an
+  old → new confirmation and a log entry.
 - **Log** (browser *Log*, desktop *Log …*): stored permanently in `history.db`, at least 30 days – every
   frequency/voltage change with its source (manual, benchmark, automation, restore …), benchmark start/abort, soak
   tests, automation/watchdog, fan control (VR and case), offline/online, settings and server events. Filter by period,

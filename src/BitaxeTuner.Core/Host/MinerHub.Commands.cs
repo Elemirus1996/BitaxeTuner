@@ -377,4 +377,48 @@ public sealed partial class MinerHub
         }
         return rows;
     }
+
+    // ---------- Lüfter des Miners (AxeOS/NerdQAxe) ----------
+
+    public const int MinManualFanPercent = 20;
+    public const int MinFanTargetTempC = 45;
+
+    /// <summary>Höchste erlaubte Zieltemperatur: Chip-Grenze des Geräteprofils, höchstens 75 °C.</summary>
+    public static int MaxFanTargetTempC(HubDevice device) => (int)Math.Min(75, Math.Floor(device.Profile.MaxChipTempC));
+
+    /// <summary>Prüfung vor dem Anwenden; null = in Ordnung, sonst Fehlertext.</summary>
+    public static string? CheckMinerFan(HubDevice device, bool auto, int targetTempC, int manualPercent)
+    {
+        if (auto && (targetTempC < MinFanTargetTempC || targetTempC > MaxFanTargetTempC(device)))
+            return L.T("Zieltemperatur {0}–{1} °C (Grenze des Profils {2}).", MinFanTargetTempC, MaxFanTargetTempC(device), device.Profile.Name);
+        if (!auto && (manualPercent < MinManualFanPercent || manualPercent > 100))
+            return L.T("Lüfter manuell: {0}–100 %.", MinManualFanPercent);
+        return null;
+    }
+
+    /// <summary>Text „alt → neu“ für die Bestätigung (Desktop und Browser gleich).</summary>
+    public static string MinerFanText(bool auto, int? targetTempC, int? percent) =>
+        auto ? (targetTempC is { } t ? L.T("Automatik, Ziel {0} °C", t) : L.T("Automatik"))
+             : L.T("Manuell {0} %", percent?.ToString() ?? "?");
+
+    /// <summary>
+    /// Lüfter des Miners stellen: Automatik mit Zieltemperatur oder fester Wert. Nur nach Bestätigung in der Oberfläche
+    /// aufrufen; geprüft gegen die Profilgrenze, protokolliert (Kategorie Lüfter).
+    /// </summary>
+    public async Task SetMinerFanAsync(HubDevice device, bool auto, int targetTempC, int manualPercent, string source)
+    {
+        if (CheckMinerFan(device, auto, targetTempC, manualPercent) is { } error) throw new InvalidOperationException(error);
+        var info = device.Info ?? throw new InvalidOperationException(L.T("Miner ist nicht erreichbar."));
+        var before = MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent);
+        if (auto)
+        {
+            // Automatik: bisherigen Modus behalten (NerdQAxe 2 = PID), sonst 1; Zieltemperatur zuerst
+            await device.Connection.SetFanTargetAsync(targetTempC);
+            await device.Connection.SetFanAsync(info.AutoFanMode is > 0 and var m ? m : 1, info.FanPercent ?? 100);
+        }
+        else
+            await device.Connection.SetFanAsync(0, manualPercent);
+        device.AddLog(L.T("AxeOS-Lüfter ({0}): {1} → {2}", source, before, MinerFanText(auto, targetTempC, manualPercent)), EventCategories.Fans);
+        RaiseDeviceChanged(device);
+    }
 }

@@ -204,6 +204,15 @@
                                         </StackPanel>
                                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
                                                    Text="{l:T 'Vor dem Senden zeigt ein Dialog den aktuellen und den neuen Wert. Werte außerhalb der Profilgrenzen werden abgelehnt. Jede Änderung wird in history.db protokolliert und im Verlauf markiert.'}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <TextBlock Text="{l:T 'Lüfter des Miners'}" Style="{StaticResource FieldLabel}" />
+                                            <RadioButton Content="{l:T 'Automatik, Ziel (°C)'}" IsChecked="{Binding FanAuto}" GroupName="MinerFan" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBox Text="{Binding FanTarget, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldBox}" Width="50" Margin="0,3,14,3" />
+                                            <RadioButton Content="{l:T 'Manuell (%)'}" IsChecked="{Binding FanManual}" GroupName="MinerFan" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBox Text="{Binding FanManualPercent, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldBox}" Width="50" Margin="0,3,14,3" />
+                                            <Button Content="{l:T 'Lüfter anwenden …'}" Command="{Binding ApplyFanCommand}" />
+                                        </StackPanel>
+                                        <TextBlock Style="{StaticResource Muted}" Text="{Binding FanCurrentText}" Margin="0,2,0,0" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource Card}">

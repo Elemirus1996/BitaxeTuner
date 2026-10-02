@@ -137,6 +137,9 @@ public sealed class MinerConnection : IMinerClient, IDisposable
         TuningApplied?.Invoke(new TuningEvent(Address, DateTime.Now, source, oldFreq, oldMv, frequencyMhz, coreVoltageMv, note));
     }
 
+    public Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default) =>
+        RunAsync(async () => { await _inner.SetFanTargetAsync(targetTempC, ct).ConfigureAwait(false); return true; }, ct);
+
     public Task SetFanAsync(int autoFanMode, int manualPercent, CancellationToken ct = default) =>
         RunAsync(async () => { await _inner.SetFanAsync(autoFanMode, manualPercent, ct).ConfigureAwait(false); return true; }, ct);
 

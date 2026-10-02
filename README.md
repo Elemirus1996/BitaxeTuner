@@ -95,6 +95,9 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 
 ### Miner-Logs, Alarme, Sicherungen
 
+- **Lüfter des Miners** (Browser *Gerät → Live*, Desktop *Manuell einstellen*): Automatik mit Zieltemperatur (AxeOS
+  `temptarget`, NerdQAxe `pidTargetTemp`; 45 °C bis zur Chip-Grenze des Profils) oder fester Wert ab 20 % – mit Bestätigung
+  alt → neu und Eintrag im Protokoll.
 - **Protokoll** (Browser *Protokoll*, Desktop *Protokoll …*): dauerhaft in `history.db`, mindestens 30 Tage – jede
   Frequenz-/Spannungsänderung mit Quelle (manuell, Benchmark, Automatik, Wiederherstellung …), Benchmark-Start/-Abbruch,
   Dauertests, Automatik/Watchdog, Lüfterregelung (VR und Gehäuse), offline/online, Einstellungen und Server-Ereignisse.

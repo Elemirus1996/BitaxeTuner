@@ -77,6 +77,10 @@ public static class WhatsNew
                 server ? tr.T("In der Desktop-App (Modus „Server“) aktualisiert ein Klick oben beides: erst Sicherung auf den PC, dann der Server, danach die App.")
                        : tr.T("Im Modus „Server“ aktualisiert ein Klick oben beides: erst Sicherung auf den PC, dann der Server (mit eigener Sicherung auf USB/NAS), danach die App – schlägt ein Schritt fehl, wird nicht weitergemacht."),
                 null),
+            new("0.9.0", tr.T("Lüfter des Miners einstellen"),
+                server ? tr.T("Geräteseite → Live: Lüfter des Miners auf Automatik mit Zieltemperatur oder auf einen festen Wert stellen – mit Bestätigung, innerhalb der Profilgrenzen, im Protokoll.")
+                       : tr.T("Miner → „Manuell einstellen“: Lüfter des Miners auf Automatik mit Zieltemperatur oder auf einen festen Wert stellen – mit Bestätigung, innerhalb der Profilgrenzen, im Protokoll."),
+                null),
         ];
     }
 

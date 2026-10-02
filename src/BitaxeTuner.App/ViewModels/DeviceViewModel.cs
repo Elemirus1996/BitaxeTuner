@@ -100,7 +100,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsIdle))]
     [NotifyCanExecuteChangedFor(nameof(StartBenchmarkCommand), nameof(StopBenchmarkCommand), nameof(TogglePauseCommand),
-        nameof(ResumeBenchmarkCommand), nameof(ApplyBestCommand), nameof(ApplyResultCommand), nameof(ApplyManualCommand),
+        nameof(ResumeBenchmarkCommand), nameof(ApplyBestCommand), nameof(ApplyResultCommand), nameof(ApplyManualCommand), nameof(ApplyFanCommand),
         nameof(RestoreSettingsCommand))]
     private bool _isRunning;
 
@@ -400,6 +400,73 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private Task ApplyAsync(StepResult r) => ApplyValuesAsync(r.FrequencyMhz, r.CoreVoltageMv);
 
     private bool CanApplyManual() => !IsRunning;
+
+    // ---------- Lüfter des Miners (AxeOS/NerdQAxe) ----------
+
+    /// <summary>Auswahl in „Manuell einstellen“: Automatik (Zieltemperatur) oder fester Wert.</summary>
+    [ObservableProperty] private bool _fanAuto = true;
+    [ObservableProperty] private string _fanTarget = "60";
+    [ObservableProperty] private string _fanManualPercent = "100";
+    private bool _fanEdited;
+
+    partial void OnFanAutoChanged(bool value)
+    {
+        _fanEdited = true;
+        OnPropertyChanged(nameof(FanManual));
+    }
+
+    /// <summary>Gegenstück zu <see cref="FanAuto"/> für den zweiten Optionsknopf.</summary>
+    public bool FanManual
+    {
+        get => !FanAuto;
+        set => FanAuto = !value;
+    }
+    partial void OnFanTargetChanged(string value) => _fanEdited = true;
+    partial void OnFanManualPercentChanged(string value) => _fanEdited = true;
+
+    /// <summary>Aktuellen Lüfterzustand übernehmen, solange der Benutzer nichts geändert hat.</summary>
+    private void SyncFanFromInfo(MinerInfo? info)
+    {
+        if (_fanEdited || info is null) return;
+        _fanAuto = info.AutoFan != false;
+        _fanTarget = (info.FanTargetTempC ?? 60).ToString();
+        _fanManualPercent = Math.Max(MinerHub.MinManualFanPercent, info.FanPercent ?? 100).ToString();
+        OnPropertyChanged(nameof(FanAuto));
+        OnPropertyChanged(nameof(FanManual));
+        OnPropertyChanged(nameof(FanTarget));
+        OnPropertyChanged(nameof(FanManualPercent));
+        OnPropertyChanged(nameof(FanCurrentText));
+    }
+
+    public string FanCurrentText => Info is { } i
+        ? L.T("Aktuell: {0}", MinerHub.MinerFanText(i.AutoFan == true, i.FanTargetTempC, i.FanPercent)) + (i.FanRpm is { } rpm ? $" · {rpm} rpm" : "")
+        : "";
+
+    [RelayCommand(CanExecute = nameof(CanApplyManual))]
+    private async Task ApplyFan()
+    {
+        if (Info is not { } info) return;
+        _ = int.TryParse(FanTarget.Trim(), out var target);
+        _ = int.TryParse(FanManualPercent.Trim(), out var percent);
+        if (MinerHub.CheckMinerFan(_device, FanAuto, target, percent) is { } error)
+        {
+            MessageBox.Show(error, L.T("Lüfter einstellen"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var text = L.T("Lüfter von {0}: {1} → {2}", _device.Title, MinerHub.MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent),
+                       MinerHub.MinerFanText(FanAuto, target, percent)) +
+                   (FanAuto ? "" : "\n\n" + L.T("Achtung: Im manuellen Modus reagiert der Lüfter nicht mehr auf die Temperatur. Der Überhitzungsschutz von AxeOS und die Temperatur-Meldungen bleiben aktiv."));
+        if (MessageBox.Show(text, L.T("Lüfter einstellen"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        try
+        {
+            await _hub.SetMinerFanAsync(_device, FanAuto, target, percent, L.T("Desktop"));
+            _fanEdited = false;
+        }
+        catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)
+        {
+            MessageBox.Show(ex.Message, L.T("Lüfter einstellen"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanApplyManual))]
     private Task ApplyManual()
@@ -730,6 +797,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private void UpdateLive(MinerInfo info)
     {
         Info = info;
+        SyncFanFromInfo(info);
         // Eingabefelder für "Manuell einstellen" mit den aktuellen Werten vorbelegen
         if (string.IsNullOrEmpty(ManualFrequency) && info.FrequencyMhz > 0) ManualFrequency = info.FrequencyMhz.ToString();
         if (string.IsNullOrEmpty(ManualVoltage) && info.CoreVoltageMv > 0) ManualVoltage = info.CoreVoltageMv.ToString();

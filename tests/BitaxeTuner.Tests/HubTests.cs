@@ -152,6 +152,37 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Miner_fan_is_set_within_profile_limits_and_logged()
+    {
+        using var rig = new Rig("10.0.0.51");
+        await rig.Hub.PollNowAsync();
+        var d = rig.Device("10.0.0.51");
+
+        // Grenzen: Zieltemperatur 45 °C bis Chip-Grenze des Profils, manuell mindestens 20 %
+        Assert.NotNull(MinerHub.CheckMinerFan(d, auto: true, targetTempC: 40, manualPercent: 0));
+        Assert.NotNull(MinerHub.CheckMinerFan(d, auto: true, targetTempC: MinerHub.MaxFanTargetTempC(d) + 1, manualPercent: 0));
+        Assert.NotNull(MinerHub.CheckMinerFan(d, auto: false, targetTempC: 0, manualPercent: 10));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Hub.SetMinerFanAsync(d, false, 0, 5, "Test"));
+
+        await rig.Hub.SetMinerFanAsync(d, auto: false, targetTempC: 0, manualPercent: 80, "Test");
+        await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100));
+        await rig.Hub.PollNowAsync();
+        Assert.Equal(0, d.Info!.AutoFanMode);
+        Assert.Equal(80, d.Info.FanPercent);
+
+        await rig.Hub.SetMinerFanAsync(d, auto: true, targetTempC: 58, manualPercent: 0, "Test");
+        await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100));
+        await rig.Hub.PollNowAsync();
+        Assert.True(d.Info!.AutoFan);
+        Assert.Equal(58, d.Info.FanTargetTempC);
+
+        var log = rig.Hub.History!.QueryEvents(DateTime.Now.AddHours(-1), DateTime.Now.AddMinutes(1), categories: [EventCategories.Fans]);
+        Assert.Equal(2, log.Count);
+        Assert.Contains(log, e => e.Message.Contains("Manuell 80 %") && e.Host == "10.0.0.51");
+        Assert.Contains(log, e => e.Message.Contains("Ziel 58 °C"));
+    }
+
+    [Fact]
     public async Task Compare_report_shows_selected_values_charts_and_no_addresses()
     {
         using var rig = new Rig("10.0.0.11", "10.0.0.12");

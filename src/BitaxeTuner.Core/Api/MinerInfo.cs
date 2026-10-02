@@ -51,6 +51,8 @@ public sealed record MinerInfo
     public int? AutoFanMode { get; init; }
     public bool? AutoFan => AutoFanMode is { } m ? m > 0 : null;
     public int? FanPercent { get; init; }
+    /// <summary>Zieltemperatur der Lüfterautomatik (AxeOS „temptarget“, NerdQAxe „pidTargetTemp“), falls gemeldet.</summary>
+    public int? FanTargetTempC { get; init; }
     public int? FanRpm { get; init; }
 
     public long SharesAccepted { get; init; }

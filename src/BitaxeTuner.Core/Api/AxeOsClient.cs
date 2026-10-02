@@ -141,6 +141,13 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         return PatchAsync(body, ct);
     }
 
+    public Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default)
+    {
+        // NerdQAxe regelt per PID auf „pidTargetTemp“, AxeOS (≥ 2.x) auf „temptarget“; ältere Firmware: nichts senden
+        var key = _lastKeys.Contains("pidTargetTemp") ? "pidTargetTemp" : _lastKeys.Contains("temptarget") ? "temptarget" : null;
+        return key is null ? Task.CompletedTask : PatchAsync(new Dictionary<string, object> { [key] = targetTempC }, ct);
+    }
+
     public async Task RestartAsync(CancellationToken ct = default)
     {
         try
@@ -246,6 +253,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             DefaultFrequencyMhz = Int(r, "defaultFrequency"),
             DefaultCoreVoltageMv = Int(r, "defaultCoreVoltage"),
             AutoFanMode = Int(r, "autofanspeed"),
+            FanTargetTempC = (Int(r, "pidTargetTemp") ?? Int(r, "temptarget")) is > 0 and var ft ? ft : null,
             FanPercent = Int(r, "fanspeed") ?? Int(r, "manualFanSpeed"),
             FanRpm = Int(r, "fanrpm"),
             SharesAccepted = (long)(Dbl(r, "sharesAccepted") ?? 0),

@@ -24,6 +24,7 @@ public sealed class SimulatedMinerClient : IMinerClient
     private int _voltage;
     private int _autoFan = 1;
     private int _fanPercent = 60;
+    private int _fanTarget = 60;
     private long _shares;
     private DateTime _bootTime = DateTime.Now;
 
@@ -102,6 +103,7 @@ public sealed class SimulatedMinerClient : IMinerClient
                 DefaultFrequencyMhz = _profile.DefaultFrequencyMhz,
                 DefaultCoreVoltageMv = _profile.DefaultVoltageMv,
                 AutoFanMode = _autoFan,
+                FanTargetTempC = _fanTarget,
                 FanPercent = _autoFan == 0 ? _fanPercent : (int)Math.Clamp(chipTemp, 30, 100),
                 FanRpm = 3000 + _fanPercent * 30,
                 SharesAccepted = _shares,
@@ -130,6 +132,12 @@ public sealed class SimulatedMinerClient : IMinerClient
             _voltage = coreVoltageMv;
             ApplyCount++;
         }
+        return Task.CompletedTask;
+    }
+
+    public Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default)
+    {
+        lock (_lock) _fanTarget = targetTempC;
         return Task.CompletedTask;
     }
 

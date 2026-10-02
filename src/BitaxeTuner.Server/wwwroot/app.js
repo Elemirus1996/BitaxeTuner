@@ -1062,7 +1062,7 @@ function renderDevice() {
  */
 function markTabDirty() {
   const tab = $('#tab');
-  if (tab && ['benchmark', 'automation'].includes(S.route?.tab)) tab.dataset.dirty = S.route.tab;
+  if (tab && ['benchmark', 'automation', 'live'].includes(S.route?.tab)) tab.dataset.dirty = S.route.tab;
 }
 function cleanTab() {
   const tab = $('#tab');
@@ -1123,7 +1123,7 @@ async function applyChange(frequency, voltage) {
   const preview = await run(() => api(`/devices/${id}/change/preview`, { method: 'POST', body: { frequency, voltage } }));
   if (!preview) return;
   if (!await confirmBox(t('Einstellung anwenden'), preview.confirmText, t('Anwenden'))) return;
-  if (await run(() => api(`/devices/${id}/change`, { method: 'POST', body: { frequency, voltage } }), t('Einstellung angewendet.'))) reloadDetailSoon();
+  if (await run(() => api(`/devices/${id}/change`, { method: 'POST', body: { frequency, voltage } }), t('Einstellung angewendet.'))) { cleanTab(); reloadDetailSoon(); }
 }
 
 function tabLive() {
@@ -1170,7 +1170,39 @@ function tabLive() {
           },
         }, t('Miner neu starten'))),
       profileSel ? h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Profil')), profileSel)) : null,
-      S.detail.profile.notes ? h('p', { class: 'muted small' }, S.detail.profile.notes) : null) : null);
+      S.detail.profile.notes ? h('p', { class: 'muted small' }, S.detail.profile.notes) : null) : null,
+    isAdmin() && d.online ? minerFanCard(d) : null);
+}
+
+/**
+ * Lüfter des Miners (AxeOS/NerdQAxe): Automatik mit Zieltemperatur oder fester Wert. Grenzen vom Server (Profil),
+ * Bestätigung mit alt → neu, Änderung im Protokoll.
+ */
+function minerFanCard(d) {
+  const lim = S.detail.fanLimits || { minTarget: 45, maxTarget: 65, minPercent: 20 };
+  const mode = h('select', { style: 'width:auto' }, h('option', { value: 'auto', selected: d.fanAuto !== false }, t('Automatik')), h('option', { value: 'manual', selected: d.fanAuto === false }, t('Manuell')));
+  const target = h('input', { type: 'number', min: lim.minTarget, max: lim.maxTarget, step: 1, value: Math.min(lim.maxTarget, Math.max(lim.minTarget, d.fanTarget ?? 60)) });
+  const percent = h('input', { type: 'number', min: lim.minPercent, max: 100, step: 5, value: Math.max(lim.minPercent, d.fanPercent ?? 100) });
+  const targetBox = h('div', {}, h('label', {}, t('Zieltemperatur (°C, {0}–{1})', lim.minTarget, lim.maxTarget)), target);
+  const percentBox = h('div', {}, h('label', {}, t('Drehzahl (%, {0}–100)', lim.minPercent)), percent);
+  const show = () => { targetBox.hidden = mode.value !== 'auto'; percentBox.hidden = mode.value === 'auto'; };
+  mode.addEventListener('change', show);
+  show();
+  const text = (auto, tgt, pct) => auto ? (tgt != null ? t('Automatik, Ziel {0} °C', tgt) : t('Automatik')) : t('Manuell {0} %', pct ?? '?');
+  const apply = async () => {
+    const auto = mode.value === 'auto';
+    const body = { auto, targetTemp: +target.value, percent: +percent.value };
+    const msg = t('Lüfter von {0}: {1} → {2}', d.name, text(d.fanAuto !== false, d.fanTarget, d.fanPercent), text(auto, body.targetTemp, body.percent)) +
+      (auto ? '' : '\n\n' + t('Achtung: Im manuellen Modus reagiert der Lüfter nicht mehr auf die Temperatur. Der Überhitzungsschutz von AxeOS und die Temperatur-Meldungen bleiben aktiv.'));
+    if (!await confirmBox(t('Lüfter einstellen'), msg, t('Anwenden'))) return;
+    if (await run(() => api(`/devices/${S.route.id}/fan`, { method: 'POST', body }), t('Lüfter eingestellt.'))) { cleanTab(); reloadDetailSoon(); }
+  };
+  return h('div', { class: 'card stack' },
+    h('h3', {}, t('Lüfter des Miners')),
+    h('p', { class: 'muted small' }, t('Aktuell: {0}', text(d.fanAuto !== false, d.fanTarget, d.fanPercent)) + (d.fanRpm != null ? ` · ${d.fanRpm} rpm` : '')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Modus')), mode), targetBox, percentBox,
+      h('button', { class: 'btn', onclick: apply, disabled: d.benchmark?.running }, t('Lüfter anwenden …'))),
+    d.benchmark?.running ? h('p', { class: 'muted small' }, t('Während eines Benchmarks steuert der Benchmark den Lüfter.')) : null);
 }
 
 /** Difficulty kurz wie AxeOS: 1260 → „1,26k“, 2,4·10⁹ → „2,40G“. */

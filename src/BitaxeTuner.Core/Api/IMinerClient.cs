@@ -26,6 +26,9 @@ public interface IMinerClient
     /// <param name="autoFanMode">0 = manuell, 1 = automatisch (Firmware-Rohwert, z. B. 2 = PID bei NerdQAxe).</param>
     Task SetFanAsync(int autoFanMode, int manualPercent, CancellationToken ct = default);
 
+    /// <summary>Zieltemperatur der Lüfterautomatik (AxeOS „temptarget“, NerdQAxe „pidTargetTemp“); ohne Unterstützung nichts.</summary>
+    Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default) => Task.CompletedTask;
+
     Task RestartAsync(CancellationToken ct = default);
 
     /// <summary>

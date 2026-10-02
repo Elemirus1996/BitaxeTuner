@@ -144,6 +144,8 @@ public static class Dto
             voltage = n?.CoreVoltageMv,
             fanRpm = i?.fanrpm,
             fanPercent = i is null ? (int?)null : (int)Math.Round(i.fanspeed),   // AxeOS liefert z. B. 12,2222 %
+            fanAuto = n?.AutoFan,
+            fanTarget = n?.FanTargetTempC,
             uptimeSeconds = i?.uptimeSeconds,
             sharesAccepted = i?.sharesAccepted,
             sharesRejected = i?.sharesRejected,
@@ -199,6 +201,7 @@ public static class Dto
         return new
         {
             summary = Summary(hub, d, role),
+            fanLimits = new { minTarget = MinerHub.MinFanTargetTempC, maxTarget = MinerHub.MaxFanTargetTempC(d), minPercent = MinerHub.MinManualFanPercent },
             profile = new
             {
                 p.Id, p.Name, p.Notes,
