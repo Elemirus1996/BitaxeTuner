@@ -100,8 +100,16 @@ public sealed class TaxLogRepository
     /// Semikolon-getrennt, deutsches Zahlenformat, UTF-8 mit BOM (Excel-tauglich).
     /// Datum und Uhrzeit in Ortszeit, zusätzlich UTC zur eindeutigen Zuordnung.
     /// </summary>
-    public void ExportCsv(string filePath, IEnumerable<MinedReward> rewards)
+    /// <param name="disposals">Verkäufe; angegeben → Restbestand je Zufluss per FIFO neu berechnen (sonst gilt der Wert aus
+    /// <see cref="HoldingCalculator.Apply"/>, den der Aufrufer schon gesetzt hat).</param>
+    public void ExportCsv(string filePath, IEnumerable<MinedReward> rewards, IEnumerable<Disposal>? disposals = null)
     {
+        if (disposals is not null)
+        {
+            var list = rewards.ToList();
+            HoldingCalculator.Apply(list, disposals);
+            rewards = list;
+        }
         var de = CultureInfo.GetCultureInfo("de-DE");
         var sb = new StringBuilder();
         sb.AppendLine("Datum;Uhrzeit;Zeitpunkt UTC;Coin;Wallet;Blockhöhe;TXID;Menge;EUR-Kurs;EUR-Wert;Kursquelle;Haltefrist endet;Restbestand;Notiz");
@@ -193,6 +201,23 @@ public sealed class TaxLogRepository
 
     // ---------- intern ----------
 
+    private readonly Dictionary<string, string> _broken = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Beschädigte Steuerdateien (Name → Sicherungskopie). Solange eine Datei hier steht, wird sie nicht überschrieben –
+    /// sonst ginge ihr Inhalt beim nächsten Speichern verloren. Desktop und Browser zeigen den Hinweis an.
+    /// </summary>
+    public string? Warning
+    {
+        get
+        {
+            lock (_lock)
+                return _broken.Count == 0 ? null
+                    : L.T("Steuerdatei beschädigt: {0}. Sie wird nicht überschrieben, neue Einträge werden nicht gespeichert. Bitte die Datei prüfen oder aus einer Sicherung wiederherstellen (Kopie: {1}).",
+                        string.Join(", ", _broken.Keys.Select(Path.GetFileName)), string.Join(", ", _broken.Values.Select(Path.GetFileName)));
+        }
+    }
+
     private List<T> Load<T>(string path)
     {
         lock (_lock)
@@ -200,12 +225,19 @@ public sealed class TaxLogRepository
             if (!File.Exists(path)) return new List<T>();
             try
             {
-                return JsonSerializer.Deserialize<List<T>>(File.ReadAllText(path), JsonOptions) ?? new List<T>();
+                var list = JsonSerializer.Deserialize<List<T>>(File.ReadAllText(path), JsonOptions) ?? new List<T>();
+                _broken.Remove(path);   // wieder lesbar (z. B. aus einer Sicherung zurückgeholt)
+                return list;
             }
             catch
             {
-                // Defekte Datei nicht überschreiben, sondern sichern
-                File.Copy(path, path + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"), overwrite: true);
+                // Defekte Datei nicht überschreiben, sondern sichern und sperren
+                if (!_broken.ContainsKey(path))
+                {
+                    var copy = path + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    try { File.Copy(path, copy, overwrite: true); } catch { /* Sperre gilt trotzdem */ }
+                    _broken[path] = copy;
+                }
                 return new List<T>();
             }
         }
@@ -215,8 +247,14 @@ public sealed class TaxLogRepository
     {
         lock (_lock)
         {
+            if (_broken.ContainsKey(path)) throw new InvalidOperationException(Warning);
             var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(items, JsonOptions));
+            // Erst vollständig auf den Datenträger schreiben, dann umbenennen (Stromausfall auf dem Pi)
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(fs, items, JsonOptions);
+                fs.Flush(flushToDisk: true);
+            }
             File.Move(tmp, path, overwrite: true);
         }
     }

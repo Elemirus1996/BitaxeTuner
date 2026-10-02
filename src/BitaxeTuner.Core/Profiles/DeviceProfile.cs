@@ -33,6 +33,10 @@ public sealed class DeviceProfile
     public List<string> BoardVersions { get; set; } = [];
     public string? Notes { get; set; }
 
+    /// <summary>Ersatzprofil mit vorsichtigen Grenzen (kein Profil passte genau) – nur zur Laufzeit, nicht gespeichert.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsFallback { get; set; }
+
     public DeviceProfile Clone()
     {
         var copy = (DeviceProfile)MemberwiseClone();

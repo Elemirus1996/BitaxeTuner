@@ -96,10 +96,11 @@ public sealed class ProfileRegistry
             profile.AsicModel = asic?.AsicModel ?? info.AsicModel ?? "";
             profile.AsicCount = asic?.AsicCount ?? info.AsicCount;
             profile.Name = L.T("Generisch ({0})", info.DeviceModel ?? profile.AsicModel);
-            if ((asic?.DefaultFrequencyMhz ?? info.DefaultFrequencyMhz) is { } df and > 0)
-                profile.DefaultFrequencyMhz = df;
-            if ((asic?.DefaultVoltageMv ?? info.DefaultCoreVoltageMv) is { } dv and > 0)
-                profile.DefaultVoltageMv = dv;
+            var df = (asic?.DefaultFrequencyMhz ?? info.DefaultFrequencyMhz) is { } f and > 0 ? f : (int?)null;
+            var dv = (asic?.DefaultVoltageMv ?? info.DefaultCoreVoltageMv) is { } v and > 0 ? v : (int?)null;
+            if (df is { } dff) profile.DefaultFrequencyMhz = dff;
+            if (dv is { } dvv) profile.DefaultVoltageMv = dvv;
+            Narrow(profile, df, dv);
         }
 
         // Angaben des Geräts haben Vorrang vor den Tabellenwerten (z. B. BM1373: ESP-Miner 6725, Gaia meldet 6860 Small-Cores)
@@ -110,6 +111,45 @@ public sealed class ProfileRegistry
         else if (asic?.AsicCount is null && info.AsicCount > 1 && info.AsicCount != profile.AsicCount)
             profile.AsicCount = info.AsicCount; // NerdQAxe-Firmware: kein /api/system/asic, aber asicCount in info
         return profile;
+    }
+
+    /// <summary>
+    /// Kein passendes Profil: Die allgemeinen Grenzen (bis 800 MHz / 1300 mV) wären für manche Chips zu hoch –
+    /// z. B. BM1373 verträgt laut seinen Profilen höchstens 1040–1100 mV. Daher:
+    /// <list type="bullet">
+    /// <item>bekannter ASIC (anderes Gerät/andere ASIC-Anzahl): jeweils die engste Grenze aller Profile dieses ASICs,
+    /// Leistung je ASIC hochgerechnet</item>
+    /// <item>unbekannter ASIC: nur wenig über den Standardwerten des Geräts (+50 MHz / +50 mV), ohne Standardwerte
+    /// höchstens 600 MHz / 1200 mV</item>
+    /// </list>
+    /// </summary>
+    private void Narrow(DeviceProfile p, int? defaultFrequency, int? defaultVoltage)
+    {
+        p.IsFallback = true;
+        var family = Profiles.Where(x => x.Id != "generic" && x.AsicModel.Length > 0 &&
+                                         string.Equals(x.AsicModel, p.AsicModel, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (family.Count > 0)
+        {
+            p.MinFrequencyMhz = family.Max(x => x.MinFrequencyMhz);
+            p.MaxFrequencyMhz = family.Min(x => x.MaxFrequencyMhz);
+            p.MinVoltageMv = family.Max(x => x.MinVoltageMv);
+            p.MaxVoltageMv = family.Min(x => x.MaxVoltageMv);
+            p.MaxChipTempC = family.Min(x => x.MaxChipTempC);
+            p.MaxVrTempC = family.Min(x => x.MaxVrTempC);
+            p.MaxPowerW = Math.Round(family.Min(x => x.MaxPowerW / Math.Max(1, x.AsicCount)) * Math.Max(1, p.AsicCount), 1);
+            if (defaultFrequency is null) p.DefaultFrequencyMhz = family.Min(x => x.DefaultFrequencyMhz);
+            if (defaultVoltage is null) p.DefaultVoltageMv = family.Min(x => x.DefaultVoltageMv);
+        }
+        else
+        {
+            p.MaxFrequencyMhz = Math.Min(p.MaxFrequencyMhz, defaultFrequency is { } f ? f + 50 : 600);
+            p.MaxVoltageMv = Math.Min(p.MaxVoltageMv, defaultVoltage is { } v ? v + 50 : 1200);
+        }
+        // Standardwerte müssen erreichbar bleiben (Zurücksetzen, Wiederherstellen); Untergrenzen nie über den Obergrenzen
+        p.MinFrequencyMhz = Math.Min(p.MinFrequencyMhz, Math.Min(p.DefaultFrequencyMhz, p.MaxFrequencyMhz));
+        p.MinVoltageMv = Math.Min(p.MinVoltageMv, Math.Min(p.DefaultVoltageMv, p.MaxVoltageMv));
+        p.MaxFrequencyMhz = Math.Max(p.MaxFrequencyMhz, p.DefaultFrequencyMhz);
+        p.MaxVoltageMv = Math.Max(p.MaxVoltageMv, p.DefaultVoltageMv);
     }
 
     private DeviceProfile? FindProfile(MinerInfo info, AsicInfo? asic)

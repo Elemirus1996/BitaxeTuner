@@ -19,6 +19,8 @@ public sealed record DisposalResult(
 /// Anteile, die mehr als ein Jahr gehalten wurden, gelten als haltefristfrei
 /// und gehen nicht in den Gewinn ein. Liegt kein Kurs vor, wird mit 0 €
 /// Anschaffungskosten gerechnet und das Ergebnis markiert.
+/// Verkaufte Menge ohne dokumentierten Zufluss (<see cref="DisposalResult.UnmatchedAmount"/>): Haltedauer unbekannt,
+/// daher vorsichtig als steuerpflichtig mit 0 € Anschaffungskosten gerechnet – der Erlösanteil zählt voll zum Gewinn.
 ///
 /// Rohrechnung für die eigene Übersicht, keine steuerliche Beratung.
 /// </summary>
@@ -65,6 +67,12 @@ public static class HoldingCalculator
                     taxableAmount += take;
                     taxableGain += proceeds - cost;
                 }
+            }
+
+            if (open > 0 && d.Amount > 0)
+            {
+                taxableAmount += open;
+                taxableGain += d.ProceedsEur * (open / d.Amount);
             }
 
             results.Add(new DisposalResult(d, costBasis, taxableGain, taxFreeAmount, taxableAmount, open, missingPrice));

@@ -98,6 +98,26 @@ public class ParsingAndProfileTests
         Assert.Equal(1500, p.SmallCoresPerAsic);
         Assert.Equal(3, p.AsicCount);
         Assert.Equal(700, p.DefaultFrequencyMhz);
+        // Unbekannter ASIC: nur wenig über den Standardwerten (Audit H1)
+        Assert.True(p.IsFallback);
+        Assert.Equal(750, p.MaxFrequencyMhz);
+        Assert.True(p.MaxVoltageMv <= 1200);
+    }
+
+    [Fact]
+    public void Known_asic_without_exact_profile_gets_the_tightest_limits_of_its_family()
+    {
+        // BM1373 mit einer ASIC-Anzahl, für die es kein Profil gibt: nie die allgemeinen 1300 mV / 800 MHz (Audit H1)
+        var registry = new ProfileRegistry(ProfileRegistry.LoadBuiltIn());
+        var p = registry.Match(Parse("""{"ASICModel":"BM1373","asicCount":3}"""));
+        var family = registry.Profiles.Where(x => x.AsicModel == "BM1373").ToList();
+        Assert.True(p.IsFallback);
+        Assert.Equal(family.Min(x => x.MaxVoltageMv), p.MaxVoltageMv);
+        Assert.Equal(family.Min(x => x.MaxFrequencyMhz), p.MaxFrequencyMhz);
+        Assert.Equal(family.Min(x => x.MaxChipTempC), p.MaxChipTempC);
+        Assert.True(p.MinVoltageMv <= p.MaxVoltageMv && p.MinFrequencyMhz <= p.MaxFrequencyMhz);
+        Assert.InRange(p.DefaultVoltageMv, p.MinVoltageMv, p.MaxVoltageMv);
+        Assert.False(registry.Match(Parse("""{"ASICModel":"BM1370","boardVersion":"601"}""")).IsFallback);
     }
 
     [Theory]

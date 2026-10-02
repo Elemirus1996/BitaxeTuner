@@ -67,6 +67,7 @@ public sealed partial class MinerHub
                    L.T("Frequenz:      {0} MHz  →  {1} MHz\n", (now is null ? "?" : now.FrequencyMhz.ToString()), frequencyMhz) +
                    L.T("Kernspannung:  {0} mV  →  {1} mV\n\n", (now is null ? "?" : now.CoreVoltageMv.ToString()), coreVoltageMv) +
                    L.T("Grenzen {0}: {1}–{2} MHz, {3}–{4} mV\n", p.Name, p.MinFrequencyMhz, p.MaxFrequencyMhz, p.MinVoltageMv, p.MaxVoltageMv) +
+                   (p.IsFallback ? L.T("Achtung: Für dieses Gerät gibt es kein genaues Profil – es gelten vorsichtige Ersatzgrenzen. Im Zweifel ein passendes Profil wählen.\n") : "") +
                    (overclock ? L.T("Der Wert liegt außerhalb der AxeOS-Auswahlliste – „overclockEnabled“ wird eingeschaltet.\n") : "") +
                    (restart ? L.T("Das Gerät wird danach neu gestartet (Watchdog und Offline-Meldung pausieren).\n") : "") +
                    L.T("\nDie Änderung wird mit Zeitstempel in history.db protokolliert.");

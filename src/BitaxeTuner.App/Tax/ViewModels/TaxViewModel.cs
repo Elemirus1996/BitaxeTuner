@@ -170,6 +170,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         Recalculate();
 
         if (_repository.MigrationNote is { } note) StatusText = note;
+        if (_repository.Warning is { } warning) StatusText = warning;
     }
 
     // ---------- Wallets ----------
@@ -348,7 +349,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
         if (dialog.ShowDialog() != true) return;
 
-        _repository.ExportCsv(dialog.FileName, Rewards);
+        _repository.ExportCsv(dialog.FileName, Rewards);   // Restbestand ist durch Recalculate() schon gesetzt
         StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
     }
 

@@ -988,12 +988,13 @@ public static class Endpoints
             wallets = h.TaxMonitor.Wallets,
             rewards = h.TaxMonitor.LoadRewards().OrderByDescending(r => r.ReceivedAtUtc).ToList(),
             status = h.TaxMonitor.LastPollUtc,
+            warning = h.TaxRepository.Warning,
         })));
 
         g.MapGet("/tax/rewards.csv", async (HubService hub) =>
         {
             var file = Path.Combine(Path.GetTempPath(), $"bitaxetuner-zufluesse-{Guid.NewGuid():N}.csv");
-            await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards()); return true; });
+            await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals()); return true; });
             var bytes = await File.ReadAllBytesAsync(file);
             File.Delete(file);
             return Results.File(bytes, "text/csv; charset=utf-8", $"zufluesse-{DateTime.Now:yyyyMMdd}.csv");
