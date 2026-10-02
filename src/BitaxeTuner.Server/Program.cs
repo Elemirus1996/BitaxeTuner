@@ -30,6 +30,16 @@ if (provisionIndex >= 0)
     }
 }
 
+// Windows-Dienst: Datenordner nur für SYSTEM/Administratoren (vor dem ersten Schreiben, z. B. SETUP-CODE.txt),
+// Geheimnisse mit DPAPI im Benutzerbereich des Dienstkontos statt rechnerweit (Audit S3)
+string? aclNote = null;
+if (OperatingSystem.IsWindows() && ServerUpdater.DetectKind() == InstallKind.WindowsService)
+{
+    BitaxeTuner.Core.Config.SecretStore.UseServiceAccountScope = true;
+    try { WindowsAcl.Restrict(settings.DataDirectory); }
+    catch (Exception ex) { aclNote = ex.Message; }
+}
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -114,6 +124,8 @@ app.Lifetime.ApplicationStarted.Register(() =>
         log.LogInformation("HTTPS-Zertifikat (SHA-256): {Fingerprint}", Certificates.Fingerprint(Certificates.LoadOrCreate(settings.DataDirectory)));
     if (auth.SetupCode is { } code)
         log.LogWarning("Noch nicht eingerichtet. Einrichtungs-Code: {Code} – im Browser eingeben und ein Admin-Passwort festlegen.", code);
+    if (aclNote is not null)
+        log.LogWarning("Zugriffsrechte des Datenordners konnten nicht beschränkt werden: {Error}", aclNote);
     if (settings.AllowPublic)
         log.LogWarning("Zugriff auch von außerhalb des Heimnetzes erlaubt (--allow-public). Empfohlen ist ein VPN (z. B. Tailscale/WireGuard).");
 });

@@ -290,7 +290,8 @@ und den **Einrichtungs-Code**. Protokoll: `journalctl -u bitaxetuner -f`. Entfer
 
 **Windows (zweiter PC)**: `BitaxeTuner-Server-Setup-x.y.z.exe` ausführen. Es richtet den Dienst „BitaxeTuner“
 (Autostart, Neustart bei Fehler) und eine Firewall-Regel **nur für private Netzwerke** ein. Daten:
-`C:\ProgramData\BitaxeTuner`, Einrichtungs-Code in `SETUP-CODE.txt` dort.
+`C:\ProgramData\BitaxeTuner`, Einrichtungs-Code in `SETUP-CODE.txt` dort. Der Ordner ist nur für
+SYSTEM und Administratoren lesbar (Zugangsdaten); den Code also z. B. mit dem Editor „Als Administrator“ öffnen.
 
 **Docker**: [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml) herunterladen, `docker compose up -d`,
 Einrichtungs-Code mit `docker compose logs bitaxetuner`. Daten im Volume `/data`.

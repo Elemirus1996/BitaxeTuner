@@ -64,7 +64,7 @@ Filename: "{sys}\sc.exe"; Parameters: "delete {#MyService}"; Flags: runhidden wa
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""BitaxeTuner-Server"""; Flags: runhidden waituntilterminated; RunOnceId: "DeleteFirewall"
 
 [Messages]
-german.FinishedLabel=Der BitaxeTuner-Server läuft jetzt als Windows-Dienst.%n%nEinrichtung im Browser: http://localhost:{#MyPort}/%nDer Einrichtungs-Code steht in C:\ProgramData\BitaxeTuner\SETUP-CODE.txt.%n%nDaten: C:\ProgramData\BitaxeTuner (bleiben bei Updates und Deinstallation erhalten).
+german.FinishedLabel=Der BitaxeTuner-Server läuft jetzt als Windows-Dienst.%n%nEinrichtung im Browser: http://localhost:{#MyPort}/%nDer Einrichtungs-Code steht in C:\ProgramData\BitaxeTuner\SETUP-CODE.txt (nur für Administratoren lesbar, z. B. Editor „Als Administrator ausführen“).%n%nDaten: C:\ProgramData\BitaxeTuner (bleiben bei Updates und Deinstallation erhalten).
 
 [Code]
 function ServiceExists(): Boolean;

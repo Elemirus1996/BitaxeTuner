@@ -27,7 +27,7 @@ public enum InstallKind
 /// Linux: das neue Paket wird neben die laufende Version entpackt, dann wird der Symlink <c>current</c> atomar
 /// umgehängt; die alte Version bleibt als Rückfall liegen. systemd startet den Dienst neu.
 /// </summary>
-public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifetime, ILogger<ServerUpdater> log) : BackgroundService
+public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifetime, ILogger<ServerUpdater> log, ServerSettings settings) : BackgroundService
 {
     public const string Repository = "Elemirus1996/BitaxeTuner";
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(10) };
@@ -148,7 +148,12 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
         if (Interlocked.Exchange(ref _installing, 1) == 1) throw new InvalidOperationException(L.N("Update läuft bereits."));
         try
         {
-            var work = Path.Combine(Path.GetTempPath(), "bitaxetuner-update");
+            // Nicht ins allgemeine Temp (C:\Windows\Temp, dort könnte ein anderer Benutzer die Datei vor dem Start
+            // austauschen), sondern in den Datenordner; unter Windows nur für SYSTEM/Administratoren (Audit S1)
+            var work = Path.Combine(settings.DataDirectory, "updates");
+            if (Directory.Exists(work)) Directory.Delete(work, recursive: true);
+            if (OperatingSystem.IsWindows()) Security.WindowsAcl.Restrict(work);
+            else Directory.CreateDirectory(work, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var file = await new UpdateService(_http, Repository, MatchesPlatform).DownloadAsync(u, work); // prüft SHA-256
             log.LogWarning("Update {Tag} geladen und geprüft – installiere …", u.Tag);
 
@@ -165,13 +170,15 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
             if (DetectKind() == InstallKind.WindowsService)
             {
-                // Das Setup stoppt den Dienst, ersetzt die Dateien und startet ihn wieder
-                Process.Start(new ProcessStartInfo(file, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART") { UseShellExecute = true });
+                // Das Setup stoppt den Dienst, ersetzt die Dateien und startet ihn wieder. Prüfsumme direkt vor dem Start
+                // erneut kontrollieren; die offene Datei verhindert ein Austauschen bis zum Start
+                using (UpdateService.OpenVerified(file, u.Sha256))
+                    Process.Start(new ProcessStartInfo(file, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART") { UseShellExecute = true });
                 return;
             }
 
             if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-            SwapLinuxVersion(file, u.Version.ToString(3));
+            SwapLinuxVersion(file, u.Version.ToString(3), u.Sha256);
             log.LogWarning("Update {Tag} installiert – Neustart durch systemd.", u.Tag);
             lifetime.StopApplication(); // systemd (Restart=always) startet die neue Version
         }
@@ -183,7 +190,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
     /// <summary>/opt/bitaxetuner/versions/&lt;neu&gt; entpacken, Symlink current atomar umhängen, alte Versionen bis auf eine löschen.</summary>
     [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
-    private static void SwapLinuxVersion(string archive, string version)
+    private static void SwapLinuxVersion(string archive, string version, string? sha256)
     {
         var (root, running) = LinuxLayout() ?? throw new InvalidOperationException(L.N("Installationslayout nicht erkannt."));
         var versionsDir = Path.Combine(root, "versions");
@@ -191,7 +198,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
         var staging = target + ".new";
         if (Directory.Exists(staging)) Directory.Delete(staging, true);
         Directory.CreateDirectory(staging);
-        using (var fs = File.OpenRead(archive))
+        using (var fs = UpdateService.OpenVerified(archive, sha256))   // Prüfsumme direkt vor dem Entpacken erneut
         using (var gz = new GZipStream(fs, CompressionMode.Decompress))
             TarFile.ExtractToDirectory(gz, staging, overwriteFiles: false);
         // Paket enthält einen Ordner bitaxetuner-server/ – dessen Inhalt ist die Version

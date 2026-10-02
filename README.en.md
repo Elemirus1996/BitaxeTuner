@@ -291,7 +291,8 @@ Own settings (port, HTTPS) in `/etc/default/bitaxetuner`, e.g. `BITAXETUNER_PORT
 
 **Windows (second PC)**: run `BitaxeTuner-Server-Setup-x.y.z.exe`. It sets up the service “BitaxeTuner”
 (autostart, restart on failure) and a firewall rule **for private networks only**. Data: `C:\ProgramData\BitaxeTuner`,
-setup code in `SETUP-CODE.txt` there.
+setup code in `SETUP-CODE.txt` there. The folder is readable only by SYSTEM and
+administrators (credentials), so open the code e.g. with Notepad “Run as administrator”.
 
 **Docker**: download [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml), run `docker compose up -d`,
 get the setup code with `docker compose logs bitaxetuner`. Data in the volume `/data`.

@@ -14,6 +14,13 @@ public sealed class SecretStore(string dataDirectory)
     public const string SmbPassword = "backup.smb.password";
     public const string MqttPassword = "mqtt.password";
     private static readonly byte[] Entropy = "BitaxeTuner.Secrets.v1"u8.ToArray();
+
+    /// <summary>
+    /// Windows-Dienst: DPAPI im Benutzerbereich des Dienstkontos (nur der Dienst kann entschlüsseln) statt rechnerweit
+    /// (jedes lokale Programm). Vorhandene rechnerweite Einträge werden beim Lesen umgeschlüsselt. Die Desktop-App bleibt
+    /// rechnerweit – ein Zurücksetzen des Windows-Kennworts würde sonst gespeicherte Passwörter unlesbar machen.
+    /// </summary>
+    public static bool UseServiceAccountScope { get; set; }
     private readonly object _lock = new();
 
     public string FilePath { get; } = Path.Combine(dataDirectory, "secrets.json");
@@ -24,9 +31,16 @@ public sealed class SecretStore(string dataDirectory)
     {
         lock (_lock)
         {
-            if (!Load().TryGetValue(key, out var stored)) return null;
-            try { return Unprotect(stored); }
+            var all = Load();
+            if (!all.TryGetValue(key, out var stored)) return null;
+            string value;
+            try { value = Unprotect(stored); }
             catch { return null; } // z. B. Datenordner auf anderen Rechner kopiert → neu eingeben
+            if (UseServiceAccountScope && stored.StartsWith("dpapi:", StringComparison.Ordinal))
+            {
+                try { all[key] = Protect(value); Write(all); } catch { /* bleibt im alten Format lesbar */ }
+            }
+            return value;
         }
     }
 
@@ -38,11 +52,16 @@ public sealed class SecretStore(string dataDirectory)
             var all = Load();
             if (string.IsNullOrEmpty(value)) all.Remove(key);
             else all[key] = Protect(value);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(all));
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.Move(tmp, FilePath, overwrite: true);
+            Write(all);
         }
+    }
+
+    private void Write(Dictionary<string, string> all)
+    {
+        var tmp = FilePath + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(all));
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        File.Move(tmp, FilePath, overwrite: true);
     }
 
     private Dictionary<string, string> Load()
@@ -59,13 +78,19 @@ public sealed class SecretStore(string dataDirectory)
     private static string Protect(string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
-        return OperatingSystem.IsWindows()
-            ? "dpapi:" + Convert.ToBase64String(ProtectedData.Protect(bytes, Entropy, DataProtectionScope.LocalMachine))
-            : "plain:" + Convert.ToBase64String(bytes);
+        if (!OperatingSystem.IsWindows()) return "plain:" + Convert.ToBase64String(bytes);
+        return UseServiceAccountScope
+            ? "dpapi-user:" + Convert.ToBase64String(ProtectedData.Protect(bytes, Entropy, DataProtectionScope.CurrentUser))
+            : "dpapi:" + Convert.ToBase64String(ProtectedData.Protect(bytes, Entropy, DataProtectionScope.LocalMachine));
     }
 
     private static string Unprotect(string stored)
     {
+        if (stored.StartsWith("dpapi-user:", StringComparison.Ordinal))
+        {
+            if (!OperatingSystem.IsWindows()) throw new CryptographicException(L.T("DPAPI nur unter Windows."));
+            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(stored[11..]), Entropy, DataProtectionScope.CurrentUser));
+        }
         if (stored.StartsWith("dpapi:", StringComparison.Ordinal))
         {
             if (!OperatingSystem.IsWindows()) throw new CryptographicException(L.T("DPAPI nur unter Windows."));

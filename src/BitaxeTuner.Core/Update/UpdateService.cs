@@ -161,6 +161,30 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
         return file;
     }
 
+    /// <summary>
+    /// Datei öffnen (andere dürfen nur noch lesen), Prüfsumme erneut kontrollieren und offen lassen: Solange der
+    /// Rückgabewert lebt, kann niemand die geprüfte Datei austauschen (Audit S1). Direkt vor dem Ausführen aufrufen.
+    /// </summary>
+    public static FileStream OpenVerified(string file, string? sha256)
+    {
+        if (string.IsNullOrWhiteSpace(sha256))
+            throw new InvalidOperationException(L.T("Für diese Setup-Datei ist keine SHA-256-Prüfsumme veröffentlicht – Installation abgebrochen."));
+        var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+        try
+        {
+            var actual = Convert.ToHexString(SHA256.HashData(fs)).ToLowerInvariant();
+            if (!string.Equals(actual, sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(L.T("Prüfsumme der heruntergeladenen Datei stimmt nicht – Installation abgebrochen."));
+            fs.Position = 0;
+            return fs;
+        }
+        catch
+        {
+            fs.Dispose();
+            throw;
+        }
+    }
+
     public static Version? ParseVersion(string text)
     {
         var m = VersionRegex().Match(text.Trim());
