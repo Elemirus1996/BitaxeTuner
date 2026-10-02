@@ -39,6 +39,13 @@ public sealed partial class MinerHub
             var state = device.State;
             var maintenance = device.Connection.InMaintenance;
 
+            // Direkt nach dem Start: Profil noch nicht erkannt – nichts prüfen, nichts melden (sonst falsche Grenzwert-Hinweise)
+            if (!device.ProfileKnown)
+            {
+                SetAutomationStatus(device, L.T("wartet auf die Erkennung des Geräteprofils …"));
+                continue;
+            }
+
             TickSoak(device, state, now, maintenance);
 
             string status;

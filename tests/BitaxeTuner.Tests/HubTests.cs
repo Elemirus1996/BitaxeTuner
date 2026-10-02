@@ -183,6 +183,18 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Automation_waits_until_the_device_profile_is_known()
+    {
+        using var rig = new Rig("10.0.0.71");
+        var d = rig.Device("10.0.0.71");
+        Assert.False(d.ProfileKnown);                     // vor der ersten Abfrage: nur Platzhalter „Generisch“
+        await rig.Hub.PollNowAsync();
+        await Task.Delay(100);                            // Erkennung läuft nach der Runde
+        Assert.True(d.ProfileKnown);
+        Assert.Equal("bitaxe-gamma", d.Profile.Id);
+    }
+
+    [Fact]
     public void Group_names_are_cleaned_up()
     {
         Assert.Equal(["Community", "Keller"], MinerGroups.Normalize([" Community ", "", "community", "Keller", null!]));

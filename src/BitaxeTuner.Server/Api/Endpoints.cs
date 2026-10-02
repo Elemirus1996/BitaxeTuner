@@ -880,13 +880,22 @@ public static class Endpoints
                     sb.Append($"{e.Time:yyyy-MM-dd HH:mm:ss};{Csv(Name(e.Host))};{Csv(EventCategories.Label(e.Category))};{Csv(e.Message)}\r\n");
                 return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8", $"BitaxeTuner-Protokoll-{DateTime.Now:yyyyMMdd-HHmm}.csv");
             }
-            return Results.Json(new
+            // Erklärung je Eintrag als Verweis; jede Erklärung nur einmal (Antwort bleibt klein)
+            var explanations = new Dictionary<string, EventExplanation>();
+            var rows = entries.Select(e =>
             {
-                entries = entries.Select(e => new
+                var x = EventExplanations.For(e);
+                explanations.TryAdd(x.Id, x);
+                return new
                 {
                     time = e.Time, device = e.Host is not null && names.TryGetValue(e.Host, out var n) ? n.Id : null,
-                    name = Name(e.Host), category = e.Category, message = e.Message,
-                }),
+                    name = Name(e.Host), category = e.Category, message = e.Message, explain = x.Id,
+                };
+            }).ToList();
+            return Results.Json(new
+            {
+                entries = rows,
+                explanations = explanations.ToDictionary(kv => kv.Key, kv => new { title = kv.Value.Title, meaning = kv.Value.Meaning, action = kv.Value.Action }),
                 truncated = entries.Count >= 5000,
             });
         });

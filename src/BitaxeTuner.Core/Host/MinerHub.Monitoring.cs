@@ -404,6 +404,7 @@ public sealed partial class MinerHub
     private async Task RebootByWatchdogAsync(MinerState s)
     {
         string result;
+        var ok = false;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -412,13 +413,16 @@ public sealed partial class MinerHub
                              ?? throw new InvalidOperationException(L.T("Gerät nicht mehr in der Liste"));
             await connection.RestartAsync(cts.Token);
             result = L.T("Neustart ausgelöst");
+            ok = true;
         }
         catch (Exception ex)
         {
             result = L.T("Neustart fehlgeschlagen: ") + ex.Message;
         }
 
-        RaiseStatus(!result.Contains("fehlgeschlagen"), L.T("Watchdog {0}: {1}", s.Config.Name, result));
+        // Erfolg über ok – nicht über den (übersetzten) Text
+        RaiseStatus(ok, L.T("Watchdog {0}: {1}", s.Config.Name, result));
+        LogEvent(s.Config.Host, EventCategories.Automation, L.T("Watchdog: {0} min ohne Hashrate – {1}", Config.Watchdog.ZeroHashMinutes, result));
 
         if (Config.Notifications.Wants(NotifyCategory.Maintenance))
             await Notify.SendAsync($"watchdog:{s.Config.Host}", L.T("Watchdog: {0}", s.Config.Name),

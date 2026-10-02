@@ -46,6 +46,12 @@ public sealed class HubDevice
     public DeviceProfile? MatchedProfile { get; internal set; }
     public bool ProfileResolved { get; internal set; }
 
+    /// <summary>
+    /// Profil steht fest (aus den Einstellungen, erkannt oder gewählt). Vorher gilt nur der Platzhalter „Generisch“ –
+    /// Automatik und Dauertest warten so lange, sonst schlagen dessen enge Grenzen fälschlich an.
+    /// </summary>
+    public bool ProfileKnown { get; internal set; }
+
     /// <summary>Zustand der Automatik-Regeln; leer = keine Regel eingeschaltet.</summary>
     public string AutomationStatus { get; internal set; } = "";
     public string SoakStatus { get; internal set; } = "";

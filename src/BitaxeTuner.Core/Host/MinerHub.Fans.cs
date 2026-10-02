@@ -169,6 +169,8 @@ public sealed partial class MinerHub
             var known = _fanLogged.TryGetValue(c.Channel, out var last);
             if (known && Math.Abs(last.Percent - c.Percent) < 15 && last.Stalled == c.Stalled) continue;
             _fanLogged[c.Channel] = (c.Percent, c.Stalled);
+            // Erster Wert nach dem Start (Sicherheits-100 %) ist keine Änderung – nur „steht“ sofort melden
+            if (!known && !c.Stalled) continue;
             var text = c.Stalled ? L.T("Lüfter K{0} ({1}) steht!", c.Channel, c.Name)
                 : known && last.Stalled ? L.T("Lüfter K{0} ({1}) läuft wieder: {2} %", c.Channel, c.Name, c.Percent)
                 : L.T("Lüfter K{0} ({1}): {2} % – {3}", c.Channel, c.Name, c.Percent, c.Reason);

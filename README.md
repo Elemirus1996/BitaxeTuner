@@ -103,7 +103,8 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
 - **Protokoll** (Browser *Protokoll*, Desktop *Protokoll …*): dauerhaft in `history.db`, mindestens 30 Tage – jede
   Frequenz-/Spannungsänderung mit Quelle (manuell, Benchmark, Automatik, Wiederherstellung …), Benchmark-Start/-Abbruch,
   Dauertests, Automatik/Watchdog, Lüfterregelung (VR und Gehäuse), offline/online, Einstellungen und Server-Ereignisse.
-  Filter nach Zeitraum, Miner, Kategorie und Text, CSV-Export; läuft nach Neustarts und Updates weiter.
+  Filter nach Zeitraum, Miner, Kategorie und Text, CSV-Export; läuft nach Neustarts und Updates weiter. Ein Klick auf
+  einen Eintrag erklärt, was er bedeutet und was du tun kannst.
 - **Miner-Logs** je Gerät live (`ws://<host>/api/ws`) und als Puffer (`/api/system/logs`), mit Textfilter, Stufen,
   **Kategorien** (Shares, Pool/Stratum, ASIC/Jobs, Temperatur/Lüfter/Strom, System/WLAN – mit Anzahl je Art) und Speichern;
   Desktop und Browser gleich.

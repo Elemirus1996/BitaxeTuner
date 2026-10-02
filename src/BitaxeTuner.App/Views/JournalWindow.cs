@@ -16,7 +16,7 @@ namespace BitaxeTuner.App.Views;
 /// </summary>
 public sealed class JournalWindow : Window
 {
-    private sealed record Row(string Time, string Miner, string Category, string Message);
+    private sealed record Row(string Time, string Miner, string Category, string Message, string Explanation);
 
     private readonly AppHost _host;
     private readonly ComboBox _range = new() { Width = 110, Margin = new Thickness(0, 0, 8, 0) };
@@ -82,10 +82,21 @@ public sealed class JournalWindow : Window
             ElementStyle = new Style(typeof(TextBlock)) { Setters = { new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap) } },
         });
 
+        // Ausgewählte Zeile zeigt darunter ihre Erklärung
+        var detail = new FrameworkElementFactory(typeof(TextBlock));
+        detail.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(Row.Explanation)));
+        detail.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        detail.SetValue(TextBlock.MarginProperty, new Thickness(12, 6, 12, 8));
+        detail.SetValue(TextBlock.MaxWidthProperty, 1000.0);
+        detail.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Left);
+        _grid.RowDetailsTemplate = new DataTemplate { VisualTree = detail };
+        _grid.RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.VisibleWhenSelected;
+
         var hint = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new Thickness(0, 0, 0, 6),
-            Text = L.T("Keine Kategorie gewählt = alle. Dauerhaft gespeichert in history.db (mindestens 30 Tage) – läuft nach Neustarts und Updates weiter und ist in jeder Sicherung enthalten."),
+            Text = L.T("Keine Kategorie gewählt = alle. Dauerhaft gespeichert in history.db (mindestens 30 Tage) – läuft nach Neustarts und Updates weiter und ist in jeder Sicherung enthalten.") +
+                   " " + L.T("Ein Klick auf einen Eintrag zeigt, was er bedeutet und was du tun kannst."),
         };
         hint.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
 
@@ -113,8 +124,13 @@ public sealed class JournalWindow : Window
         var cats = _cats.Where(c => c.Box.IsChecked == true).Select(c => c.Key).ToList();
         var entries = history.QueryEvents(now - span, now, _miner.SelectedValue as string, cats, _search.Text);
         var names = _host.Hub.Devices.ToDictionary(d => d.Host, d => d.Title, StringComparer.OrdinalIgnoreCase);
-        _rows = entries.Select(e => new Row(e.Time.ToString("g", L.Culture),
-            e.Host is null ? L.T("Server") : names.GetValueOrDefault(e.Host, e.Host), EventCategories.Label(e.Category), e.Message)).ToList();
+        _rows = entries.Select(e =>
+        {
+            var x = EventExplanations.For(e);
+            return new Row(e.Time.ToString("g", L.Culture), e.Host is null ? L.T("Server") : names.GetValueOrDefault(e.Host, e.Host),
+                EventCategories.Label(e.Category), e.Message,
+                $"{x.Title}\n{L.T("Was bedeutet das? ")}{x.Meaning}\n{L.T("Was kannst du tun? ")}{x.Action}");
+        }).ToList();
         _grid.ItemsSource = _rows;
         _count.Text = entries.Count >= 5000 ? L.T("neueste {0} Einträge", entries.Count) : L.T("{0} Einträge", entries.Count);
     }

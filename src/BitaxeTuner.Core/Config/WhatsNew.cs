@@ -85,6 +85,9 @@ public static class WhatsNew
                 server ? tr.T("Miner in Gruppen ordnen (Einstellungen → Geräte → Details), z. B. „Community“ oder „Keller“: Filter und Summen in der Übersicht, Filter im Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder sind automatisch dabei.")
                        : tr.T("Miner in Gruppen ordnen (Einstellungen → Miner), z. B. „Community“ oder „Keller“: Filter im Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder sind automatisch dabei."),
                 null),
+            new("0.9.1", tr.T("Protokoll mit Erklärungen"),
+                tr.T("Ein Klick auf einen Protokolleintrag zeigt, was er bedeutet und was du tun kannst. Außerdem: keine falschen Grenzwert-Meldungen der Automatik mehr direkt nach dem Start, Watchdog-Neustarts stehen im Protokoll."),
+                null),
         ];
     }
 

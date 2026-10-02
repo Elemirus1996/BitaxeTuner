@@ -247,6 +247,7 @@ public sealed partial class MinerHub : IDisposable
         {
             device.Profile = chosen.Clone();
             device.ProfileResolved = true;
+            device.ProfileKnown = true;
             device.AddLog(L.T("Profil aus den Einstellungen: „{0}“", chosen.Name), category: null);
         }
 
@@ -274,6 +275,7 @@ public sealed partial class MinerHub : IDisposable
     {
         device.Profile = profile;
         device.ProfileResolved = true;
+        device.ProfileKnown = true;
         device.Config.ProfileId = profile.Id;
         Config.Save();
         device.AddLog(L.T("Profil gewählt: „{0}“ (gespeichert)", profile.Name), EventCategories.Settings);
@@ -288,6 +290,7 @@ public sealed partial class MinerHub : IDisposable
         var matched = Profiles.Match(info, asic);
         device.MatchedProfile = matched;
         device.Profile = matched;
+        device.ProfileKnown = true;
         device.AddLog(L.T("Erkannt: {0} ({1} {2}) → Profil „{3}“", info.DeviceModel ?? info.AsicModel, FirmwareName(info.Firmware), info.FirmwareVersion, matched.Name), category: null);
         RaiseDeviceChanged(device);
     }

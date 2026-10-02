@@ -511,11 +511,22 @@ function renderJournal() {
     fill(table, d.entries.length
       ? h('table', { class: 'journal' },
           h('thead', {}, h('tr', {}, [t('Zeit'), t('Miner'), t('Kategorie'), t('Meldung')].map(x => h('th', {}, x)))),
-          h('tbody', {}, d.entries.map(e => h('tr', {},
-            h('td', { class: 'num nowrap' }, new Date(e.time).toLocaleString(LOCALE)),
-            h('td', { class: 'nowrap' }, e.device ? h('a', { href: `#/device/${e.device}` }, e.name) : h('span', { class: 'muted' }, e.name)),
-            h('td', {}, h('span', { class: `pill cat-${e.category}` }, label[e.category] || e.category)),
-            h('td', { class: 'msg' }, e.message)))))
+          h('tbody', {}, d.entries.flatMap(e => {
+            // Klick auf eine Zeile: Erklärung „Was bedeutet das?“ / „Was kannst du tun?“ darunter auf- und zuklappen
+            const x = d.explanations?.[e.explain];
+            const detail = h('tr', { class: 'explain', hidden: true }, h('td', { colspan: 4 }, x ? h('div', { class: 'stack' },
+              h('b', {}, x.title),
+              h('div', {}, h('span', { class: 'muted' }, t('Was bedeutet das? ')), x.meaning),
+              h('div', {}, h('span', { class: 'muted' }, t('Was kannst du tun? ')), x.action)) : null));
+            const toggle = () => { detail.hidden = !detail.hidden; row.setAttribute('aria-expanded', String(!detail.hidden)); };
+            const row = h('tr', { class: 'clickable', tabindex: '0', role: 'button', 'aria-expanded': 'false', title: t('Klicken für eine Erklärung'),
+              onclick: ev => { if (!ev.target.closest('a')) toggle(); }, onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } } },
+              h('td', { class: 'num nowrap' }, new Date(e.time).toLocaleString(LOCALE)),
+              h('td', { class: 'nowrap' }, e.device ? h('a', { href: `#/device/${e.device}` }, e.name) : h('span', { class: 'muted' }, e.name)),
+              h('td', {}, h('span', { class: `pill cat-${e.category}` }, label[e.category] || e.category)),
+              h('td', { class: 'msg' }, e.message, ' ', h('span', { class: 'muted small', 'aria-hidden': 'true' }, 'ⓘ')));
+            return [row, detail];
+          })))
       : h('p', { class: 'muted', style: 'padding:8px' }, t('Keine Einträge für diese Auswahl.')));
   };
   const chips = h('div', { class: 'row', role: 'group', 'aria-label': t('Kategorien') }, JOURNAL_CATS().map(([k, l]) => {
@@ -539,7 +550,7 @@ function renderJournal() {
       h('input', { type: 'search', placeholder: t('Suchen …'), 'aria-label': t('Suchen'), style: 'max-width:240px',
         oninput: e => { f.q = e.target.value; clearTimeout(timer); timer = setTimeout(load, 300); } })),
     chips,
-    h('p', { class: 'muted small' }, t('Keine Kategorie gewählt = alle.')),
+    h('p', { class: 'muted small' }, t('Keine Kategorie gewählt = alle. Ein Klick auf einen Eintrag zeigt, was er bedeutet und was du tun kannst.')),
     table)));
   load();
 }
