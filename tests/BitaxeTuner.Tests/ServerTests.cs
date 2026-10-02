@@ -386,6 +386,66 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Viewer_access_per_group_sees_only_its_miners_and_can_be_revoked()
+    {
+        var admin = await AdminAsync();
+        var keller = (await Json(await admin.PostAsJsonAsync("/api/v1/devices", new { name = "Supra Keller", host = "192.168.50.11" }))).GetProperty("id").GetString()!;
+        var wohnen = await DeviceIdAsync(admin);
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{keller}", new { groups = new[] { "Keller" } }));
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{wohnen}", new { groups = new[] { "Wohnung" } }));
+
+        // PIN-Regeln: mindestens 6 Ziffern, keine doppelte PIN
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Kurz", pin = "1234", groups = new[] { "Keller" } })).StatusCode);
+        var created = await Json(await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Werkstatt", pin = "246813", groups = new[] { "keller" } }));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Doppelt", pin = "246813" })).StatusCode);
+        Assert.DoesNotContain("246813", File.ReadAllText(_dir.File("server-auth.json")));
+        var listed = await Json(await admin.GetAsync("/api/v1/viewers"));
+        Assert.Equal(1, listed.GetArrayLength());
+        Assert.False(listed[0].TryGetProperty("pinHash", out _));
+
+        var viewer = _factory.CreateClient();
+        var login = await Json(await viewer.PostAsJsonAsync("/api/v1/login", new { password = "246813" }));
+        Assert.Equal("Viewer", login.GetProperty("role").GetString());
+        var session = await Json(await viewer.GetAsync("/api/v1/session"));
+        Assert.Equal("keller", session.GetProperty("groups")[0].GetString(), ignoreCase: true);
+
+        var status = await Json(await viewer.GetAsync("/api/v1/status"));
+        var devices = status.GetProperty("devices");
+        Assert.Equal(1, devices.GetArrayLength());
+        Assert.Equal(keller, devices[0].GetProperty("id").GetString());
+        Assert.Equal(1, status.GetProperty("totals").GetProperty("count").GetInt32());
+        Assert.Equal(0, status.GetProperty("history").GetArrayLength());                 // kein Gesamtverlauf über alle Miner
+        Assert.DoesNotContain("Wohnung", status.GetRawText());                            // fremde Gruppen nicht sichtbar
+        Assert.DoesNotContain("Gamma Wohnzimmer", status.GetRawText());
+
+        await Json(await viewer.GetAsync($"/api/v1/devices/{keller}"));
+        Assert.Equal(HttpStatusCode.NotFound, (await viewer.GetAsync($"/api/v1/devices/{wohnen}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await viewer.GetAsync($"/api/v1/devices/{wohnen}/history")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await viewer.GetAsync($"/api/v1/devices/{wohnen}/health")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await viewer.GetAsync("/api/v1/devices/all/history")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await viewer.GetAsync($"/api/v1/compare/report?ids={keller},{wohnen}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync("/api/v1/display/preview.png")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync("/api/v1/viewers")).StatusCode);
+
+        // Widerruf beendet die Sitzung sofort, die PIN gilt nicht mehr; alles steht im Protokoll
+        await Json(await admin.DeleteAsync($"/api/v1/viewers/{created.GetProperty("id").GetString()}"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await viewer.GetAsync("/api/v1/status")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().PostAsJsonAsync("/api/v1/login", new { password = "246813" })).StatusCode);
+        var journal = (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText();
+        Assert.Contains("Werkstatt", journal);
+        Assert.Contains("widerrufen", journal);
+
+        // Die allgemeine PIN sieht weiterhin alle Miner
+        var settings = await Json(await admin.GetAsync("/api/v1/settings"));
+        var body = JsonSerializer.Deserialize<Dictionary<string, object?>>(settings.GetRawText())!;
+        body["newViewerPin"] = "4711";
+        await Json(await admin.PutAsJsonAsync("/api/v1/settings", body));
+        var all = _factory.CreateClient();
+        await Json(await all.PostAsJsonAsync("/api/v1/login", new { password = "4711" }));
+        Assert.Equal(2, (await Json(await all.GetAsync("/api/v1/status"))).GetProperty("devices").GetArrayLength());
+    }
+
+    [Fact]
     public async Task Api_token_for_desktop_works_without_cookie_and_can_be_revoked()
     {
         var admin = await AdminAsync();

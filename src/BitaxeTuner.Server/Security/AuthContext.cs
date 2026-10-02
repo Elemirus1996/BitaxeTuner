@@ -9,6 +9,9 @@ public sealed record AuthContext(Role Role, Session? Session, bool ViaToken)
 
     public static AuthContext Of(HttpContext http) => http.Items[typeof(AuthContext)] as AuthContext ?? Anonymous;
 
+    /// <summary>Sichtbare Miner: Admins und API-Token alles, Ansicht-Zugänge nur ihre Gruppen.</summary>
+    public ViewScope Scope => Role == Role.Admin ? ViewScope.All : Session?.Scope ?? ViewScope.All;
+
     /// <summary>Rolle aus Cookie oder "Authorization: Bearer btk_…" bestimmen.</summary>
     public static AuthContext Resolve(HttpContext http, SessionStore sessions, AuthStore auth, DateTime nowUtc)
     {

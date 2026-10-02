@@ -394,6 +394,9 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
   live, Smart Plugs mit Verlauf, Berichte, Steuer (Zuflüsse, Stromkosten je Monat, CSV), Einstellungen. Hell/Dunkel, handytauglich, als App zum Startbildschirm hinzufügbar.
   Frequenz/Spannung ändern sich – wie am Desktop – nur nach einem Dialog mit altem und neuem Wert und den Profilgrenzen.
 - **Rollen**: *Admin* (Passwort, alles) und *Nur ansehen* (PIN, ohne IP- und Wallet-Adressen, ohne Protokolle).
+- **Ansicht-Zugänge** (Einstellungen → Ansicht-Zugänge): eigene PIN je Person (mind. 6 Ziffern, nur als Hash
+  gespeichert), auf Wunsch nur für bestimmte Miner-Gruppen – dann ohne fremde Miner, Summen, Verläufe und E-Paper über
+  alle Miner. Einzeln widerrufbar (offene Sitzungen enden sofort); Anmelden, Anlegen und Widerrufen stehen im Protokoll.
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
   (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
   die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.

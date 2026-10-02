@@ -211,7 +211,7 @@ async function boot() {
   $('#version').textContent = 'v' + S.info.version;
   if (S.info.setupRequired) return renderSetup();
   const session = await api('/session');
-  S.role = session.role; S.csrf = session.csrf;
+  S.role = session.role; S.csrf = session.csrf; S.viewGroups = session.groups || null;
   if (S.role === 'None') return renderLogin();
   started();
 }
@@ -252,7 +252,9 @@ function renderLogin() {
   const submit = async e => {
     e.preventDefault();
     const r = await run(() => api('/login', { method: 'POST', body: { password: pw.value } }));
-    if (r) { S.role = r.role; S.csrf = r.csrf; started(); }
+    if (!r) return;
+    const session = await api('/session').catch(() => ({}));
+    S.role = r.role; S.csrf = r.csrf; S.viewGroups = session.groups || null; started();
   };
   mount(h('div', { class: 'login' }, h('form', { class: 'card stack', onsubmit: submit },
     h('h2', {}, t('Anmelden')),
@@ -265,7 +267,8 @@ function renderLogin() {
 function started() {
   $('#nav').hidden = false;
   $('#logout').hidden = false;
-  $('#role').textContent = isAdmin() ? 'Admin' : t('Nur ansehen');
+  // Ansicht-Zugang mit Gruppen: in der Kopfzeile sichtbar, welche Gruppen freigegeben sind
+  $('#role').textContent = isAdmin() ? 'Admin' : S.viewGroups?.length ? t('Nur ansehen: {0}', S.viewGroups.join(', ')) : t('Nur ansehen');
   document.querySelectorAll('[data-admin]').forEach(e => { e.hidden = !isAdmin(); });
   startEvents();
   route();
@@ -1855,6 +1858,7 @@ async function renderSettings() {
             renderSettings();
           },
         }, t('Token erzeugen')))),
+    viewersCard(status?.groups || []),
     backupCard(),
     mqttCard(),
     plugsCard(),
@@ -2370,6 +2374,47 @@ function restoreUploadBox() {
     h('h3', {}, t('Sicherung einspielen')),
     h('p', { class: 'muted small' }, t('Eine Sicherungsdatei (bitaxetuner-backup-….zip) vom PC, USB-Stick oder NAS hochladen – z. B. auf einem neu aufgesetzten Server. Sie wird vor dem Einspielen vollständig geprüft.')),
     h('div', { class: 'row' }, file, h('button', { class: 'btn', onclick: go }, t('Hochladen und einspielen …'))));
+}
+
+/** Eigene Ansicht-Zugänge: PIN je Person, optional nur bestimmte Gruppen; einzeln widerrufbar. */
+function viewersCard(groups) {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const load = async () => {
+    const list = await api('/viewers').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!list) return;
+    const name = h('input', { placeholder: t('z. B. Werkstatt') });
+    const pin = h('input', { type: 'password', inputmode: 'numeric', autocomplete: 'new-password', placeholder: t('mind. 6 Ziffern') });
+    const picks = groups.map(g => ({ g, box: h('input', { type: 'checkbox' }) }));
+    const add = async () => {
+      const chosen = picks.filter(p => p.box.checked).map(p => p.g);
+      const r = await run(() => api('/viewers', { method: 'POST', body: { name: name.value, pin: pin.value, groups: chosen } }),
+        t('Ansicht-Zugang angelegt.'));
+      if (r) load();
+    };
+    const revoke = async v => {
+      if (!await confirmBox(t('Zugang widerrufen'), t('Ansicht-Zugang „{0}“ widerrufen? Wer damit angemeldet ist, wird sofort abgemeldet.', v.name), t('Widerrufen'), true)) return;
+      if (await run(() => api(`/viewers/${encodeURIComponent(v.id)}`, { method: 'DELETE' }), t('Zugang widerrufen.'))) load();
+    };
+    fill(body,
+      list.length ? h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Name'), t('sieht'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
+        h('tbody', {}, list.map(v => h('tr', {},
+          h('td', {}, v.name),
+          h('td', {}, v.groups.length ? v.groups.join(', ') : t('alle Miner')),
+          h('td', { class: 'nowrap' }, time(v.createdUtc)),
+          h('td', { class: 'nowrap' }, v.lastUsedUtc ? time(v.lastUsedUtc) : t('noch nie')),
+          h('td', {}, h('button', { class: 'btn small danger', onclick: () => revoke(v) }, t('Widerrufen')))))))) : h('p', { class: 'muted small' }, t('Noch keine eigenen Zugänge.')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name), h('div', {}, h('label', {}, t('PIN')), pin)),
+      groups.length
+        ? h('div', { class: 'stack' }, h('label', {}, t('Nur diese Gruppen (keine = alle Miner)')),
+            h('div', { class: 'row' }, picks.map(p => h('label', { class: 'check' }, p.box, ' ', p.g))))
+        : h('p', { class: 'muted small' }, t('Ohne Gruppen sieht der Zugang alle Miner. Gruppen legst du je Miner unter Einstellungen → Geräte fest.')),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: add }, t('Zugang anlegen'))));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Ansicht-Zugänge')),
+    h('p', { class: 'muted small' }, t('Eigene PIN je Person, nur zum Ansehen. Mit Gruppen sieht der Zugang nur diese Miner – ohne Summen, Verläufe und E-Paper über alle Miner. Die allgemeine PIN oben sieht weiterhin alles. Anmelden, Anlegen und Widerrufen stehen im Protokoll.')),
+    body);
 }
 
 function backupCard() {

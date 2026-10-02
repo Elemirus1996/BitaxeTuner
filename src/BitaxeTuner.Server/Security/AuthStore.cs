@@ -26,11 +26,31 @@ public sealed class ApiToken
     public DateTime? LastUsedUtc { get; set; }
 }
 
+/// <summary>
+/// Eigener Nur-Lesen-Zugang mit eigener PIN (gespeichert als PBKDF2-Hash), z. B. für Mitbewohner oder Kunden.
+/// Gruppen leer = alle Miner, sonst nur Miner in mindestens einer der Gruppen. Einzeln widerrufbar.
+/// </summary>
+public sealed class ViewerAccess
+{
+    public const int MinPinLength = 6;
+
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string PinHash { get; set; } = "";
+    public List<string> Groups { get; set; } = [];
+    public DateTime CreatedUtc { get; set; }
+    public DateTime? LastUsedUtc { get; set; }
+}
+
+/// <summary>Ergebnis der Anmeldung; <see cref="Access"/> ist gesetzt, wenn mit der PIN eines eigenen Ansicht-Zugangs angemeldet.</summary>
+public sealed record LoginResult(Role Role, ViewerAccess? Access = null);
+
 /// <summary>Zugangsdaten des Servers (server-auth.json im Datenordner).</summary>
 public sealed class AuthData
 {
     public string AdminHash { get; set; } = "";
     public List<ApiToken> Tokens { get; set; } = [];
+    public List<ViewerAccess> Viewers { get; set; } = [];
 }
 
 /// <summary>
@@ -108,16 +128,96 @@ public sealed class AuthStore
     }
 
     /// <summary>Anmeldung: Admin-Passwort oder PIN der Ansicht.</summary>
-    public Role Login(string secret)
+    public Role Login(string secret) => LoginAs(secret).Role;
+
+    /// <summary>
+    /// Anmeldung: Admin-Passwort, dann die PINs der eigenen Ansicht-Zugänge (vor der allgemeinen PIN – bei gleicher PIN
+    /// gilt also die engere Freigabe), dann die allgemeine PIN der Ansicht (alle Miner).
+    /// </summary>
+    public LoginResult LoginAs(string secret)
     {
-        if (string.IsNullOrEmpty(secret)) return Role.None;
+        if (string.IsNullOrEmpty(secret)) return new LoginResult(Role.None);
         string adminHash;
-        lock (_lock) adminHash = _data.AdminHash;
-        if (adminHash.Length > 0 && VerifyPassword(secret, adminHash)) return Role.Admin;
+        List<ViewerAccess> viewers;
+        lock (_lock)
+        {
+            adminHash = _data.AdminHash;
+            viewers = _data.Viewers.ToList();
+        }
+        if (adminHash.Length > 0 && VerifyPassword(secret, adminHash)) return new LoginResult(Role.Admin);
+        var pin = secret.Trim();
+        foreach (var v in viewers.Where(v => v.PinHash.Length > 0))
+        {
+            if (!VerifyPassword(pin, v.PinHash)) continue;
+            lock (_lock)
+            {
+                if (_data.Viewers.FirstOrDefault(x => x.Id == v.Id) is not { } current) break; // gerade widerrufen
+                current.LastUsedUtc = DateTime.UtcNow;
+                Save();
+                return new LoginResult(Role.Viewer, Clone(current));
+            }
+        }
         var pinHash = _config().WebView.PinHash;
-        if (pinHash.Length > 0 && FixedEquals(WebViewSettings.HashPin(secret), pinHash)) return Role.Viewer;
-        return Role.None;
+        if (pinHash.Length > 0 && FixedEquals(WebViewSettings.HashPin(secret), pinHash)) return new LoginResult(Role.Viewer);
+        return new LoginResult(Role.None);
     }
+
+    public IReadOnlyList<ViewerAccess> Viewers
+    {
+        get { lock (_lock) return _data.Viewers.Select(Clone).ToList(); }
+    }
+
+    /// <summary>
+    /// Neuer Ansicht-Zugang. Die PIN braucht mindestens 6 Ziffern und darf weder das Admin-Passwort noch die allgemeine
+    /// PIN noch die PIN eines anderen Zugangs sein (sonst wäre unklar, wer was sehen darf).
+    /// </summary>
+    public ViewerAccess CreateViewer(string name, string pin, IEnumerable<string>? groups)
+    {
+        pin = (pin ?? "").Trim();
+        if (pin.Length < ViewerAccess.MinPinLength || !pin.All(char.IsAsciiDigit))
+            throw new LocalizedException("Die PIN braucht mindestens {0} Ziffern.", ViewerAccess.MinPinLength);
+        name = (name ?? "").Trim();
+        if (name.Length == 0) throw new LocalizedException("Bitte einen Namen angeben.");
+        if (name.Length > 60) name = name[..60];
+        var pinHash = _config().WebView.PinHash;
+        if (pinHash.Length > 0 && FixedEquals(WebViewSettings.HashPin(pin), pinHash))
+            throw new LocalizedException("Diese PIN ist schon vergeben.");
+        lock (_lock)
+        {
+            if ((_data.AdminHash.Length > 0 && VerifyPassword(pin, _data.AdminHash)) || _data.Viewers.Any(v => VerifyPassword(pin, v.PinHash)))
+                throw new LocalizedException("Diese PIN ist schon vergeben.");
+            if (_data.Viewers.Count >= 50) throw new LocalizedException("Höchstens {0} Ansicht-Zugänge.", 50);
+            var entry = new ViewerAccess
+            {
+                Id = Base64Url(RandomNumberGenerator.GetBytes(6)),
+                Name = name,
+                PinHash = HashPassword(pin),
+                Groups = MinerGroups.Normalize(groups),
+                CreatedUtc = DateTime.UtcNow,
+            };
+            _data.Viewers.Add(entry);
+            Save();
+            return Clone(entry);
+        }
+    }
+
+    /// <summary>Zugang widerrufen; Ergebnis: der entfernte Eintrag oder null.</summary>
+    public ViewerAccess? RevokeViewer(string id)
+    {
+        lock (_lock)
+        {
+            var entry = _data.Viewers.FirstOrDefault(v => v.Id == id);
+            if (entry is null) return null;
+            _data.Viewers.Remove(entry);
+            Save();
+            return entry;
+        }
+    }
+
+    private static ViewerAccess Clone(ViewerAccess v) => new()
+    {
+        Id = v.Id, Name = v.Name, PinHash = v.PinHash, Groups = v.Groups.ToList(), CreatedUtc = v.CreatedUtc, LastUsedUtc = v.LastUsedUtc,
+    };
 
     /// <summary>Neues Token – der Klartext wird nur hier einmal zurückgegeben.</summary>
     public (ApiToken Entry, string Secret) CreateToken(string name)

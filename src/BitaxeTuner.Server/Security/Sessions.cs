@@ -5,7 +5,9 @@ using System.Security.Cryptography;
 
 namespace BitaxeTuner.Server.Security;
 
-public sealed record Session(string Id, Role Role, string Csrf, DateTime ExpiresUtc);
+/// <param name="Scope">Welche Miner diese Sitzung sehen darf (Ansicht-Zugang mit Gruppen); Admins sehen alles.</param>
+/// <param name="AccessId">Kennung des Ansicht-Zugangs, mit dem angemeldet wurde (zum Abmelden beim Widerruf).</param>
+public sealed record Session(string Id, Role Role, string Csrf, DateTime ExpiresUtc, ViewScope? Scope = null, string? AccessId = null);
 
 /// <summary>Browser-Sitzungen im Speicher (nach einem Neustart des Dienstes neu anmelden).</summary>
 public sealed class SessionStore
@@ -13,11 +15,11 @@ public sealed class SessionStore
     public static readonly TimeSpan Lifetime = TimeSpan.FromDays(14);
     private readonly ConcurrentDictionary<string, Session> _sessions = new();
 
-    public Session Create(Role role, DateTime nowUtc)
+    public Session Create(Role role, DateTime nowUtc, ViewScope? scope = null, string? accessId = null)
     {
         foreach (var old in _sessions.Values.Where(s => s.ExpiresUtc < nowUtc)) _sessions.TryRemove(old.Id, out _);
         var session = new Session(AuthStore.Base64Url(RandomNumberGenerator.GetBytes(32)), role,
-            AuthStore.Base64Url(RandomNumberGenerator.GetBytes(24)), nowUtc + Lifetime);
+            AuthStore.Base64Url(RandomNumberGenerator.GetBytes(24)), nowUtc + Lifetime, role == Role.Admin ? null : scope, accessId);
         _sessions[session.Id] = session;
         return session;
     }
@@ -33,6 +35,15 @@ public sealed class SessionStore
     public void Remove(string? id)
     {
         if (id is not null) _sessions.TryRemove(id, out _);
+    }
+
+    /// <summary>Widerrufener Ansicht-Zugang: dessen Sitzungen sofort beenden.</summary>
+    public int RemoveAccess(string accessId)
+    {
+        var n = 0;
+        foreach (var s in _sessions.Values.Where(s => s.AccessId == accessId))
+            if (_sessions.TryRemove(s.Id, out _)) n++;
+        return n;
     }
 
     /// <summary>Nach Passwortänderung: alle Browser-Sitzungen beenden.</summary>

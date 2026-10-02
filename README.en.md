@@ -391,6 +391,9 @@ You can switch in both directions at any time with all your data (see *Switching
   smart plugs with history, reports, tax (income, electricity cost per month, CSV), settings. Light/dark, phone-friendly, can be added to the home screen as an app.
   Frequency/voltage change – just like on the desktop – only after a dialog with old and new value and the profile limits.
 - **Roles**: *Admin* (password, everything) and *View only* (PIN, without IP and wallet addresses, without logs).
+- **View accesses** (Settings → View accesses): a separate PIN per person (at least 6 digits, stored only as a hash),
+  optionally limited to certain miner groups – then without other miners, totals, history and e-paper across all
+  miners. Revocable one by one (open sessions end immediately); sign-ins, creation and revocation are logged.
 - **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
   (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
   interface and polls **no** miners itself. The token can be revoked at any time.

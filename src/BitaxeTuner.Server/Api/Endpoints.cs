@@ -30,6 +30,7 @@ public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null);
 public sealed record TokenRequest(string? Name);
+public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
@@ -168,6 +169,10 @@ public static class Endpoints
     private static HubDevice Device(MinerHub hub, string id) =>
         Dto.Find(hub, id) ?? throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
+    /// <summary>Gerät für eine Ansicht: Miner außerhalb der Gruppen des Zugangs gelten als nicht vorhanden.</summary>
+    private static HubDevice Device(MinerHub hub, string id, ViewScope scope) =>
+        Dto.Find(hub, id) is { } d && scope.Allows(d) ? d : throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
+
     private static string Client(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "?";
 
     // ---------- Öffentlich ----------
@@ -221,19 +226,21 @@ public static class Endpoints
             return StartSession(http, sessions, Role.Admin);
         });
 
-        api.MapPost("/login", (LoginRequest req, HttpContext http, AuthStore auth, SessionStore sessions, Lockout lockout) =>
+        api.MapPost("/login", async (LoginRequest req, HttpContext http, AuthStore auth, SessionStore sessions, Lockout lockout, HubService hub) =>
         {
             var client = Client(http);
             var now = DateTime.UtcNow;
             if (lockout.IsLocked(client, now)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
-            var role = auth.Login(req.Password ?? "");
-            if (role == Role.None)
+            var result = auth.LoginAs(req.Password ?? "");
+            if (result.Role == Role.None)
             {
                 lockout.Fail(client, now);
                 return Error(401, L.N("Passwort oder PIN falsch."));
             }
             lockout.Success(client);
-            return StartSession(http, sessions, role);
+            if (result.Access is { } access)
+                await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, L.T("Ansicht-Zugang „{0}“ angemeldet.", access.Name)); return true; });
+            return StartSession(http, sessions, result.Role, ViewScope.For(result.Access), result.Access?.Id);
         });
 
         api.MapPost("/logout", (HttpContext http, SessionStore sessions) =>
@@ -246,13 +253,13 @@ public static class Endpoints
         api.MapGet("/session", (HttpContext http) =>
         {
             var auth = AuthContext.Of(http);
-            return Results.Json(new { role = auth.Role.ToString(), csrf = auth.Session?.Csrf });
+            return Results.Json(new { role = auth.Role.ToString(), csrf = auth.Session?.Csrf, groups = auth.Scope.Groups });
         });
     }
 
-    private static IResult StartSession(HttpContext http, SessionStore sessions, Role role)
+    private static IResult StartSession(HttpContext http, SessionStore sessions, Role role, ViewScope? scope = null, string? accessId = null)
     {
-        var session = sessions.Create(role, DateTime.UtcNow);
+        var session = sessions.Create(role, DateTime.UtcNow, scope, accessId);
         http.Response.Cookies.Append(AuthContext.CookieName, session.Id, new CookieOptions
         {
             HttpOnly = true,
@@ -268,37 +275,64 @@ public static class Endpoints
 
     private static void MapViewer(RouteGroupBuilder g)
     {
+        // Ansicht-Zugänge mit Gruppen sehen nur ihre Miner: fremde Geräte gelten als nicht vorhanden (404)
         g.MapGet("/status", async (HttpContext http, HubService hub) =>
-            Results.Json(await hub.RunAsync(h => Dto.Status(h, AuthContext.Of(http).Role, DateTime.Now))));
+        {
+            var auth = AuthContext.Of(http);
+            return Results.Json(await hub.RunAsync(h => Dto.Status(h, auth.Role, DateTime.Now, auth.Scope)));
+        });
 
         g.MapGet("/devices/{id}", async (string id, HttpContext http, HubService hub) =>
-            Results.Json(await hub.RunAsync(h => Dto.Detail(h, Device(h, id), AuthContext.Of(http).Role))));
+        {
+            var auth = AuthContext.Of(http);
+            return Results.Json(await hub.RunAsync(h => Dto.Detail(h, Device(h, id, auth.Scope), auth.Role)));
+        });
 
-        g.MapGet("/devices/{id}/history", async (string id, string? range, HubService hub) =>
-            Results.Json(await hub.RunAsync(h => Dto.History(h, id == "all" ? HistoryStore.AggregateHost : Device(h, id).Host, range ?? "1h", DateTime.Now))));
+        g.MapGet("/devices/{id}/history", async (string id, string? range, HttpContext http, HubService hub) =>
+        {
+            var scope = AuthContext.Of(http).Scope;
+            if (id == "all" && scope.Restricted) throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
+            return Results.Json(await hub.RunAsync(h => Dto.History(h, id == "all" ? HistoryStore.AggregateHost : Device(h, id, scope).Host, range ?? "1h", DateTime.Now)));
+        });
 
-        g.MapGet("/plugs/{id}/history", async (string id, string? range, HubService hub) =>
-            Results.Json(await hub.RunAsync(h => Dto.PlugHistory(h, id, range ?? "24h", DateTime.Now))));
+        g.MapGet("/plugs/{id}/history", async (string id, string? range, HttpContext http, HubService hub) =>
+        {
+            var scope = AuthContext.Of(http).Scope;
+            return Results.Json(await hub.RunAsync(h =>
+            {
+                if (h.Config.Plugs.Items.FirstOrDefault(p => p.Id == id) is { } plug && !Dto.PlugVisible(h, scope, plug.Role, plug.Miners))
+                    throw new LocalizedException("Smart Plug nicht gefunden.") { Status = 404 };
+                return Dto.PlugHistory(h, id, range ?? "24h", DateTime.Now);
+            }));
+        });
 
         // Gesundheits-Frühwarnung: letzte 7 Tage gegen die 4 Wochen davor
-        g.MapGet("/devices/{id}/health", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        g.MapGet("/devices/{id}/health", async (string id, HttpContext http, HubService hub) =>
         {
-            var (findings, recent, @base) = h.HealthOf(Device(h, id).Host, DateTime.Now);
-            return new { findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base };
-        })));
+            var scope = AuthContext.Of(http).Scope;
+            return Results.Json(await hub.RunAsync(h =>
+            {
+                var (findings, recent, @base) = h.HealthOf(Device(h, id, scope).Host, DateTime.Now);
+                return new { findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base };
+            }));
+        });
 
-        g.MapGet("/devices/{id}/comparisons", async (string id, HubService hub) =>
-            Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id)).Select(Dto.Comparison).ToList())));
+        g.MapGet("/devices/{id}/comparisons", async (string id, HttpContext http, HubService hub) =>
+        {
+            var scope = AuthContext.Of(http).Scope;
+            return Results.Json(await hub.RunAsync(h => h.Comparisons(Device(h, id, scope)).Select(Dto.Comparison).ToList()));
+        });
 
-        g.MapGet("/events", (HttpContext http, EventStream events) => events.ServeAsync(http, AuthContext.Of(http).Role));
+        g.MapGet("/events", (HttpContext http, EventStream events) => events.ServeAsync(http, AuthContext.Of(http).Role, AuthContext.Of(http).Scope));
 
         // Vergleichsbericht zum Ausdrucken – ohne IP- und Wallet-Adressen, daher auch für „Nur ansehen“
-        g.MapGet("/compare/report", async (string ids, string? range, string? values, string? charts, HubService hub) =>
+        g.MapGet("/compare/report", async (string ids, string? range, string? values, string? charts, HttpContext http, HubService hub) =>
         {
             static string[] Split(string? s) => (s ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var scope = AuthContext.Of(http).Scope;
             var html = await hub.RunAsync(h =>
             {
-                var devices = Split(ids).Distinct().Select(id => Device(h, id)).ToList();
+                var devices = Split(ids).Distinct().Select(id => Device(h, id, scope)).ToList();
                 var report = Core.Reports.CompareReports.Build(h, devices, range ?? "24h",
                     values is null ? Core.Reports.CompareReports.DefaultValues : Split(values),
                     charts is null ? Core.Reports.CompareReports.DefaultCharts : Split(charts), DateTime.Now);
@@ -307,7 +341,8 @@ public static class Endpoints
             return Results.Content(html, "text/html; charset=utf-8");
         });
 
-        g.MapGet("/display", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
+        // E-Paper zeigt Summen über alle Miner – nicht für Ansicht-Zugänge mit Gruppen
+        g.MapGet("/display", async (HttpContext http, HubService hub) => AuthContext.Of(http).Scope.Restricted ? Results.Json<object?>(null) : Results.Json(await hub.RunAsync(h => new
         {
             status = h.DisplayStatus,
             settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Display) : null,
@@ -316,8 +351,9 @@ public static class Endpoints
 
         // Vorschau genau so, wie die Anzeige es zeigt (auch ohne Hardware)
         // Vorschau: ohne scene genau das, was als Nächstes käme; mit scene=Daily|Chart|… eine bestimmte Seite
-        g.MapGet("/display/preview.png", async (string? scene, HubService hub) =>
+        g.MapGet("/display/preview.png", async (string? scene, HttpContext http, HubService hub) =>
         {
+            if (AuthContext.Of(http).Scope.Restricted) return Error(403, L.N("Für diesen Ansicht-Zugang nicht freigegeben."));
             var model = await hub.RunAsync(h => Enum.TryParse<Core.Display.DisplayScene>(scene, true, out var sc)
                 ? h.PreviewScene(sc, DateTime.Now)
                 : h.ComposeDisplay(DateTime.Now));
@@ -327,13 +363,17 @@ public static class Endpoints
             return Results.File(ms.ToArray(), "image/png");
         });
 
-        g.MapGet("/fans", async (HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h => new
+        g.MapGet("/fans", async (HttpContext http, HubService hub) =>
         {
-            status = Dto.Fans(h, AuthContext.Of(http).Role),
-            enabled = h.Config.Fans.Enabled,
-            settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Fans) : null,
-            miners = h.Devices.Select(d => new { id = Dto.DeviceId(d.Host), name = d.Title, host = AuthContext.Of(http).Role == Role.Admin ? d.Host : null }).ToList(),
-        })));
+            var auth = AuthContext.Of(http);
+            return Results.Json(await hub.RunAsync(h => new
+            {
+                status = Dto.Fans(h, auth.Role, auth.Scope),
+                enabled = h.Config.Fans.Enabled,
+                settings = auth.Role == Role.Admin ? Dto.Copy(h.Config.Fans) : null,
+                miners = h.Devices.Where(auth.Scope.Allows).Select(d => new { id = Dto.DeviceId(d.Host), name = d.Title, host = auth.Role == Role.Admin ? d.Host : null }).ToList(),
+            }));
+        });
     }
 
     // ---------- Admin: Geräte ----------
@@ -687,6 +727,31 @@ public static class Endpoints
 
         g.MapDelete("/tokens/{tokenId}", (string tokenId, AuthStore auth) =>
             auth.RevokeToken(tokenId) ? Results.Ok(new { ok = true }) : Error(404, L.N("Token nicht gefunden.")));
+
+        // Eigene Ansicht-Zugänge (PIN je Person, optional auf Gruppen beschränkt); die PIN wird nie zurückgegeben
+        g.MapGet("/viewers", (AuthStore auth) =>
+            Results.Json(auth.Viewers.Select(v => new { v.Id, v.Name, v.Groups, v.CreatedUtc, v.LastUsedUtc })));
+
+        g.MapPost("/viewers", async (ViewerRequest req, AuthStore auth, HubService hub) =>
+        {
+            var v = auth.CreateViewer(req.Name ?? "", req.Pin ?? "", req.Groups);
+            await hub.RunAsync(h =>
+            {
+                h.LogEvent(null, EventCategories.Settings, v.Groups.Count == 0
+                    ? L.T("Ansicht-Zugang „{0}“ angelegt (alle Miner).", v.Name)
+                    : L.T("Ansicht-Zugang „{0}“ angelegt (Gruppen: {1}).", v.Name, string.Join(", ", v.Groups)));
+                return true;
+            });
+            return Results.Json(new { v.Id, v.Name, v.Groups, v.CreatedUtc });
+        });
+
+        g.MapDelete("/viewers/{viewerId}", async (string viewerId, AuthStore auth, SessionStore sessions, HubService hub) =>
+        {
+            if (auth.RevokeViewer(viewerId) is not { } v) return Error(404, L.N("Zugang nicht gefunden."));
+            var ended = sessions.RemoveAccess(v.Id);
+            await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, L.T("Ansicht-Zugang „{0}“ widerrufen.", v.Name)); return true; });
+            return Results.Ok(new { ok = true, sessions = ended });
+        });
 
         // ---------- Zusatzlüfter (Pico) ----------
 

@@ -22,15 +22,18 @@ public static class Dto
 
     public static HubDevice? Find(MinerHub hub, string id) => hub.Devices.FirstOrDefault(d => DeviceId(d.Host) == id);
 
-    public static object Status(MinerHub hub, Role role, DateTime now)
+    /// <param name="scope">Ansicht-Zugang mit Gruppen: nur dessen Miner, Summen nur über diese, kein Gesamtverlauf.</param>
+    public static object Status(MinerHub hub, Role role, DateTime now, ViewScope? scope = null)
     {
-        var devices = hub.Devices;
+        scope ??= ViewScope.All;
+        var devices = hub.Devices.Where(scope.Allows).ToList();
         var online = devices.Where(d => d.State.Online && d.State.Info is not null).Select(d => d.State.Info!).ToList();
         var hash = online.Sum(i => i.hashRate);
         var power = online.Sum(i => i.power);
         var price = hub.Prices.PriceAt(now.ToUniversalTime());
-        // Mit Smart Plugs: Kosten und Gesamteffizienz aus dem Wert an der Steckdose
-        var energy = hub.Config.Plugs.Items.Count > 0 ? hub.CurrentEnergy() : null;
+        // Mit Smart Plugs: Kosten und Gesamteffizienz aus dem Wert an der Steckdose (nicht bei eingeschränkter Ansicht –
+        // die Steckdose misst auch Miner, die dieser Zugang nicht sehen darf)
+        var energy = !scope.Restricted && hub.Config.Plugs.Items.Count > 0 ? hub.CurrentEnergy() : null;
         var costPower = energy is { FromPlugs: true } ? energy.TotalPowerW : power;
         return new
         {
@@ -51,11 +54,12 @@ public static class Dto
                 currency = hub.Config.Currency,
             },
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },
-            history = hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),
-            devices = devices.Select(d => Summary(hub, d, role)).ToList(),
-            groups = MinerGroups.All(hub.Config.Devices),
-            fans = Fans(hub, role),
-            plugs = Plugs(hub, role),
+            history = scope.Restricted ? []
+                : hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),
+            devices = devices.Select(d => Summary(hub, d, role, scope)).ToList(),
+            groups = MinerGroups.All(devices.Select(d => d.Config)).Where(scope.Allows1).ToList(),
+            fans = Fans(hub, role, scope),
+            plugs = Plugs(hub, role, scope),
             // Einführung „Erste Schritte“ – nur für Admins und nur solange nicht ausgeblendet
             // „Neu in dieser Version“ nach einem Update – nur für Admins, bis gesehen oder abgelehnt
             whatsNew = role == Role.Admin && WhatsNew.ShouldAsk(hub.Config, Endpoints.Version, server: true)
@@ -74,11 +78,12 @@ public static class Dto
     }
 
     /// <summary>Smart Plugs; null, wenn keine eingerichtet. Adressen und Fehlertexte nur für Admins.</summary>
-    public static object? Plugs(MinerHub hub, Role role)
+    public static object? Plugs(MinerHub hub, Role role, ViewScope? scope = null)
     {
         if (hub.Config.Plugs.Items.Count == 0) return null;
         var admin = role == Role.Admin;
-        return hub.PlugStatuses().Select(p => new
+        scope ??= ViewScope.All;
+        return hub.PlugStatuses().Where(p => PlugVisible(hub, scope, p.Role, p.Miners)).Select(p => new
         {
             p.Id, p.Name, p.Role, p.Online,
             powerW = R(p.PowerW), energyKwh = p.EnergyWh is { } e ? Math.Round(e / 1000, 3) : (double?)null,
@@ -91,9 +96,17 @@ public static class Dto
         }).ToList();
     }
 
-    /// <summary>Zusatzlüfter; null, wenn nicht eingeschaltet.</summary>
-    public static object? Fans(MinerHub hub, Role role)
+    /// <summary>
+    /// Eingeschränkte Ansicht: nur Plugs, hinter denen ausschließlich sichtbare Miner hängen (eine Gesamtmessung oder
+    /// ein Plug mit fremden Minern würde deren Verbrauch verraten).
+    /// </summary>
+    public static bool PlugVisible(MinerHub hub, ViewScope scope, string role, IReadOnlyCollection<string> miners) =>
+        !scope.Restricted || (role == "miners" && miners.Count > 0 && miners.All(m => scope.AllowsHost(hub, m)));
+
+    /// <summary>Zusatzlüfter; null, wenn nicht eingeschaltet. Eingeschränkte Ansicht: keine Kanäle fremder Miner.</summary>
+    public static object? Fans(MinerHub hub, Role role, ViewScope? scope = null)
     {
+        scope ??= ViewScope.All;
         var f = hub.FanStatus;
         if (!f.Enabled && !hub.Config.Display.Enabled) return null;
         return new
@@ -105,7 +118,7 @@ public static class Dto
             device = role == Role.Admin ? f.Device : null,
             error = f.Error,
             updated = f.Updated,
-            channels = f.Channels.Where(c => c.Role != "none").Select(c => new
+            channels = f.Channels.Where(c => c.Role != "none" && (c.MinerHost is not { Length: > 0 } mh || scope.AllowsHost(hub, mh))).Select(c => new
             {
                 c.Channel, c.Name, c.Role, c.Mode, c.Percent, c.Rpm, c.Reason, c.Stalled,
                 minerId = c.MinerHost is { Length: > 0 } h ? DeviceId(h) : null,
@@ -113,7 +126,7 @@ public static class Dto
         };
     }
 
-    public static object Summary(MinerHub hub, HubDevice d, Role role)
+    public static object Summary(MinerHub hub, HubDevice d, Role role, ViewScope? scope = null)
     {
         var s = d.State;
         var i = s.Online ? s.Info : null;
@@ -123,7 +136,7 @@ public static class Dto
         {
             id = DeviceId(d.Host),
             name = d.Title,
-            groups = d.Config.Groups,
+            groups = scope is { Restricted: true } ? d.Config.Groups.Where(scope.Allows1).ToList() : d.Config.Groups,
             host = admin ? d.Host : null,
             // Weboberfläche des Miners (AxeOS) – Adresse nur für Admins, nicht für simulierte Geräte
             webUrl = admin && !d.IsSimulated ? MinerWebUrl(d.Host) : null,
