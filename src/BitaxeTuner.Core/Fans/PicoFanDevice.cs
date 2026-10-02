@@ -319,23 +319,19 @@ public sealed class PicoFanDevice : IFanDevice
     /// Serielle Ports mit Raspberry-Pi-USB-Kennung (VID 2E8A). Linux: /sys/class/tty, Windows: Registry.
     /// Nur diese Ports werden automatisch angesprochen – andere Geräte (z. B. 3D-Drucker) bleiben unberührt.
     /// </summary>
-    public static List<string> FindPorts()
+    public static List<string> FindPorts() => FindPorts("/sys/class/tty");
+
+    /// <param name="ttyClass">Linux: /sys/class/tty (Tests: nachgebaute Ordnerstruktur).</param>
+    internal static List<string> FindPorts(string ttyClass)
     {
         var result = new List<string>();
         try
         {
-            if (OperatingSystem.IsLinux() && Directory.Exists("/sys/class/tty"))
+            if (OperatingSystem.IsLinux() && Directory.Exists(ttyClass))
             {
-                foreach (var dir in Directory.GetDirectories("/sys/class/tty", "ttyACM*"))
-                {
-                    var dev = new DirectoryInfo(Path.Combine(dir, "device"));
-                    var real = dev.LinkTarget is not null ? dev.ResolveLinkTarget(true) as DirectoryInfo : dev;
-                    // .../<usb-device>/<interface>/ → idVendor liegt eine Ebene höher
-                    var vendorFile = real?.Parent is { } parent ? Path.Combine(parent.FullName, "idVendor") : null;
-                    if (vendorFile is not null && File.Exists(vendorFile) &&
-                        File.ReadAllText(vendorFile).Trim().Equals("2e8a", StringComparison.OrdinalIgnoreCase))
+                foreach (var dir in Directory.GetDirectories(ttyClass, "ttyACM*"))
+                    if (UsbVendorOf(dir)?.Equals("2e8a", StringComparison.OrdinalIgnoreCase) == true)
                         result.Add("/dev/" + Path.GetFileName(dir));
-                }
             }
             else if (OperatingSystem.IsWindows())
             {
@@ -353,6 +349,23 @@ public sealed class PicoFanDevice : IFanDevice
         }
         catch { /* ohne Rechte oder ungewöhnliches System: dann nur fester Port */ }
         return result.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// USB-Herstellerkennung eines tty-Geräts. /sys/class/tty/ttyACM0 ist selbst ein Link nach
+    /// /sys/devices/…/&lt;usb-gerät&gt;/&lt;schnittstelle&gt;/tty/ttyACM0 – erst diesen echten Pfad auflösen, dann nach oben bis
+    /// zum Ordner mit „idVendor“. (Der relative Link „device“ darin lässt sich vom Link-Pfad aus nicht richtig auflösen.)
+    /// </summary>
+    internal static string? UsbVendorOf(string ttyDir)
+    {
+        var info = new DirectoryInfo(ttyDir);
+        var real = info.LinkTarget is not null ? info.ResolveLinkTarget(returnFinalTarget: true) as DirectoryInfo : info;
+        for (var d = real; d is not null; d = d.Parent)
+        {
+            var vendor = Path.Combine(d.FullName, "idVendor");
+            if (File.Exists(vendor)) return File.ReadAllText(vendor).Trim();
+        }
+        return null;
     }
 }
 

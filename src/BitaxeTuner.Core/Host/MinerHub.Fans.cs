@@ -94,9 +94,16 @@ public sealed partial class MinerHub
                     _fanDevice = await Task.Run(() => OpenFanDevice(settings.Port, force));
                     _fanError = null;
                     _fanConnectedSince = now;
+                    LogEvent(null, EventCategories.Fans, L.T("Pico verbunden: {0}", _fanDevice.Description));
                 }
                 catch (Exception ex)
                 {
+                    // Nur bei neuer Fehlermeldung melden (Server-Log und Protokoll), nicht bei jedem Versuch alle 10 s
+                    if (ex.Message != _fanError)
+                    {
+                        RaiseStatus(false, L.T("Lüfter: ") + ex.Message);
+                        LogEvent(null, EventCategories.Fans, L.T("Pico nicht verbunden: {0}", ex.Message));
+                    }
                     _fanError = ex.Message;
                     _fanNextConnect = now.AddSeconds(10);
                 }
