@@ -237,6 +237,7 @@
                     <StackPanel Grid.Column="1">
                         <CheckBox x:Name="RestartAfterApplyBox" Content="{l:T 'Nach Frequenz-/Spannungsänderung neu starten'}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="UpdateCheckBox" Content="{l:T 'Beim Start auf neue Version prüfen'}" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="WalletConsentBox" Content="{l:T 'Aus dem Pool-Benutzer erkannte Wallet-Adressen bei mempool.space/Blockchair abfragen'}" Margin="0,0,0,6"/>
                         <CheckBox x:Name="AutostartBox" Content="{l:T 'Mit Windows starten'}"/>
                     </StackPanel>
                 </Grid>

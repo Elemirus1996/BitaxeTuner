@@ -30,6 +30,7 @@ public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null);
 public sealed record TokenRequest(string? Name);
+public sealed record WalletConsentRequest(bool Allow);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
@@ -734,6 +735,9 @@ public static class Endpoints
             sessions.Clear();
             return Results.Ok(new { ok = true, note = "Alle Browser-Sitzungen wurden abgemeldet." });
         });
+
+        g.MapPost("/wallet-consent", async (WalletConsentRequest req, HubService hub) =>
+            Results.Json(await hub.RunAsync(async h => { await h.SetWalletConsentAsync(req.Allow); return new { ok = true }; })));
 
         g.MapGet("/tokens", (AuthStore auth) => Results.Json(auth.Tokens.Select(t => new { t.Id, t.Name, t.CreatedUtc, t.LastUsedUtc })));
 

@@ -26,6 +26,9 @@ public sealed class MinerState
 
     public bool Online => Info is not null && Error is null;
 
+    /// <summary>Wallet-Adresse in den Einstellungen selbst eingetragen (nicht aus dem Pool-Benutzer erkannt).</summary>
+    public bool WalletIsManual => !string.IsNullOrWhiteSpace(Config.WalletAddress);
+
     /// <summary>Adresse aus Override oder aus dem Stratum-User (Format &lt;adresse&gt;.&lt;worker&gt;).</summary>
     public string? WalletAddress
     {

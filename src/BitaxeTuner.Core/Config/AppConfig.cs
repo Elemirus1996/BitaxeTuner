@@ -16,6 +16,13 @@ public sealed class AppConfig
     public int HistoryMinutes { get; set; } = 60;
     public int WalletPollMinutes { get; set; } = 10;
 
+    /// <summary>
+    /// Dürfen aus dem Pool-Benutzer des Miners erkannte Wallet-Adressen bei mempool.space/Blockchair abgefragt werden?
+    /// null = noch nicht gefragt (dann keine Abfrage), true/false = Antwort. Selbst eingetragene Adressen werden immer
+    /// abgefragt – die sind ausdrücklich dafür eingetragen (Datenschutz, Audit P1).
+    /// </summary>
+    public bool? WalletLookupConsent { get; set; }
+
     /// <summary>Strompreis in Cent je kWh.</summary>
     public double ElectricityCtPerKwh { get; set; } = 30;
 

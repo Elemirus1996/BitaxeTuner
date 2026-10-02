@@ -30,15 +30,16 @@ configure them.</p>
   <tr><th>Destination</th><th>Purpose</th><th>When</th></tr>
   <tr><td>Your miners in your local network</td><td>Read status, apply settings you confirmed, read logs</td><td>Always (core function)</td></tr>
   <tr><td>api.github.com / github.com</td><td>Check for BitaxeTuner updates and miner firmware versions; download updates you start</td><td>Periodically; download only on request</td></tr>
-  <tr><td>mempool.space</td><td>Bitcoin network data (latest blocks, pools), wallet balance lookups</td><td>When network/wallet features are used</td></tr>
-  <tr><td>api.blockchair.com</td><td>Wallet balances and incoming payments (e.g. BCH), for the tax overview</td><td>Only if you enter wallet addresses</td></tr>
+  <tr><td>mempool.space</td><td>Bitcoin network data (latest blocks, pools), wallet balance lookups</td><td>Network data: when network features are used. Wallets: addresses you enter, or addresses detected from your miners' pool user only after you agree</td></tr>
+  <tr><td>api.blockchair.com</td><td>Wallet balances and incoming payments (e.g. BCH), for the tax overview</td><td>Only for addresses you enter, or detected addresses after you agree</td></tr>
   <tr><td>api.coingecko.com</td><td>Historical EUR exchange rates for the tax overview</td><td>Only if you use the tax features</td></tr>
   <tr><td>api.awattar.de / .at, api.tibber.com</td><td>Electricity prices</td><td>Only if you select a price source (Tibber: with your own token)</td></tr>
   <tr><td>ntfy.sh (or your ntfy server), api.telegram.org, discord.com, api.pushover.net, or your own webhook URL</td><td>Push notifications you configured</td><td>Only if you set up push notifications</td></tr>
   <tr><td>Your smart plugs (Shelly) in your local network</td><td>Read power and energy (never switched)</td><td>Only if you add smart plugs</td></tr>
   <tr><td>Your own MQTT broker (e.g. Home Assistant)</td><td>Publish miner values</td><td>Only if you enable MQTT</td></tr>
 </table>
-<p>Wallet addresses you enter are sent to the respective explorer to look up balances. These third-party services have their
+<p>Wallet addresses you enter are sent to the respective explorer to look up balances. Addresses that BitaxeTuner detects in your
+miners' pool user (format <code>address.worker</code>) are only looked up after you agree once; you can withdraw this at any time in the settings. These third-party services have their
 own privacy policies. The BitaxeTuner server only accepts connections from private networks and is not meant to be exposed to the internet.</p>
 
 <h2>This website</h2>
@@ -59,7 +60,9 @@ keinen Cloud-Dienst des Projekts. Einstellungen, Verlauf und Steuerdaten bleiben
 <p>Das Programm verbindet sich nur mit den oben aufgeführten Diensten und nur zum jeweils genannten Zweck: mit deinen Minern im
 Heimnetz und deinen Smart Plugs (nur Messwerte lesen), mit GitHub (Updates, Firmware-Versionen), mempool.space und Blockchair (Netzwerkdaten, Wallet-Guthaben), CoinGecko
 (Euro-Kurse für die Steuerübersicht), aWATTar/Tibber (Strompreis), ntfy/Telegram/Discord/Pushover oder deinem eigenen Webhook (Push) und deinem MQTT-Broker – die optionalen
-Dienste nur, wenn du sie einrichtest. Eingetragene Wallet-Adressen werden zur Abfrage an den jeweiligen Explorer übermittelt;
+Dienste nur, wenn du sie einrichtest. Eingetragene Wallet-Adressen werden zur Abfrage an den jeweiligen Explorer übermittelt; Adressen, die BitaxeTuner im
+Pool-Benutzer deiner Miner erkennt (Format <code>adresse.worker</code>), erst nachdem du einmal zugestimmt hast – widerrufbar
+jederzeit in den Einstellungen;
 für diese Dienste gelten deren Datenschutzbestimmungen.</p>
 <p>Diese Webseite verwendet keine Cookies, kein Tracking und lädt keine Inhalte von Drittanbietern. Sie wird über GitHub Pages
 bereitgestellt; GitHub verarbeitet dabei ggf. technische Zugriffsdaten (z. B. IP-Adresse), siehe

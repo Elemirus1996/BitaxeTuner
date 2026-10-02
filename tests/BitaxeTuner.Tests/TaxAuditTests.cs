@@ -57,3 +57,25 @@ public class TaxAuditTests
         Assert.Single(repo.LoadRewards());
     }
 }
+
+/// <summary>Fund P1 aus dem Audit vom 02.10.2026: erkannte Wallet-Adressen nur nach Zustimmung an Dritte.</summary>
+public class WalletConsentTests
+{
+    private const string Detected = "bc1qerkanntausdempoolbenutzer0000000000";
+    private const string Entered = "bc1qselbsteingetrageneadresse000000000000";
+
+    private static List<BitaxeTuner.Core.Monitoring.MinerState> States() =>
+    [
+        new(new BitaxeTuner.Core.Config.DeviceConfig { Host = "10.0.0.5" }) { Info = new BitaxeTuner.Core.Api.SystemInfo { stratumUser = Detected + ".gamma" } },
+        new(new BitaxeTuner.Core.Config.DeviceConfig { Host = "10.0.0.6", WalletAddress = Entered }),
+    ];
+
+    [Theory]
+    [InlineData(null, new[] { Entered })]
+    [InlineData(false, new[] { Entered })]
+    [InlineData(true, new[] { Detected, Entered })]
+    public void Detected_addresses_are_only_looked_up_after_consent(bool? consent, string[] expected)
+    {
+        Assert.Equal(expected.Order(), BitaxeTuner.Core.Host.MinerHub.LookupAddresses(States(), consent).Order());
+    }
+}

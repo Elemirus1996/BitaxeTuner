@@ -472,21 +472,43 @@ public sealed partial class MinerHub
 
     // ---------- Wallets ----------
 
-    /// <summary>Kontostände aller bekannten Miner-Wallets abfragen und neue Eingänge melden.</summary>
-    public async Task PollWalletsAsync()
-    {
-        if (_walletBusy || !Options.OnlineChecks) return;
-
-        var addresses = States
+    /// <summary>
+    /// Adressen, die bei Dritten abgefragt werden dürfen: selbst eingetragene immer, aus dem Pool-Benutzer erkannte nur
+    /// nach Zustimmung (Audit P1).
+    /// </summary>
+    public static List<string> LookupAddresses(IEnumerable<MinerState> states, bool? consent) =>
+        states.Where(s => s.WalletIsManual || consent == true)
             .Select(s => s.WalletAddress)
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .Select(a => a!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    /// <summary>Es gibt aus dem Pool-Benutzer erkannte Adressen, und der Nutzer wurde noch nicht gefragt.</summary>
+    public bool WalletConsentNeeded =>
+        Config.WalletLookupConsent is null && States.Any(s => !s.WalletIsManual && !string.IsNullOrWhiteSpace(s.WalletAddress) && !IsSimulated(s.Config.Host));
+
+    /// <summary>Antwort auf die Frage speichern, protokollieren und bei Zustimmung gleich abfragen.</summary>
+    public async Task SetWalletConsentAsync(bool allow)
+    {
+        Config.WalletLookupConsent = allow;
+        Config.Save();
+        LogEvent(null, EventCategories.Settings, allow
+            ? L.T("Wallet-Abfrage für erkannte Adressen erlaubt (mempool.space/Blockchair).")
+            : L.T("Wallet-Abfrage für erkannte Adressen abgelehnt."));
+        await PollWalletsAsync();
+    }
+
+    /// <summary>Kontostände aller bekannten Miner-Wallets abfragen und neue Eingänge melden.</summary>
+    public async Task PollWalletsAsync()
+    {
+        if (_walletBusy || !Options.OnlineChecks) return;
+
+        var addresses = LookupAddresses(States, Config.WalletLookupConsent);
+
         if (addresses.Count == 0)
         {
-            WalletStatusText = L.T("keine Adresse bekannt");
+            WalletStatusText = WalletConsentNeeded ? L.T("wartet auf Zustimmung zur Wallet-Abfrage") : L.T("keine Adresse bekannt");
             WalletsUpdated?.Invoke();
             return;
         }

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         _monitor.Initialize(vm.Host);
         _monitor.SummaryChanged += vm.ApplySummary;
         vm.Host.Polled += vm.OnPolled;
+        vm.Host.Polled += () => AskWalletConsent(vm);
         vm.Rebuild();
         PlaceMonitor();
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;
@@ -50,6 +51,25 @@ public partial class MainWindow : Window
         // Nach einem Update einmal fragen, ob eine Einführung nur in die neuen Funktionen gewünscht ist
         else if (WhatsNew.ShouldAsk(config, version, server: false))
             Loaded += (_, _) => Dispatcher.BeginInvoke(() => AskWhatsNew(version), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private bool _walletConsentAsked;
+
+    /// <summary>
+    /// Einmal fragen, bevor aus dem Pool-Benutzer erkannte Wallet-Adressen an mempool.space/Blockchair gehen (Audit P1).
+    /// Selbst eingetragene Adressen brauchen keine Zustimmung.
+    /// </summary>
+    private void AskWalletConsent(MainViewModel vm)
+    {
+        if (_walletConsentAsked || !vm.Host.Hub.WalletConsentNeeded) return;
+        _walletConsentAsked = true;
+        Dispatcher.BeginInvoke(async () =>
+        {
+            var allow = MessageBox.Show(this,
+                L.T("Deine Miner melden eine Wallet-Adresse im Pool-Benutzer. Soll BitaxeTuner Guthaben und Eingänge dieser Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) abfragen? Dabei sehen diese Dienste die Adresse und deine IP-Adresse. Ohne Zustimmung wird nichts abgefragt; ändern kannst du das jederzeit in den Einstellungen."),
+                L.T("Wallet-Guthaben abfragen?"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            await vm.Host.Hub.SetWalletConsentAsync(allow);
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     private void AskWhatsNew(string version)

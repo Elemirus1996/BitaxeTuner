@@ -21,6 +21,7 @@ public sealed class SettingsDto
     public double TempWarn { get; set; }
     public bool RestartAfterApply { get; set; }
     public bool CheckForUpdates { get; set; }
+    public bool? WalletLookupConsent { get; set; }
     /// <summary>Sprache des Servers („auto“, „de“, „en“): Push, Tagesbericht, E-Paper, Statustexte.</summary>
     public string Language { get; set; } = "auto";
     public string BlockchairApiKey { get; set; } = "";
@@ -52,6 +53,7 @@ public sealed class SettingsDto
         TempWarn = c.TempWarn,
         RestartAfterApply = c.RestartAfterApply,
         CheckForUpdates = c.CheckForUpdates,
+        WalletLookupConsent = c.WalletLookupConsent,
         Language = c.Language,
         BlockchairApiKey = c.BlockchairApiKey,
         CoinGeckoApiKey = c.CoinGeckoApiKey,
@@ -84,6 +86,7 @@ public sealed class SettingsDto
         c.TempWarn = Math.Clamp(TempWarn, 30, 120);
         c.RestartAfterApply = RestartAfterApply;
         c.CheckForUpdates = CheckForUpdates;
+        if (WalletLookupConsent is not null) c.WalletLookupConsent = WalletLookupConsent;
         c.Language = Language is "de" or "en" ? Language : "auto";
         c.BlockchairApiKey = BlockchairApiKey.Trim();
         c.CoinGeckoApiKey = CoinGeckoApiKey.Trim();

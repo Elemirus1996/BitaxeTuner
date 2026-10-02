@@ -415,6 +415,22 @@ function groupChips(groups, devices, onPick) {
     chip('', t('Alle ({0})', devices.length)), groups.map(g => chip(g, `${g} (${devices.filter(d => inGroup(d, g)).length})`)));
 }
 
+/** Einmalige Frage: aus dem Pool-Benutzer erkannte Wallet-Adressen bei mempool.space/Blockchair abfragen? */
+function walletConsentBanner() {
+  const answer = async allow => {
+    if (await run(() => api('/wallet-consent', { method: 'POST', body: { allow } }), allow ? t('Wallet-Abfrage erlaubt.') : t('Keine Wallet-Abfrage.'))) {
+      if (S.status) S.status.walletConsentNeeded = false;
+      route();
+    }
+  };
+  return h('div', { class: 'banner stack' },
+    h('b', {}, t('Wallet-Guthaben abfragen?')),
+    h('p', { class: 'small' }, t('Deine Miner melden eine Wallet-Adresse im Pool-Benutzer. Soll BitaxeTuner Guthaben und Eingänge dieser Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) abfragen? Dabei sehen diese Dienste die Adresse und deine IP-Adresse. Ohne Zustimmung wird nichts abgefragt; ändern kannst du das jederzeit in den Einstellungen.')),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', onclick: () => answer(true) }, t('Erlauben')),
+      h('button', { class: 'btn', onclick: () => answer(false) }, t('Nein danke'))));
+}
+
 function renderOverview() {
   const s = S.status;
   const tv = s.totals;
@@ -472,6 +488,7 @@ function renderOverview() {
     groupCard,
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     s.plugs?.length ? plugOverviewCard(s.plugs) : null,
+    isAdmin() && s.walletConsentNeeded ? walletConsentBanner() : null,
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
@@ -1889,6 +1906,7 @@ async function renderSettings() {
         h('div', {}, h('label', {}, t('Steuer-Erfassung alle (min)')), text(s, 'taxPollMinutes', 'number'))),
       checkInput(s, 'restartAfterApply', t('Nach Frequenz-/Spannungsänderung neu starten')),
       checkInput(s, 'checkForUpdates', t('Nach neuen Versionen suchen')),
+      checkInput(s, 'walletLookupConsent', t('Aus dem Pool-Benutzer erkannte Wallet-Adressen bei mempool.space/Blockchair abfragen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Sprache des Servers (Push, Tagesbericht, E-Paper)')),
         select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ['de', 'Deutsch'], ['en', 'English']]))),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('PIN für „Nur ansehen“ (mind. 4 Ziffern, „-“ = entfernen)')), pin))),

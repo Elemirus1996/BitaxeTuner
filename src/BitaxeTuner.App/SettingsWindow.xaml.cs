@@ -84,6 +84,7 @@ public partial class SettingsWindow : Window
         SelectByTag(ThemeBox, config.Theme);
         SelectByTag(LanguageBox, config.Language);
         RestartAfterApplyBox.IsChecked = config.RestartAfterApply;
+        WalletConsentBox.IsChecked = config.WalletLookupConsent == true;
         UpdateCheckBox.IsChecked = config.CheckForUpdates;
         AutostartBox.IsChecked = AutostartService.IsEnabled;
         DataDirText.Text = dataDirectory;
@@ -376,6 +377,8 @@ public partial class SettingsWindow : Window
         _config.Theme = SelectedTag(ThemeBox) ?? "dark";
         _config.Language = SelectedTag(LanguageBox) ?? "auto";
         _config.RestartAfterApply = RestartAfterApplyBox.IsChecked == true;
+        // nur speichern, wenn geändert – „noch nicht gefragt“ bleibt sonst erhalten
+        if ((_config.WalletLookupConsent == true) != (WalletConsentBox.IsChecked == true)) _config.WalletLookupConsent = WalletConsentBox.IsChecked == true;
         _config.CheckForUpdates = UpdateCheckBox.IsChecked == true;
         _config.Backup = backup;
         _config.Save();

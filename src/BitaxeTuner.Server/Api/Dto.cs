@@ -71,6 +71,8 @@ public static class Dto
                         .Select(f => new { f.Version, f.Title, f.Text, f.Section }).ToList(),
                 }
                 : null,
+            // Einmalige Frage: erkannte Wallet-Adressen bei Dritten abfragen? (nur Admin)
+            walletConsentNeeded = role == Role.Admin && hub.WalletConsentNeeded,
             onboarding = role == Role.Admin && Onboarding.ShouldShow(hub.Config)
                 ? Onboarding.Steps(hub.Config, server: true, Loc.For("de")).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
                 : null,
