@@ -6,7 +6,10 @@ using BitaxeTuner.Server.Security;
 // BitaxeTuner-Server: der Motor der Desktop-App als Dienst (Windows-Dienst, systemd, Docker) mit REST-API,
 // Live-Ereignissen und Browser-Oberfläche. Siehe README „24/7-Betrieb“.
 var settings = ServerSettings.FromArgs(args);
-Console.OutputEncoding = System.Text.Encoding.UTF8; // Umlaute im Protokoll (Windows-Konsole)
+// Umlaute im Protokoll (Windows-Konsole). Ein Windows-Dienst hat keine Konsole – dort wirft der Setter
+// „Das Handle ist ungültig“ und der Dienst startete nie (seit 0.3.0, gefunden beim Diensttest für 0.9.2)
+try { Console.OutputEncoding = System.Text.Encoding.UTF8; }
+catch (IOException) { /* keine Konsole */ }
 
 // Erster Start eines vorbereiteten Pi: Einrichtungspaket von der Boot-Partition übernehmen, dann beenden
 var provisionIndex = Array.IndexOf(args, "--provision");

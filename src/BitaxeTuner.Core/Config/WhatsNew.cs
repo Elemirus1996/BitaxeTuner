@@ -98,6 +98,9 @@ public static class WhatsNew
             new("0.9.2", tr.T("Sicherheits-Update nach einem unabhängigen Audit"),
                 tr.T("Tokens und API-Schlüssel liegen jetzt geschützt in secrets.json statt in config.json und damit nicht mehr in Sicherungen. Aus dem Miner erkannte Wallet-Adressen werden erst nach deiner Zustimmung abgefragt. Ohne passendes Geräteprofil gelten vorsichtige Grenzen. Steuer: Restbestand im CSV-Export und Verkäufe ohne Zufluss korrigiert. Windows-Server: Datenordner und Updates nur noch für Administratoren."),
                 null),
+            new("0.9.2", tr.T("Fehlerbehebungen"),
+                tr.T("Der Windows-Server-Dienst startet wieder (er brach beim Start ab). Der Raspberry Pi findet den Pico mit Port „auto“ wieder. Verbindungsfehler zum Pico stehen jetzt im Protokoll."),
+                null),
         ];
     }
 
