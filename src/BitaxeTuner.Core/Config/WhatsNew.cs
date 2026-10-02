@@ -95,6 +95,9 @@ public static class WhatsNew
                 server ? tr.T("Eigene PIN zum Ansehen je Person (Einstellungen → Ansicht-Zugänge), auf Wunsch nur für bestimmte Miner-Gruppen – z. B. für Mitbewohner oder Community-Miner. Einzeln widerrufbar, Anmeldungen stehen im Protokoll.")
                        : tr.T("Im Server-Betrieb: eigene PIN zum Ansehen je Person, auf Wunsch nur für bestimmte Miner-Gruppen – einzeln widerrufbar, Anmeldungen stehen im Protokoll."),
                 null),
+            new("0.9.2", tr.T("Sicherheits-Update nach einem unabhängigen Audit"),
+                tr.T("Tokens und API-Schlüssel liegen jetzt geschützt in secrets.json statt in config.json und damit nicht mehr in Sicherungen. Aus dem Miner erkannte Wallet-Adressen werden erst nach deiner Zustimmung abgefragt. Ohne passendes Geräteprofil gelten vorsichtige Grenzen. Steuer: Restbestand im CSV-Export und Verkäufe ohne Zufluss korrigiert. Windows-Server: Datenordner und Updates nur noch für Administratoren."),
+                null),
         ];
     }
 
