@@ -60,6 +60,31 @@ public class FanControllerTests
     }
 
     [Fact]
+    public void Manual_low_speed_is_overridden_when_the_miner_is_too_hot()
+    {
+        // Audit H3: manuell 0 % bei heißem Miner → trotzdem 100 % ab der Volllast-Temperatur der Kurve (70 °C)
+        var c = new FanController();
+        var s = Settings(x => { x.Channel(1).Mode = "manual"; x.Channel(1).ManualPercent = 0; });
+        Assert.Equal(0, c.Compute(s, [M("10.0.0.1", 60)], Now)[0].Percent);
+        var hot = c.Compute(s, [M("10.0.0.1", 72)], Now)[0];
+        Assert.Equal(100, hot.Percent);
+        Assert.True(hot.SafetyOverride);
+        Assert.Contains("Sicherheit", hot.Reason);
+        Assert.Equal(0, c.Compute(s, [M("10.0.0.1", 65)], Now)[0].Percent);   // wieder kühl: manueller Wert
+    }
+
+    [Fact]
+    public void Manual_case_fans_go_full_when_the_case_sensor_is_too_hot()
+    {
+        var c = new FanController();
+        var s = Settings(x => { x.Channel(1).Role = "case"; x.Case.Mode = "manual"; x.Case.ManualPercent = 20; x.Case.Sensor = "case"; });
+        c.CaseTemperature = 30;
+        Assert.Equal(20, c.Compute(s, [], Now)[0].Percent);
+        c.CaseTemperature = s.Case.Curve.FullTemp + 1;
+        Assert.Equal(100, c.Compute(s, [], Now)[0].Percent);
+    }
+
+    [Fact]
     public void Missing_vr_uses_asic_temperature()
     {
         var t = new FanController().Compute(Settings(), [new MinerTemps("10.0.0.1", "A", true, null, 60, Now)], Now)[0];
@@ -158,9 +183,16 @@ internal sealed class FakePico : ILineTransport
         _in.Append(ch);
     }
 
+    /// <summary>Wie oft das Aufspielen den Hardware-Watchdog gefüttert hat; Schritte ohne Füttern.</summary>
+    public int WatchdogFeeds { get; private set; }
+    public int StepsWithoutFeed { get; private set; }
+
     private void ExecRaw(string code)
     {
         code = code.TrimStart('\r');
+        if (code == "import machine;w=machine.WDT(timeout=8000)") { _out.Append("OK\x04\x04>"); return; }
+        if (code.StartsWith("w.feed();", StringComparison.Ordinal)) { WatchdogFeeds++; code = code["w.feed();".Length..]; }
+        else StepsWithoutFeed++;
         if (code == "f=open('main.py','w')") _file.Clear();
         else if (code == "f.close()") MainPy = _file.ToString();
         else
@@ -204,6 +236,11 @@ public class PicoProtocolTests
         using var device = PicoFanDevice.Connect(pico, "/dev/ttyACM0", log.Add);
 
         Assert.Equal(PicoFanDevice.Firmware, pico.MainPy);          // Datei byte-genau übertragen
+        // Audit H2: Der Hardware-Watchdog läuft auch beim Aufspielen – jeder Schreibschritt füttert ihn
+        Assert.Equal(0, pico.StepsWithoutFeed);
+        Assert.True(pico.WatchdogFeeds > 2);
+        Assert.Contains("machine.WDT(timeout=8000)", PicoFanDevice.Firmware);
+        Assert.Contains("wdt.feed()", PicoFanDevice.Firmware);
         Assert.Contains(log, l => l.Contains("wird aufgespielt"));
         Assert.Contains("v" + PicoFanDevice.FirmwareVersion, device.Description);
 
@@ -244,6 +281,7 @@ public class FanHubTests
         config.Fans.Channel(1).MinerHost = "10.0.9.1";
         config.Fans.Channel(1).Mode = "manual";
         config.Fans.Channel(1).ManualPercent = 45;
+        config.Fans.Channel(1).Curve.FullTemp = 95;   // simulierter VR ist warm – Sicherheitsgrenze (Audit H3) hier nicht erreichen
         config.Fans.Channel(4).Role = "case";
         using var hub = new MinerHub(config, new MinerHubOptions
         {

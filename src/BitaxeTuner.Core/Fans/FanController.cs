@@ -83,9 +83,16 @@ public sealed class FanController
                 ? Remember(c.Channel, 100, L.T("Sicherheit: {0} °C trotz „Aus“ → 100 %", t.ToString("0.0", De))) with { SafetyOverride = true }
                 : Remember(c.Channel, 0, L.T("aus (Taste)"));
         }
-        if (c.Mode == "manual") return Remember(c.Channel, Clamp(c.ManualPercent), L.T("manuell {0} %", Clamp(c.ManualPercent)));
-
         var (temp, label) = m.VrTemp is { } vr and > 0 ? (vr, L.T("VR")) : m.AsicTemp is { } a and > 0 ? (a, L.T("ASIC")) : (double.NaN, "");
+        if (c.Mode == "manual")
+        {
+            // Auch manuell: ab der 100-%-Temperatur der Kurve volle Drehzahl (sonst ginge z. B. 0 % bei heißem Miner – Audit H3)
+            var manual = Clamp(c.ManualPercent);
+            return !double.IsNaN(temp) && temp >= c.Curve.FullTemp && manual < 100
+                ? Remember(c.Channel, 100, L.T("Sicherheit: {0} {1} °C trotz „manuell {2} %“ → 100 %", label, temp.ToString("0.0", De), manual)) with { SafetyOverride = true }
+                : Remember(c.Channel, manual, L.T("manuell {0} %", manual));
+        }
+
         if (double.IsNaN(temp)) return Remember(c.Channel, 100, L.T("keine Temperatur → 100 %"));
         var pct = WithHysteresis(c.Channel, c.Curve, temp);
         return Remember(c.Channel, pct, L.T("Automatik: {0} {1} °C → {2} %", label, temp.ToString("0.0", De), pct));
@@ -96,7 +103,13 @@ public sealed class FanController
         const int groupKey = 0; // Hysterese-Zustand der Gruppe
         if (Override == FanOverride.Full) return new FanTarget(channel, 100, L.T("100 % (Taste)"));
         if (s.Mode == "manual" && Override == FanOverride.None)
-            return new FanTarget(channel, Clamp(s.ManualPercent), L.T("Gehäuse manuell {0} %", Clamp(s.ManualPercent)));
+        {
+            // Auch manuell: ist der Gehäusefühler über der 100-%-Temperatur, volle Drehzahl (Audit H3)
+            var manual = Clamp(s.ManualPercent);
+            return s.Sensor == "case" && CaseTemperature is { } hot && hot >= s.Curve.FullTemp && manual < 100
+                ? new FanTarget(channel, 100, L.T("Sicherheit: Gehäuse {0} °C trotz „manuell {1} %“ → 100 %", hot.ToString("0.0", De), manual), true)
+                : new FanTarget(channel, manual, L.T("Gehäuse manuell {0} %", manual));
+        }
 
         if (s.Sensor == "case")
         {

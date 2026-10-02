@@ -94,7 +94,7 @@ public sealed class SerialLineTransport : ILineTransport
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "5";
+    public const string FirmwareVersion = "6";
     public const int ImageBytes = 2 * 800 * 480 / 8;
     private readonly ILineTransport _io;
     private readonly object _lock = new();
@@ -174,10 +174,13 @@ public sealed class PicoFanDevice : IFanDevice
                 throw new IOException(L.T("Fehler beim Aufspielen: ") + (parts.Length > 1 ? parts[1].Trim() : reply));
         }
 
-        Exec("f=open('main.py','w')");
+        // Ab Programm v6 läuft der Hardware-Watchdog des Pico (8 s) und lässt sich nicht anhalten – auch nicht im
+        // Raw-REPL. Deshalb bei jedem Schritt füttern, sonst startet der Pico mitten im Schreiben neu.
+        Exec("import machine;w=machine.WDT(timeout=8000)");
+        Exec("w.feed();f=open('main.py','w')");
         for (var i = 0; i < source.Length; i += 192)
-            Exec("f.write(" + PyString(source.Substring(i, Math.Min(192, source.Length - i))) + ")");
-        Exec("f.close()");
+            Exec("w.feed();f.write(" + PyString(source.Substring(i, Math.Min(192, source.Length - i))) + ")");
+        Exec("w.feed();f.close()");
         io.Write("\x02"); // Raw-REPL verlassen
         Thread.Sleep(100);
         io.Write("\x04"); // Soft-Reset → main.py startet

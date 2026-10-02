@@ -9,7 +9,9 @@
 # Temperatures: DS18B20 on GP26 (1-Wire, one 4.7k pull-up to 3V3); several sensors in parallel on one wire,
 # each reported with its unique 64-bit ROM id (so names like "PSU" / "miner room" never mix up).
 #
-# Protocol (USB serial, one command per line, every line resets the watchdog):
+# Protocol (USB serial, one command per line). Fan watchdog: only SET/GET/HELLO count as a sign of life of the fan
+# control; other lines (e.g. image data) keep only the "server lost" display timer alive.
+# Hardware watchdog (machine.WDT, 8 s): if this program hangs, the Pico restarts; on start all fans run at 100 %.
 #   HELLO                -> OK BTFAN <version> <channels>
 #   SET p1 .. p6         -> RPM r1 .. r6 [T id=t id=t ..]   (fan percent 0..100; T = DS18B20 ROM id (hex) = deg C)
 #   GET                  -> RPM r1 .. r6 [T id=t id=t ..]
@@ -28,7 +30,7 @@ import machine
 import ubinascii
 from machine import Pin, PWM
 
-VERSION = "5"
+VERSION = "6"
 PWM_PINS = (0, 2, 4, 6, 8, 10)
 TACH_PINS = (16, 17, 18, 19, 20, 21)
 BUTTON_PINS = (1, 3, 5, 7)
@@ -318,12 +320,14 @@ def draw_server_lost():
 
 
 def handle(line):
-    global last_cmd, failsafe, img, img_pos, img_len
+    global last_cmd, last_fan, failsafe, img, img_pos, img_len
     parts = line.strip().split()
     if not parts:
         return
     cmd = parts[0].upper()
     last_cmd = time.ticks_ms()
+    if cmd in ("SET", "GET", "HELLO"):
+        last_fan = last_cmd
     if cmd == "D":
         if img is not None and len(parts) > 1:
             try:
@@ -381,11 +385,15 @@ poll = select.poll()
 poll.register(sys.stdin, select.POLLIN)
 buf = ""
 last_cmd = time.ticks_ms()
+last_fan = last_cmd
 failsafe = True
 last_rpm = time.ticks_ms()
+# Hardware watchdog: cannot be stopped once started (also not by Ctrl-C); the server feeds it while installing.
+wdt = machine.WDT(timeout=8000)
 
 try:
     while True:
+        wdt.feed()
         # read everything that is waiting (image transfers are large)
         budget = 600
         while budget > 0 and poll.poll(0 if budget < 600 else 20):
@@ -408,7 +416,7 @@ try:
             for i in range(N):
                 rpm[i] = snap[i] * 60000 // (PULSES_PER_REV * dt)
             last_rpm = now
-        if not failsafe and time.ticks_diff(now, last_cmd) > WATCHDOG_MS:
+        if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS:
             all_full()
             failsafe = True
         poll_buttons(now)

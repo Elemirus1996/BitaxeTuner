@@ -550,6 +550,7 @@
       <li><b>First the USB charger, then one fan on Ch1:</b> without the Pico it must run at full speed right away. That's the fail-safe, which works here even without software.</li>
       <li><b>Plug the Pico into the Pi 3 via USB.</b> The server detects it, uploads the fan program and takes over control; the speed appears in the interface.</li>
       <li><b>Assign the fans</b> (Fans &amp; display) and connect the remaining channels.</li>
+      <li><b>Good to know:</b> from fan program v6 a hardware watchdog supervises the Pico. If its program hangs, it restarts after 8 seconds, and until then the fans run at full speed. If you open the Pico with Thonny or a terminal for tinkering, you will therefore see a restart every few seconds &ndash; for tinkering, flash MicroPython again first (BOOTSEL + UF2); the server installs the fan program again afterwards.</li>
     </ol>
   </section>
 
