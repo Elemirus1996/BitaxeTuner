@@ -464,7 +464,8 @@ function renderOverview() {
       tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
       tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
       s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 2)), s.price.source) : null),
-    h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
+    // Ansicht-Zugang mit Gruppen: kein Gesamtverlauf über alle Miner (der Server liefert ihn dann nicht)
+    S.viewGroups?.length ? null : h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.whatsNew ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
     groupChips(s.groups, s.devices, renderOverview),
@@ -483,7 +484,7 @@ function renderOverview() {
           run(() => api('/admin/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
         },
       }, t('Fortsetzen …')) : null) : null));
-  drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+  if (!S.viewGroups?.length) drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
 }
 
 /** Monats- und Jahresberichte: Zusammenfassung, druckbare Seite (PDF über „Drucken“), CSV, Push. */
@@ -1436,7 +1437,7 @@ function tabResults() {
     }, label, h('span', { class: 'arrow', 'aria-hidden': 'true' }, active ? (so.dir > 0 ? '▲' : '▼') : '↕')));
   };
   return h('div', { class: 'stack' },
-    h('div', { class: 'tiles' }, bestCard(t('Beste Hashrate'), s.ranking.hashrate, t('Hashrate')), bestCard(t('Beste Effizienz'), s.ranking.efficiency, t('Effizienz')),
+    h('div', { class: 'tiles wide' }, bestCard(t('Beste Hashrate'), s.ranking.hashrate, t('Hashrate')), bestCard(t('Beste Effizienz'), s.ranking.efficiency, t('Effizienz')),
       bestCard(t('Ausgewogen'), s.ranking.balanced, t('Ausgewogen'))),
     h('div', { class: 'card' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Lauf vom {0}', time(s.startedAt))), h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, s.finishReason || (s.isFinished ? t('abgeschlossen') : t('nicht abgeschlossen')))),
@@ -2019,7 +2020,7 @@ async function renderFans() {
   const display = await run(() => api('/display'));
   const parts = [h('div', { class: 'card stack' }, h('h2', {}, t('Zusatzlüfter')), status)];
   if (isAdmin()) parts.push(quickActions(data.status, display));
-  if (display) parts.push(displayCard(display));
+  if (display?.status) parts.push(displayCard(display));   // Ansicht-Zugang mit Gruppen: keine E-Paper-Anzeige (Summen über alle Miner)
   if (isAdmin()) parts.push(fanEditor(data));
   else parts.push(h('p', { class: 'muted small' }, t('Einstellungen ändern kann nur der Admin.')));
   mount(h('div', { class: 'stack' }, parts));

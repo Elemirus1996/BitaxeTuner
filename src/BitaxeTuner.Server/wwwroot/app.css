@@ -234,3 +234,5 @@ table.journal td.msg { white-space: normal; min-width: 280px; }
 table.journal tr.clickable { cursor: pointer; }
 table.journal tr.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 table.journal tr.explain td { background: var(--alt); white-space: normal; padding: 10px 14px; border-left: 3px solid var(--accent); }
+/* Bestwerte der Benchmark-Ergebnisse: Frequenz/Spannung und zwei Knöpfe brauchen mehr Platz */
+.tiles.wide { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
