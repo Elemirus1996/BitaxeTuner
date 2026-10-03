@@ -54,7 +54,10 @@ public sealed class ProfileRegistry
         return new ProfileRegistry(profiles);
     }
 
-    private static readonly string[] LegacyResources = ["BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json"];
+    // Frühere Stände der eingebauten Profile (0.1.0; 0.2.0 bis 0.9.2). Eine unveränderte Kopie davon in profiles.json
+    // (entsteht durch „Profile bearbeiten“) darf korrigierte eingebaute Werte nicht überdecken – z. B. GammaDuo 0.9.3.
+    private static readonly string[] LegacyResources =
+        ["BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json", "BitaxeTuner.Core.Profiles.DeviceProfiles.legacy.json"];
 
     private static List<DeviceProfile> LoadLegacyBuiltIns()
     {

@@ -1,0 +1,564 @@
+[
+ {
+  "Id": "bitaxe-max",
+  "Name": "Bitaxe Max (BM1397)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1397",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 672,
+  "DefaultFrequencyMhz": 425,
+  "DefaultVoltageMv": 1400,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 600,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1500,
+  "MaxChipTempC": 65,
+  "MaxVrTempC": 85,
+  "MaxPowerW": 20,
+  "MinInputVoltageMv": 4800,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "Max"
+  ],
+  "BoardVersions": [
+   "2.2",
+   "102"
+  ],
+  "Notes": "ESP-Miner: Board 2.2/102, Firmware-Leistungsbudget 25 W, Spannung 1100–1500 mV."
+ },
+ {
+  "Id": "bitaxe-ultra",
+  "Name": "Bitaxe Ultra (BM1366)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1366",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 894,
+  "DefaultFrequencyMhz": 485,
+  "DefaultVoltageMv": 1200,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 650,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 25,
+  "MinInputVoltageMv": 4800,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "Ultra"
+  ],
+  "BoardVersions": [
+   "20",
+   "0.11"
+  ],
+  "Notes": "ESP-Miner: Board 0.11, 201–205, 207, Firmware-Leistungsbudget 25 W."
+ },
+ {
+  "Id": "bitaxe-supra",
+  "Name": "Bitaxe Supra (BM1368)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1368",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 1276,
+  "DefaultFrequencyMhz": 490,
+  "DefaultVoltageMv": 1166,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 700,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 30,
+  "MinInputVoltageMv": 4800,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "Supra"
+  ],
+  "BoardVersions": [
+   "40"
+  ],
+  "Notes": "ESP-Miner: Board 400–403, Firmware-Leistungsbudget 40 W."
+ },
+ {
+  "Id": "bitaxe-gamma",
+  "Name": "Bitaxe Gamma (BM1370)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 525,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 1000,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 30,
+  "MinInputVoltageMv": 4800,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "Gamma"
+  ],
+  "BoardVersions": [
+   "60"
+  ],
+  "Notes": "ESP-Miner: Board 600–603, Firmware-Leistungsbudget 40 W, Auswahlliste 400–690 MHz / 1000–1250 mV (darüber nur mit Overclocking-Modus)."
+ },
+ {
+  "Id": "bitaxe-duo",
+  "Name": "Bitaxe Gamma Duo (2× BM1370)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 2,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 525,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1250,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 40,
+  "DeviceModelMatches": [
+   "GammaDuo",
+   "Gamma Duo"
+  ],
+  "BoardVersions": [
+   "650"
+  ],
+  "Notes": "ESP-Miner: Board 650, ASIC-Variante BM1370XP, Firmware-Leistungsbudget 40 W für beide Chips zusammen."
+ },
+ {
+  "Id": "bitaxe-gt",
+  "Name": "Bitaxe GT / Gamma Turbo (2× BM1370)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 2,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 525,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 900,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 60,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "GammaTurbo",
+   "Gamma Turbo"
+  ],
+  "BoardVersions": [
+   "80"
+  ],
+  "Notes": "ESP-Miner: Board 801, Firmware-Leistungsbudget 60 W."
+ },
+ {
+  "Id": "bitaxe-gammahex",
+  "Name": "Bitaxe Gamma Hex (6× BM1370)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 6,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 525,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 700,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1250,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 150,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "GammaHex",
+   "Gamma Hex"
+  ],
+  "BoardVersions": [
+   "1300"
+  ],
+  "Notes": "ESP-Miner: Board 1300, Firmware-Leistungsbudget 180 W. Grenzen vorläufig (keine Messwerte bekannt) – Netzteil prüfen."
+ },
+ {
+  "Id": "bitaxe-najaduo",
+  "Name": "Bitaxe Naja Duo (2× BM1373)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1373",
+  "AsicCount": 2,
+  "SmallCoresPerAsic": 6725,
+  "DefaultFrequencyMhz": 327,
+  "DefaultVoltageMv": 1000,
+  "MinFrequencyMhz": 300,
+  "MaxFrequencyMhz": 410,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1100,
+  "MaxChipTempC": 65,
+  "MaxVrTempC": 80,
+  "MaxPowerW": 50,
+  "DeviceModelMatches": [
+   "NajaDuo",
+   "Naja Duo"
+  ],
+  "BoardVersions": [
+   "1201"
+  ],
+  "Notes": "ESP-Miner: Board 1201, Auswahlliste 327–410 MHz, Spannung 1000–1250 mV, Budget 60 W. Obergrenze 1100 mV vorläufig (neuer 3-nm-Chip, kaum Erfahrungswerte)."
+ },
+ {
+  "Id": "bitaxe-hex",
+  "Name": "Bitaxe Hex (6× BM1366)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1366",
+  "AsicCount": 6,
+  "SmallCoresPerAsic": 894,
+  "DefaultFrequencyMhz": 485,
+  "DefaultVoltageMv": 1200,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 600,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 90,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "Hex"
+  ],
+  "BoardVersions": [
+   "30"
+  ],
+  "Notes": "ESP-Miner: Board 302/303, Firmware-Leistungsbudget 90 W."
+ },
+ {
+  "Id": "bitaxe-suprahex",
+  "Name": "Bitaxe SupraHex (6× BM1368)",
+  "Family": "Bitaxe",
+  "AsicModel": "BM1368",
+  "AsicCount": 6,
+  "SmallCoresPerAsic": 1276,
+  "DefaultFrequencyMhz": 490,
+  "DefaultVoltageMv": 1166,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 650,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 110,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "SupraHex"
+  ],
+  "BoardVersions": [
+   "70"
+  ],
+  "Notes": "ESP-Miner: Board 701/702, Firmware-Leistungsbudget 120 W."
+ },
+ {
+  "Id": "nerdaxe",
+  "Name": "NerdAxe (BM1366)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1366",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 894,
+  "DefaultFrequencyMhz": 485,
+  "DefaultVoltageMv": 1200,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 575,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 15,
+  "MinInputVoltageMv": 4500,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "NerdAxe"
+  ],
+  "Notes": "NerdQAxe-Firmware: 400–575 MHz, 1100–1300 mV, max. 15 W, 4,5–5,5 V."
+ },
+ {
+  "Id": "nerdaxe-gamma",
+  "Name": "NerdAxe Gamma (BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 515,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 25,
+  "MinInputVoltageMv": 4500,
+  "MaxInputVoltageMv": 5500,
+  "DeviceModelMatches": [
+   "NerdAxeGamma",
+   "NerdAxe Gamma",
+   "NerdAxe-Gamma"
+  ],
+  "Notes": "NerdQAxe-Firmware: Auswahlliste 500–575 MHz / 1120–1200 mV, max. 25 W, 6 A, 4,5–5,5 V."
+ },
+ {
+  "Id": "nerdaxe-gaia",
+  "Name": "NerdAxe Gaia (BM1373)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1373",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 6860,
+  "DefaultFrequencyMhz": 350,
+  "DefaultVoltageMv": 940,
+  "MinFrequencyMhz": 300,
+  "MaxFrequencyMhz": 420,
+  "MinVoltageMv": 900,
+  "MaxVoltageMv": 1040,
+  "MaxChipTempC": 65,
+  "MaxVrTempC": 78,
+  "MaxPowerW": 38,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdAxeGaia",
+   "NerdAxe Gaia",
+   "Gaia"
+  ],
+  "Notes": "NerdQAxe-Firmware ab 1.1.0. Firmware erlaubt 300–440 MHz / 900–1040 mV. 440 MHz/970 mV ließ den Spannungsregler ausfallen (Neustart nötig, Issue #709) – daher max. 420 MHz. Stabil gemeldet: 400/960 (2,7 TH/s, 34 W), 420/960 (36 W, VR 72 °C)."
+ },
+ {
+  "Id": "nerdqaxe-plus",
+  "Name": "NerdQAxe+ (4× BM1368)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1368",
+  "AsicCount": 4,
+  "SmallCoresPerAsic": 1276,
+  "DefaultFrequencyMhz": 490,
+  "DefaultVoltageMv": 1250,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 575,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 70,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdQAxe+"
+  ],
+  "Notes": "NerdQAxe-Firmware: 400–575 MHz, 1100–1350 mV (absolut max. 1400), max. 70 W."
+ },
+ {
+  "Id": "nerdqaxe-plusplus",
+  "Name": "NerdQAxe++ (4× BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 4,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 600,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 500,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 100,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdQAxe++"
+  ],
+  "Notes": "NerdQAxe-Firmware: Auswahlliste 500–600 MHz / 1120–1200 mV, absolut max. 800 MHz / 1400 mV, max. 100 W, 8 A."
+ },
+ {
+  "Id": "nerdhaxe-gamma",
+  "Name": "NerdHaxe-γ (6× BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 6,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 600,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 500,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 200,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdHaxe"
+  ],
+  "Notes": "NerdQAxe-Firmware: Basis NerdQAxe++ (4 Phasen), max. 250 W, 15 A."
+ },
+ {
+  "Id": "nerdoctaxe",
+  "Name": "NerdOctaxe-γ (8× BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 8,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 700,
+  "DefaultVoltageMv": 1210,
+  "MinFrequencyMhz": 525,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1120,
+  "MaxVoltageMv": 1260,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 220,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdOCTAXE-γ",
+   "Octaxe",
+   "NerdOCTAXE"
+  ],
+  "Notes": "NerdQAxe-Firmware: 525–800 MHz, 1120–1260 mV. Absolut max. 850 MHz (6-Phasen-Regler TPS53667, 300 W) bzw. 800 MHz (4-Phasen TPS53647, 250 W) – hier die kleinere Variante."
+ },
+ {
+  "Id": "nerdoctaxe-plus",
+  "Name": "NerdOctaxe+ (8× BM1368)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1368",
+  "AsicCount": 8,
+  "SmallCoresPerAsic": 1276,
+  "DefaultFrequencyMhz": 490,
+  "DefaultVoltageMv": 1250,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 575,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 120,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdOCTAXE+"
+  ],
+  "Notes": "NerdQAxe-Firmware: Basis NerdQAxe+, max. 130 W, 15 A."
+ },
+ {
+  "Id": "nerdeko",
+  "Name": "NerdEKO (12× BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 12,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 600,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 500,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 300,
+  "MinInputVoltageMv": 8000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdEKO"
+  ],
+  "Notes": "NerdQAxe-Firmware: 6 Phasen (TPS53667), max. 350 W, 25 A, 8–13 V. Frequenz-/Spannungsgrenzen von NerdQAxe++ übernommen (in der Firmware nicht eigens gesetzt)."
+ },
+ {
+  "Id": "nerdqx",
+  "Name": "NerdQX (BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 4,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 777,
+  "DefaultVoltageMv": 1200,
+  "MinFrequencyMhz": 495,
+  "MaxFrequencyMhz": 1000,
+  "MinVoltageMv": 1085,
+  "MaxVoltageMv": 1350,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 200,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "NerdQX"
+  ],
+  "Notes": "NerdQAxe-Firmware: 495–1000 MHz, 1085–1350 mV, max. 240 W, 20 A. Chipanzahl nicht eigens angegeben (4 aus der Basisklasse) – die App übernimmt den Wert, den das Gerät meldet."
+ },
+ {
+  "Id": "generic",
+  "Name": "Generisch / unbekannt",
+  "Family": "Andere",
+  "AsicModel": "",
+  "AsicCount": 1,
+  "SmallCoresPerAsic": 0,
+  "DefaultFrequencyMhz": 500,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 400,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1000,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 65,
+  "MaxVrTempC": 85,
+  "MaxPowerW": 25,
+  "Notes": "Konservative Grenzen. Bitte prüfen, bevor ein Benchmark gestartet wird."
+ },
+ {
+  "Id": "q1370",
+  "Name": "Q1370 (4× BM1370)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1370",
+  "AsicCount": 4,
+  "SmallCoresPerAsic": 2040,
+  "DefaultFrequencyMhz": 600,
+  "DefaultVoltageMv": 1150,
+  "MinFrequencyMhz": 500,
+  "MaxFrequencyMhz": 800,
+  "MinVoltageMv": 1100,
+  "MaxVoltageMv": 1300,
+  "MaxChipTempC": 66,
+  "MaxVrTempC": 86,
+  "MaxPowerW": 150,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "Q1370"
+  ],
+  "Notes": "Grenzen vorläufig. NerdQAxe-Firmware (Zweig develop, main/boards/q1370.cpp): Auswahlliste 500–600 MHz / 1120–1200 mV, absolut max. 1200 MHz / 1400 mV, 4 Phasen, max. 150 W. Hier wie NerdQAxe++ auf 800 MHz / 1300 mV begrenzt."
+ },
+ {
+  "Id": "q1373",
+  "Name": "Q1373 (4× BM1373)",
+  "Family": "NerdAxe",
+  "AsicModel": "BM1373",
+  "AsicCount": 4,
+  "SmallCoresPerAsic": 6860,
+  "DefaultFrequencyMhz": 425,
+  "DefaultVoltageMv": 1010,
+  "MinFrequencyMhz": 350,
+  "MaxFrequencyMhz": 550,
+  "MinVoltageMv": 980,
+  "MaxVoltageMv": 1100,
+  "MaxChipTempC": 65,
+  "MaxVrTempC": 80,
+  "MaxPowerW": 180,
+  "MinInputVoltageMv": 11000,
+  "MaxInputVoltageMv": 13000,
+  "DeviceModelMatches": [
+   "Q1373"
+  ],
+  "Notes": "Grenzen vorläufig. NerdQAxe-Firmware (Zweig develop, main/boards/q1373.cpp): Auswahlliste 250–550 MHz / 980–1080 mV, absolut max. 730 MHz / 1200 mV, 4 Phasen max. 180 W (6-Phasen-Variante mehr). Begrenzt auf die Auswahlliste, weil BM1373-Spannungsregler bei höheren Werten ausfallen können (vgl. NerdAxe Gaia)."
+ }
+]

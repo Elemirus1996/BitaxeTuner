@@ -14,6 +14,7 @@
     <EmbeddedResource Include="Profiles\DeviceProfiles.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.json" />
     <!-- Eingebaute Profile früherer Versionen: unveränderte Kopien in der Nutzerdatei sollen neue Werte nicht überdecken -->
     <EmbeddedResource Include="Profiles\DeviceProfiles.v0.1.0.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.v0.1.0.json" />
+    <EmbeddedResource Include="Profiles\DeviceProfiles.legacy.json" LogicalName="BitaxeTuner.Core.Profiles.DeviceProfiles.legacy.json" />
   </ItemGroup>
 
   <ItemGroup>

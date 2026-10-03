@@ -105,6 +105,34 @@ public class ParsingAndProfileTests
     }
 
     [Fact]
+    public void Gamma_duo_uses_the_limits_of_its_bm1370xp_variant()
+    {
+        // ESP-Miner device_config.h: Board 650 = BM1370XP, Auswahlliste 350–410 MHz, Standard 400 MHz (geprüft 03.10.2026)
+        var duo = new ProfileRegistry(ProfileRegistry.LoadBuiltIn()).Match(Parse("""{"ASICModel":"BM1370","boardVersion":"650","asicCount":2}"""));
+        Assert.Equal("bitaxe-duo", duo.Id);
+        Assert.Equal((350, 410, 400), (duo.MinFrequencyMhz, duo.MaxFrequencyMhz, duo.DefaultFrequencyMhz));
+        Assert.Equal((1000, 1250), (duo.MinVoltageMv, duo.MaxVoltageMv));
+    }
+
+    [Fact]
+    public void Unchanged_copy_of_older_built_in_profiles_does_not_hide_corrected_limits()
+    {
+        // profiles.json aus „Profile bearbeiten“ mit dem GammaDuo-Stand bis 0.9.2 (400–800 MHz) → korrigierte Werte gelten
+        using var dir = new TempDir();
+        var old = """
+            [{"Id":"bitaxe-duo","Name":"Bitaxe Gamma Duo (2× BM1370)","Family":"Bitaxe","AsicModel":"BM1370","AsicCount":2,"SmallCoresPerAsic":2040,
+            "DefaultFrequencyMhz":525,"DefaultVoltageMv":1150,"MinFrequencyMhz":400,"MaxFrequencyMhz":800,"MinVoltageMv":1000,"MaxVoltageMv":1250,
+            "MaxChipTempC":66,"MaxVrTempC":86,"MaxPowerW":40,"DeviceModelMatches":["GammaDuo","Gamma Duo"],"BoardVersions":["650"],
+            "Notes":"ESP-Miner: Board 650, ASIC-Variante BM1370XP, Firmware-Leistungsbudget 40 W für beide Chips zusammen."}]
+            """;
+        File.WriteAllText(dir.File("profiles.json"), old);
+        Assert.Equal(410, ProfileRegistry.Load(dir.Path).Profiles.First(p => p.Id == "bitaxe-duo").MaxFrequencyMhz);
+        // selbst geändert (z. B. Chipgrenze 60 °C) → bleibt
+        File.WriteAllText(dir.File("profiles.json"), old.Replace("\"MaxChipTempC\":66", "\"MaxChipTempC\":60"));
+        Assert.Equal(800, ProfileRegistry.Load(dir.Path).Profiles.First(p => p.Id == "bitaxe-duo").MaxFrequencyMhz);
+    }
+
+    [Fact]
     public void Known_asic_without_exact_profile_gets_the_tightest_limits_of_its_family()
     {
         // BM1373 mit einer ASIC-Anzahl, für die es kein Profil gibt: nie die allgemeinen 1300 mV / 800 MHz (Audit H1)

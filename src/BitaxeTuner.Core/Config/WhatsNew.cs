@@ -108,6 +108,9 @@ public static class WhatsNew
             new("0.9.3", tr.T("Mehr Sicherheit bei Lüftern und Benchmark"),
                 tr.T("Pico-Lüfterprogramm v6 mit Hardware-Watchdog; auch manuell eingestellte Lüfter laufen bei zu heißem Miner mit voller Drehzahl; Benchmark-Grenzen über dem Geräteprofil werden in der Bestätigung deutlich genannt; Lüfterwerte aus Sicherungen und Übertragungen werden geprüft."),
                 null),
+            new("0.9.3", tr.T("Geräteprofile geprüft"),
+                tr.T("Alle Profile mit der aktuellen Firmware (ESP-Miner, NerdQAxe+) abgeglichen: Die Bitaxe GammaDuo hat die Chip-Variante BM1370XP und erlaubt jetzt 350–410 MHz statt bis 800 MHz; Standardwerte der GammaHex wie in der Firmware. Keine neuen Modelle."),
+                null),
         ];
     }
 

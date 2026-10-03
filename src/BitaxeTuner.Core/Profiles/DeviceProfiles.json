@@ -38,11 +38,11 @@
   {
     "Id": "bitaxe-duo", "Name": "Bitaxe Gamma Duo (2× BM1370)", "Family": "Bitaxe",
     "AsicModel": "BM1370", "AsicCount": 2, "SmallCoresPerAsic": 2040,
-    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
-    "MinFrequencyMhz": 400, "MaxFrequencyMhz": 800, "MinVoltageMv": 1000, "MaxVoltageMv": 1250,
+    "DefaultFrequencyMhz": 400, "DefaultVoltageMv": 1150,
+    "MinFrequencyMhz": 350, "MaxFrequencyMhz": 410, "MinVoltageMv": 1000, "MaxVoltageMv": 1250,
     "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 40,
     "DeviceModelMatches": [ "GammaDuo", "Gamma Duo" ], "BoardVersions": [ "650" ],
-    "Notes": "ESP-Miner: Board 650, ASIC-Variante BM1370XP, Firmware-Leistungsbudget 40 W für beide Chips zusammen."
+    "Notes": "ESP-Miner (device_config.h, geprüft 03.10.2026): Board 650, ASIC-Variante BM1370XP mit eigener Auswahlliste 350/375/380/400/410 MHz, Standard 400 MHz / 1150 mV, Spannung 1000–1250 mV, Firmware-Leistungsbudget 40 W für beide Chips zusammen. Bis 0.9.2 stand hier fälschlich 400–800 MHz (Werte der normalen BM1370); über 410 MHz keine geprüften Erfahrungswerte, daher kein Spielraum."
   },
   {
     "Id": "bitaxe-gt", "Name": "Bitaxe GT / Gamma Turbo (2× BM1370)", "Family": "Bitaxe",
@@ -56,11 +56,11 @@
   {
     "Id": "bitaxe-gammahex", "Name": "Bitaxe Gamma Hex (6× BM1370)", "Family": "Bitaxe",
     "AsicModel": "BM1370", "AsicCount": 6, "SmallCoresPerAsic": 2040,
-    "DefaultFrequencyMhz": 525, "DefaultVoltageMv": 1150,
+    "DefaultFrequencyMhz": 690, "DefaultVoltageMv": 1200,
     "MinFrequencyMhz": 400, "MaxFrequencyMhz": 700, "MinVoltageMv": 1000, "MaxVoltageMv": 1250,
     "MaxChipTempC": 66, "MaxVrTempC": 86, "MaxPowerW": 150, "MinInputVoltageMv": 11000, "MaxInputVoltageMv": 13000,
     "DeviceModelMatches": [ "GammaHex", "Gamma Hex" ], "BoardVersions": [ "1300" ],
-    "Notes": "ESP-Miner: Board 1300, Firmware-Leistungsbudget 180 W. Grenzen vorläufig (keine Messwerte bekannt) – Netzteil prüfen."
+    "Notes": "ESP-Miner (geprüft 03.10.2026): Board 1300, ASIC-Variante BM1370_HEX mit Standard 690 MHz / 1200 mV (Auswahlliste 400–690 MHz / 1000–1250 mV), Firmware-Leistungsbudget 180 W. Grenzen vorläufig (keine Messwerte bekannt) – Netzteil prüfen."
   },
   {
     "Id": "bitaxe-najaduo", "Name": "Bitaxe Naja Duo (2× BM1373)", "Family": "Bitaxe",
