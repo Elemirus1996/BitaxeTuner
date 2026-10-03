@@ -108,6 +108,12 @@ public sealed partial class MinerHub
                 CloseFanDevice();
                 _fanNextConnect = DateTime.Now.AddSeconds(5);
             }
+            if (_displayDevice is { } display)
+            {
+                try { await display.ResetAsync(); } catch { /* Pico startet ohnehin neu oder ist weg */ }
+                CloseDisplayDevice();
+                _displayNextConnect = DateTime.Now.AddSeconds(5);
+            }
             if (Config.Display.AllowSystemReboot && Options.SystemReboot is { } reboot)
             {
                 RaiseStatus(true, L.T("Rechner wird neu gestartet …"));
@@ -160,9 +166,9 @@ public sealed partial class MinerHub
         var due = routineDue || _displayRequested || _displayUserRequested || alarmKey != _displayAlarmKey;
         var earliest = DisplayEarliest(now);
         DateTime? next = due ? (earliest > now ? earliest : now) : _displayShown + interval;
-        DisplayStatus = new DisplayStatus(true, _fanDevice is not null, _displayShown, next, _displayError, _displayRefreshing);
+        DisplayStatus = new DisplayStatus(true, DisplayPico is not null, _displayShown, next, _displayError ?? DisplayDeviceError, _displayRefreshing);
 
-        if (!due || now < earliest || _displayBusy || _fanDevice is not { } pico) return;
+        if (!due || now < earliest || _displayBusy || DisplayPico is not { } pico) return;
         _displayBusy = true;
         try
         {
@@ -188,7 +194,7 @@ public sealed partial class MinerHub
         finally
         {
             _displayBusy = false;
-            DisplayStatus = new DisplayStatus(true, _fanDevice is not null, _displayShown, _displayShown + DisplayMinGap, _displayError, _displayRefreshing);
+            DisplayStatus = new DisplayStatus(true, DisplayPico is not null, _displayShown, _displayShown + DisplayMinGap, _displayError ?? DisplayDeviceError, _displayRefreshing);
         }
     }
 
@@ -232,6 +238,9 @@ public sealed partial class MinerHub
             _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? L.T("Automatik · Gehäuse {0} %", caseFan.Percent) : L.T("Automatik"),
         };
         return new DisplayModel(Config.Display.Title, now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
-            Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps);
+            Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps)
+        {
+            Inverted = Config.Display.Inverted,
+        };
     }
 }

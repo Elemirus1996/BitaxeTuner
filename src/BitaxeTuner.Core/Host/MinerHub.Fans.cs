@@ -56,7 +56,8 @@ public sealed partial class MinerHub
     public async Task ApplyFanSettingsAsync(bool reinstallFirmware = false)
     {
         CloseFanDevice();
-        _fanNextConnect = DateTime.MinValue;
+        CloseDisplayDevice();
+        _fanNextConnect = _displayNextConnect = DateTime.MinValue;
         _fanForceInstall = reinstallFirmware;
         await FanTickAsync();
     }
@@ -69,6 +70,9 @@ public sealed partial class MinerHub
         _fanConnectedSince = null;
     }
 
+    /// <summary>Lüfter-Pico wird gebraucht: für Lüfter oder für eine Anzeige, die an ihm hängt.</summary>
+    private bool NeedFanPico => Config.Fans.Enabled || (Config.Display.Enabled && !Config.Display.OwnDevice);
+
     internal async Task FanTickAsync()
     {
         if (_fanBusy) return;
@@ -77,15 +81,16 @@ public sealed partial class MinerHub
         {
             var settings = Config.Fans;
             var now = Options.Clock?.Invoke() ?? DateTime.Now;
-            // Der Pico wird gebraucht für Lüfter und/oder Anzeige und Taster
-            if (!settings.Enabled && !Config.Display.Enabled)
+            // Der Lüfter-Pico wird gebraucht für Lüfter und/oder eine Anzeige an ihm; ein eigener Display-Pico extra
+            if (!NeedFanPico && _fanDevice is not null) CloseFanDevice();
+            if (!(Config.Display.Enabled && Config.Display.OwnDevice) && _displayDevice is not null) CloseDisplayDevice();
+            if (!NeedFanPico && !(Config.Display.Enabled && Config.Display.OwnDevice))
             {
-                if (_fanDevice is not null) CloseFanDevice();
                 FanStatus = new FanStatus(false, false, null, null, null, []);
                 return;
             }
 
-            if (_fanDevice is null && now >= _fanNextConnect)
+            if (NeedFanPico && _fanDevice is null && now >= _fanNextConnect)
             {
                 try
                 {
@@ -95,6 +100,12 @@ public sealed partial class MinerHub
                     _fanError = null;
                     _fanConnectedSince = now;
                     LogEvent(null, EventCategories.Fans, L.T("Pico verbunden: {0}", _fanDevice.Description));
+                }
+                catch (PicoUpdatedException ex)
+                {
+                    LogEvent(null, EventCategories.Fans, ex.Message);
+                    _fanError = ex.Message;
+                    _fanNextConnect = now.AddSeconds(8);
                 }
                 catch (Exception ex)
                 {
@@ -146,6 +157,7 @@ public sealed partial class MinerHub
             }).ToList();
             if (!settings.Enabled) channels.Clear();
             LogFanChanges(channels);
+            await DisplayDeviceTickAsync(now);
             sensors = SensorStatus(settings, now);
             FanStatus = new FanStatus(settings.Enabled, _fanDevice is not null, _fanDevice?.Description, _fanError, now, channels, FanOverride, sensors)
             {
@@ -212,7 +224,7 @@ public sealed partial class MinerHub
     /// <summary>Eingetragene Fühler plus vorübergehende ("#n") mit aktuellem Wert.</summary>
     private List<TempSensorStatus> SensorStatus(FanSettings settings, DateTime now)
     {
-        double? Current(string id) => _fanDevice is not null && _sensorSeen.TryGetValue(id, out var v) && now - v.Seen <= SensorStale ? v.Temp : null;
+        double? Current(string id) => (_fanDevice is not null || _displayDevice is not null) && _sensorSeen.TryGetValue(id, out var v) && now - v.Seen <= SensorStale ? v.Temp : null;
         var list = settings.Sensors.Select(s =>
         {
             var t = Current(s.Id);
@@ -260,8 +272,20 @@ public sealed partial class MinerHub
 
     private IFanDevice OpenFanDevice(string port, bool forceInstall)
     {
-        if (Options.FanDeviceFactory is { } factory) return factory(port);
+        var s = Config.Fans;
+        if (Options.FanDeviceFactory is { } factory) return factory(s.Connection == "wlan" ? s.NetworkHost : port);
         if (port == "sim") return new SimulatedFanDevice(); // Vorführung/Test ohne Hardware
+        if (s.Connection == "wlan")
+            return OpenNetworkPico(s.NetworkHost, s.NetworkIp, PicoKeyFans, PicoFanDevice.RoleFans, ip => s.NetworkIp = ip);
+        return OpenUsbPico(port, PicoFanDevice.RoleFans, forceInstall);
+    }
+
+    /// <summary>
+    /// Pico per USB suchen und verbinden; nur einer mit passender Rolle wird genommen (ein Display-Pico am selben
+    /// Rechner wird also nie zur Lüftersteuerung und umgekehrt).
+    /// </summary>
+    private IFanDevice OpenUsbPico(string port, string role, bool forceInstall)
+    {
         var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
         if (candidates.Count == 0) throw new IOException(L.T("Kein Pico gefunden (USB-Kabel? Datenkabel statt Ladekabel?)."));
         Exception? last = null;
@@ -271,7 +295,13 @@ public sealed partial class MinerHub
             try
             {
                 io = new SerialLineTransport(name);
-                return PicoFanDevice.Connect(io, name, msg => RaiseStatus(true, L.T("Lüfter: ") + msg), forceInstall);
+                var device = PicoFanDevice.Connect(io, name, msg => RaiseStatus(true, L.T("Lüfter: ") + msg), forceInstall);
+                if (device.Role == role) return device;
+                device.Dispose();
+                io = null;
+                last = new IOException(role == PicoFanDevice.RoleDisplay
+                    ? L.T("Pico an {0} ist als Lüfter-Pico eingerichtet, nicht als Display-Pico.", name)
+                    : L.T("Pico an {0} ist als Display-Pico eingerichtet, nicht für Lüfter.", name));
             }
             catch (Exception ex)
             {
@@ -283,6 +313,193 @@ public sealed partial class MinerHub
             ? L.T("Kein Zugriff auf den seriellen Port (Linux: Benutzer in Gruppe „dialout“).")
             : last?.Message ?? L.T("Pico nicht erreichbar."));
     }
+
+    // ---------- Pico über WLAN ----------
+
+    public const string PicoKeyFans = "pico.fans.key";
+    public const string PicoKeyDisplay = "pico.display.key";
+
+    /// <summary>
+    /// Pico über WLAN verbinden: erst Gerätename, bei Fehlschlag die zuletzt erreichte IP-Adresse. Rolle muss passen.
+    /// </summary>
+    private IFanDevice OpenNetworkPico(string host, string lastIp, string secretKey, string role, Action<string> rememberIp)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            throw new IOException(L.T("WLAN: Gerätename oder IP-Adresse des Pico fehlt."));
+        if (Secrets.Get(secretKey) is not { Length: 64 } hex)
+            throw new IOException(L.T("WLAN: Kein Schlüssel für diesen Pico – zuerst per USB „Für WLAN einrichten“."));
+        var key = Convert.FromHexString(hex);
+        var (name, port) = SplitHostPort(host);
+        NetworkLineTransport io;
+        try
+        {
+            io = NetworkLineTransport.Connect(name, port, key);
+        }
+        catch (IOException) when (lastIp.Length > 0 && lastIp != name)
+        {
+            io = NetworkLineTransport.Connect(lastIp, port, key);
+        }
+        try
+        {
+            if (io.Role != role)
+                throw new IOException(role == PicoFanDevice.RoleDisplay
+                    ? L.T("{0} ist als Lüfter-Pico eingerichtet, nicht als Display-Pico.", host)
+                    : L.T("{0} ist als Display-Pico eingerichtet, nicht für Lüfter.", host));
+            var device = PicoFanDevice.ConnectNetwork(io, msg => RaiseStatus(true, L.T("Lüfter: ") + msg));
+            if (io.RemoteIp is { } ip) rememberIp(ip);
+            return device;
+        }
+        catch
+        {
+            io.Dispose();
+            throw;
+        }
+    }
+
+    internal static (string Host, int Port) SplitHostPort(string value)
+    {
+        var v = value.Trim();
+        var i = v.LastIndexOf(':');
+        return i > 0 && !v.Contains("::") && int.TryParse(v[(i + 1)..], out var p) && p is > 0 and < 65536
+            ? (v[..i], p) : (v, NetworkLineTransport.DefaultPort);
+    }
+
+    // ---------- Eigener Display-Pico ----------
+
+    private IFanDevice? _displayDevice;
+    private DateTime _displayNextConnect = DateTime.MinValue;
+    private string? _displayDeviceError;
+
+    /// <summary>Pico, an dem die Anzeige hängt: eigener Display-Pico oder der Lüfter-Pico.</summary>
+    private IFanDevice? DisplayPico => Config.Display.OwnDevice ? _displayDevice : _fanDevice;
+
+    /// <summary>Verbindungsfehler des eigenen Display-Pico (für den Anzeige-Status).</summary>
+    private string? DisplayDeviceError => Config.Display.OwnDevice ? _displayDeviceError : null;
+
+    /// <summary>Beschreibung des eigenen Display-Pico (Status im Browser).</summary>
+    public string? DisplayDeviceDescription => Config.Display.OwnDevice ? _displayDevice?.Description : _fanDevice?.Description;
+
+    private void CloseDisplayDevice()
+    {
+        _displayDevice?.Dispose();
+        _displayDevice = null;
+    }
+
+    /// <summary>Eigener Display-Pico: verbinden, Lebenszeichen (GET) alle 2 s, Taster und „EPD DONE“ übernehmen.</summary>
+    private async Task DisplayDeviceTickAsync(DateTime now)
+    {
+        var s = Config.Display;
+        if (!s.Enabled || !s.OwnDevice) return;
+        if (_displayDevice is null && now >= _displayNextConnect)
+        {
+            try
+            {
+                _displayDevice = await Task.Run(() => OpenDisplayDevice(s));
+                _displayDeviceError = null;
+                LogEvent(null, EventCategories.Fans, L.T("Display-Pico verbunden: {0}", _displayDevice.Description));
+                RequestDisplayRefresh();
+            }
+            catch (PicoUpdatedException ex)
+            {
+                LogEvent(null, EventCategories.Fans, ex.Message);
+                _displayDeviceError = ex.Message;
+                _displayNextConnect = now.AddSeconds(8);
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message != _displayDeviceError)
+                {
+                    RaiseStatus(false, L.T("Anzeige: ") + ex.Message);
+                    LogEvent(null, EventCategories.Fans, L.T("Display-Pico nicht verbunden: {0}", ex.Message));
+                }
+                _displayDeviceError = ex.Message;
+                _displayNextConnect = now.AddSeconds(10);
+            }
+        }
+        if (_displayDevice is null || _displayBusy) return;
+        try
+        {
+            await _displayDevice.PollAsync();
+            RecordSensors(_displayDevice.Temperatures, now);
+            await HandlePicoEventsAsync(_displayDevice.DrainEvents());
+        }
+        catch (Exception ex)
+        {
+            _displayDeviceError = L.T("Verbindung zum Display-Pico verloren: ") + ex.Message;
+            RaiseStatus(false, L.T("Anzeige: ") + _displayDeviceError);
+            CloseDisplayDevice();
+            _displayNextConnect = now.AddSeconds(5);
+        }
+    }
+
+    private IFanDevice OpenDisplayDevice(DisplaySettings s)
+    {
+        if (Options.DisplayDeviceFactory is { } factory) return factory(s.Connection == "wlan" ? s.NetworkHost : s.Port);
+        if (s.Port == "sim") return new SimulatedFanDevice(PicoFanDevice.RoleDisplay);
+        return s.Connection == "wlan"
+            ? OpenNetworkPico(s.NetworkHost, s.NetworkIp, PicoKeyDisplay, PicoFanDevice.RoleDisplay, ip => s.NetworkIp = ip)
+            : OpenUsbPico(s.Port, PicoFanDevice.RoleDisplay, forceInstall: false);
+    }
+
+    // ---------- Einrichtung für WLAN ----------
+
+    /// <summary>Ergebnis von „Pico für WLAN einrichten“.</summary>
+    public sealed record PicoSetupResult(string Role, string Host, string? Ip, string Port);
+
+    /// <summary>
+    /// Pico am USB für WLAN einrichten (Programm, Rolle, WLAN-Zugang, neuer Schlüssel), Schlüssel in secrets.json ablegen
+    /// und die Verbindung in den Einstellungen auf WLAN umstellen. Das WLAN-Passwort wird nirgends auf dem Server gespeichert.
+    /// </summary>
+    public async Task<PicoSetupResult> SetupPicoNetworkAsync(string role, string? port, string? ssid, string? password, string? host)
+    {
+        var config = PicoNetworkConfig.Create(role, ssid, password, host);
+        var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
+        if (candidates.Count == 0) throw new LocalizedException("Kein Pico am USB gefunden – Pico per Datenkabel anschließen.");
+        if (candidates.Count > 1) throw new LocalizedException("Mehrere Picos am USB ({0}) – bitte den Port auswählen.", string.Join(", ", candidates));
+        var name = candidates[0];
+
+        // Ports freigeben und während der Einrichtung nicht neu verbinden
+        CloseFanDevice();
+        CloseDisplayDevice();
+        _fanNextConnect = _displayNextConnect = DateTime.MaxValue;
+        string? ip = null;
+        try
+        {
+            ip = await Task.Run(() =>
+            {
+                using var io = Options.SerialTransportFactory?.Invoke(name) ?? new SerialLineTransport(name);
+                PicoFanDevice.Provision(io, name, config, msg => RaiseStatus(true, msg));
+                return PicoFanDevice.WaitForNetwork(io, TimeSpan.FromSeconds(20));
+            });
+        }
+        finally
+        {
+            var now = Options.Clock?.Invoke() ?? DateTime.Now;
+            _fanNextConnect = _displayNextConnect = now.AddSeconds(3);
+        }
+
+        Secrets.Set(role == PicoFanDevice.RoleDisplay ? PicoKeyDisplay : PicoKeyFans, config.KeyHex);
+        var target = config.Host + ".local";
+        if (role == PicoFanDevice.RoleDisplay)
+        {
+            Config.Display.Device = "own";
+            Config.Display.Connection = "wlan";
+            Config.Display.NetworkHost = target;
+            Config.Display.NetworkIp = ip ?? "";
+        }
+        else
+        {
+            Config.Fans.Connection = "wlan";
+            Config.Fans.NetworkHost = target;
+            Config.Fans.NetworkIp = ip ?? "";
+        }
+        Config.Save();
+        LogEvent(null, EventCategories.Fans, ip is null
+            ? L.T("Pico an {0} für WLAN „{1}“ eingerichtet ({2}); noch keine WLAN-Verbindung gemeldet.", name, config.Ssid, target)
+            : L.T("Pico an {0} für WLAN „{1}“ eingerichtet: {2} ({3}).", name, config.Ssid, target, ip));
+        return new PicoSetupResult(role, target, ip, name);
+    }
+
 
     /// <summary>„Lüfter steht“: Soll ≥ 20 %, Drehzahlsignal vorhanden, aber 0 U/min in 3 Messungen nach 10 s Anlaufzeit.</summary>
     private bool CheckStall(FanChannelSettings c, FanTarget t, int? rpm, DateTime now)

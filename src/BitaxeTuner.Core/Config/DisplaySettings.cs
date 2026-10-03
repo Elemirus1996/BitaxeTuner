@@ -8,6 +8,26 @@ public sealed class DisplaySettings
 
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// 0.9.7: "fans" = Anzeige am Lüfter-Pico (wie bisher), "own" = eigener Pico, direkt auf das E-Paper gesteckt
+    /// (Waveshare-Belegung), per USB oder WLAN. Additiv.
+    /// </summary>
+    public string Device { get; set; } = "fans";
+
+    /// <summary>Eigener Display-Pico: "usb" oder "wlan".</summary>
+    public string Connection { get; set; } = "usb";
+
+    /// <summary>Eigener Display-Pico per USB: "auto" oder fester Port.</summary>
+    public string Port { get; set; } = "auto";
+
+    /// <summary>Eigener Display-Pico per WLAN: Gerätename (z. B. bitaxetuner-display.local) oder IP-Adresse.</summary>
+    public string NetworkHost { get; set; } = "";
+
+    /// <summary>Zuletzt erreichte IP-Adresse (Rückfall, falls der Gerätename nicht auflöst).</summary>
+    public string NetworkIp { get; set; } = "";
+
+    public bool OwnDevice => Device == "own";
+
     /// <summary>Regelmäßig neu aufbauen (Minuten, mindestens 3). Alarme und Tastendrücke zeigen sich früher.</summary>
     public int IntervalMinutes { get; set; } = 5;
 
@@ -27,6 +47,9 @@ public sealed class DisplaySettings
     /// <summary>Vollbild „Block gefunden“ – bis Taste 1 oder <see cref="BlockFoundHoldHours"/> vorbei sind.</summary>
     public bool BlockFoundScreen { get; set; } = true;
     public int BlockFoundHoldHours { get; set; } = 24;
+
+    /// <summary>0.9.7: Schwarz und Weiß tauschen (helle Schrift auf schwarzem Grund), Rot bleibt. Additiv.</summary>
+    public bool Inverted { get; set; }
 
     /// <summary>Warnungen als Vollbild statt nur als rote Zeile (Taste 1 quittiert bis zur nächsten neuen Warnung).</summary>
     public bool AlarmFullscreen { get; set; } = true;

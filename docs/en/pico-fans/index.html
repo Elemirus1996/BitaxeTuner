@@ -93,7 +93,7 @@
     <div class="kicker">BitaxeTuner server · accessories</div>
     <h1>Pico fan controller</h1>
     <p class="lead">A Raspberry Pi Pico 2 on the Pi 3's USB port controls up to six 4-pin PWM fans: one for the voltage regulator (VR) of each Bitaxe and up to three for the case. On top come a 7.5-inch e-paper with the most important values, four buttons and temperature sensors. If anything fails, the fans run at full speed.</p>
-    <p><a href="#image">Set up the Raspberry Pi: ready-made image</a> · <a href="#breadboard">Breadboard</a> · <a href="#display">Display, buttons, sensors</a> · <a href="#shopping">Shopping list</a> · <a href="../../pico-luefter/" hreflang="de" lang="de">Deutsch</a></p>
+    <p><a href="#image">Set up the Raspberry Pi: ready-made image</a> · <a href="#breadboard">Breadboard</a> · <a href="#display">Display, buttons, sensors</a> · <a href="#shopping">Shopping list</a> · <a href="#wlan">Pico via WLAN</a> ·<a href="../../pico-luefter/" hreflang="de" lang="de">Deutsch</a></p>
   </header>
 
   <section id="image">
@@ -551,6 +551,45 @@
       <li><b>Plug the Pico into the Pi 3 via USB.</b> The server detects it, uploads the fan program and takes over control; the speed appears in the interface.</li>
       <li><b>Assign the fans</b> (Fans &amp; display) and connect the remaining channels.</li>
     </ol>
+  </section>
+
+  <section id="wlan">
+    <h2><span class="tag">From 0.9.7</span>No cable to the server: Pico via WLAN</h2>
+    <p>With a <b>Raspberry Pi Pico 2 WH</b> (with WLAN, headers already soldered) the fan controller and the display no longer have to be connected to the server via USB. There are two variants, which can also be combined:</p>
+    <div class="two">
+      <div class="panel">
+        <h3>Fan Pico</h3>
+        <p>Pico 2 WH instead of Pico 2 H on the fan board (or the breadboard) – same form factor, same pins. The fans still get their power from the board's USB-C socket, the Pico gets its own USB power supply on its micro-USB socket.</p>
+        <p>An e-paper can still hang on the board via cable.</p>
+      </div>
+      <div class="panel">
+        <h3>Display Pico</h3>
+        <p><b>Plug the Pico 2 WH directly onto the Waveshare e-paper module</b> – no wires, no board. Orientation as shown by the Pico outline printed on the module (USB socket on the marked side), with power off. Power via a USB power supply on the Pico.</p>
+        <p>It shows the display and reports its buttons; it has no fans. For this the program uses the Waveshare pin layout (GP8–GP13).</p>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><b>Install MicroPython for the W:</b> hold BOOTSEL, connect the Pico to a PC via USB, drag the UF2 file for <b>“Raspberry Pi Pico 2 W” (RPI_PICO2_W)</b> from <span class="mono">micropython.org/download</span> onto the drive. The file without “W” has no WLAN.</li>
+      <li><b>Connect the Pico to the server with a USB data cable</b> (Pi or PC running the BitaxeTuner server). If another Pico is already plugged in there, choose the right port in the dialog.</li>
+      <li>In the browser open <b>Fans &amp; display</b> and choose <b>“Set up fan Pico for WLAN …”</b> (card <i>Connection</i>) or <b>“Set up display Pico for WLAN …”</b> (card <i>E-paper display</i>, “Display is attached: own display Pico”).</li>
+      <li>Enter <b>WLAN name and password</b> (the Pico only supports <b>2.4 GHz</b>), keep or change the device name. After about 30 seconds BitaxeTuner reports “Set up” and the IP address the Pico got.</li>
+      <li><b>Unplug the Pico from the server</b> and connect it to its own power supply (5 V, 1 A is enough). The server connects by itself within a few seconds; the connection is shown under <i>Connection</i> or “Connected via”.</li>
+    </ol>
+    <div class="note"><strong>Good to know:</strong> The server looks for the Pico as <span class="mono">bitaxetuner-fans.local</span> or <span class="mono">bitaxetuner-display.local</span> and otherwise falls back to the last IP address it reached. Most reliable is a <b>fixed IP in the router</b> (DHCP reservation) – then enter it in the field “WLAN: device name or IP address”. New versions of the Pico program are installed by the server over WLAN, no cable needed.</div>
+    <h3>Security</h3>
+    <ul class="plain">
+      <li>During setup every Pico gets its <b>own random key</b>. Both sides prove it when connecting, after that every line is signed and numbered – other devices on the WLAN can neither switch fans nor inject values or replay old commands.</li>
+      <li>The <b>WLAN password is stored only on the Pico</b>, not on the server. Whoever gets hold of the Pico can read it, though – so don't leave the Pico lying around openly.</li>
+      <li>The <b>fail-safe stays</b>: if the WLAN drops, the fan Pico gets no more commands and sets all fans to 100 % after 5 seconds. Button 3 sets 100 % even without server.</li>
+      <li>After 10 minutes without server the e-paper shows “KEINE VERBINDUNG ZUM SERVER” (no connection to server).</li>
+    </ul>
+    <h3>If it doesn't work</h3>
+    <dl>
+      <dt>“key does not match”</dt><dd>The Pico was set up again elsewhere or the server was reinstalled → set the Pico up for WLAN again via USB.</dd>
+      <dt>“does not answer (WLAN?)”</dt><dd>Check WLAN name/password, is the 2.4 GHz network on? Look up the Pico's IP in the router and enter it.</dd>
+      <dt>“is set up as display Pico”</dt><dd>Fan and display Pico swapped → use the other setup button.</dd>
+      <dt>Back to USB</dt><dd>Choose “Connection: USB cable on the server” and save; the program keeps working via USB.</dd>
+    </dl>
   </section>
 
   <section>

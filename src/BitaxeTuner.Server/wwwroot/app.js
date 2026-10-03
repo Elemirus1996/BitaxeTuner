@@ -2249,6 +2249,18 @@ function displayCard(d) {
     const s = structuredClone(d.settings);
     parts.push(
       checkInput(s, 'enabled', t('Anzeige einschalten (7,5″ E-Paper am Pico)')),
+      d.device ? h('p', { class: 'muted small' }, t('Angeschlossen über: {0}', d.device)) : null,
+      (() => {
+        const own = h('div', { class: 'stack' }, picoConnectionInputs(s, 'display'),
+          h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => picoWlanSetup('display') }, t('Display-Pico für WLAN einrichten …'))),
+          h('p', { class: 'muted small' }, t('Eigener Display-Pico: Pico 2 WH direkt auf das Waveshare-E-Paper stecken (keine Kabel), eigenes USB-Netzteil. Er zeigt die Anzeige und meldet seine Taster; Lüfter bleiben am Lüfter-Pico.')));
+        own.hidden = s.device !== 'own';
+        const sel = h('select', { style: 'width:auto', onchange: e => { s.device = e.target.value; own.hidden = s.device !== 'own'; } },
+          h('option', { value: 'fans' }, t('am Lüfter-Pico (Kabel zur Platine)')), h('option', { value: 'own' }, t('eigener Display-Pico (aufgesteckt)')));
+        sel.value = s.device || 'fans';
+        return h('div', { class: 'stack' }, h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Anzeige hängt')), sel)), own);
+      })(),
+      checkInput(s, 'inverted', t('Farben umkehren: helle Schrift auf schwarzem Grund (Rot bleibt rot)')),
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('Titel')), h('input', { value: s.title, oninput: e => { s.title = e.target.value; } })),
         h('div', {}, h('label', {}, t('aktualisieren alle (min, mind. 3)')), numInput(s, 'intervalMinutes')),
@@ -2278,6 +2290,51 @@ function displayCard(d) {
       h('p', { class: 'muted small' }, t('Das E-Paper wird höchstens alle 3 Minuten neu aufgebaut (Herstellerempfehlung), ein Bildaufbau dauert etwa 16 Sekunden.')));
   }
   return h('div', { class: 'card stack' }, parts);
+}
+
+/** Verbindung eines Pico: USB (Port) oder WLAN (Gerätename/IP). obj = Lüfter- oder Anzeige-Einstellungen. */
+function picoConnectionInputs(obj, role) {
+  const usb = h('div', {}, h('label', {}, t('USB-Port („auto“ = Pico automatisch finden)')), h('input', { value: obj.port || 'auto', oninput: e => { obj.port = e.target.value; } }));
+  const wlan = h('div', {}, h('label', {}, t('WLAN: Gerätename oder IP-Adresse')),
+    h('input', { value: obj.networkHost || '', placeholder: role === 'display' ? 'bitaxetuner-display.local' : 'bitaxetuner-fans.local', oninput: e => { obj.networkHost = e.target.value; } }));
+  const show = () => { usb.hidden = obj.connection === 'wlan'; wlan.hidden = obj.connection !== 'wlan'; };
+  const sel = h('select', { style: 'width:auto', onchange: e => { obj.connection = e.target.value; show(); } },
+    h('option', { value: 'usb' }, t('USB-Kabel am Server')), h('option', { value: 'wlan' }, t('WLAN (Pico 2 W)')));
+  sel.value = obj.connection || 'usb';
+  show();
+  return h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Verbindung')), sel), usb, wlan,
+    obj.networkIp ? h('div', {}, h('label', {}, t('zuletzt erreicht')), h('p', { class: 'small' }, obj.networkIp)) : null);
+}
+
+/**
+ * Pico für WLAN einrichten: Pico per USB an den Server, WLAN-Zugang eintragen. Der Server spielt Programm, Rolle,
+ * WLAN-Zugang und einen neuen Schlüssel auf; das WLAN-Passwort speichert er selbst nicht.
+ */
+async function picoWlanSetup(role) {
+  const ports = await run(() => api('/fans/ports'));
+  if (!ports) return;
+  const port = h('select', { style: 'width:auto' }, [['auto', t('automatisch')], ...ports.pico.map(p => [p, p])].map(([v, l]) => h('option', { value: v }, l)));
+  const ssid = h('input', { autocomplete: 'off', maxlength: 32 });
+  const pw = h('input', { type: 'password', autocomplete: 'new-password', maxlength: 63 });
+  const host = h('input', { value: role === 'display' ? 'bitaxetuner-display' : 'bitaxetuner-fans', maxlength: 32 });
+  const body = h('div', { class: 'stack' },
+    h('p', {}, role === 'display'
+      ? t('Display-Pico (Pico 2 WH, auf das E-Paper gesteckt) jetzt per USB-Datenkabel an diesen Server anschließen.')
+      : t('Lüfter-Pico (Pico 2 WH auf der Lüfterplatine) jetzt per USB-Datenkabel an diesen Server anschließen.')),
+    h('div', {}, h('label', {}, t('USB-Port')), port,
+      ports.pico.length === 0 ? h('p', { class: 'small warn' }, t('Gerade kein Pico am USB erkannt – anschließen und den Dialog neu öffnen.')) : null),
+    h('div', {}, h('label', {}, t('WLAN-Name (SSID, 2,4 GHz)')), ssid),
+    h('div', {}, h('label', {}, t('WLAN-Passwort')), pw),
+    h('div', {}, h('label', {}, t('Gerätename im Heimnetz')), host),
+    h('p', { class: 'muted small' }, t('Aufgespielt werden Programm, Rolle, WLAN-Zugang und ein neuer Schlüssel. Das WLAN-Passwort steht danach nur auf dem Pico, nicht auf dem Server. Dauer ca. 30 Sekunden; Lüfter laufen dabei mit 100 %.')));
+  if (!await confirmBox(t('Pico für WLAN einrichten'), body, t('Einrichten'))) return;
+  toast(t('Pico wird eingerichtet …'), 'info', 30000);
+  const r = await run(() => api('/fans/wlan-setup', { method: 'POST', body: { role, port: port.value, ssid: ssid.value, password: pw.value, host: host.value } }));
+  pw.value = '';
+  if (!r) return;
+  toast(r.ip ? t('Eingerichtet: {0} ({1}). Pico jetzt vom Server trennen und an sein eigenes Netzteil.', r.host, r.ip)
+    : t('Eingerichtet: {0}. Der Pico hat sich noch nicht im WLAN gemeldet – Name und Passwort prüfen (nur 2,4 GHz).', r.host), r.ip ? 'ok' : 'error', 20000);
+  renderFans();
 }
 
 function curveInputs(curve) {
@@ -2464,10 +2521,11 @@ function fanEditor(data) {
   };
   return h('div', { class: 'stack' },
     h('div', { class: 'card stack' }, h('h2', {}, t('Verbindung')),
-      checkInput(f, 'enabled', t('Lüfter regeln (Pico per USB am Server; der Port gilt auch für Anzeige und Taster)')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Port („auto“ = Pico automatisch finden)')), h('input', { value: f.port, oninput: e => { f.port = e.target.value; } }))),
+      checkInput(f, 'enabled', t('Lüfter regeln (Pico am Server per USB oder über WLAN; er bedient auch Anzeige und Taster, wenn die Anzeige keinen eigenen Pico hat)')),
+      picoConnectionInputs(f, 'fans'),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: save }, t('Speichern')),
+        h('button', { class: 'btn', onclick: () => picoWlanSetup('fans') }, t('Lüfter-Pico für WLAN einrichten …')),
         h('button', {
           class: 'btn', onclick: async () => {
             if (!await confirmBox(t('Programm neu aufspielen'), t('Das Lüfterprogramm wird neu auf den Pico geschrieben. Die Lüfter laufen dabei kurz mit 100 %.'), t('Aufspielen'))) return;

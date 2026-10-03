@@ -34,6 +34,8 @@ public sealed record DisplayModel(
     public IReadOnlyList<DisplayPoint>? Chart { get; init; }
     public IReadOnlyList<DisplaySoak>? Soaks { get; init; }
     public DisplayNetwork? Network { get; init; }
+    /// <summary>Schwarz und Weiß tauschen (helle Schrift auf schwarzem Grund); Rot bleibt rot.</summary>
+    public bool Inverted { get; init; }
 }
 
 /// <summary>
@@ -78,8 +80,24 @@ public static partial class StatusRenderer
                 default: DrawOverview(ctx, m); break;
             }
         });
+        if (m.Inverted) Invert(img);
         return img;
     }
+
+    /// <summary>Schwarz ↔ Weiß tauschen, Rot unverändert lassen (gleiche Schwellen wie <see cref="ToPlanes"/>).</summary>
+    private static void Invert(Image<Rgb24> img) => img.ProcessPixelRows(rows =>
+    {
+        for (var y = 0; y < Height; y++)
+        {
+            var row = rows.GetRowSpan(y);
+            for (var x = 0; x < Width; x++)
+            {
+                var p = row[x];
+                if (p.R > 150 && p.G < 100 && p.B < 100) continue;
+                row[x] = p.R + p.G + p.B < 384 ? new Rgb24(255, 255, 255) : new Rgb24(0, 0, 0);
+            }
+        }
+    });
 
     private static void DrawOverview(IImageProcessingContext ctx, DisplayModel m)
     {

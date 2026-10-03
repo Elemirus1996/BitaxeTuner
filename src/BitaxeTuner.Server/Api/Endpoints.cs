@@ -38,6 +38,7 @@ public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
 public sealed record OverrideRequest(string Mode);
+public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
 public static class Endpoints
@@ -104,9 +105,22 @@ public static class Endpoints
         }
     }
 
+    /// <summary>Verbindung zu einem Pico prüfen: USB oder WLAN mit Gerätename/IP (optional :Port).</summary>
+    internal static (string Connection, string Host) ValidatePicoConnection(string? connection, string? host)
+    {
+        var c = connection == "wlan" ? "wlan" : "usb";
+        var h = (host ?? "").Trim();
+        if (h.Length > 253 || h.Any(ch => !(char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-' or ':')))
+            throw new LocalizedException("WLAN: Gerätename oder IP-Adresse ungültig.");
+        if (c == "wlan" && h.Length == 0) throw new LocalizedException("WLAN: Gerätename oder IP-Adresse des Pico eintragen.");
+        return (c, h);
+    }
+
     internal static void ValidateFans(Core.Config.FanSettings f, MinerHub hub)
     {
         f.Port = string.IsNullOrWhiteSpace(f.Port) ? "auto" : f.Port.Trim();
+        (f.Connection, f.NetworkHost) = ValidatePicoConnection(f.Connection, f.NetworkHost);
+        f.NetworkIp = System.Net.IPAddress.TryParse(f.NetworkIp ?? "", out _) ? f.NetworkIp! : "";
         for (var ch = 1; ch <= Core.Config.FanSettings.ChannelCount; ch++)
         {
             var c = f.Channel(ch);
@@ -384,6 +398,7 @@ public static class Endpoints
         g.MapGet("/display", async (HttpContext http, HubService hub) => AuthContext.Of(http).Scope.Restricted ? Results.Json<object?>(null) : Results.Json(await hub.RunAsync(h => new
         {
             status = h.DisplayStatus,
+            device = AuthContext.Of(http).Role == Role.Admin ? h.DisplayDeviceDescription : null,
             settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Display) : null,
             rebootAvailable = h.Options.SystemReboot is not null,
         })));
@@ -924,6 +939,10 @@ public static class Endpoints
             req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
             req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
             req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
+            req.Device = req.Device == "own" ? "own" : "fans";
+            req.Port = string.IsNullOrWhiteSpace(req.Port) ? "auto" : req.Port.Trim();
+            (req.Connection, req.NetworkHost) = ValidatePicoConnection(req.Connection, req.NetworkHost);
+            req.NetworkIp = System.Net.IPAddress.TryParse(req.NetworkIp ?? "", out _) ? req.NetworkIp! : "";
             h.Config.Display = req;
             h.Config.Save();
             h.RequestDisplayRefresh();
@@ -945,6 +964,17 @@ public static class Endpoints
         })));
 
         g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));
+
+        // Pico am USB für WLAN einrichten (Lüfter- oder Display-Pico). Das WLAN-Passwort geht nur auf den Pico.
+        g.MapPost("/fans/wlan-setup", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var role = req.Role == "display" ? Core.Fans.PicoFanDevice.RoleDisplay : Core.Fans.PicoFanDevice.RoleFans;
+            var result = await h.SetupPicoNetworkAsync(role, req.Port, req.Ssid, req.Password, req.Host);
+            if (role == Core.Fans.PicoFanDevice.RoleDisplay) h.Config.Display.Enabled = true;
+            h.Config.Save();
+            await h.ApplyFanSettingsAsync();
+            return new { ok = true, result.Role, result.Host, result.Ip, result.Port };
+        })));
 
         // ---------- Betrieb mit der Desktop-App ----------
 

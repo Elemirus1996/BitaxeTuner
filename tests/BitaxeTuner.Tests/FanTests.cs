@@ -146,8 +146,11 @@ internal sealed class FakePico : ILineTransport
     private readonly StringBuilder _in = new();
     private bool _raw;
     public bool ProgramRunning { get; set; }
-    public string? MainPy { get; private set; }
+    public string? MainPy => Files.GetValueOrDefault("main.py");
+    /// <summary>Über das Raw-REPL geschriebene Dateien (main.py, btcfg.json).</summary>
+    public Dictionary<string, string> Files { get; } = [];
     private readonly StringBuilder _file = new();
+    private string _fileName = "";
     public List<string> SetCommands { get; } = [];
     private List<byte>? _image;
     public byte[]? Shown { get; private set; }
@@ -172,7 +175,9 @@ internal sealed class FakePico : ILineTransport
         {
             var line = _in.ToString().Trim();
             _in.Clear();
-            if (line == "HELLO") _out.Append($"OK BTFAN {PicoFanDevice.FirmwareVersion} 6\r\n");
+            if (line == "HELLO") _out.Append(Files.TryGetValue("btcfg.json", out var cfg) && cfg.Contains("\"role\":\"display\"")
+                ? $"OK BTFAN {PicoFanDevice.FirmwareVersion} 0 display\r\n" : $"OK BTFAN {PicoFanDevice.FirmwareVersion} 6 fans\r\n");
+            else if (line == "NET") _out.Append(Files.ContainsKey("btcfg.json") ? "OK NET 1 192.0.2.10\r\n" : "OK NET 0 -\r\n");
             else if (line.StartsWith("SET ")) { SetCommands.Add(line); _out.Append((NextRpmLine ?? "RPM 1200 1300 0 0 0 0") + "\r\n"); }
             else if (line == "GET") _out.Append("RPM 0 0 0 0 0 0\r\n");
             else if (line.StartsWith("IMG ")) { _image = new List<byte>(); _out.Append("OK IMG\r\n"); }
@@ -186,8 +191,9 @@ internal sealed class FakePico : ILineTransport
     private void ExecRaw(string code)
     {
         code = code.TrimStart('\r');
-        if (code == "f=open('main.py','w')") _file.Clear();
-        else if (code == "f.close()") MainPy = _file.ToString();
+        var open = Regex.Match(code, @"^f=open\('([^']+)','w'\)$");
+        if (open.Success) { _file.Clear(); _fileName = open.Groups[1].Value; }
+        else if (code == "f.close()") Files[_fileName] = _file.ToString();
         else
         {
             var m = Regex.Match(code, @"^f\.write\('(.*)'\)$", RegexOptions.Singleline);

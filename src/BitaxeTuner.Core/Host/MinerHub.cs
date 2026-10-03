@@ -33,6 +33,12 @@ public sealed class MinerHubOptions
     /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
     public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
 
+    /// <summary>Tests: Display-Pico statt echter Hardware (Argument: Port bzw. WLAN-Adresse).</summary>
+    public Func<string, Fans.IFanDevice>? DisplayDeviceFactory { get; init; }
+
+    /// <summary>Tests: serielle Verbindung für „Pico für WLAN einrichten“ (Argument: Port).</summary>
+    public Func<string, Fans.ILineTransport>? SerialTransportFactory { get; init; }
+
     /// <summary>Nur für Tests: Wartezeiten des Benchmarks ersetzen.</summary>
     public Func<TimeSpan, CancellationToken, Task>? BenchmarkDelay { get; init; }
 

@@ -1,5 +1,6 @@
 using System.IO.Ports;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using BitaxeTuner.Core.I18n;
 
@@ -12,6 +13,8 @@ public sealed record TempReading(string Id, double Celsius);
 public interface IFanDevice : IDisposable
 {
     string Description { get; }
+    /// <summary>„fans“ (Lüfterplatine/Steckbrett) oder „display“ (Pico auf dem E-Paper aufgesteckt, keine Lüfter).</summary>
+    string Role => PicoFanDevice.RoleFans;
     /// <summary>Prozentwerte für alle Kanäle setzen (setzt auch den Watchdog im Pico zurück); liefert U/min je Kanal.</summary>
     Task<int[]> ExchangeAsync(IReadOnlyList<int> percent, CancellationToken ct = default);
     /// <summary>Nur Drehzahlen lesen (Lebenszeichen, wenn keine Lüfter geregelt werden).</summary>
@@ -88,13 +91,19 @@ public sealed class SerialLineTransport : ILineTransport
     public void Dispose() => _port.Dispose();
 }
 
+/// <summary>Pico wurde über WLAN auf die aktuelle Programmversion gebracht und startet neu – gleich erneut verbinden.</summary>
+public sealed class PicoUpdatedException(string message) : IOException(message);
+
 /// <summary>
 /// Raspberry Pi Pico mit dem BitaxeTuner-Lüfterprogramm (btfan.py). Läuft auf dem Pico nur MicroPython ohne
-/// unser Programm (oder eine ältere Version), wird es über das Raw-REPL als main.py aufgespielt.
+/// unser Programm (oder eine ältere Version), wird es über das Raw-REPL als main.py aufgespielt (USB) bzw. per
+/// PUT/COMMIT aktualisiert (WLAN, ab Programm v7).
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "5";
+    public const string FirmwareVersion = "7";
+    public const string RoleFans = "fans";
+    public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;
     private readonly ILineTransport _io;
     private readonly object _lock = new();
@@ -102,13 +111,15 @@ public sealed class PicoFanDevice : IFanDevice
 
     public IReadOnlyList<TempReading> Temperatures { get; private set; } = [];
 
-    private PicoFanDevice(ILineTransport io, string description)
+    private PicoFanDevice(ILineTransport io, string description, string role)
     {
         _io = io;
         Description = description;
+        Role = role;
     }
 
     public string Description { get; }
+    public string Role { get; }
 
     public static string Firmware
     {
@@ -121,25 +132,117 @@ public sealed class PicoFanDevice : IFanDevice
         }
     }
 
-    /// <summary>Verbinden, Programm prüfen und bei Bedarf aufspielen.</summary>
+    /// <summary>Verbinden (USB), Programm prüfen und bei Bedarf aufspielen.</summary>
     public static PicoFanDevice Connect(ILineTransport io, string portName, Action<string>? log = null, bool forceInstall = false)
     {
-        var version = forceInstall ? null : Hello(io);
+        var (version, role) = forceInstall ? (null, RoleFans) : HelloInfo(io);
         if (version != FirmwareVersion)
         {
             log?.Invoke(version is null
                 ? L.T("Pico an {0}: Lüfterprogramm fehlt – wird aufgespielt …", portName)
                 : L.T("Pico an {0}: Lüfterprogramm v{1} → v{2} wird aufgespielt …", portName, version, FirmwareVersion));
             Install(io, Firmware);
-            version = Hello(io, TimeSpan.FromSeconds(4)) ?? throw new IOException(
-                L.T("Pico antwortet nach dem Aufspielen nicht. Ist MicroPython installiert (UF2 von micropython.org)?"));
+            (version, role) = HelloInfo(io, TimeSpan.FromSeconds(4));
+            if (version is null)
+                throw new IOException(L.T("Pico antwortet nach dem Aufspielen nicht. Ist MicroPython installiert (UF2 von micropython.org)?"));
             log?.Invoke(L.T("Pico an {0}: Lüfterprogramm v{1} läuft.", portName, version));
         }
-        return new PicoFanDevice(io, L.T("Pico an {0} (Programm v{1})", portName, version));
+        return new PicoFanDevice(io, role == RoleDisplay ? L.T("Display-Pico an {0} (Programm v{1})", portName, version)
+            : L.T("Pico an {0} (Programm v{1})", portName, version), role);
     }
 
-    /// <summary>"HELLO" → "OK BTFAN &lt;version&gt; &lt;kanäle&gt;"; null, wenn unser Programm nicht läuft.</summary>
-    internal static string? Hello(ILineTransport io, TimeSpan? timeout = null)
+    /// <summary>
+    /// Verbinden über WLAN (Anmeldung schon erfolgt). Ältere Programmversion → per PUT/COMMIT aktualisieren, Pico neu
+    /// starten und <see cref="PicoUpdatedException"/> werfen (der Aufrufer verbindet einige Sekunden später neu).
+    /// </summary>
+    public static PicoFanDevice ConnectNetwork(NetworkLineTransport io, Action<string>? log = null)
+    {
+        if (io.Version != FirmwareVersion)
+        {
+            log?.Invoke(L.T("Pico {0}: Lüfterprogramm v{1} → v{2} wird über WLAN aktualisiert …", io.Endpoint, io.Version, FirmwareVersion));
+            UpdateOverNetwork(io, Firmware);
+            io.Dispose();
+            throw new PicoUpdatedException(L.T("Pico {0} aktualisiert (v{1}), startet neu.", io.Endpoint, FirmwareVersion));
+        }
+        var role = io.Role == RoleDisplay ? RoleDisplay : RoleFans;
+        return new PicoFanDevice(io, role == RoleDisplay ? L.T("Display-Pico {0} über WLAN (Programm v{1})", io.Endpoint, io.Version)
+            : L.T("Pico {0} über WLAN (Programm v{1})", io.Endpoint, io.Version), role);
+    }
+
+    /// <summary>Neues Programm über eine angemeldete Verbindung: PUT, F-Zeilen, COMMIT (prüft Größe und SHA-256), RESET.</summary>
+    internal static void UpdateOverNetwork(ILineTransport io, string source)
+    {
+        var bytes = Encoding.ASCII.GetBytes(source);
+        io.Write($"PUT main.py {bytes.Length} {Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant()}\r\n");
+        ExpectLine(io, "OK PUT", TimeSpan.FromSeconds(3));
+        var sb = new StringBuilder();
+        for (var i = 0; i < bytes.Length; i += 192)
+        {
+            sb.Append("F ").Append(Convert.ToBase64String(bytes, i, Math.Min(192, bytes.Length - i))).Append("\r\n");
+            if (sb.Length > 8000) { io.Write(sb.ToString()); sb.Clear(); }
+        }
+        if (sb.Length > 0) io.Write(sb.ToString());
+        io.Write("COMMIT\r\n");
+        ExpectLine(io, "OK COMMIT", TimeSpan.FromSeconds(10));
+        io.Write("RESET\r\n");
+        try { ExpectLine(io, "OK RESET", TimeSpan.FromSeconds(2)); } catch (IOException) { /* startet ohnehin neu */ }
+    }
+
+    private static void ExpectLine(ILineTransport io, string expected, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var line = io.ReadLine(deadline - DateTime.UtcNow)?.Trim();
+            if (line is null) break;
+            if (line == expected) return;
+            if (line.StartsWith("ERR", StringComparison.Ordinal)) throw new IOException("Pico: " + line[3..].Trim());
+        }
+        throw new IOException(L.T("Pico antwortet nicht."));
+    }
+
+    /// <summary>
+    /// Pico per USB für WLAN einrichten: Programm und btcfg.json (Rolle, WLAN, Schlüssel, Gerätename) über das Raw-REPL
+    /// schreiben, neu starten, Rolle prüfen. Danach kann der Pico an ein eigenes Netzteil.
+    /// </summary>
+    public static void Provision(ILineTransport io, string portName, PicoNetworkConfig config, Action<string>? log = null)
+    {
+        log?.Invoke(L.T("Pico an {0}: Programm und WLAN-Einstellungen werden aufgespielt …", portName));
+        Install(io, Firmware, new Dictionary<string, string> { ["btcfg.json"] = config.ToJson() });
+        var (version, role) = HelloInfo(io, TimeSpan.FromSeconds(4));
+        if (version != FirmwareVersion || role != config.Role)
+            throw new IOException(L.T("Pico antwortet nach dem Einrichten nicht wie erwartet (Version {0}, Rolle {1}).", version ?? "?", role));
+        log?.Invoke(L.T("Pico an {0}: eingerichtet als „{1}“ für WLAN „{2}“.", portName, config.Role, config.Ssid));
+    }
+
+    /// <summary>Nach dem Einrichten: bis zu <paramref name="timeout"/> warten, bis der Pico im WLAN ist; liefert seine IP oder null.</summary>
+    public static string? WaitForNetwork(ILineTransport io, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            io.Discard();
+            io.Write("NET\r\n");
+            var lineDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(1.5);
+            while (DateTime.UtcNow < lineDeadline)
+            {
+                var parts = io.ReadLine(lineDeadline - DateTime.UtcNow)?.Trim().Split(' ');
+                if (parts is null) break;
+                if (parts.Length == 4 && parts[0] == "OK" && parts[1] == "NET")
+                {
+                    if (parts[2] == "1" && System.Net.IPAddress.TryParse(parts[3], out _)) return parts[3];
+                    break;
+                }
+            }
+            Thread.Sleep(1000);
+        }
+        return null;
+    }
+
+    /// <summary>"HELLO" → "OK BTFAN &lt;version&gt; &lt;kanäle&gt; [rolle]"; null, wenn unser Programm nicht läuft.</summary>
+    internal static string? Hello(ILineTransport io, TimeSpan? timeout = null) => HelloInfo(io, timeout).Version;
+
+    internal static (string? Version, string Role) HelloInfo(ILineTransport io, TimeSpan? timeout = null)
     {
         io.Discard();
         io.Write("\r\nHELLO\r\n");
@@ -147,15 +250,19 @@ public sealed class PicoFanDevice : IFanDevice
         while (DateTime.UtcNow < deadline)
         {
             var line = io.ReadLine(deadline - DateTime.UtcNow);
-            if (line is null) return null;
+            if (line is null) return (null, RoleFans);
             var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 3 && parts[0] == "OK" && parts[1] == "BTFAN") return parts[2];
+            if (parts.Length >= 3 && parts[0] == "OK" && parts[1] == "BTFAN")
+                return (parts[2], parts.Length >= 5 && parts[4] == RoleDisplay ? RoleDisplay : RoleFans);
         }
-        return null;
+        return (null, RoleFans);
     }
 
-    /// <summary>Programm als main.py über das MicroPython-Raw-REPL schreiben, dann Soft-Reset (startet main.py).</summary>
-    internal static void Install(ILineTransport io, string source)
+    /// <summary>
+    /// Programm als main.py (und weitere Dateien, z. B. btcfg.json) über das MicroPython-Raw-REPL schreiben, dann
+    /// Soft-Reset (startet main.py).
+    /// </summary>
+    internal static void Install(ILineTransport io, string source, IReadOnlyDictionary<string, string>? files = null)
     {
         io.Write("\r\x03\x03"); // laufendes Programm unterbrechen (Lüfter gehen dabei auf 100 %)
         Thread.Sleep(300);
@@ -174,10 +281,16 @@ public sealed class PicoFanDevice : IFanDevice
                 throw new IOException(L.T("Fehler beim Aufspielen: ") + (parts.Length > 1 ? parts[1].Trim() : reply));
         }
 
-        Exec("f=open('main.py','w')");
-        for (var i = 0; i < source.Length; i += 192)
-            Exec("f.write(" + PyString(source.Substring(i, Math.Min(192, source.Length - i))) + ")");
-        Exec("f.close()");
+        void WriteFile(string name, string content)
+        {
+            Exec($"f=open('{name}','w')");
+            for (var i = 0; i < content.Length; i += 192)
+                Exec("f.write(" + PyString(content.Substring(i, Math.Min(192, content.Length - i))) + ")");
+            Exec("f.close()");
+        }
+
+        foreach (var (name, content) in files ?? new Dictionary<string, string>()) WriteFile(name, content);
+        WriteFile("main.py", source);
         io.Write("\x02"); // Raw-REPL verlassen
         Thread.Sleep(100);
         io.Write("\x04"); // Soft-Reset → main.py startet
@@ -210,7 +323,7 @@ public sealed class PicoFanDevice : IFanDevice
         lock (_lock)
         {
             _io.Write("SET " + string.Join(' ', percent.Select(p => Math.Clamp(p, 0, 100))) + "\r\n");
-            return ParseRpm(Expect("RPM ", TimeSpan.FromSeconds(1.5)));
+            return ParseRpm(Expect("RPM", TimeSpan.FromSeconds(1.5)));
         }
     }, ct);
 
@@ -219,7 +332,7 @@ public sealed class PicoFanDevice : IFanDevice
         lock (_lock)
         {
             _io.Write("GET\r\n");
-            return ParseRpm(Expect("RPM ", TimeSpan.FromSeconds(1.5)));
+            return ParseRpm(Expect("RPM", TimeSpan.FromSeconds(1.5)));
         }
     }, ct);
 
@@ -286,10 +399,11 @@ public sealed class PicoFanDevice : IFanDevice
         throw new IOException(L.T("Pico antwortet nicht."));
     }
 
-    /// <summary>"RPM r1 .. r6 [T id=t id=t ..]" – Drehzahlen und optional Temperaturfühler.</summary>
+    /// <summary>"RPM r1 .. r6 [T id=t id=t ..]" – Drehzahlen und optional Temperaturfühler; Display-Pico: "RPM [T …]".</summary>
     private int[] ParseRpm(string line)
     {
-        var parts = line[4..].Split(" T ", 2);
+        var rest = " " + line[3..].Trim();
+        var parts = rest.StartsWith(" T ", StringComparison.Ordinal) ? ["", rest[3..]] : rest.Split(" T ", 2);
         Temperatures = parts.Length > 1 ? ParseTemperatures(parts[1]) : [];
         return parts[0].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => int.TryParse(v, out var r) ? r : 0).ToArray();
     }
@@ -370,10 +484,11 @@ public sealed class PicoFanDevice : IFanDevice
 }
 
 /// <summary>Simulierter Pico für Tests und Vorführung: Drehzahl folgt dem Sollwert (≈ 60 U/min je %).</summary>
-public sealed class SimulatedFanDevice : IFanDevice
+public sealed class SimulatedFanDevice(string role = PicoFanDevice.RoleFans) : IFanDevice
 {
     private readonly List<string> _events = new();
-    public string Description => L.T("Simulierter Pico");
+    public string Description => role == PicoFanDevice.RoleDisplay ? L.T("Simulierter Display-Pico") : L.T("Simulierter Pico");
+    public string Role => role;
     public List<byte[]> Images { get; } = [];
     public int Resets { get; private set; }
     /// <summary>Simulierte Temperaturfühler; leer = kein Fühler.</summary>

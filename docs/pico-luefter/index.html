@@ -93,7 +93,7 @@
     <div class="kicker">BitaxeTuner-Server · Zubehör</div>
     <h1>Pico-Lüftersteuerung</h1>
     <p class="lead">Ein Raspberry Pi Pico 2 am USB-Port des Pi 3 regelt bis zu sechs 4-Pin-PWM-Lüfter: je einen für den Spannungsregler (VR) jedes Bitaxe und bis zu drei fürs Gehäuse. Dazu kommen ein 7,5-Zoll-E-Paper mit den wichtigsten Werten, vier Taster und ein Temperaturfühler im Gehäuse. Fällt irgendetwas aus, laufen die Lüfter mit voller Drehzahl.</p>
-    <p><a href="#image">Raspberry Pi einrichten: fertiges Image</a> · <a href="#steckbrett">Steckbrett</a> · <a href="#anzeige">Display, Taster, Fühler</a> · <a href="#einkauf">Einkauf</a> · <a href="../en/pico-fans/" hreflang="en" lang="en">English</a></p>
+    <p><a href="#image">Raspberry Pi einrichten: fertiges Image</a> · <a href="#steckbrett">Steckbrett</a> · <a href="#anzeige">Display, Taster, Fühler</a> · <a href="#einkauf">Einkauf</a> · <a href="#wlan">Pico über WLAN</a> · <a href="../en/pico-fans/" hreflang="en" lang="en">English</a></p>
   </header>
 
   <section id="image">
@@ -551,6 +551,45 @@
       <li><b>Pico per USB an den Pi 3 stecken.</b> Der Server erkennt ihn, lädt das Lüfterprogramm hoch und übernimmt die Regelung; die Drehzahl erscheint in der Oberfläche.</li>
       <li><b>Lüfter zuordnen</b> (Einstellungen → Lüfter) und die übrigen Kanäle anschließen.</li>
     </ol>
+  </section>
+
+  <section id="wlan">
+    <h2><span class="tag">Ab 0.9.7</span>Ohne Kabel zum Server: Pico über WLAN</h2>
+    <p>Mit einem <b>Raspberry Pi Pico 2 WH</b> (mit WLAN, Stiftleisten schon eingelötet) müssen Lüftersteuerung und Anzeige nicht mehr per USB am Server hängen. Es gibt zwei Ausführungen, die sich auch kombinieren lassen:</p>
+    <div class="two">
+      <div class="panel">
+        <h3>Lüfter-Pico</h3>
+        <p>Pico 2 WH statt Pico 2 H auf die Lüfterplatine (oder das Steckbrett) – gleiche Bauform, gleiche Pins. Die Lüfter bekommen ihren Strom wie bisher über die USB-C-Buchse der Platine, der Pico ein eigenes USB-Netzteil an seiner Micro-USB-Buchse.</p>
+        <p>Ein E-Paper kann wie bisher per Kabel an der Platine hängen.</p>
+      </div>
+      <div class="panel">
+        <h3>Display-Pico</h3>
+        <p>Pico 2 WH <b>direkt auf das Waveshare-E-Paper-Modul stecken</b> – keine Kabel, keine Platine. Ausrichtung nach dem auf dem Modul aufgedruckten Pico-Umriss (USB-Buchse an der markierten Seite), vorher ohne Strom. Strom über ein USB-Netzteil am Pico.</p>
+        <p>Er zeigt die Anzeige und meldet seine Taster; Lüfter hat er keine. Dafür nutzt das Programm hier die Waveshare-Belegung (GP8–GP13).</p>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><b>MicroPython für den W aufspielen:</b> BOOTSEL halten, Pico per USB an einen PC, die UF2-Datei für <b>„Raspberry Pi Pico 2 W“ (RPI_PICO2_W)</b> von <span class="mono">micropython.org/download</span> auf das Laufwerk ziehen. Die Datei ohne „W“ hat kein WLAN.</li>
+      <li><b>Pico per USB-Datenkabel an den Server</b> (Pi oder PC mit dem BitaxeTuner-Server). Steckt dort schon ein anderer Pico, im Dialog den richtigen Port wählen.</li>
+      <li>Im Browser <b>Lüfter &amp; Anzeige</b> öffnen und <b>„Lüfter-Pico für WLAN einrichten …“</b> (Karte <i>Verbindung</i>) bzw. <b>„Display-Pico für WLAN einrichten …“</b> (Karte <i>E-Paper-Anzeige</i>, „Anzeige hängt: eigener Display-Pico“) wählen.</li>
+      <li><b>WLAN-Name und Passwort</b> eintragen (der Pico kann nur <b>2,4 GHz</b>), Gerätename lassen oder ändern. Nach ca. 30 Sekunden meldet BitaxeTuner „Eingerichtet“ und die IP-Adresse, die der Pico bekommen hat.</li>
+      <li><b>Pico vom Server abziehen</b> und an sein eigenes Netzteil (5 V, 1 A genügt). Der Server verbindet sich innerhalb weniger Sekunden selbst; die Verbindung steht unter <i>Verbindung</i> bzw. „Angeschlossen über“.</li>
+    </ol>
+    <div class="note"><strong>Gut zu wissen:</strong> Der Server sucht den Pico unter <span class="mono">bitaxetuner-fans.local</span> bzw. <span class="mono">bitaxetuner-display.local</span> und fällt sonst auf die zuletzt erreichte IP-Adresse zurück. Am zuverlässigsten ist eine <b>feste IP im Router</b> (DHCP-Reservierung) – die dann im Feld „WLAN: Gerätename oder IP-Adresse“ eintragen. Neue Versionen des Pico-Programms spielt der Server über WLAN auf, ein Kabel ist dafür nicht mehr nötig.</div>
+    <h3>Sicherheit</h3>
+    <ul class="plain">
+      <li>Bei der Einrichtung bekommt jeder Pico einen <b>eigenen Zufallsschlüssel</b>. Beide Seiten weisen ihn beim Verbinden nach, danach ist jede Zeile signiert und durchnummeriert – andere Geräte im WLAN können weder Lüfter schalten noch Werte unterschieben oder alte Befehle wiederholen.</li>
+      <li>Das <b>WLAN-Passwort speichert nur der Pico</b>, nicht der Server. Wer den Pico in die Hand bekommt, kann es aber auslesen – den Pico also nicht offen herumliegen lassen.</li>
+      <li>Der <b>Ausfallschutz bleibt</b>: Bricht das WLAN ab, bekommt der Lüfter-Pico keine Befehle mehr und schaltet nach 5 Sekunden alle Lüfter auf 100 %. Taste 3 setzt auch ohne Server 100 %.</li>
+      <li>Das E-Paper zeigt nach 10 Minuten ohne Server „KEINE VERBINDUNG ZUM SERVER“.</li>
+    </ul>
+    <h3>Wenn es nicht klappt</h3>
+    <dl>
+      <dt>„Schlüssel passt nicht“</dt><dd>Pico wurde woanders neu eingerichtet oder der Server neu installiert → Pico per USB erneut „für WLAN einrichten“.</dd>
+      <dt>„antwortet nicht (WLAN?)“</dt><dd>WLAN-Name/Passwort prüfen, 2,4-GHz-Netz aktiv? Im Router nachsehen, ob der Pico eine IP hat, und diese eintragen.</dd>
+      <dt>„ist als Display-Pico eingerichtet“</dt><dd>Lüfter- und Display-Pico vertauscht → den jeweils anderen Einrichtungsknopf verwenden.</dd>
+      <dt>Zurück zu USB</dt><dd>„Verbindung: USB-Kabel am Server“ wählen und speichern; das Programm funktioniert per USB weiter.</dd>
+    </dl>
   </section>
 
   <section>

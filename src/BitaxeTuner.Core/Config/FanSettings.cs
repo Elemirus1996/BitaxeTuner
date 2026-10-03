@@ -13,6 +13,15 @@ public sealed class FanSettings
     /// <summary>"auto" (Pico per USB-Kennung suchen) oder fester Port, z. B. "/dev/ttyACM0" bzw. "COM5".</summary>
     public string Port { get; set; } = "auto";
 
+    /// <summary>0.9.7: "usb" (Standard) oder "wlan" (Pico 2 W, vorher per USB „für WLAN einrichten“). Additiv.</summary>
+    public string Connection { get; set; } = "usb";
+
+    /// <summary>WLAN: Gerätename (z. B. bitaxetuner-fans.local) oder IP-Adresse, optional mit :Port.</summary>
+    public string NetworkHost { get; set; } = "";
+
+    /// <summary>WLAN: zuletzt erreichte IP-Adresse – Rückfall, falls der Gerätename im Heimnetz nicht auflöst.</summary>
+    public string NetworkIp { get; set; } = "";
+
     public List<FanChannelSettings> Channels { get; set; } =
         Enumerable.Range(1, ChannelCount).Select(i => new FanChannelSettings { Channel = i }).ToList();
 

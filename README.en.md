@@ -318,6 +318,12 @@ browser → *Fans & display*. Wiring diagram, solder-free breadboard build and s
 No soldering and no breadboard: the ready-to-assemble **fan board** for the Pico 2 H with order files for JLCPCB is in
 [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (prototype v1.0, measure before continuous use; German readme).
 
+**No cable to the server (from 0.9.7):** with a Pico 2 WH, fan control and display run over WLAN – as fan Pico on the
+board and/or as display Pico simply plugged onto the Waveshare e-paper. Prepare it once via USB on the server under
+*Fans & display → “… set up for WLAN”*, then connect it to its own power supply. Every line is signed with its own key,
+the WLAN password stays on the Pico only, the fail-safe (100 %) remains. Guide:
+[Pico via WLAN](https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/#wlan).
+
 ### Prometheus / Grafana
 
 *Settings → Prometheus / Grafana* (browser): enable the export and create a token (shown only once). The server then

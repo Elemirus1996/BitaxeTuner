@@ -128,6 +128,13 @@ public static class WhatsNew
                 server ? tr.T("Unter Steuer lassen sich jetzt Wallets hinzufügen (auch aus den Minern), fehlende Kurse und Notizen nachtragen, Eingänge ohne Mining-Ertrag entfernen und Verkäufe mit Haltefrist-Rechnung erfassen – direkt im Browser, gleiche Daten wie in der Desktop-App.")
                        : tr.T("Im Server-Betrieb: Wallets, Kurse und Verkäufe lassen sich jetzt auch im Browser bearbeiten – die Steuerdaten müssen dafür nicht mehr zurück auf den PC."),
                 null),
+            new("0.9.7", tr.T("Pico über WLAN"),
+                server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
+                       : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
+                null),
+            new("0.9.7", tr.T("Eigener Display-Pico"),
+                tr.T("Das E-Paper kann einen eigenen Pico bekommen, der einfach auf das Waveshare-Modul gesteckt wird – ohne Kabel und ohne Platine. Neu außerdem: Farben umkehren (helle Schrift auf Schwarz)."),
+                null),
         ];
     }
 

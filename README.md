@@ -319,6 +319,12 @@ stehen in der Bauanleitung
 Ohne Löten und ohne Steckbrett: die fertig bestückbare **Lüfterplatine** für den Pico 2 H mit Bestelldateien für JLCPCB
 liegt in [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (Prototyp v1.0, vor dem Dauerbetrieb durchmessen).
 
+**Ohne Kabel zum Server (ab 0.9.7):** Mit einem Pico 2 WH laufen Lüftersteuerung und Anzeige über WLAN – als
+Lüfter-Pico auf der Platine und/oder als Display-Pico, der einfach auf das Waveshare-E-Paper gesteckt wird. Einmal per
+USB am Server unter *Lüfter & Anzeige → „… für WLAN einrichten“* vorbereiten, danach an ein eigenes Netzteil. Jede
+Zeile ist mit einem eigenen Schlüssel signiert, das WLAN-Passwort liegt nur auf dem Pico, der Ausfallschutz (100 %)
+bleibt. Anleitung: [Pico über WLAN](https://elemirus1996.github.io/BitaxeTuner/pico-luefter/#wlan).
+
 ### Prometheus / Grafana
 
 *Einstellungen → Prometheus / Grafana* (Browser): Export einschalten und ein Token erzeugen (wird nur einmal angezeigt).
