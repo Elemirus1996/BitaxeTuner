@@ -207,16 +207,18 @@ public class HubTests
         Assert.Equal(0, d.Info!.AutoFanMode);
         Assert.Equal(80, d.Info.FanPercent);
 
-        await rig.Hub.SetMinerFanAsync(d, auto: true, targetTempC: 58, manualPercent: 0, "Test");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Hub.SetMinerFanAsync(d, true, 58, 0, "Test", minPercent: 120));
+        await rig.Hub.SetMinerFanAsync(d, auto: true, targetTempC: 58, manualPercent: 0, "Test", minPercent: 35);
         await Task.Delay(MinerConnection.CacheAge + TimeSpan.FromMilliseconds(100));
         await rig.Hub.PollNowAsync();
         Assert.True(d.Info!.AutoFan);
         Assert.Equal(58, d.Info.FanTargetTempC);
+        Assert.Equal(35, d.Info.FanMinPercent);                                    // Mindestdrehzahl wie in AxeOS
 
         var log = rig.Hub.History!.QueryEvents(DateTime.Now.AddHours(-1), DateTime.Now.AddMinutes(1), categories: [EventCategories.Fans]);
         Assert.Equal(2, log.Count);
         Assert.Contains(log, e => e.Message.Contains("Manuell 80 %") && e.Host == "10.0.0.51");
-        Assert.Contains(log, e => e.Message.Contains("Ziel 58 °C"));
+        Assert.Contains(log, e => e.Message.Contains("Ziel 58 °C, mindestens 35 %"));
     }
 
     [Fact]

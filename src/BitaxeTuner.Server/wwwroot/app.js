@@ -1259,23 +1259,26 @@ function minerFanCard(d) {
   const target = h('input', { type: 'number', min: lim.minTarget, max: lim.maxTarget, step: 1, value: Math.min(lim.maxTarget, Math.max(lim.minTarget, d.fanTarget ?? 60)) });
   const percent = h('input', { type: 'number', min: lim.minPercent, max: 100, step: 5, value: Math.max(lim.minPercent, d.fanPercent ?? 100) });
   const targetBox = h('div', {}, h('label', {}, t('Zieltemperatur (°C, {0}–{1})', lim.minTarget, lim.maxTarget)), target);
+  // Mindestdrehzahl der Automatik wie in AxeOS (nur Firmware mit „minFanSpeed“)
+  const minPct = h('input', { type: 'number', min: 0, max: 99, step: 5, value: d.fanMin ?? 25 });
+  const minBox = h('div', {}, h('label', {}, t('mindestens (%, 0–99)')), minPct);
   const percentBox = h('div', {}, h('label', {}, t('Drehzahl (%, {0}–100)', lim.minPercent)), percent);
-  const show = () => { targetBox.hidden = mode.value !== 'auto'; percentBox.hidden = mode.value === 'auto'; };
+  const show = () => { targetBox.hidden = mode.value !== 'auto'; minBox.hidden = mode.value !== 'auto' || d.fanMin == null; percentBox.hidden = mode.value === 'auto'; };
   mode.addEventListener('change', show);
   show();
-  const text = (auto, tgt, pct) => auto ? (tgt != null ? t('Automatik, Ziel {0} °C', tgt) : t('Automatik')) : t('Manuell {0} %', pct ?? '?');
+  const text = (auto, tgt, pct, min) => auto ? (tgt != null ? t('Automatik, Ziel {0} °C', tgt) : t('Automatik')) + (min != null ? t(', mindestens {0} %', min) : '') : t('Manuell {0} %', pct ?? '?');
   const apply = async () => {
     const auto = mode.value === 'auto';
-    const body = { auto, targetTemp: +target.value, percent: +percent.value };
-    const msg = t('Lüfter von {0}: {1} → {2}', d.name, text(d.fanAuto !== false, d.fanTarget, d.fanPercent), text(auto, body.targetTemp, body.percent)) +
+    const body = { auto, targetTemp: +target.value, percent: +percent.value, minPercent: d.fanMin != null ? +minPct.value : null };
+    const msg = t('Lüfter von {0}: {1} → {2}', d.name, text(d.fanAuto !== false, d.fanTarget, d.fanPercent, d.fanMin), text(auto, body.targetTemp, body.percent, auto ? body.minPercent : null)) +
       (auto ? '' : '\n\n' + t('Achtung: Im manuellen Modus reagiert der Lüfter nicht mehr auf die Temperatur. Der Überhitzungsschutz von AxeOS und die Temperatur-Meldungen bleiben aktiv.'));
     if (!await confirmBox(t('Lüfter einstellen'), msg, t('Anwenden'))) return;
     if (await run(() => api(`/devices/${S.route.id}/fan`, { method: 'POST', body }), t('Lüfter eingestellt.'))) { cleanTab(); reloadDetailSoon(); }
   };
   return h('div', { class: 'card stack' },
     h('h3', {}, t('Lüfter des Miners')),
-    h('p', { class: 'muted small' }, t('Aktuell: {0}', text(d.fanAuto !== false, d.fanTarget, d.fanPercent)) + (d.fanRpm != null ? ` · ${d.fanRpm} rpm` : '')),
-    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Modus')), mode), targetBox, percentBox,
+    h('p', { class: 'muted small' }, t('Aktuell: {0}', text(d.fanAuto !== false, d.fanTarget, d.fanPercent, d.fanMin)) + (d.fanRpm != null ? ` · ${d.fanRpm} rpm` : '')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Modus')), mode), targetBox, minBox, percentBox,
       h('button', { class: 'btn', onclick: apply, disabled: d.benchmark?.running }, t('Lüfter anwenden …'))),
     d.benchmark?.running ? h('p', { class: 'muted small' }, t('Während eines Benchmarks steuert der Benchmark den Lüfter.')) : null);
 }

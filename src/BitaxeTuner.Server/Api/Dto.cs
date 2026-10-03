@@ -165,6 +165,7 @@ public static class Dto
             fanPercent = i is null ? (int?)null : (int)Math.Round(i.fanspeed),   // AxeOS liefert z. B. 12,2222 %
             fanAuto = n?.AutoFan,
             fanTarget = n?.FanTargetTempC,
+            fanMin = n?.FanMinPercent,
             uptimeSeconds = i?.uptimeSeconds,
             sharesAccepted = i?.sharesAccepted,
             sharesRejected = i?.sharesRejected,

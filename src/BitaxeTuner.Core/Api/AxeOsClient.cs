@@ -141,6 +141,10 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         return PatchAsync(body, ct);
     }
 
+    /// <summary>Mindestdrehzahl der Automatik (AxeOS „minFanSpeed“, 0–99 %); Firmware ohne das Feld: nichts senden.</summary>
+    public Task SetFanMinAsync(int percent, CancellationToken ct = default) =>
+        _lastKeys.Contains("minFanSpeed") ? PatchAsync(new Dictionary<string, object> { ["minFanSpeed"] = Math.Clamp(percent, 0, 99) }, ct) : Task.CompletedTask;
+
     public Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default)
     {
         // NerdQAxe regelt per PID auf „pidTargetTemp“, AxeOS (≥ 2.x) auf „temptarget“; ältere Firmware: nichts senden
@@ -254,6 +258,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             DefaultCoreVoltageMv = Int(r, "defaultCoreVoltage"),
             AutoFanMode = Int(r, "autofanspeed"),
             FanTargetTempC = (Int(r, "pidTargetTemp") ?? Int(r, "temptarget")) is > 0 and var ft ? ft : null,
+            FanMinPercent = Int(r, "minFanSpeed"),
             FanPercent = Int(r, "fanspeed") ?? Int(r, "manualFanSpeed"),
             FanRpm = Int(r, "fanrpm"),
             SharesAccepted = (long)(Dbl(r, "sharesAccepted") ?? 0),

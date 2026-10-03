@@ -433,7 +433,12 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _fanAuto = true;
     [ObservableProperty] private string _fanTarget = "60";
     [ObservableProperty] private string _fanManualPercent = "100";
+    /// <summary>Mindestdrehzahl der Automatik (AxeOS „minFanSpeed“); leer = Firmware kennt sie nicht.</summary>
+    [ObservableProperty] private string _fanMinPercent = "";
     private bool _fanEdited;
+
+    /// <summary>Feld „mindestens“ nur zeigen, wenn die Firmware die Mindestdrehzahl kennt.</summary>
+    public bool FanMinSupported => Info?.FanMinPercent is not null;
 
     partial void OnFanAutoChanged(bool value)
     {
@@ -449,6 +454,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     }
     partial void OnFanTargetChanged(string value) => _fanEdited = true;
     partial void OnFanManualPercentChanged(string value) => _fanEdited = true;
+    partial void OnFanMinPercentChanged(string value) => _fanEdited = true;
 
     /// <summary>Aktuellen Lüfterzustand übernehmen, solange der Benutzer nichts geändert hat.</summary>
     private void SyncFanFromInfo(MinerInfo? info)
@@ -457,6 +463,9 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         _fanAuto = info.AutoFan != false;
         _fanTarget = (info.FanTargetTempC ?? 60).ToString();
         _fanManualPercent = Math.Max(MinerHub.MinManualFanPercent, info.FanPercent ?? 100).ToString();
+        _fanMinPercent = info.FanMinPercent?.ToString() ?? "";
+        OnPropertyChanged(nameof(FanMinPercent));
+        OnPropertyChanged(nameof(FanMinSupported));
         OnPropertyChanged(nameof(FanAuto));
         OnPropertyChanged(nameof(FanManual));
         OnPropertyChanged(nameof(FanTarget));
@@ -465,7 +474,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     }
 
     public string FanCurrentText => Info is { } i
-        ? L.T("Aktuell: {0}", MinerHub.MinerFanText(i.AutoFan == true, i.FanTargetTempC, i.FanPercent)) + (i.FanRpm is { } rpm ? $" · {rpm} rpm" : "")
+        ? L.T("Aktuell: {0}", MinerHub.MinerFanText(i.AutoFan == true, i.FanTargetTempC, i.FanPercent, i.FanMinPercent)) + (i.FanRpm is { } rpm ? $" · {rpm} rpm" : "")
         : "";
 
     [RelayCommand(CanExecute = nameof(CanApplyManual))]
@@ -474,18 +483,24 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         if (Info is not { } info) return;
         _ = int.TryParse(FanTarget.Trim(), out var target);
         _ = int.TryParse(FanManualPercent.Trim(), out var percent);
+        int? min = info.FanMinPercent is null ? null : int.TryParse(FanMinPercent.Trim(), out var m) ? m : info.FanMinPercent;
+        if (min is < 0 or > 99)
+        {
+            MessageBox.Show(L.T("Lüfter mindestens: 0–99 %."), L.T("Lüfter einstellen"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         if (MinerHub.CheckMinerFan(_device, FanAuto, target, percent) is { } error)
         {
             MessageBox.Show(error, L.T("Lüfter einstellen"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        var text = L.T("Lüfter von {0}: {1} → {2}", _device.Title, MinerHub.MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent),
-                       MinerHub.MinerFanText(FanAuto, target, percent)) +
+        var text = L.T("Lüfter von {0}: {1} → {2}", _device.Title, MinerHub.MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent, info.FanMinPercent),
+                       MinerHub.MinerFanText(FanAuto, target, percent, FanAuto ? min : null)) +
                    (FanAuto ? "" : "\n\n" + L.T("Achtung: Im manuellen Modus reagiert der Lüfter nicht mehr auf die Temperatur. Der Überhitzungsschutz von AxeOS und die Temperatur-Meldungen bleiben aktiv."));
         if (MessageBox.Show(text, L.T("Lüfter einstellen"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         try
         {
-            await _hub.SetMinerFanAsync(_device, FanAuto, target, percent, L.T("Desktop"));
+            await _hub.SetMinerFanAsync(_device, FanAuto, target, percent, L.T("Desktop"), min);
             _fanEdited = false;
         }
         catch (Exception ex) when (ex is MinerApiException or InvalidOperationException)

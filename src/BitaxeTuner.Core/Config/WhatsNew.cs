@@ -132,6 +132,9 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.8", tr.T("Mindestdrehzahl der Lüfter-Automatik"),
+                tr.T("Bei „Lüfter des Miners“ lässt sich in der Automatik jetzt wie in AxeOS die Mindestdrehzahl einstellen (Firmware mit „minFanSpeed“); sie wird auch gesichert und wiederhergestellt."),
+                null),
             new("0.9.7", tr.T("Gruppen-Automatik"),
                 server ? tr.T("Ein Zeitplan oder eine Strompreis-Regel für eine ganze Miner-Gruppe – jeder Miner nutzt dabei seine eigene Voreinstellung gleichen Namens. Dazu „jetzt umschalten“ mit Vorschau alt → neu. In der Übersicht eine Gruppe wählen → Gruppen-Automatik.")
                        : tr.T("Im Server-Betrieb: Zeitplan oder Strompreis-Regel für eine ganze Miner-Gruppe, jeder Miner mit seiner eigenen Voreinstellung gleichen Namens."),

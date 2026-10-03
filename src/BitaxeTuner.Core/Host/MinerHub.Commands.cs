@@ -412,33 +412,39 @@ public sealed partial class MinerHub
         var auto = Value("autofanspeed") is { } a ? a > 0 : info?.AutoFan ?? true;
         var target = Value("temptarget") ?? info?.FanTargetTempC;
         var manual = Value("manualFanSpeed") ?? info?.FanPercent;
+        if (Value("minFanSpeed") is { } min && min is < 0 or > 99) return L.T("Lüfter mindestens: 0–99 %.");
         // Unbekannte, unveränderte Werte nicht prüfen (z. B. Firmware ohne Zieltemperatur)
         return CheckMinerFan(device, auto, target ?? MinFanTargetTempC, manual ?? 100);
     }
 
     /// <summary>Text „alt → neu“ für die Bestätigung (Desktop und Browser gleich).</summary>
-    public static string MinerFanText(bool auto, int? targetTempC, int? percent) =>
-        auto ? (targetTempC is { } t ? L.T("Automatik, Ziel {0} °C", t) : L.T("Automatik"))
+    public static string MinerFanText(bool auto, int? targetTempC, int? percent, int? minPercent = null) =>
+        auto ? (targetTempC is { } t ? L.T("Automatik, Ziel {0} °C", t) : L.T("Automatik")) + (minPercent is { } m ? L.T(", mindestens {0} %", m) : "")
              : L.T("Manuell {0} %", percent?.ToString() ?? "?");
 
     /// <summary>
     /// Lüfter des Miners stellen: Automatik mit Zieltemperatur oder fester Wert. Nur nach Bestätigung in der Oberfläche
     /// aufrufen; geprüft gegen die Profilgrenze, protokolliert (Kategorie Lüfter).
     /// </summary>
-    public async Task SetMinerFanAsync(HubDevice device, bool auto, int targetTempC, int manualPercent, string source)
+    /// <param name="minPercent">Mindestdrehzahl der Automatik (0–99 %, wie in AxeOS); null = unverändert.</param>
+    public async Task SetMinerFanAsync(HubDevice device, bool auto, int targetTempC, int manualPercent, string source, int? minPercent = null)
     {
         if (CheckMinerFan(device, auto, targetTempC, manualPercent) is { } error) throw new InvalidOperationException(error);
+        if (minPercent is < 0 or > 99) throw new InvalidOperationException(L.T("Lüfter mindestens: 0–99 %."));
         var info = device.Info ?? throw new InvalidOperationException(L.T("Miner ist nicht erreichbar."));
-        var before = MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent);
+        // Firmware ohne „minFanSpeed“: Wert nicht senden und nicht anzeigen
+        if (info.FanMinPercent is null) minPercent = null;
+        var before = MinerFanText(info.AutoFan == true, info.FanTargetTempC, info.FanPercent, info.FanMinPercent);
         if (auto)
         {
-            // Automatik: bisherigen Modus behalten (NerdQAxe 2 = PID), sonst 1; Zieltemperatur zuerst
+            // Automatik: bisherigen Modus behalten (NerdQAxe 2 = PID), sonst 1; Zieltemperatur und Mindestdrehzahl zuerst
             await device.Connection.SetFanTargetAsync(targetTempC);
+            if (minPercent is { } min) await device.Connection.SetFanMinAsync(min);
             await device.Connection.SetFanAsync(info.AutoFanMode is > 0 and var m ? m : 1, info.FanPercent ?? 100);
         }
         else
             await device.Connection.SetFanAsync(0, manualPercent);
-        device.AddLog(L.T("AxeOS-Lüfter ({0}): {1} → {2}", source, before, MinerFanText(auto, targetTempC, manualPercent)), EventCategories.Fans);
+        device.AddLog(L.T("AxeOS-Lüfter ({0}): {1} → {2}", source, before, MinerFanText(auto, targetTempC, manualPercent, auto ? minPercent ?? info.FanMinPercent : null)), EventCategories.Fans);
         RaiseDeviceChanged(device);
     }
 }

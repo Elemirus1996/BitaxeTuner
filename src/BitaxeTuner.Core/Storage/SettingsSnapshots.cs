@@ -61,6 +61,7 @@ public sealed class SettingsSnapshots(string directory)
         ("autofanspeed", L.T("Lüfter automatisch"), SettingGroup.Fan),
         ("manualFanSpeed", L.T("Lüfter manuell (%)"), SettingGroup.Fan),
         ("temptarget", L.T("Zieltemperatur (°C)"), SettingGroup.Fan),
+        ("minFanSpeed", L.T("Lüfter mindestens (%)"), SettingGroup.Fan),
         ("stratumURL", L.T("Pool-URL"), SettingGroup.Pool),
         ("stratumPort", L.T("Pool-Port"), SettingGroup.Pool),
         ("stratumUser", L.T("Pool-Benutzer (Wallet.Worker)"), SettingGroup.Pool),

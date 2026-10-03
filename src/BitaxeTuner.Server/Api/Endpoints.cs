@@ -20,7 +20,7 @@ public sealed record OnboardingRequest(bool Show);
 /// <summary>SoakHours: nach der Änderung automatisch einen Dauertest dieser Dauer starten (Effizienz-Ratgeber).</summary>
 public sealed record ChangeRequest(int Frequency, int Voltage, int? SoakHours = null);
 public sealed record BenchmarkRequest(BenchmarkSettings? Settings, bool Resume);
-public sealed record MinerFanRequest(bool Auto, int TargetTemp, int Percent);
+public sealed record MinerFanRequest(bool Auto, int TargetTemp, int Percent, int? MinPercent = null);
 public sealed record SoakRequest(int Hours);
 /// <summary>Einstellungen übertragen: Quelle, Ziele (Geräte-IDs) und Bereiche („pool“, „fan“).</summary>
 public sealed record CopySettingsRequest(string Source, string[] Targets, string[] Groups);
@@ -537,7 +537,7 @@ public static class Endpoints
         // Lüfter des Miners (AxeOS/NerdQAxe): Automatik mit Zieltemperatur oder fester Wert – Bestätigung im Browser
         g.MapPost("/devices/{id}/fan", async (string id, MinerFanRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            await h.SetMinerFanAsync(Device(h, id), req.Auto, req.TargetTemp, req.Percent, L.T("Browser"));
+            await h.SetMinerFanAsync(Device(h, id), req.Auto, req.TargetTemp, req.Percent, L.T("Browser"), req.MinPercent);
             return new { ok = true };
         })));
 

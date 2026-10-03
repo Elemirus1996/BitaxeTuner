@@ -53,6 +53,8 @@ public sealed record MinerInfo
     public int? FanPercent { get; init; }
     /// <summary>Zieltemperatur der Lüfterautomatik (AxeOS „temptarget“, NerdQAxe „pidTargetTemp“), falls gemeldet.</summary>
     public int? FanTargetTempC { get; init; }
+    /// <summary>Mindestdrehzahl der Lüfter-Automatik in % (AxeOS „minFanSpeed“); null = Firmware kennt sie nicht.</summary>
+    public int? FanMinPercent { get; init; }
     public int? FanRpm { get; init; }
 
     public long SharesAccepted { get; init; }

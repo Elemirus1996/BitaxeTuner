@@ -28,6 +28,8 @@ public interface IMinerClient
 
     /// <summary>Zieltemperatur der Lüfterautomatik (AxeOS „temptarget“, NerdQAxe „pidTargetTemp“); ohne Unterstützung nichts.</summary>
     Task SetFanTargetAsync(int targetTempC, CancellationToken ct = default) => Task.CompletedTask;
+    /// <summary>Mindestdrehzahl der Lüfter-Automatik in % (nur Firmware mit „minFanSpeed“).</summary>
+    Task SetFanMinAsync(int percent, CancellationToken ct = default) => Task.CompletedTask;
 
     Task RestartAsync(CancellationToken ct = default);
 
