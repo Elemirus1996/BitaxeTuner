@@ -214,7 +214,9 @@ public sealed partial class MinerHub
             var vrHot = i is not null && i.vrTemp >= Math.Max(Config.TempWarn + 10, 80);
             var maintenance = d.Connection.InMaintenance;
             miners.Add(new DisplayMiner(d.Title, s.Online, maintenance, i?.hashRate, i?.temp, i?.vrTemp > 0 ? i.vrTemp : null,
-                fan?.Percent, chipHot, vrHot, fan?.Stalled == true, s.Online ? null : s.Error));
+                // Zusatzlüfter am Pico, sonst der eigene Lüfter des Miners (AxeOS)
+                fan?.Percent ?? (i is { fanspeed: > 0 } ? (int)Math.Round(i.fanspeed) : null),
+                chipHot, vrHot, fan?.Stalled == true, s.Online ? null : s.Error));
             if (!s.Online && !maintenance) alerts.Add(L.T("{0} offline", d.Title));
             if (chipHot) alerts.Add(L.T("{0} Chip {1} °C", d.Title, i!.temp.ToString("0", L.Culture)));
             if (vrHot) alerts.Add(L.T("{0} VR {1} °C", d.Title, i!.vrTemp.ToString("0", L.Culture)));

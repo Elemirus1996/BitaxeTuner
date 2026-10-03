@@ -51,6 +51,16 @@ public class DisplaySceneTests
     }
 
     [Fact]
+    public async Task Overview_shows_the_miner_fan_when_no_pico_channel_is_assigned()
+    {
+        using var rig = new Rig();
+        await rig.Hub.PollNowAsync();
+        var miner = rig.Hub.BuildDisplayModel(DateTime.Now).Miners.Single();
+        Assert.Equal((int)Math.Round(rig.Hub.Devices[0].State.Info!.fanspeed), miner.FanPercent);   // eigener Lüfter des Miners
+        Assert.NotNull(miner.FanPercent);
+    }
+
+    [Fact]
     public async Task Alarm_block_found_and_best_diff_take_turns_and_are_acknowledged_with_button_1()
     {
         using var dir = new TempDir();
