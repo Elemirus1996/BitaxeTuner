@@ -31,6 +31,7 @@ public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuard
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
+public sealed record MetricsRequest(bool Enabled);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
@@ -50,6 +51,7 @@ public static class Endpoints
     {
         var api = app.MapGroup("/api/v1").AddEndpointFilter(HandleErrors);
         MapPublic(api);
+        MapMetrics(app);
 
         var viewer = api.MapGroup("").AddEndpointFilter(Require(Role.Viewer));
         MapViewer(viewer);
@@ -175,6 +177,39 @@ public static class Endpoints
         Dto.Find(hub, id) is { } d && scope.Allows(d) ? d : throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
     private static string Client(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "?";
+
+    // ---------- Prometheus ----------
+
+    public const string MetricsTokenPrefix = "btm_";
+
+    /// <summary>
+    /// /metrics für Prometheus/Grafana: standardmäßig aus (404), sonst nur mit „Authorization: Bearer btm_…“. Ohne IP-
+    /// und Wallet-Adressen. Fehlversuche zählen in dieselbe Sperre wie die Anmeldung.
+    /// </summary>
+    private static void MapMetrics(WebApplication app)
+    {
+        app.MapGet("/metrics", async (HttpContext http, HubService hub, Lockout lockout) =>
+        {
+            var (enabled, hash) = await hub.RunAsync(h => (h.Config.Metrics.Enabled, h.Config.Metrics.TokenHash));
+            if (!enabled || hash.Length == 0) return Results.NotFound();
+            var client = Client(http);
+            var now = DateTime.UtcNow;
+            if (lockout.IsLocked(client, now)) return Results.StatusCode(429);
+            var header = http.Request.Headers.Authorization.ToString();
+            var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header["Bearer ".Length..].Trim() : "";
+            if (!token.StartsWith(MetricsTokenPrefix, StringComparison.Ordinal) ||
+                !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.ASCII.GetBytes(Core.Transfer.Secrets.TokenHash(token)), System.Text.Encoding.ASCII.GetBytes(hash)))
+            {
+                lockout.Fail(client, now);
+                http.Response.Headers.WWWAuthenticate = "Bearer";
+                return Results.StatusCode(401);
+            }
+            lockout.Success(client);
+            var text = await hub.RunAsync(h => PrometheusMetrics.Build(h, Version, Dto.DeviceId, DateTime.Now));
+            return Results.Text(text, PrometheusMetrics.ContentType);
+        });
+    }
 
     // ---------- Öffentlich ----------
 
@@ -738,6 +773,35 @@ public static class Endpoints
 
         g.MapPost("/wallet-consent", async (WalletConsentRequest req, HubService hub) =>
             Results.Json(await hub.RunAsync(async h => { await h.SetWalletConsentAsync(req.Allow); return new { ok = true }; })));
+
+        // Prometheus-Export: ein-/ausschalten, Token erzeugen (wird nur einmal angezeigt)
+        g.MapGet("/metrics/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            enabled = h.Config.Metrics.Enabled,
+            tokenSet = h.Config.Metrics.TokenHash.Length > 0,
+            tokenCreatedUtc = h.Config.Metrics.TokenCreatedUtc,
+        })));
+
+        g.MapPut("/metrics/settings", async (MetricsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            if (h.Config.Metrics.Enabled != req.Enabled)
+            {
+                h.Config.Metrics.Enabled = req.Enabled;
+                h.Config.Save();
+                h.LogEvent(null, EventCategories.Settings, req.Enabled ? L.T("Prometheus-Export eingeschaltet.") : L.T("Prometheus-Export ausgeschaltet."));
+            }
+            return new { ok = true };
+        })));
+
+        g.MapPost("/metrics/token", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var token = MetricsTokenPrefix + AuthStore.Base64Url(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+            h.Config.Metrics.TokenHash = Core.Transfer.Secrets.TokenHash(token);
+            h.Config.Metrics.TokenCreatedUtc = DateTime.UtcNow;
+            h.Config.Save();
+            h.LogEvent(null, EventCategories.Settings, L.T("Neues Prometheus-Token erzeugt (das alte gilt nicht mehr)."));
+            return new { token };
+        })));
 
         g.MapGet("/tokens", (AuthStore auth) => Results.Json(auth.Tokens.Select(t => new { t.Id, t.Name, t.CreatedUtc, t.LastUsedUtc })));
 

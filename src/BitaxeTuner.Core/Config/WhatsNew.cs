@@ -101,6 +101,13 @@ public static class WhatsNew
             new("0.9.2", tr.T("Fehlerbehebungen"),
                 tr.T("Der Windows-Server-Dienst startet wieder (er brach beim Start ab). Der Raspberry Pi findet den Pico mit Port „auto“ wieder. Verbindungsfehler zum Pico stehen jetzt im Protokoll."),
                 null),
+            new("0.9.3", tr.T("Prometheus / Grafana"),
+                server ? tr.T("Messwerte aller Miner unter /metrics für eigene Grafana-Dashboards – ohne IP- und Wallet-Adressen, standardmäßig aus, nur mit eigenem Token (Einstellungen → Prometheus / Grafana).")
+                       : tr.T("Im Server-Betrieb: Messwerte aller Miner unter /metrics für eigene Grafana-Dashboards – ohne IP- und Wallet-Adressen, nur mit eigenem Token."),
+                null),
+            new("0.9.3", tr.T("Mehr Sicherheit bei Lüftern und Benchmark"),
+                tr.T("Pico-Lüfterprogramm v6 mit Hardware-Watchdog; auch manuell eingestellte Lüfter laufen bei zu heißem Miner mit voller Drehzahl; Benchmark-Grenzen über dem Geräteprofil werden in der Bestätigung deutlich genannt; Lüfterwerte aus Sicherungen und Übertragungen werden geprüft."),
+                null),
         ];
     }
 

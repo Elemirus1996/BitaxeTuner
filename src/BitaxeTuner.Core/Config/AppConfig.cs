@@ -132,6 +132,9 @@ public sealed class AppConfig
     /// <summary>Home Assistant / MQTT.</summary>
     public MqttSettings Mqtt { get; set; } = new();
 
+    /// <summary>Prometheus-Export unter /metrics (Server); standardmäßig aus, nur mit Token.</summary>
+    public MetricsSettings Metrics { get; set; } = new();
+
     /// <summary>0.6.1: Smart Plugs (Shelly) für Verbrauch an der Steckdose – rein additiv.</summary>
     public SmartPlugSettings Plugs { get; set; } = new();
 
@@ -679,6 +682,17 @@ public sealed class WebViewSettings
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bitaxetuner|" + pin.Trim())));
 
     public WebViewSettings Clone() => (WebViewSettings)MemberwiseClone();
+}
+
+/// <summary>
+/// Prometheus-Export (/metrics am Server). Gespeichert wird nur der SHA-256-Hash des Tokens; das Token selbst wird beim
+/// Erzeugen einmal angezeigt und in Prometheus als „bearer_token“ eingetragen.
+/// </summary>
+public sealed class MetricsSettings
+{
+    public bool Enabled { get; set; }
+    public string TokenHash { get; set; } = "";
+    public DateTime? TokenCreatedUtc { get; set; }
 }
 
 /// <summary>Verbindung der Desktop-App zu einem BitaxeTuner-Server (Betriebsart „Server“).</summary>

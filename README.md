@@ -318,6 +318,14 @@ stehen in der Bauanleitung
 Ohne Löten und ohne Steckbrett: die fertig bestückbare **Lüfterplatine** für den Pico 2 H mit Bestelldateien für JLCPCB
 liegt in [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (Prototyp v1.0, vor dem Dauerbetrieb durchmessen).
 
+### Prometheus / Grafana
+
+*Einstellungen → Prometheus / Grafana* (Browser): Export einschalten und ein Token erzeugen (wird nur einmal angezeigt).
+Der Server liefert dann unter `/metrics` Hashrate, Soll-Hashrate, Leistung, Effizienz, Chip- und VR-Temperatur,
+Frequenz, Spannung, Lüfter, Shares, Best Diff und Laufzeit je Miner, dazu Summen, Strompreis, Kosten pro Tag,
+Smart Plugs, Zusatzlüfter und Temperaturfühler – **ohne IP- und Wallet-Adressen**. In `prometheus.yml` das Token als
+`bearer_token` eintragen (Beispiel steht in der Oberfläche). Standardmäßig aus; ohne gültiges Token gibt es nichts.
+
 ### Home Assistant / MQTT
 
 *Einstellungen → Home Assistant / MQTT* (Browser): Broker-Adresse (z. B. das Mosquitto-Add-on von Home Assistant),
@@ -383,6 +391,7 @@ Sicherungsdateien heißen `bitaxetuner-backup-JJJJMMTT-HHMMSS.zip` und sind zwis
 | Gesundheits-Frühwarnung | ✓ (Push, Einzelansicht) | ✓ (Push, Tab *Gesundheit*) | ✓ |
 | Vergleich mit Filtern, Vorher/Nachher, Effizienz-Ratgeber | Vergleich | ✓ | ✓ |
 | Home Assistant / MQTT | – | ✓ | ✓ |
+| Prometheus / Grafana (`/metrics`) | – | ✓ | ✓ |
 | Pico-Lüfter, E-Paper, Taster | – | ✓ | ✓ |
 | Steuer: Zuflüsse erfassen | ✓ (solange der PC läuft) | ✓ rund um die Uhr | ✓ |
 | Steuer: Wallets und Verkäufe bearbeiten | ✓ | nur Anzeige und CSV | nur Anzeige und CSV |

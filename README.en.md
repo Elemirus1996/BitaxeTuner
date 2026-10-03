@@ -317,6 +317,14 @@ browser → *Fans & display*. Wiring diagram, solder-free breadboard build and s
 No soldering and no breadboard: the ready-to-assemble **fan board** for the Pico 2 H with order files for JLCPCB is in
 [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (prototype v1.0, measure before continuous use; German readme).
 
+### Prometheus / Grafana
+
+*Settings → Prometheus / Grafana* (browser): enable the export and create a token (shown only once). The server then
+serves hashrate, expected hashrate, power, efficiency, chip and VR temperature, frequency, voltage, fan, shares, best
+diff and uptime per miner at `/metrics`, plus totals, electricity price, cost per day, smart plugs, extra fans and
+temperature sensors – **without IP and wallet addresses**. Put the token into `prometheus.yml` as `bearer_token` (an
+example is shown in the interface). Off by default; nothing is served without a valid token.
+
 ### Home Assistant / MQTT
 
 *Settings → Home Assistant / MQTT* (browser): broker address (e.g. Home Assistant's Mosquitto add-on), user, password.
@@ -380,6 +388,7 @@ Backup files are named `bitaxetuner-backup-YYYYMMDD-HHMMSS.zip` and can be used 
 | Health early warning | ✓ (push, single view) | ✓ (push, *Health* tab) | ✓ |
 | Compare with filters, before/after, efficiency advisor | compare | ✓ | ✓ |
 | Home Assistant / MQTT | – | ✓ | ✓ |
+| Prometheus / Grafana (`/metrics`) | – | ✓ | ✓ |
 | Pico fans, e-paper, buttons | – | ✓ | ✓ |
 | Tax: record incoming payments | ✓ (while the PC runs) | ✓ around the clock | ✓ |
 | Tax: edit wallets and sales | ✓ | view and CSV only | view and CSV only |

@@ -482,6 +482,42 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Prometheus_metrics_are_off_by_default_and_need_their_own_token()
+    {
+        var admin = await AdminAsync();
+        var anon = _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        Assert.Equal(HttpStatusCode.NotFound, (await anon.GetAsync("/metrics")).StatusCode);   // standardmäßig aus
+
+        await Json(await admin.PutAsJsonAsync("/api/v1/metrics/settings", new { enabled = true }));
+        Assert.Equal(HttpStatusCode.NotFound, (await anon.GetAsync("/metrics")).StatusCode);   // ohne Token nichts
+        var token = (await Json(await admin.PostAsJsonAsync("/api/v1/metrics/token", new { }))).GetProperty("token").GetString()!;
+        Assert.StartsWith("btm_", token);
+        Assert.DoesNotContain(token, File.ReadAllText(_dir.File("config.json")));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.GetAsync("/metrics")).StatusCode);
+        anon.DefaultRequestHeaders.Authorization = new("Bearer", "btm_falsch");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.GetAsync("/metrics")).StatusCode);
+
+        var prom = _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        prom.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        await admin.GetAsync("/api/v1/status");   // eine Abfragerunde abwarten
+        for (var i = 0; i < 50 && !(await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("online").GetBoolean(); i++)
+            await Task.Delay(100);
+        var r = await prom.GetAsync("/metrics");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.StartsWith("text/plain", r.Content.Headers.ContentType!.MediaType);
+        var text = await r.Content.ReadAsStringAsync();
+        Assert.Contains("bitaxetuner_info{version=", text);
+        Assert.Contains("bitaxetuner_miner_up{miner=\"Gamma Wohnzimmer\"", text);
+        Assert.Contains("bitaxetuner_miner_hashrate_ghs{", text);
+        Assert.Contains("# TYPE bitaxetuner_miner_shares_accepted_total counter", text);
+        Assert.DoesNotContain("192.168.50.10", text);   // keine IP-Adressen
+        Assert.DoesNotContain("bc1q", text);            // keine Wallets
+        // Prometheus-Token ist kein Admin-Token
+        Assert.Equal(HttpStatusCode.Unauthorized, (await prom.GetAsync("/api/v1/status")).StatusCode);
+    }
+
+    [Fact]
     public async Task Api_token_for_desktop_works_without_cookie_and_can_be_revoked()
     {
         var admin = await AdminAsync();

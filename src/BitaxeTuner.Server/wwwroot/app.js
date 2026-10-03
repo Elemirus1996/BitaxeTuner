@@ -1946,6 +1946,7 @@ async function renderSettings() {
           },
         }, t('Token erzeugen')))),
     viewersCard(status?.groups || []),
+    metricsCard(),
     backupCard(),
     mqttCard(),
     plugsCard(),
@@ -2461,6 +2462,48 @@ function restoreUploadBox() {
     h('h3', {}, t('Sicherung einspielen')),
     h('p', { class: 'muted small' }, t('Eine Sicherungsdatei (bitaxetuner-backup-….zip) vom PC, USB-Stick oder NAS hochladen – z. B. auf einem neu aufgesetzten Server. Sie wird vor dem Einspielen vollständig geprüft.')),
     h('div', { class: 'row' }, file, h('button', { class: 'btn', onclick: go }, t('Hochladen und einspielen …'))));
+}
+
+/** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */
+function metricsCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const load = async () => {
+    const m = await api('/metrics/settings').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!m) return;
+    const url = `${location.origin}/metrics`;
+    const example = [
+      'scrape_configs:',
+      '  - job_name: bitaxetuner',
+      `    scheme: ${location.protocol.replace(':', '')}`,
+      '    metrics_path: /metrics',
+      '    bearer_token: "btm_…"',
+      ...(location.protocol === 'https:' ? ['    tls_config:', '      insecure_skip_verify: true   # selbst signiertes Zertifikat'] : []),
+      '    static_configs:',
+      `      - targets: ["${location.host}"]`,
+    ].join('\n');
+    const toggle = h('input', { type: 'checkbox', checked: m.enabled, onchange: async e => {
+      if (await run(() => api('/metrics/settings', { method: 'PUT', body: { enabled: e.target.checked } }),
+        e.target.checked ? t('Prometheus-Export eingeschaltet.') : t('Prometheus-Export ausgeschaltet.'))) load();
+    } });
+    const newToken = async () => {
+      if (m.tokenSet && !await confirmBox(t('Neues Token'), t('Ein neues Token ersetzt das bisherige – Prometheus muss dann das neue bekommen. Fortfahren?'), t('Neues Token'))) return;
+      const r = await run(() => api('/metrics/token', { method: 'POST', body: {} }));
+      if (!r) return;
+      await confirmBox(t('Prometheus-Token'), h('div', { class: 'stack' }, h('p', {}, t('Jetzt kopieren – es wird nicht noch einmal angezeigt:')),
+        h('input', { value: r.token, readonly: true, onfocus: e => e.target.select() })), t('Fertig'));
+      load();
+    };
+    fill(body,
+      h('label', { class: 'check' }, toggle, ' ', t('Prometheus-Export einschalten')),
+      h('p', { class: 'small' }, t('Adresse: '), h('code', {}, url), ' · ',
+        m.tokenSet ? t('Token erzeugt am {0}', time(m.tokenCreatedUtc)) : h('span', { class: 'warn' }, t('noch kein Token – ohne Token liefert /metrics nichts'))),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: newToken }, m.tokenSet ? t('Neues Token erzeugen …') : t('Token erzeugen'))),
+      h('details', {}, h('summary', {}, t('Beispiel für prometheus.yml')), h('pre', { class: 'small' }, example)));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Prometheus / Grafana')),
+    h('p', { class: 'muted small' }, t('Messwerte für eigene Grafana-Dashboards: Hashrate, Temperaturen, Leistung, Lüfter, Shares, Smart Plugs und Kosten je Miner. Ohne IP- und Wallet-Adressen; Miner erscheinen mit Namen. Standardmäßig aus, Zugriff nur mit Token.')),
+    body);
 }
 
 /** Eigene Ansicht-Zugänge: PIN je Person, optional nur bestimmte Gruppen; einzeln widerrufbar. */
