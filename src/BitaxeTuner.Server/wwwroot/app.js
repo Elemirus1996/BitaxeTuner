@@ -355,6 +355,10 @@ function route() {
     S.route = { view, id: parts[1], tab: parts[2] || 'live' };
     return loadDevice(true);
   }
+  if (view === 'groups' && isAdmin()) {
+    S.route = { view, group: parts[1] ? decodeURIComponent(parts[1]) : null };
+    return renderGroups();
+  }
   if (view === 'plug' && parts[1]) {
     S.route = { view, id: parts[1] };
     return renderPlug();
@@ -447,7 +451,9 @@ function renderOverview() {
     h('b', {}, S.group), h('span', { class: 'muted' }, t('{0} von {1} online', gOn.length, shown.length)),
     h('span', {}, hash(gHash)), h('span', {}, t('{0} W', n(gPower, 1))),
     h('span', {}, gHash > 0 ? t('{0} J/TH', n(gPower / (gHash / 1000), 2)) : '–'),
-    tv.costPerDay != null && allPower > 0 ? h('span', { class: 'muted' }, t('≈ {0} {1} pro Tag', n(tv.costPerDay * gPower / allPower, 2), tv.currency)) : null) : null;
+    tv.costPerDay != null && allPower > 0 ? h('span', { class: 'muted' }, t('≈ {0} {1} pro Tag', n(tv.costPerDay * gPower / allPower, 2), tv.currency)) : null,
+    isAdmin() ? h('span', { class: 'spacer' }) : null,
+    isAdmin() ? h('a', { class: 'btn small', href: `#/groups/${encodeURIComponent(S.group)}` }, t('Gruppen-Automatik …')) : null) : null;
   const devs = shown.map(d => h('a', { class: 'card device', href: `#/device/${d.id}` },
     h('div', { class: 'head' }, h('span', { class: `dot ${dotClass(d)}` }), h('b', {}, d.name),
       d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
@@ -1616,6 +1622,108 @@ function tabAutomation() {
               run(() => api(`/devices/${S.route.id}/soak/start`, { method: 'POST', body: { hours } }), t('Dauertest gestartet.')).then(reloadDetailSoon);
             },
           }, t('Dauertest starten …')))));
+}
+
+// ---------- Gruppen-Automatik ----------
+
+/** Gruppen-Automatik: je Gruppe Zeitplan oder Strompreis-Regel, Freigabe, „jetzt umschalten“ mit Vorschau alt → neu. */
+async function renderGroups() {
+  mount(h('p', { class: 'muted' }, t('Lade …')));
+  const data = await run(() => api('/group-automation'));
+  if (!data) return;
+  const wanted = S.route.group;
+  const groups = wanted ? data.groups.filter(g => g.name.toLowerCase() === wanted.toLowerCase()) : data.groups;
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('h2', {}, t('Gruppen-Automatik')),
+      h('p', { class: 'muted small' }, t('Eine Regel für alle Miner einer Gruppe. Jeder Miner nutzt seine eigene Voreinstellung mit dem gewählten Namen (geprüft gegen sein Geräteprofil) – fehlt sie, wird er übersprungen. Eine eigene Regel eines Miners hat Vorrang, sein Temperaturschutz bleibt aktiv.')),
+      data.groups.length ? h('div', { class: 'row' }, data.groups.map(g => h('a', { class: `btn small${wanted && g.name.toLowerCase() === wanted.toLowerCase() ? ' primary' : ''}`, href: `#/groups/${encodeURIComponent(g.name)}` }, g.name)),
+        wanted ? h('a', { class: 'btn small ghost', href: '#/groups' }, t('alle')) : null) : null),
+    data.groups.length === 0
+      ? h('div', { class: 'card muted' }, t('Noch keine Miner-Gruppen. Gruppen vergibst du unter Einstellungen → Geräte.'))
+      : groups.map(groupAutomationCard)));
+}
+
+function groupAutomationCard(g) {
+  const sched = structuredClone(g.schedule);
+  sched.entries = sched.entries || [];
+  const names = g.presetNames;
+  const options = () => [h('option', { value: '' }, '—'), ...names.map(n => h('option', { value: n }, n))];
+  const presetSelect = (obj, key) => { const s = h('select', { onchange: e => { obj[key] = e.target.value; } }, options()); s.value = obj[key] || ''; return s; };
+  const entries = h('div', { class: 'stack' });
+  const daysInput = e => {
+    const i = h('input', { value: daysText(e.days ?? 127) });
+    i.addEventListener('change', () => {
+      const m = parseDays(i.value);
+      if (m == null) { i.classList.add('invalid'); return toast(t('Tage nicht erkannt – Beispiele: Mo-Fr, Sa,So, täglich'), 'error'); }
+      i.classList.remove('invalid'); e.days = m; i.value = daysText(m);
+    });
+    return i;
+  };
+  const renderEntries = () => fill(entries, ...sched.entries.map((e, i) => h('div', { class: 'form' },
+    h('div', {}, h('label', {}, t('Tage (z. B. Mo-Fr, Sa,So, täglich)')), daysInput(e)),
+    h('div', {}, h('label', {}, t('von (Uhr)')), numInput(e, 'fromHour')),
+    h('div', {}, h('label', {}, t('bis (Uhr)')), numInput(e, 'toHour')),
+    h('div', {}, h('label', {}, t('Voreinstellung')), presetSelect(e, 'preset')),
+    h('button', { class: 'btn small ghost', onclick: () => { sched.entries.splice(i, 1); renderEntries(); } }, t('Entfernen')))));
+  renderEntries();
+
+  const save = async () => {
+    const r = await run(() => api('/group-automation', { method: 'PUT', body: { group: g.name, schedule: sched } }), t('Gruppen-Automatik gespeichert.'));
+    if (r && sched.enabled && !r.approved) toast(t('Geänderte Regeln brauchen eine neue Freigabe.'), 'info');
+    return r;
+  };
+  const approve = async () => {
+    if (!await save()) return;
+    const tv = await run(() => api('/group-automation/approval-text', { method: 'POST', body: { group: g.name } }));
+    if (!tv || !await confirmBox(t('Regel freigeben'), tv.text, t('Freigeben'))) return;
+    if (await run(() => api('/group-automation/approve', { method: 'POST', body: { group: g.name } }), t('Regel freigegeben.'))) renderGroups();
+  };
+
+  const nowPreset = presetSelect({ p: names[0] || '' }, 'p');
+  const switchNow = async () => {
+    const preset = nowPreset.value;
+    if (!preset) return toast(t('Bitte eine Voreinstellung wählen.'), 'error');
+    const pv = await run(() => api('/group-automation/preview', { method: 'POST', body: { group: g.name, preset } }));
+    if (!pv) return;
+    const changes = pv.items.filter(i => !i.skip);
+    const body = h('div', { class: 'stack' },
+      h('p', {}, t('Gruppe „{0}“ auf „{1}“ umschalten?', g.name, preset)),
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Miner'), t('jetzt'), t('neu')].map(x => h('th', {}, x)))),
+        h('tbody', {}, pv.items.map(i => h('tr', {},
+          h('td', {}, i.name),
+          h('td', { class: 'small' }, i.frequencyMhz != null ? t('{0} MHz / {1} mV', i.frequencyMhz, i.coreVoltageMv) : '–'),
+          h('td', { class: `small ${i.skip ? 'muted' : ''}` }, i.skip ? t('übersprungen: {0}', i.skip) : t('{0} MHz / {1} mV', i.targetFrequencyMhz, i.targetCoreVoltageMv))))))),
+      h('p', { class: 'muted small' }, t('Vor jeder Änderung wird eine Sicherung angelegt; jede Änderung wird protokolliert.')));
+    if (!changes.length) { await confirmBox(t('Nichts zu ändern'), body, t('OK')); return; }
+    if (!await confirmBox(t('Gruppe umschalten'), body, t('{0} Miner umschalten', changes.length))) return;
+    const r = await run(() => api('/group-automation/apply', { method: 'POST', body: { group: g.name, preset } }));
+    if (r) toast(r.results.map(x => `${x.name}: ${x.result}`).join(' · '), 'ok', 15000);
+  };
+
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, g.name), h('span', { class: 'spacer' }),
+      h('span', { class: `pill ${g.approved ? '' : 'gray'}` }, g.approved ? t('freigegeben') : t('nicht freigegeben'))),
+    h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Miner'), t('Voreinstellungen'), t('Automatik')].map(x => h('th', {}, x)))),
+      h('tbody', {}, g.members.map(m => h('tr', {},
+        h('td', {}, h('a', { href: `#/device/${m.id}/automation` }, m.name)),
+        h('td', { class: 'small' }, m.presets.length ? m.presets.join(', ') : h('span', { class: 'warn' }, t('keine'))),
+        h('td', { class: 'small' }, m.ownSchedule ? t('eigene Regel (Vorrang)') : (m.automationStatus || '–'))))))),
+    names.length ? null : h('p', { class: 'warn small' }, t('Die Miner dieser Gruppe haben noch keine Voreinstellungen – zuerst je Miner unter Automatik anlegen (z. B. „Tag“ und „Nacht“).')),
+    h('h3', {}, t('Jetzt umschalten')),
+    h('div', { class: 'row' }, nowPreset, h('button', { class: 'btn', onclick: switchNow }, t('Vorschau und umschalten …'))),
+    h('h3', {}, t('Regel')),
+    checkInput(sched, 'enabled', t('eingeschaltet')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)'))); s.value = sched.mode || 'time'; return s; })())),
+    h('h3', {}, t('Zeitplan')), entries,
+    h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: names[0] || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
+      h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
+    h('h3', {}, t('Strompreis')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('günstig bis (ct/kWh)')), numInput(sched, 'thresholdCt', 0.1)),
+      h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
 }
 
 // ---------- Sicherungen ----------

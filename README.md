@@ -79,6 +79,10 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   vorher Sicherung je Miner, Worker-Name bleibt, Frequenz und Spannung werden nie übertragen.
 - **Miner-Gruppen** (z. B. „Community“, „Keller“): Filter und Summen in der Übersicht (Browser), Gruppenfilter im
   Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder bekommen Meldungen und Berichte automatisch.
+- **Gruppen-Automatik** (ab 0.9.7, Browser → Gruppe wählen → *Gruppen-Automatik*): ein Zeitplan oder eine
+  Strompreis-Regel für die ganze Gruppe; jeder Miner nutzt seine eigene Voreinstellung gleichen Namens (gegen sein Profil
+  geprüft, fehlt sie → übersprungen). Eigene Regeln einzelner Miner haben Vorrang, der Temperaturschutz bleibt. Freigabe
+  nötig – auch wieder, wenn ein Miner in die Gruppe kommt. Dazu *jetzt umschalten* mit Vorschau alt → neu je Miner.
 - **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander
   (inkl. aktueller **Pool-Difficulty**, sofern die Firmware sie meldet).
 - **Vergleichsbericht** zum Ausdrucken (Browser *Vergleich → Bericht …*, Desktop *Miner-Vergleich → Bericht …*): 1–6 Miner,

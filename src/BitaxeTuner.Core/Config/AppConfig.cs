@@ -12,6 +12,9 @@ public sealed class AppConfig
 {
     public List<DeviceConfig> Devices { get; set; } = new();
 
+    /// <summary>0.9.7: Zeitplan/Strompreis-Regeln für Miner-Gruppen. Additiv.</summary>
+    public List<GroupScheduleRule> GroupSchedules { get; set; } = [];
+
     public int IntervalSeconds { get; set; } = 5;
     public int HistoryMinutes { get; set; } = 60;
     public int WalletPollMinutes { get; set; } = 10;
@@ -664,6 +667,24 @@ public sealed class PresetScheduleRule : AutomationRule
         copy.Entries = Entries.Select(e => e.Clone()).ToList();
         return copy;
     }
+}
+
+/// <summary>
+/// 0.9.7: Zeitplan oder Strompreis-Regel für eine ganze Miner-Gruppe. Jeder Miner nutzt seine eigene Voreinstellung
+/// gleichen Namens (gegen sein Profil geprüft); fehlt sie oder liegt sie außerhalb der Grenzen, wird er übersprungen.
+/// Eine eigene Regel eines Miners hat Vorrang. Die Freigabe umfasst die Mitglieder – kommt ein Miner dazu oder fällt
+/// einer weg, ist eine neue Freigabe nötig.
+/// </summary>
+public sealed class GroupScheduleRule
+{
+    public string Group { get; set; } = "";
+    public PresetScheduleRule Schedule { get; set; } = new();
+
+    /// <summary>Schlüssel für die Freigabe: Gruppe und Mitglieder (sortiert).</summary>
+    public static string ApprovalKey(string group, IEnumerable<string> hosts) =>
+        "group:" + group.Trim().ToLowerInvariant() + "|" + string.Join(",", hosts.Select(h => h.Trim().ToLowerInvariant()).Order(StringComparer.Ordinal));
+
+    public GroupScheduleRule Clone() => new() { Group = Group, Schedule = Schedule.Clone() };
 }
 
 public sealed class PriceSourceSettings

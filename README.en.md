@@ -82,6 +82,10 @@ Corrections to the English texts are welcome: they all live in
   each miner first, worker names are kept, frequency and voltage are never copied.
 - **Miner groups** (e.g. “Community”, “Basement”): filter and totals in the overview (browser), group filter in
   compare, push services for whole groups – new members get alerts and reports automatically.
+- **Group automation** (from 0.9.7, browser → select a group → *Group automation*): one schedule or electricity price
+  rule for the whole group; each miner uses its own preset of the same name (checked against its profile, missing →
+  skipped). A miner's own rule takes precedence, thermal protection stays. Approval required – again whenever a miner
+  joins the group. Plus *switch now* with a preview old → new per miner.
 - **Soak test for several miners** at once, **compare** all miners side by side
   (including the current **pool difficulty** if the firmware reports it).
 - **Comparison report** to print (browser *Compare → Report …*, desktop *Miner comparison → Report …*): 1–6 miners,

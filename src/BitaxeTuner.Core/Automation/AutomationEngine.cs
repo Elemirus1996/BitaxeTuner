@@ -51,8 +51,10 @@ public sealed class AutomationEngine
     public int? GuardOriginalFrequency(string host) => _hosts.TryGetValue(host, out var s) ? s.OriginalFrequency : null;
 
     /// <param name="scheduleBlocked">Zeitplan/Preis-Regel pausieren (z. B. während eines Dauertests); Temperaturschutz bleibt aktiv.</param>
+    /// <param name="groupSchedule">Freigegebene Regel einer Gruppe des Miners – gilt nur, wenn er keine eigene Regel hat.</param>
     public AutomationResult Evaluate(DeviceConfig device, MinerInfo info, DeviceProfile? profile, DateTime now,
-                                     bool busy, bool maintenance, bool scheduleBlocked = false)
+                                     bool busy, bool maintenance, bool scheduleBlocked = false,
+                                     (PresetScheduleRule Rule, string Group)? groupSchedule = null)
     {
         var result = new AutomationResult();
         var host = device.Host.Trim();
@@ -62,7 +64,15 @@ public sealed class AutomationEngine
         var schedule = device.Schedule;
         var guardOn = guard.IsApproved(host);
         var scheduleOn = schedule.IsApproved(host);
-        result.Status = StatusText(device, host, st, guardOn, scheduleOn);
+        string? group = null;
+        if (!schedule.Enabled && groupSchedule is { } gs)
+        {
+            // Gruppenregel (vom Aufrufer nur übergeben, wenn freigegeben); die eigene Regel hat immer Vorrang
+            schedule = gs.Rule;
+            scheduleOn = true;
+            group = gs.Group;
+        }
+        result.Status = StatusText(device, schedule, group, st, guardOn, scheduleOn);
 
         if (maintenance)
         {
@@ -149,13 +159,14 @@ public sealed class AutomationEngine
             return result;
         }
 
+        var ruleName = RuleName(schedule, group);
         string? presetName;
         if (schedule.Mode == "price")
         {
             var price = _prices?.PriceAt(now.ToUniversalTime());
             if (price is null)
             {
-                Notice(result, st, host, L.T("Strompreis"), L.T("Kein aktueller Strompreis verfügbar – Voreinstellung bleibt unverändert."));
+                Notice(result, st, host, ruleName, L.T("Kein aktueller Strompreis verfügbar – Voreinstellung bleibt unverändert."));
                 return result;
             }
             presetName = price <= schedule.ThresholdCt ? schedule.CheapPreset : schedule.ExpensivePreset;
@@ -170,13 +181,14 @@ public sealed class AutomationEngine
         var preset = device.Presets.FirstOrDefault(p => string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
         if (preset is null)
         {
-            Notice(result, st, host, L.T("Zeitplan"), L.T("Voreinstellung „{0}“ gibt es nicht.", presetName));
+            Notice(result, st, host, ruleName, group is null ? L.T("Voreinstellung „{0}“ gibt es nicht.", presetName)
+                : L.T("Voreinstellung „{0}“ gibt es bei diesem Miner nicht – wird übersprungen.", presetName));
             return result;
         }
         if (profile is not null && (preset.FrequencyMhz < profile.MinFrequencyMhz || preset.FrequencyMhz > profile.MaxFrequencyMhz ||
                                     preset.CoreVoltageMv < profile.MinVoltageMv || preset.CoreVoltageMv > profile.MaxVoltageMv))
         {
-            Notice(result, st, host, L.T("Zeitplan"), L.T("„{0}“ liegt außerhalb der Grenzen für {1} – wird nicht gesetzt.", preset, profile.Name));
+            Notice(result, st, host, ruleName, L.T("„{0}“ liegt außerhalb der Grenzen für {1} – wird nicht gesetzt.", preset, profile.Name));
             return result;
         }
 
@@ -190,16 +202,22 @@ public sealed class AutomationEngine
         if (sinceLast < MinGap) return result;
         if (st.Attempts >= MaxAttemptsPerTarget)
         {
-            Notice(result, st, host, L.T("Zeitplan"), L.T("„{0}“ wurde {1}× gesetzt, der Miner übernimmt sie nicht – pausiert bis zum nächsten Wechsel.", preset.Name, MaxAttemptsPerTarget));
+            Notice(result, st, host, ruleName, L.T("„{0}“ wurde {1}× gesetzt, der Miner übernimmt sie nicht – pausiert bis zum nächsten Wechsel.", preset.Name, MaxAttemptsPerTarget));
             return result;
         }
 
         st.Attempts++;
         st.LastAction = now;
-        result.Action = new AutomationAction(host, schedule.Mode == "price" ? L.T("Strompreis") : L.T("Zeitplan"),
-            preset.FrequencyMhz, preset.CoreVoltageMv,
-            schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
+        result.Action = new AutomationAction(host, ruleName, preset.FrequencyMhz, preset.CoreVoltageMv,
+            group is not null ? L.T("Gruppe „{0}“: „{1}“", group, preset.Name)
+            : schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
         return result;
+    }
+
+    private static string RuleName(PresetScheduleRule schedule, string? group)
+    {
+        var kind = schedule.Mode == "price" ? L.T("Strompreis") : L.T("Zeitplan");
+        return group is null ? kind : L.T("Gruppe „{0}“ ({1})", group, kind);
     }
 
     private static void Notice(AutomationResult r, HostState st, string host, string rule, string message)
@@ -210,17 +228,18 @@ public sealed class AutomationEngine
         r.Notices.Add(new AutomationNotice(host, rule, message));
     }
 
-    private static string StatusText(DeviceConfig d, string host, HostState st, bool guardOn, bool scheduleOn)
+    private static string StatusText(DeviceConfig d, PresetScheduleRule schedule, string? group, HostState st, bool guardOn, bool scheduleOn)
     {
         var parts = new List<string>();
         if (d.ThermalGuard.Enabled)
             parts.Add(guardOn
                 ? st.OriginalFrequency is { } o ? L.T("Temperaturschutz aktiv (abgesenkt, ursprünglich {0} MHz)", o) : L.T("Temperaturschutz bereit")
                 : L.T("Temperaturschutz: Freigabe fehlt"));
-        if (d.Schedule.Enabled)
+        var kind = group is not null ? L.T("Gruppen-Automatik „{0}“", group) : schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan");
+        if (schedule.Enabled)
             parts.Add(scheduleOn
-                ? L.T("{0} aktiv{1}", (d.Schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan")), (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))
-                : L.T("{0}: Freigabe fehlt", (d.Schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan"))));
+                ? L.T("{0} aktiv{1}", kind, (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))
+                : L.T("{0}: Freigabe fehlt", kind));
         return string.Join(" · ", parts); // leer = keine Automatik
     }
 

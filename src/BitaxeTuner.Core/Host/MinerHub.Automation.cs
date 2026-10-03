@@ -34,7 +34,8 @@ public sealed partial class MinerHub
         foreach (var device in list)
         {
             var config = device.Config;
-            if (IsSimulated(device.Host) && !config.ThermalGuard.Enabled && !config.Schedule.Enabled && config.Soak is null && device.PendingSoak is null)
+            var groupSchedule = GroupScheduleFor(device);
+            if (IsSimulated(device.Host) && !config.ThermalGuard.Enabled && !config.Schedule.Enabled && groupSchedule is null && config.Soak is null && device.PendingSoak is null)
                 continue;
             var state = device.State;
             var maintenance = device.Connection.InMaintenance;
@@ -51,13 +52,13 @@ public sealed partial class MinerHub
             string status;
             if (!state.Online || state.Normalized is not { } info)
             {
-                status = Automation.Evaluate(config, new MinerInfo(), device.Profile, now, busy: true, maintenance).Status;
+                status = Automation.Evaluate(config, new MinerInfo(), device.Profile, now, busy: true, maintenance, groupSchedule: groupSchedule).Status;
                 SetAutomationStatus(device, status);
                 continue;
             }
 
             var result = Automation.Evaluate(config, info, device.Profile, now,
-                busy: device.IsBenchmarkRunning || device.Applying, maintenance, scheduleBlocked: config.Soak is not null);
+                busy: device.IsBenchmarkRunning || device.Applying, maintenance, scheduleBlocked: config.Soak is not null, groupSchedule: groupSchedule);
             SetAutomationStatus(device, result.Status);
 
             foreach (var n in result.Notices)
@@ -86,7 +87,7 @@ public sealed partial class MinerHub
         try
         {
             // Ein Dauertest misst genau diese Einstellung – ein Eingriff beendet ihn mit Begründung
-            if (device.Config.Soak is { } soak && a.Rule == "Temperaturschutz")
+            if (device.Config.Soak is { } soak && a.Rule == L.T("Temperaturschutz"))
                 FinishSoak(device, soak, new SoakResult(SoakOutcome.Failed, L.T("Temperaturschutz musste eingreifen ({0}).", a.Reason)));
 
             await device.Connection.ApplySettingsAsync(a.FrequencyMhz, a.CoreVoltageMv, TuningSource.Automatic, a.Reason);
@@ -96,7 +97,7 @@ public sealed partial class MinerHub
             device.AddLog(L.T("Automatik: {0}", text), EventCategories.Automation);
             if (Config.Notifications.Wants(NotifyCategory.Maintenance))
                 SendAlert(new Alert($"auto:{device.Host}:{a.FrequencyMhz}:{a.CoreVoltageMv}", $"{device.Title}: {a.Rule}", text,
-                    a.Rule == "Temperaturschutz" ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1), NotifyCategory.Maintenance, device.Host));
+                    a.Rule == L.T("Temperaturschutz") ? NotifyPriority.High : NotifyPriority.Low, TimeSpan.FromMinutes(1), NotifyCategory.Maintenance, device.Host));
         }
         catch (Exception ex)
         {

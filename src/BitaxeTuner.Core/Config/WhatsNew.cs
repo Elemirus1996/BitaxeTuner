@@ -132,6 +132,10 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.7", tr.T("Gruppen-Automatik"),
+                server ? tr.T("Ein Zeitplan oder eine Strompreis-Regel für eine ganze Miner-Gruppe – jeder Miner nutzt dabei seine eigene Voreinstellung gleichen Namens. Dazu „jetzt umschalten“ mit Vorschau alt → neu. In der Übersicht eine Gruppe wählen → Gruppen-Automatik.")
+                       : tr.T("Im Server-Betrieb: Zeitplan oder Strompreis-Regel für eine ganze Miner-Gruppe, jeder Miner mit seiner eigenen Voreinstellung gleichen Namens."),
+                null),
             new("0.9.7", tr.T("Neue Seiten auf dem E-Paper"),
                 tr.T("Kurs von BTC, BCH oder beiden mit 24-h-Verlauf und Countdown bis zur nächsten Difficulty-Anpassung, Monatsbilanz mit Balken je Tag, Tagesbilanz wahlweise mit Graph, je Miner-Gruppe eine Seite, Strompreis-Ampel, Temperaturfühler und QR-Code zur Oberfläche – einzeln unter Lüfter & Anzeige einschaltbar."),
                 null),
