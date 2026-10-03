@@ -18,6 +18,9 @@ public static class KioskEndpoints
     /// <summary>Für Ansicht und Admin: Design der eigenen Kiosk-Sitzung, ein bestimmtes (nur Admin, Vorschau) oder das Standard-Design.</summary>
     public static void MapViewer(RouteGroupBuilder g)
     {
+        // Hilfe (0.9.9): Anleitung, Protokoll und Miner-Logs erklärt, häufige Fragen
+        g.MapGet("/help", () => Results.Json(new { sections = Core.Help.HelpContent.Sections(server: true) }));
+
         g.MapGet("/kiosk/design", async (string? id, HttpContext http, AuthStore auth, HubService hub) =>
         {
             var ctx = AuthContext.Of(http);

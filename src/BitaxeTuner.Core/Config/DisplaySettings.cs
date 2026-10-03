@@ -48,6 +48,12 @@ public sealed class DisplaySettings
     public bool BlockFoundScreen { get; set; } = true;
     public int BlockFoundHoldHours { get; set; } = 24;
 
+    /// <summary>
+    /// 0.9.9: Wann das Blockfund-Vollbild endet – "hours" (Taste 1 oder nach <see cref="BlockFoundHoldHours"/>, wie bisher)
+    /// oder "button" (bleibt wie die Warnungen stehen, bis Taste 1 bzw. „Anzeige weiter“ im Browser quittiert). Additiv.
+    /// </summary>
+    public string BlockFoundUntil { get; set; } = "hours";
+
     /// <summary>0.9.7: Schwarz und Weiß tauschen (helle Schrift auf schwarzem Grund), Rot bleibt. Additiv.</summary>
     public bool Inverted { get; set; }
 

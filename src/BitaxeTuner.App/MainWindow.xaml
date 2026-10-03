@@ -53,6 +53,8 @@
                             ToolTip="{l:T 'Shelly-Steckdosen für den echten Verbrauch an der Steckdose (nur messen, nie schalten)'}" />
                     <Button Content="{l:T 'Profile bearbeiten'}" Command="{Binding EditProfilesCommand}" />
                     <Button Content="{l:T 'Datenordner öffnen'}" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
+                    <Button Content="{l:T 'Hilfe'}" Click="OnHelpClick"
+                            ToolTip="{l:T 'Anleitung, Erklärung des Protokolls und der Miner-Logs, häufige Fragen'}" />
                     <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />
                     <Button Content="{l:T 'Lizenz'}" Click="OnLicenseClick" ToolTip="{l:T 'Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten'}" />
                     <Button Content="{l:T '■ Alle stoppen'}" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="0" />

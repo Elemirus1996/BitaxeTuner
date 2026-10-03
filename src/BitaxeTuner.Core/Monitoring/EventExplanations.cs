@@ -255,6 +255,13 @@ public static class EventExplanations
         return Fallback(entry.Category);
     }
 
+    /// <summary>Alle Erklärungen für die Hilfe: je Vorlage eine, dazu die allgemeine je Kategorie (ohne doppelte Titel).</summary>
+    public static IEnumerable<(string Category, EventExplanation Explanation)> All() =>
+        Entries.Select(e => (e.Category, e.Make()))
+            .Concat(EventCategories.All.Select(c => (c, Fallback(c))))
+            .GroupBy(x => (x.Item1, x.Item2.Title)).Select(g => g.First())
+            .OrderBy(x => Array.IndexOf(EventCategories.All, x.Item1));
+
     /// <summary>Für Tests: alle Vorlagen (sie müssen im Code vorkommen).</summary>
     public static IEnumerable<string> Templates => Entries.Select(e => e.Template);
 }

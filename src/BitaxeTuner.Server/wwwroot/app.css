@@ -304,3 +304,8 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .kswatch { display: inline-flex; gap: 4px; align-items: center; padding: 8px 12px; border-radius: 10px; border: 2px solid; cursor: pointer; }
 .kswatch span { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
 .kdot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 3px solid; vertical-align: -2px; }
+
+/* Hilfe */
+.help-item { border-top: 1px solid var(--border); padding: 8px 0; }
+.help-item summary { cursor: pointer; font-weight: 600; }
+.help-text { margin: 8px 0 0; white-space: pre-line; }

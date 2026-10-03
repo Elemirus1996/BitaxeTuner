@@ -150,6 +150,20 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
+    {
+        var admin = await AdminAsync();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/help")).StatusCode);
+        var kiosk = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Flur", groups = Array.Empty<string>() }));
+        var tablet = _factory.CreateClient();
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
+        var help = await Json(await tablet.GetAsync("/api/v1/help"));
+        var ids = help.GetProperty("sections").EnumerateArray().Select(x => x.GetProperty("id").GetString()).ToList();
+        Assert.Equal(new[] { "guide", "journal", "minerlog", "faq" }, ids);
+        Assert.Contains("Server", help.GetRawText());
+    }
+
+    [Fact]
     public async Task Kiosk_designs_are_validated_and_each_link_shows_its_design()
     {
         var admin = await AdminAsync();

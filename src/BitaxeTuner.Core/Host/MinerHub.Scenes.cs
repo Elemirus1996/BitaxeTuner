@@ -136,7 +136,7 @@ public sealed partial class MinerHub
         var model = BuildDisplayModel(now);
 
         if (s.BlockFoundScreen && st.BlockFound is { } bf && !st.BlockFoundAcknowledged
-            && now - bf.Time < TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours)))
+            && (s.BlockFoundUntil == "button" || now - bf.Time < TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours))))
             return model with { Scene = DisplayScene.BlockFound, BlockFound = bf };
         if (s.AlarmFullscreen && model.Alerts.Count > 0 && AlarmKey(model.Alerts) != st.AlarmAcknowledged)
             return model with { Scene = DisplayScene.Alarm };

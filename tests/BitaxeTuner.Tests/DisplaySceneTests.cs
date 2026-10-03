@@ -123,6 +123,11 @@ public class DisplaySceneTests
         await rig.Hub.PollNowAsync();
         rig.Hub.OnBlockFound("Gamma", 2, rig.Now.AddHours(-25));
         Assert.NotEqual(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);  // Haltezeit 24 h vorbei
+        rig.Hub.Config.Display.BlockFoundUntil = "button";                                  // 0.9.9: bleibt bis Taste 1
+        Assert.Equal(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        rig.Hub.SceneState.BlockFoundAcknowledged = true;
+        Assert.NotEqual(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        rig.Hub.Config.Display.BlockFoundUntil = "hours";
 
         // Kein Dauertest aktiv → Seite „Dauertest“ entfällt; Wechsel reihum
         var seen = new List<DisplayScene>();

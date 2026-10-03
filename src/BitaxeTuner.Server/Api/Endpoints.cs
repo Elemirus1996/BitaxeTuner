@@ -989,6 +989,7 @@ public static class Endpoints
         {
             req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
             req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
+            req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
             req.Pages ??= new Core.Config.DisplayPages();
             req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
             req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);

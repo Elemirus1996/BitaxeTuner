@@ -74,7 +74,7 @@ async function loadLanguage(serverDefault) {
 
 /** Feste Texte aus index.html. */
 function applyStaticTexts() {
-  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), journal: t('Protokoll'), settings: t('Einstellungen') };
+  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), journal: t('Protokoll'), settings: t('Einstellungen'), help: t('Hilfe') };
   for (const [k, v] of Object.entries(nav)) { const a = $(`[data-nav="${k}"]`); if (a) a.textContent = v; }
   $('#live').title = t('Live-Verbindung');
   $('#theme').title = t('Hell/Dunkel');
@@ -380,6 +380,7 @@ function route() {
     return renderKioskDesigner();
   }
   if (view === 'compare') return renderCompare();
+  if (view === 'help') return renderHelp();
   if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'reports' && isAdmin()) return renderReports();
@@ -2002,6 +2003,37 @@ function kioskCard(groups) {
     body);
 }
 
+// ---------- Hilfe ----------
+
+/** Hilfe: Anleitung, Protokoll und Miner-Logs erklärt, häufige Fragen – mit Suche. */
+async function renderHelp() {
+  mount(h('p', { class: 'muted' }, t('Lade …')));
+  const d = await run(() => api('/help'));
+  if (!d) return;
+  const search = h('input', { type: 'search', placeholder: t('Hilfe durchsuchen …'), style: 'max-width:360px' });
+  const body = h('div', { class: 'stack' });
+  const para = text => String(text).split('\n\n').map(p => h('p', { class: 'help-text' }, p));
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    fill(body, d.sections.map(sec => {
+      const items = sec.items.filter(i => !q || (i.title + ' ' + i.text).toLowerCase().includes(q));
+      if (q && !items.length) return null;
+      return h('div', { class: 'card stack', id: `help-${sec.id}` },
+        h('h2', {}, sec.title),
+        sec.intro ? h('p', { class: 'muted' }, sec.intro) : null,
+        items.map(i => h('details', { class: 'help-item', open: !!q },
+          h('summary', {}, i.title), para(i.text))));
+    }));
+  };
+  search.addEventListener('input', draw);
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('div', { class: 'titlebar' }, h('h2', {}, t('Hilfe')), h('span', { class: 'spacer' }), search),
+      h('div', { class: 'row' }, d.sections.map(sec => h('a', { class: 'btn small', href: '#/help', onclick: e => { e.preventDefault(); document.getElementById(`help-${sec.id}`)?.scrollIntoView({ behavior: 'smooth' }); } }, sec.title)))),
+    body));
+  draw();
+}
+
 // ---------- Gruppen-Automatik ----------
 
 /** Gruppen-Automatik: je Gruppe Zeitplan oder Strompreis-Regel, Freigabe, „jetzt umschalten“ mit Vorschau alt → neu. */
@@ -2781,6 +2813,7 @@ function displayCard(d) {
       h('h3', {}, t('Sonderanzeigen')),
       h('div', { class: 'form' },
         h('div', {}, checkInput(s, 'blockFoundScreen', t('Blockfund als Vollbild'))),
+        h('div', {}, h('label', {}, t('Blockfund-Anzeige endet')), pageSelect(s, 'blockFoundUntil', [['hours', t('nach Stunden oder mit Taste 1')], ['button', t('erst mit Taste 1 (wie Warnungen)')]])),
         h('div', {}, h('label', {}, t('stehen lassen (Stunden, bis Taste 1)')), numInput(s, 'blockFoundHoldHours'))),
       checkInput(s, 'alarmFullscreen', t('Warnungen als Vollbild (Taste 1 quittiert bis zur nächsten neuen Warnung)')),
       checkInput(s, 'bestDiffNotice', t('Neuen Best-Diff-Rekord einmal groß anzeigen')),
