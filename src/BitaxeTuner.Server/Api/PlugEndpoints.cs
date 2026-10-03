@@ -58,7 +58,8 @@ public static class PlugEndpoints
             {
                 var id2 = await client.IdentifyAsync();
                 var r = await client.ReadAsync(Math.Clamp(req.Channel, 0, 3));
-                return Results.Json(new { ok = true, generation = id2.Generation, model = id2.Model, id2.AuthRequired, r.PowerW, r.EnergyWh, r.Voltage });
+                return Results.Json(new { ok = true, generation = id2.Generation, model = id2.Model, id2.AuthRequired, r.PowerW, r.EnergyWh, r.Voltage,
+                    hint = id2.InsecureAuth ? PlugIdentity.InsecureAuthHint : null });
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {

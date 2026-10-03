@@ -32,7 +32,10 @@ for BOOT in /boot/firmware /boot; do
     fi
 done
 
-chown -R bitaxetuner:bitaxetuner "$DATA" "$ROOT"
+# Audit S9: nur Datenordner und versions/ gehören dem Dienst, /opt/bitaxetuner und „current“ bleiben root-eigen
+chown -R bitaxetuner:bitaxetuner "$DATA" "$ROOT/versions"
+chown root:root "$ROOT"
+chown -h root:root "$ROOT/current"
 chmod 750 "$DATA"
 systemctl disable bitaxetuner-firstboot.service
 echo "== fertig =="

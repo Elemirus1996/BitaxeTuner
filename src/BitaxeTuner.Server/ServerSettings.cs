@@ -21,6 +21,13 @@ public sealed class ServerSettings
     public int Port { get; init; } = DefaultPort;
     public IPAddress? Bind { get; init; }
     public bool AllowPublic { get; init; }
+
+    /// <summary>
+    /// Audit S5: Reverse-Proxy(s), deren X-Forwarded-For übernommen wird (<c>--trusted-proxy 192.168.1.5</c> bzw.
+    /// <c>BITAXETUNER_TRUSTED_PROXIES</c>, mehrere mit Komma). Nur dann prüfen Heimnetz-Filter und Login-Sperre die echte
+    /// Adresse des Browsers statt der des Proxys. Leer = keine Weiterleitungs-Kopfzeilen auswerten.
+    /// </summary>
+    public IReadOnlyList<IPAddress> TrustedProxies { get; init; } = [];
     public bool Https { get; init; }
 
     /// <summary>HTTPS fest über Aufruf/Umgebung vorgegeben (--https, BITAXETUNER_HTTPS) – dann nicht in der Oberfläche umschaltbar.</summary>
@@ -82,10 +89,15 @@ public sealed class ServerSettings
             Port = port,
             Bind = bind,
             AllowPublic = args.Contains("--allow-public") || Flag(Env("BITAXETUNER_ALLOW_PUBLIC")),
+            TrustedProxies = ParseProxies(Arg("--trusted-proxy") ?? Env("BITAXETUNER_TRUSTED_PROXIES")),
             Https = ResolveHttps(dir, httpsFixed),
             HttpsFixed = httpsFixed is not null,
         };
     }
+
+    internal static IReadOnlyList<IPAddress> ParseProxies(string? value) =>
+        (value ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries)
+            .Select(v => IPAddress.TryParse(v, out var ip) ? ip : null).OfType<IPAddress>().Distinct().ToList();
 
     /// <summary>Windows-Dienst: %ProgramData%\BitaxeTuner. Linux: /var/lib/bitaxetuner (Dienst) bzw. ~/.local/share/bitaxetuner.</summary>
     public static string DefaultDataDirectory()

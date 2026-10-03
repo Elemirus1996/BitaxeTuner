@@ -95,6 +95,20 @@ if (settings.Https && !settings.HttpsFixed && ServerSettings.ReadStoredHttps(set
 }
 var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BitaxeTuner.Server");
 
+// 0. Audit S5: hinter einem eingetragenen Reverse-Proxy die echte Browser-Adresse übernehmen (sonst nie)
+if (settings.TrustedProxies.Count > 0)
+{
+    var forwarded = new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
+    {
+        ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto,
+        ForwardLimit = 1,
+    };
+    forwarded.KnownNetworks.Clear();
+    forwarded.KnownProxies.Clear();
+    foreach (var proxy in settings.TrustedProxies) forwarded.KnownProxies.Add(proxy);
+    app.UseForwardedHeaders(forwarded);
+}
+
 // 1. Nur Heimnetz/VPN (außer ausdrücklich freigegeben), Sicherheits-Header, Anmeldung auflösen
 app.Use(async (http, next) =>
 {

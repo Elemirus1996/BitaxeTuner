@@ -10,7 +10,7 @@ public sealed record DisposalView(string Id, DateTime SoldAtUtc, CoinType Coin, 
 
 /// <summary>Jahreswerte wie in der Desktop-App (Zuflüsse; Verkäufe nach § 23 EStG mit Freigrenze).</summary>
 public sealed record TaxYearSummary(int Year, int RewardCount, decimal RewardEur, int RewardsWithoutPrice,
-    int SaleCount, decimal TaxableGainEur, decimal FreeLimitEur, bool SaleMissingPrice, bool SaleUnmatched);
+    int SaleCount, decimal TaxableGainEur, decimal FreeLimitEur, bool SaleMissingPrice, bool SaleUnmatched, decimal UncertainGainEur = 0);
 
 /// <summary>
 /// Steuer-Bereich bearbeiten (0.9.6, Browser im Server-Betrieb): Wallets, Kurs/Notiz eines Zuflusses, Einträge entfernen,
@@ -150,7 +150,7 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
         var disposal = new Disposal
         {
             Coin = coin,
-            SoldAtUtc = day.ToDateTime(new TimeOnly(12, 0), DateTimeKind.Local).ToUniversalTime(),
+            SoldAtUtc = TaxTime.FromTax(day.ToDateTime(new TimeOnly(12, 0))),
             Amount = a,
             ProceedsEur = p,
             Note = (note ?? "").Trim(),
@@ -177,11 +177,12 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     {
         var rewards = monitor.LoadRewards();
         var results = HoldingCalculator.Apply(rewards, repository.LoadDisposals());
-        var year = now.Year;
-        var inYear = rewards.Where(r => r.ReceivedAtUtc.ToLocalTime().Year == year).ToList();
+        var year = TaxTime.ToTax(now.ToUniversalTime()).Year;
+        var inYear = rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
         var sales = results.Where(r => r.Disposal.SoldAtLocal.Year == year).ToList();
         var summary = new TaxYearSummary(year, inYear.Count, inYear.Sum(r => r.EurValue ?? 0), inYear.Count(r => r.EurValue is null),
-            sales.Count, sales.Sum(r => r.TaxableGainEur), FreeLimitEur, sales.Any(r => r.MissingPrice), sales.Any(r => r.UnmatchedAmount > 0));
+            sales.Count, sales.Sum(r => r.TaxableGainEur), FreeLimitEur, sales.Any(r => r.MissingPrice), sales.Any(r => r.UnmatchedAmount > 0),
+            sales.Sum(r => r.UncertainGainEur));
         var views = results.OrderByDescending(r => r.Disposal.SoldAtUtc).Select(r => new DisposalView(r.Disposal.Id, r.Disposal.SoldAtUtc,
             r.Disposal.Coin, r.Disposal.Amount, r.Disposal.ProceedsEur, r.CostBasisEur, r.TaxableGainEur, r.TaxFreeAmount,
             r.UnmatchedAmount, r.MissingPrice, r.Disposal.Note)).ToList();

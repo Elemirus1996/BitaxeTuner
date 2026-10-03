@@ -20,7 +20,7 @@ RestartSec=5
 # Beim Stoppen laufende Benchmarks beenden und Einstellungen der Miner wiederherstellen
 TimeoutStopSec=120
 
-# Härtung: nur Datenordner und Programmordner (Selbst-Update) beschreibbar
+# Härtung: nur Datenordner und versions/ (Selbst-Update) beschreibbar; /opt/bitaxetuner und „current“ gehören root
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
@@ -31,7 +31,7 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/bitaxetuner /opt/bitaxetuner
+ReadWritePaths=/var/lib/bitaxetuner /opt/bitaxetuner/versions
 # USB-Stick für Sicherungen (wird bei Bedarf eingebunden; fehlt der Ordner, wird die Zeile ignoriert)
 ReadWritePaths=-/media/bitaxetuner-usb
 

@@ -190,7 +190,8 @@ public sealed class SmartPlugsPanel : StackPanel
             using IPlugClient client = SimulatedPlugClient.IsSimAddress(p.Host) ? new SimulatedPlugClient(() => 20) : new ShellyClient(p.Host, p.User, password);
             var id = await client.IdentifyAsync();
             var r = await client.ReadAsync(p.Channel);
-            statusText.Text = L.T("{0} (Gen {1}): {2} W", id.Model, id.Generation, r.PowerW.ToString("0.0", L.Culture));
+            statusText.Text = L.T("{0} (Gen {1}): {2} W", id.Model, id.Generation, r.PowerW.ToString("0.0", L.Culture)) +
+                              (id.InsecureAuth ? "\n" + PlugIdentity.InsecureAuthHint : "");
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {

@@ -42,6 +42,20 @@ public sealed class ViewerAccess
     public DateTime? LastUsedUtc { get; set; }
 }
 
+/// <summary>
+/// Kiosk-Link (0.9.8): Wand-Tablet oder zweiter Bildschirm meldet sich mit einem zufälligen Schlüssel an – nur Ansehen,
+/// optional auf Gruppen beschränkt, jederzeit widerrufbar. Gespeichert wird nur der SHA-256 des Schlüssels.
+/// </summary>
+public sealed class KioskAccess
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Hash { get; set; } = "";
+    public List<string> Groups { get; set; } = [];
+    public DateTime CreatedUtc { get; set; }
+    public DateTime? LastUsedUtc { get; set; }
+}
+
 /// <summary>Ergebnis der Anmeldung; <see cref="Access"/> ist gesetzt, wenn mit der PIN eines eigenen Ansicht-Zugangs angemeldet.</summary>
 public sealed record LoginResult(Role Role, ViewerAccess? Access = null);
 
@@ -51,6 +65,8 @@ public sealed class AuthData
     public string AdminHash { get; set; } = "";
     public List<ApiToken> Tokens { get; set; } = [];
     public List<ViewerAccess> Viewers { get; set; } = [];
+    /// <summary>0.9.8: Kiosk-Links. Additiv.</summary>
+    public List<KioskAccess> Kiosks { get; set; } = [];
 }
 
 /// <summary>
@@ -231,6 +247,70 @@ public sealed class AuthStore
     {
         Id = v.Id, Name = v.Name, PinHash = v.PinHash, Groups = v.Groups.ToList(), CreatedUtc = v.CreatedUtc, LastUsedUtc = v.LastUsedUtc,
     };
+
+    // ---------- Kiosk-Links ----------
+
+    public const int MaxKiosks = 10;
+    public const string KioskPrefix = "btq_";
+
+    public IReadOnlyList<KioskAccess> Kiosks
+    {
+        get { lock (_lock) return _data.Kiosks.Select(k => new KioskAccess { Id = k.Id, Name = k.Name, Hash = k.Hash, Groups = k.Groups.ToList(), CreatedUtc = k.CreatedUtc, LastUsedUtc = k.LastUsedUtc }).ToList(); }
+    }
+
+    /// <summary>Neuer Kiosk-Link – der Schlüssel wird nur hier einmal zurückgegeben.</summary>
+    public (KioskAccess Entry, string Secret) CreateKiosk(string name, IEnumerable<string>? groups)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0) throw new LocalizedException("Bitte einen Namen angeben.");
+        if (name.Length > 60) name = name[..60];
+        var secret = KioskPrefix + Base64Url(RandomNumberGenerator.GetBytes(32));
+        var entry = new KioskAccess
+        {
+            Id = Base64Url(RandomNumberGenerator.GetBytes(6)),
+            Name = name,
+            Hash = Sha256(secret),
+            Groups = MinerGroups.Normalize(groups),
+            CreatedUtc = DateTime.UtcNow,
+        };
+        lock (_lock)
+        {
+            if (_data.Kiosks.Count >= MaxKiosks) throw new LocalizedException("Höchstens {0} Kiosk-Links.", MaxKiosks);
+            _data.Kiosks.Add(entry);
+            Save();
+        }
+        return (entry, secret);
+    }
+
+    public KioskAccess? RevokeKiosk(string id)
+    {
+        lock (_lock)
+        {
+            var entry = _data.Kiosks.FirstOrDefault(k => k.Id == id);
+            if (entry is null) return null;
+            _data.Kiosks.Remove(entry);
+            Save();
+            return entry;
+        }
+    }
+
+    /// <summary>Schlüssel eines Kiosk-Links prüfen; letzte Nutzung höchstens stündlich gespeichert.</summary>
+    public KioskAccess? VerifyKiosk(string secret)
+    {
+        if (string.IsNullOrEmpty(secret) || !secret.StartsWith(KioskPrefix, StringComparison.Ordinal) || secret.Length > 100) return null;
+        var hash = Sha256(secret);
+        lock (_lock)
+        {
+            var k = _data.Kiosks.FirstOrDefault(x => FixedEquals(x.Hash, hash));
+            if (k is null) return null;
+            if (k.LastUsedUtc is null || DateTime.UtcNow - k.LastUsedUtc > TimeSpan.FromHours(1))
+            {
+                k.LastUsedUtc = DateTime.UtcNow;
+                Save();
+            }
+            return new KioskAccess { Id = k.Id, Name = k.Name, Groups = k.Groups.ToList(), CreatedUtc = k.CreatedUtc, LastUsedUtc = k.LastUsedUtc };
+        }
+    }
 
     /// <summary>Neues Token – der Klartext wird nur hier einmal zurückgegeben.</summary>
     public (ApiToken Entry, string Secret) CreateToken(string name)

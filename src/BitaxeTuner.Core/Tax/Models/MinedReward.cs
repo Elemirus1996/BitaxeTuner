@@ -62,7 +62,7 @@ public class MinedReward : INotifyPropertyChanged
     public decimal? EurValue => EurPriceAtReceipt.HasValue ? Amount * EurPriceAtReceipt.Value : null;
 
     [JsonIgnore]
-    public DateTime ReceivedAtLocal => ReceivedAtUtc.ToLocalTime();
+    public DateTime ReceivedAtLocal => TaxTime.ToTax(ReceivedAtUtc);   // Steuer-Zeitzone (Audit F5)
 
     /// <summary>
     /// Erster Tag, an dem ein Verkauf außerhalb der einjährigen Haltefrist liegt

@@ -5,7 +5,8 @@
 #   tar xzf BitaxeTuner-Server-<version>-linux-arm64.tar.gz
 #   cd bitaxetuner-server && sudo ./install.sh
 #
-# Programm:  /opt/bitaxetuner/versions/<version>  (Symlink /opt/bitaxetuner/current)
+# Programm:  /opt/bitaxetuner/versions/<version>  (Symlink /opt/bitaxetuner/current → versions/active → <version>)
+#            Ab 0.9.8 (Audit S9): /opt/bitaxetuner und „current“ gehören root, der Dienst darf nur versions/ beschreiben.
 # Daten:     /var/lib/bitaxetuner                 (bleiben bei Update und Deinstallation erhalten)
 # Dienst:    bitaxetuner.service                  (startet automatisch, Neustart bei Absturz)
 # Entfernen: sudo ./install.sh --uninstall        (Daten bleiben; löschen mit --purge)
@@ -26,7 +27,26 @@ USB_RULE=/etc/udev/rules.d/99-bitaxetuner-usb.rules
 USB_HELPER=/usr/local/lib/bitaxetuner/usb-mount
 
 # Dienste, Neustart per Taste/Browser und USB-Stick für Sicherungen (alles root-eigene Dateien)
+# Audit S9: Wurzel und „current“ root-eigen, nur versions/ (neue Versionen, Link „active“) gehört dem Dienst.
+# Stellt auch ältere Installationen um (dort war „current“ der vom Dienst umgehängte Link).
+secure_layout() {
+    [ -d "$ROOT/versions" ] || return 0
+    if [ ! -L "$ROOT/versions/active" ]; then
+        CUR=$(readlink -f "$ROOT/current" 2>/dev/null || true)
+        [ -n "$CUR" ] && [ -d "$CUR" ] || return 0
+        ln -sfn "$(basename "$CUR")" "$ROOT/versions/active.tmp"
+        mv -T "$ROOT/versions/active.tmp" "$ROOT/versions/active"
+    fi
+    ln -sfn versions/active "$ROOT/current.tmp"
+    mv -T "$ROOT/current.tmp" "$ROOT/current"
+    chown root:root "$ROOT"
+    chown -h root:root "$ROOT/current"
+    chmod 755 "$ROOT"
+    chown -R bitaxetuner:bitaxetuner "$ROOT/versions"
+}
+
 install_system() {
+    secure_layout
     install -m 644 "$HERE/bitaxetuner.service" "$UNIT"
     # Neustart per Taste 4 / Browser: der Dienst legt eine Anforderungsdatei ab, diese Pfad-Unit (root) startet neu
     install -m 644 "$HERE/bitaxetuner-reboot.path" /etc/systemd/system/bitaxetuner-reboot.path
@@ -95,11 +115,12 @@ rm -rf "$TARGET"
 mv "$TARGET.new" "$TARGET"
 
 # Atomar umschalten: alte Version bleibt als Rückfall in versions/ liegen
-ln -sfn "$TARGET" "$ROOT/current.tmp"
-mv -T "$ROOT/current.tmp" "$ROOT/current"
+ln -sfn "$VERSION" "$ROOT/versions/active.tmp"
+mv -T "$ROOT/versions/active.tmp" "$ROOT/versions/active"
 
-chown -R bitaxetuner:bitaxetuner "$ROOT" "$DATA"
+chown -R bitaxetuner:bitaxetuner "$DATA"
 chmod 750 "$DATA"
+secure_layout
 
 install_system
 systemctl restart bitaxetuner

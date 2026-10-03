@@ -69,7 +69,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             var year = DateTime.Now.Year;
-            var inYear = Rewards.Where(r => r.ReceivedAtUtc.ToLocalTime().Year == year).ToList();
+            var inYear = Rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
             var sum = inYear.Sum(r => r.EurValue ?? 0);
             var missing = inYear.Count(r => r.EurValue is null);
             var text = L.T("{0}: {1} Zuflüsse · {2} €", year, inYear.Count, sum.ToString("N2", De));
@@ -91,6 +91,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             var text = L.T("{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze 1.000 €)", year, inYear.Count, gain.ToString("N2", De));
             if (inYear.Any(r => r.MissingPrice)) text += L.T(" · Kurs fehlt");
             if (inYear.Any(r => r.UnmatchedAmount > 0)) text += L.T(" · Menge ohne Zufluss");
+            if (inYear.Sum(r => r.UncertainGainEur) is > 0 and var u) text += L.T(" · davon {0} € mit 0 € Anschaffung (Kurs fehlt/ohne Zufluss)", u.ToString("N2", De));
             return text;
         }
     }
@@ -393,7 +394,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         _disposals.Add(new Disposal
         {
             Coin = NewSaleCoin,
-            SoldAtUtc = local.ToUniversalTime(),
+            SoldAtUtc = Core.Tax.TaxTime.FromTax(local),
             Amount = amount,
             ProceedsEur = proceeds,
             Note = NewSaleNote.Trim()

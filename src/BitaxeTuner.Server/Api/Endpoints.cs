@@ -38,6 +38,7 @@ public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
 public sealed record OverrideRequest(string Mode);
+public sealed record KioskLoginRequest(string? Token);
 public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
@@ -230,18 +231,25 @@ public static class Endpoints
 
     private static void MapPublic(RouteGroupBuilder api)
     {
-        api.MapGet("/info", (HttpContext http, AuthStore auth, HubService hub) => Results.Json(new
+        // Audit S10: ohne Anmeldung nur das Nötigste (kein Betriebssystem, keine Geräteanzahl)
+        api.MapGet("/info", (HttpContext http, AuthStore auth, HubService hub) =>
         {
-            name = "BitaxeTuner-Server",
-            version = Version,
-            apiVersion = ApiVersion,
-            setupRequired = !auth.IsSetUp,
-            role = AuthContext.Of(http).Role.ToString(),
-            os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
-            paused = hub.Hub.IsPaused,
-            devices = hub.Hub.Config.Devices.Count,
-            language = Core.I18n.Loc.Current.Language,
-        }));
+            var role = AuthContext.Of(http).Role;
+            return role >= Role.Viewer
+                ? Results.Json(new
+                {
+                    name = "BitaxeTuner-Server", version = Version, apiVersion = ApiVersion, setupRequired = !auth.IsSetUp,
+                    role = role.ToString(), language = Core.I18n.Loc.Current.Language,
+                    os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                    paused = hub.Hub.IsPaused,
+                    devices = hub.Hub.Config.Devices.Count,
+                })
+                : Results.Json(new
+                {
+                    name = "BitaxeTuner-Server", version = Version, apiVersion = ApiVersion, setupRequired = !auth.IsSetUp,
+                    role = role.ToString(), language = Core.I18n.Loc.Current.Language,
+                });
+        });
 
         // Übersetzungstabelle für die Browser-Oberfläche (deutscher Text → Text der Sprache); auch vor der Anmeldung
         api.MapGet("/i18n/{lang}", (string lang, HttpContext http) =>
@@ -294,6 +302,24 @@ public static class Endpoints
             if (result.Access is { } access)
                 await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, L.T("Ansicht-Zugang „{0}“ angemeldet.", access.Name)); return true; });
             return StartSession(http, sessions, result.Role, ViewScope.For(result.Access), result.Access?.Id);
+        });
+
+        // Kiosk-Link (Wand-Tablet): Schlüssel → Sitzung „Nur ansehen“ (ggf. nur bestimmte Gruppen); gleiche Sperre wie /login
+        api.MapPost("/kiosk/login", async (KioskLoginRequest req, HttpContext http, AuthStore auth, SessionStore sessions, Lockout lockout, HubService hub) =>
+        {
+            var client = Client(http);
+            var now = DateTime.UtcNow;
+            if (lockout.IsLocked(client, now)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
+            if (lockout.GlobalDelay(now) is { } delay && delay > TimeSpan.Zero) await Task.Delay(delay);
+            if (auth.VerifyKiosk(req.Token ?? "") is not { } kiosk)
+            {
+                lockout.Fail(client, now);
+                lockout.FailGlobal(now);
+                return Error(401, L.N("Kiosk-Link ungültig oder widerrufen."));
+            }
+            lockout.Success(client);
+            await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, L.T("Kiosk „{0}“ angemeldet.", kiosk.Name)); return true; });
+            return StartSession(http, sessions, Role.Viewer, ViewScope.ForGroups(kiosk.Groups), kiosk.Id);
         });
 
         api.MapPost("/logout", (HttpContext http, SessionStore sessions) =>
@@ -879,6 +905,31 @@ public static class Endpoints
             return Results.Json(new { v.Id, v.Name, v.Groups, v.CreatedUtc });
         });
 
+        // Kiosk-Links (Wand-Tablet): der Schlüssel wird nur beim Anlegen einmal zurückgegeben
+        g.MapGet("/kiosks", (AuthStore auth) =>
+            Results.Json(auth.Kiosks.Select(k => new { k.Id, k.Name, k.Groups, k.CreatedUtc, k.LastUsedUtc })));
+
+        g.MapPost("/kiosks", async (ViewerRequest req, AuthStore auth, HubService hub) =>
+        {
+            var (k, secret) = auth.CreateKiosk(req.Name ?? "", req.Groups);
+            await hub.RunAsync(h =>
+            {
+                h.LogEvent(null, EventCategories.Settings, k.Groups.Count == 0
+                    ? L.T("Kiosk-Link „{0}“ angelegt (alle Miner).", k.Name)
+                    : L.T("Kiosk-Link „{0}“ angelegt (Gruppen: {1}).", k.Name, string.Join(", ", k.Groups)));
+                return true;
+            });
+            return Results.Json(new { k.Id, k.Name, k.Groups, k.CreatedUtc, token = secret });
+        });
+
+        g.MapDelete("/kiosks/{kioskId}", async (string kioskId, AuthStore auth, SessionStore sessions, HubService hub) =>
+        {
+            if (auth.RevokeKiosk(kioskId) is not { } k) return Error(404, L.N("Kiosk-Link nicht gefunden."));
+            var ended = sessions.RemoveAccess(k.Id);
+            await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, L.T("Kiosk-Link „{0}“ widerrufen.", k.Name)); return true; });
+            return Results.Ok(new { ok = true, sessions = ended });
+        });
+
         g.MapDelete("/viewers/{viewerId}", async (string viewerId, AuthStore auth, SessionStore sessions, HubService hub) =>
         {
             if (auth.RevokeViewer(viewerId) is not { } v) return Error(404, L.N("Zugang nicht gefunden."));
@@ -1048,12 +1099,16 @@ public static class Endpoints
                 return Error(409, L.N("Der Server enthält bereits Daten (Geräte, Verlauf oder Steuerdaten). Übernahme nur nach ausdrücklicher Bestätigung – der Server sichert seinen Stand vorher."));
 
             var dir = hub.Settings.DataDirectory;
+            // Audit E4: vorab prüfen, ob Upload, Entpacken und die Sicherung des bisherigen Stands auf den Datenträger passen
+            if (http.Request.ContentLength is { } length) DiskSpace.Require(dir, length);
             var upload = Path.Combine(dir, $"transfer-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.zip");
             var staging = Path.Combine(dir, $"transfer-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..40]);
             try
             {
                 await using (var fs = File.Create(upload)) await http.Request.Body.CopyToAsync(fs, http.RequestAborted);
                 ArchiveManifest manifest;
+                try { DiskSpace.Require(dir, DiskSpace.UncompressedSize(upload) + DiskSpace.FolderSize(dir) - new FileInfo(upload).Length); }
+                catch (InvalidDataException ex) { return Error(400, L.N("Archiv abgelehnt: {0}"), ex.Message); }
                 try
                 {
                     await using var zip = File.OpenRead(upload);

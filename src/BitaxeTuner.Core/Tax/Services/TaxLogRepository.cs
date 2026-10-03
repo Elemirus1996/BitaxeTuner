@@ -116,7 +116,7 @@ public sealed class TaxLogRepository
 
         foreach (var r in rewards.OrderBy(r => r.ReceivedAtUtc))
         {
-            var local = r.ReceivedAtUtc.ToLocalTime();
+            var local = r.ReceivedAtLocal;
             sb.AppendLine(string.Join(';',
                 local.ToString("dd.MM.yyyy", de),
                 local.ToString("HH:mm:ss", de),
@@ -142,7 +142,7 @@ public sealed class TaxLogRepository
     {
         var de = CultureInfo.GetCultureInfo("de-DE");
         var sb = new StringBuilder();
-        sb.AppendLine("Datum;Coin;Menge;Erlös EUR;Anschaffungskosten EUR;steuerpfl. Menge;haltefristfreie Menge;steuerpfl. Gewinn EUR;Hinweis;Notiz");
+        sb.AppendLine("Datum;Coin;Menge;Erlös EUR;Anschaffungskosten EUR;steuerpfl. Menge;haltefristfreie Menge;steuerpfl. Gewinn EUR;Hinweis;Notiz;davon ohne Kurs/Zufluss EUR");
 
         foreach (var r in results.OrderBy(r => r.Disposal.SoldAtUtc))
         {
@@ -160,7 +160,8 @@ public sealed class TaxLogRepository
                 r.TaxFreeAmount.ToString("0.00000000", de),
                 r.TaxableGainEur.ToString("0.00", de),
                 Escape(string.Join(", ", hint)),
-                Escape(r.Disposal.Note)));
+                Escape(r.Disposal.Note),
+                r.UncertainGainEur.ToString("0.00", de)));
         }
 
         File.WriteAllText(filePath, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));

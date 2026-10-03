@@ -424,6 +424,10 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
 - **Ansicht-Zugänge** (Einstellungen → Ansicht-Zugänge): eigene PIN je Person (mind. 6 Ziffern, nur als Hash
   gespeichert), auf Wunsch nur für bestimmte Miner-Gruppen – dann ohne fremde Miner, Summen, Verläufe und E-Paper über
   alle Miner. Einzeln widerrufbar (offene Sitzungen enden sofort); Anmelden, Anlegen und Widerrufen stehen im Protokoll.
+- **Kiosk / Wand-Tablet** (ab 0.9.8, Einstellungen → *Kiosk / Wand-Tablet*): Vollbild ohne Menü – Summen, Warnungen,
+  je Miner eine Kachel, hält den Bildschirm wach (HTTPS). Anmeldung nach Wahl des Admins: **Kiosk-Link** (einmal auf dem
+  Tablet öffnen, meldet sich danach auch nach Server-Neustarts selbst an, auf Gruppen beschränkbar, widerrufbar) oder
+  mit einer **Ansicht-PIN** und dann `…/#/kiosk` öffnen. Ohne Server: Handy-Ansicht der Desktop-App mit `?kiosk=1`.
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
   (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
   die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.

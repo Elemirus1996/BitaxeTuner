@@ -132,6 +132,13 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.8", tr.T("Kiosk / Wand-Tablet"),
+                server ? tr.T("Vollbild-Anzeige ohne Menü für ein Tablet an der Wand: Summen, Warnungen, je Miner eine Kachel. Anmeldung per Kiosk-Link (meldet sich selbst wieder an, widerrufbar) oder Ansicht-PIN – unter Einstellungen → Kiosk / Wand-Tablet.")
+                       : tr.T("Handy-Ansicht mit „?kiosk=1“ öffnen: große Anzeige für ein Tablet an der Wand. Im Server-Betrieb gibt es zusätzlich Kiosk-Links."),
+                null),
+            new("0.9.8", tr.T("Sicherer und robuster"),
+                tr.T("Restliche Punkte aus dem Sicherheits-Audit: Steuer rechnet in fester Zeitzone (Europe/Berlin), Gewinn ohne bekannte Anschaffungskosten wird getrennt ausgewiesen, Tibber-Viertelstundenpreise, Drosselung bei mempool.space, Speicherplatz-Prüfung vor Datenübernahmen, Reverse-Proxy-Option und schreibgeschützter Programmordner auf dem Pi."),
+                null),
             new("0.9.8", tr.T("Mindestdrehzahl der Lüfter-Automatik"),
                 tr.T("Bei „Lüfter des Miners“ lässt sich in der Automatik jetzt wie in AxeOS die Mindestdrehzahl einstellen (Firmware mit „minFanSpeed“); sie wird auch gesichert und wiederhergestellt."),
                 null),

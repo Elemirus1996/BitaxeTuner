@@ -62,6 +62,11 @@ public static class WebViewPage
         input, button { width:100%; font-size:18px; padding:12px; margin:6px 0; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
         button { background:var(--accent); color:#fff; border:none; font-weight:600; }
         .error { color:var(--bad); }
+        /* Kiosk / Wand-Tablet (?kiosk=1): größer, ohne Abmelden und Kleingedrucktes */
+        body.kiosk header a, body.kiosk .small, body.kiosk .spark { display:none; }
+        body.kiosk header h1 { font-size:28px; } body.kiosk .v { font-size:32px; } body.kiosk .k { font-size:13px; }
+        body.kiosk .grid { grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); }
+        body.kiosk .row { grid-template-columns:1fr 1fr; }
         """;
 
     /// <summary>Beschriftungen und Zahlenformat für das Skript.</summary>
@@ -96,6 +101,14 @@ public static class WebViewPage
           const d = points.map((p, i) => `${(i / (points.length - 1) * 100).toFixed(1)},${(46 - (p - min) / r * 42).toFixed(1)}`).join(' ');
           return `<svg viewBox="0 0 100 48" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" points="${d}"/></svg>`;
         }
+        // Kiosk-Modus: ?kiosk=1 einschalten (bleibt auf dem Gerät gemerkt), ?kiosk=0 aus
+        (() => {
+          const q = new URLSearchParams(location.search).get('kiosk');
+          try { if (q === '1') localStorage.setItem('bt.kiosk', '1'); if (q === '0') localStorage.removeItem('bt.kiosk'); } catch { }
+          let on = q === '1';
+          try { on = on || localStorage.getItem('bt.kiosk') === '1'; } catch { }
+          if (on) document.body.classList.add('kiosk');
+        })();
         async function load() {
           const r = await fetch('/api/status', { cache: 'no-store' });
           if (r.status === 401) { location.href = '/'; return; }

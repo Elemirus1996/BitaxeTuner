@@ -71,7 +71,9 @@ for f in "$SRC"/*; do
     case "$(basename "$f")" in LIESMICH.txt) ;; *) cp -a "$f" "$R/opt/bitaxetuner/versions/$VERSION/" ;; esac
 done
 chmod 755 "$R/opt/bitaxetuner/versions/$VERSION/BitaxeTuner.Server"
-ln -sfn "/opt/bitaxetuner/versions/$VERSION" "$R/opt/bitaxetuner/current"
+# Audit S9: current → versions/active (root-eigen), active → <version> (hängt der Dienst beim Update um)
+ln -sfn "$VERSION" "$R/opt/bitaxetuner/versions/active"
+ln -sfn versions/active "$R/opt/bitaxetuner/current"
 install -m 755 "$SRC/bitaxetuner-firstboot.sh" "$R/opt/bitaxetuner/bitaxetuner-firstboot.sh"
 for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service bitaxetuner-usb@.service; do
     install -m 644 "$SRC/$u" "$R/etc/systemd/system/$u"

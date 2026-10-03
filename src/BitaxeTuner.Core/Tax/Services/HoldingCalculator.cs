@@ -10,7 +10,15 @@ public sealed record DisposalResult(
     decimal TaxFreeAmount,
     decimal TaxableAmount,
     decimal UnmatchedAmount,
-    bool MissingPrice);
+    bool MissingPrice,
+    decimal UncertainGainEur = 0)
+{
+    /// <summary>
+    /// Audit F6: Teil von <see cref="TaxableGainEur"/>, der mit 0 € Anschaffungskosten gerechnet ist – Zufluss ohne Kurs
+    /// oder verkaufte Menge ohne dokumentierten Zufluss. Mit nachgetragenem Kurs wird er kleiner.
+    /// </summary>
+    public decimal UncertainGainEur { get; init; } = UncertainGainEur;
+}
 
 /// <summary>
 /// Ordnet Verkäufe nach FIFO den dokumentierten Zuflüssen desselben Coins zu.
@@ -40,7 +48,7 @@ public static class HoldingCalculator
                 .ToList();
 
             var open = d.Amount;
-            decimal costBasis = 0, taxableGain = 0, taxFreeAmount = 0, taxableAmount = 0;
+            decimal costBasis = 0, taxableGain = 0, taxFreeAmount = 0, taxableAmount = 0, uncertain = 0;
             var missingPrice = false;
 
             foreach (var lot in lots)
@@ -66,6 +74,7 @@ public static class HoldingCalculator
                 {
                     taxableAmount += take;
                     taxableGain += proceeds - cost;
+                    if (lot.EurPriceAtReceipt is null) uncertain += proceeds;
                 }
             }
 
@@ -73,9 +82,10 @@ public static class HoldingCalculator
             {
                 taxableAmount += open;
                 taxableGain += d.ProceedsEur * (open / d.Amount);
+                uncertain += d.ProceedsEur * (open / d.Amount);
             }
 
-            results.Add(new DisposalResult(d, costBasis, taxableGain, taxFreeAmount, taxableAmount, open, missingPrice));
+            results.Add(new DisposalResult(d, costBasis, taxableGain, taxFreeAmount, taxableAmount, open, missingPrice, uncertain));
         }
 
         return results;

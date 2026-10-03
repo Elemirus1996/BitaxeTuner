@@ -10,7 +10,13 @@ namespace BitaxeTuner.Core.Plugs;
 public sealed record PlugReading(double PowerW, double? EnergyWh, double? Voltage, double? Current);
 
 /// <summary>Gerät hinter der Adresse: Generation, Modell, ob ein Passwort nötig ist.</summary>
-public sealed record PlugIdentity(int Generation, string Model, bool AuthRequired);
+public sealed record PlugIdentity(int Generation, string Model, bool AuthRequired)
+{
+    /// <summary>Audit I4: Gen1 meldet sich per Basic-Auth an – das Passwort geht unverschlüsselt durchs Heimnetz.</summary>
+    public bool InsecureAuth => Generation < 2 && AuthRequired;
+
+    public static string InsecureAuthHint => L.T("Hinweis: Shelly Gen1 überträgt das Passwort unverschlüsselt (Basic-Auth). Für geschützte Plugs Shelly Plus/Gen2+ empfohlen.");
+}
 
 public interface IPlugClient : IDisposable
 {

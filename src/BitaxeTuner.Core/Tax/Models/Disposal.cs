@@ -19,5 +19,5 @@ public class Disposal
     public string Note { get; set; } = string.Empty;
 
     [JsonIgnore]
-    public DateTime SoldAtLocal => SoldAtUtc.ToLocalTime();
+    public DateTime SoldAtLocal => TaxTime.ToTax(SoldAtUtc);   // Steuer-Zeitzone (Audit F5)
 }

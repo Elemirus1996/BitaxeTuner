@@ -14,6 +14,9 @@ public sealed record ViewScope(IReadOnlyList<string>? Groups)
     public static ViewScope For(ViewerAccess? access) =>
         access is { Groups.Count: > 0 } a ? new ViewScope(a.Groups.ToList()) : All;
 
+    /// <summary>Für einen Kiosk-Link: ohne Gruppen = alle Miner.</summary>
+    public static ViewScope ForGroups(IReadOnlyCollection<string> groups) => groups.Count > 0 ? new ViewScope(groups.ToList()) : All;
+
     public bool Restricted => Groups is not null;
 
     public bool Allows(HubDevice d) => Allows(d.Config.Groups);

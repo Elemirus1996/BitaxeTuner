@@ -84,14 +84,22 @@ public sealed class TibberPriceSource(HttpClient http, string token) : IPriceSou
         {
             if (!home.TryGetProperty("currentSubscription", out var sub) || sub.ValueKind != JsonValueKind.Object) continue;
             var info = sub.GetProperty("priceInfo");
+            var raw = new List<(DateTime Start, double Ct)>();
             foreach (var day in new[] { "today", "tomorrow" })
             {
                 if (!info.TryGetProperty(day, out var arr) || arr.ValueKind != JsonValueKind.Array) continue;
                 foreach (var e in arr.EnumerateArray())
-                {
-                    var start = DateTimeOffset.Parse(e.GetProperty("startsAt").GetString()!, CultureInfo.InvariantCulture).UtcDateTime;
-                    list.Add(new PricePoint(start, start.AddHours(1), e.GetProperty("total").GetDouble() * 100));
-                }
+                    raw.Add((DateTimeOffset.Parse(e.GetProperty("startsAt").GetString()!, CultureInfo.InvariantCulture).UtcDateTime,
+                             e.GetProperty("total").GetDouble() * 100));
+            }
+            // Audit F4: Ende = Beginn des nächsten Eintrags (Stunden- oder Viertelstundenpreise); letzter wie der vorige, sonst 1 h
+            raw = raw.OrderBy(r => r.Start).ToList();
+            for (var i = 0; i < raw.Count; i++)
+            {
+                var length = i + 1 < raw.Count ? raw[i + 1].Start - raw[i].Start
+                    : i > 0 ? raw[i].Start - raw[i - 1].Start : TimeSpan.FromHours(1);
+                if (length <= TimeSpan.Zero || length > TimeSpan.FromHours(1)) length = TimeSpan.FromHours(1);
+                list.Add(new PricePoint(raw[i].Start, raw[i].Start + length, raw[i].Ct));
             }
             break; // erstes Zuhause mit Vertrag
         }

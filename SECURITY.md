@@ -26,7 +26,18 @@ aktualisieren (Desktop: *Nach Updates suchen*, Server: *Einstellungen → Server
 - Passwörter für Netzlaufwerk, MQTT und Smart Plugs liegen getrennt in `secrets.json` (Windows: verschlüsselt,
   Linux: nur für den Dienst lesbar) und gehen nie in Sicherungen, Übertragungen oder die API-Antworten.
 - Smart Plugs und Push-Webhooks: BitaxeTuner fragt nur Adressen im Heimnetz ab bzw. sendet nur an die eingetragene
-  Adresse; Plugs werden nie geschaltet.
+  Adresse; Plugs werden nie geschaltet. Shelly Gen1 überträgt ein Plug-Passwort unverschlüsselt (Basic-Auth) – für
+  geschützte Plugs Shelly Plus/Gen2+ (Digest) verwenden.
+- **Reverse-Proxy / Docker:** Der Heimnetz-Filter prüft die Adresse, von der die Verbindung kommt. Hinter einem Proxy auf
+  demselben Rechner oder mit Dockers Userland-Proxy sieht er nur den Proxy. Dann den Proxy mit `--trusted-proxy <IP>`
+  bzw. `BITAXETUNER_TRUSTED_PROXIES` eintragen – nur von dort wird `X-Forwarded-For` übernommen. Adressen aus 100.64.0.0/10
+  (z. B. Tailscale) gelten als privat.
+- **Programmordner (Linux):** `/opt/bitaxetuner` und der Link `current` gehören root; der Dienst darf nur
+  `/opt/bitaxetuner/versions` beschreiben (für das Ein-Klick-Update, jedes Update ist signiert geprüft). Bewusster
+  Kompromiss: Wer Code im Dienst ausführen kann, kann dort eine Version ablegen. `sudo sh …/install.sh --system` nur nach
+  einem geprüften Update ausführen.
+- **Kiosk-Links** sind lange gültige Schlüssel für die Ansicht (nur Ansehen): nur auf Geräten im eigenen Haushalt
+  öffnen und nicht mehr benötigte Links widerrufen.
 
 ---
 

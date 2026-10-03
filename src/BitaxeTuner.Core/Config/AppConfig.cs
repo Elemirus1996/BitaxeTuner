@@ -15,6 +15,9 @@ public sealed class AppConfig
     /// <summary>0.9.7: Zeitplan/Strompreis-Regeln für Miner-Gruppen. Additiv.</summary>
     public List<GroupScheduleRule> GroupSchedules { get; set; } = [];
 
+    /// <summary>0.9.8: Zeitzone für Haltefrist und Datumsangaben im Steuer-Bereich (Audit F5). Additiv.</summary>
+    public string TaxTimeZone { get; set; } = Tax.TaxTime.DefaultZone;
+
     public int IntervalSeconds { get; set; } = 5;
     public int HistoryMinutes { get; set; } = 60;
     public int WalletPollMinutes { get; set; } = 10;

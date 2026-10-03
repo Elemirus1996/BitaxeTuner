@@ -511,12 +511,16 @@ public sealed partial class MinerHub
         await PollWalletsAsync();
     }
 
+    /// <summary>Adressen der letzten Wallet-Abfrage (Audit I3).</summary>
+    private HashSet<string> _lastWalletAddresses = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Kontostände aller bekannten Miner-Wallets abfragen und neue Eingänge melden.</summary>
     public async Task PollWalletsAsync()
     {
         if (_walletBusy || !Options.OnlineChecks) return;
 
         var addresses = LookupAddresses(States, Config.WalletLookupConsent);
+        _lastWalletAddresses = addresses.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (addresses.Count == 0)
         {

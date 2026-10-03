@@ -116,7 +116,8 @@ public partial class SettingsWindow : Window
         WebEnabledBox.IsChecked = config.WebView.Enabled;
         WebPortBox.Text = config.WebView.Port.ToString();
         WebUrlText.Text = config.WebView.Enabled && config.WebView.PinHash.Length > 0
-            ? L.T("Adresse fürs Handy: ") + string.Join("  oder  ", Core.Web.WebViewServer.LocalUrls(config.WebView.Port))
+            ? L.T("Adresse fürs Handy: ") + string.Join("  oder  ", Core.Web.WebViewServer.LocalUrls(config.WebView.Port)) +
+              L.T(" · Wand-Tablet: Adresse mit „?kiosk=1“ öffnen (große Anzeige).")
             : config.WebView.PinHash.Length > 0 ? L.T("PIN ist gesetzt.") : L.T("Noch keine PIN gesetzt.");
         if (config.WebView.PinIsLegacy)
             WebUrlText.Text += L.T(" Bitte die PIN einmal neu setzen (mind. {0} Ziffern) – sie wird dann sicherer gespeichert.", WebViewSettings.MinPinLength);

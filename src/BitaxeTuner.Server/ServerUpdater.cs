@@ -211,19 +211,27 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
         Directory.Move(source, target);
         if (Directory.Exists(staging)) Directory.Delete(staging, true);
 
-        // Atomar: neuen Link anlegen und per rename über "current" legen
-        var current = Path.Combine(root, "current");
-        var tmpLink = Path.Combine(root, "current.tmp");
+        // Atomar: neuen Link anlegen und per rename umhängen. Ab 0.9.8 (Audit S9) „versions/active“ (current gehört root),
+        // ältere Installationen: „current“ direkt
+        var (link, linkTarget) = SwapLink(root, version, target);
+        var tmpLink = link + ".tmp";
         if (File.Exists(tmpLink) || Directory.Exists(tmpLink)) File.Delete(tmpLink);
-        File.CreateSymbolicLink(tmpLink, target);
-        if (rename(tmpLink, current) != 0) throw new IOException("Symlink konnte nicht umgehängt werden (errno " + Marshal.GetLastPInvokeError() + ").");
+        File.CreateSymbolicLink(tmpLink, linkTarget);
+        if (rename(tmpLink, link) != 0) throw new IOException("Symlink konnte nicht umgehängt werden (errno " + Marshal.GetLastPInvokeError() + ").");
 
         // Aufräumen: laufende (jetzt vorherige) und neue Version behalten
-        var keep = new[] { target, running };
+        var keep = new[] { target, running, Path.Combine(versionsDir, "active") };
         foreach (var d in Directory.GetDirectories(versionsDir).Where(d => !keep.Contains(d)).OrderBy(Directory.GetCreationTimeUtc))
         {
             try { Directory.Delete(d, true); } catch { /* egal */ }
         }
+    }
+
+    /// <summary>Welcher Link umgehängt wird und worauf er zeigen soll (neues Layout: relativ innerhalb von versions/).</summary>
+    internal static (string Link, string Target) SwapLink(string root, string version, string target)
+    {
+        var active = new FileInfo(Path.Combine(root, "versions", "active"));
+        return active.LinkTarget is not null ? (active.FullName, version) : (Path.Combine(root, "current"), target);
     }
 
     [DllImport("libc", SetLastError = true)]

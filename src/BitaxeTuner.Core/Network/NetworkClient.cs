@@ -26,7 +26,7 @@ public sealed class NetworkClient : IDisposable
     /// <summary>Die letzten 15 Blöcke inklusive Pool-Zuordnung.</summary>
     public async Task<List<BlockDto>> GetBlocksAsync(CancellationToken ct)
     {
-        using var resp = await _http.GetAsync($"{Base}/v1/blocks", ct).ConfigureAwait(false);
+        using var resp = await MempoolLimit.GetAsync(_http, $"{Base}/v1/blocks", ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
 
@@ -62,7 +62,7 @@ public sealed class NetworkClient : IDisposable
     /// <summary>Stand der nächsten Difficulty-Anpassung (alle 2016 Blöcke).</summary>
     public async Task<DifficultyDto> GetDifficultyAsync(CancellationToken ct)
     {
-        using var resp = await _http.GetAsync($"{Base}/v1/difficulty-adjustment", ct).ConfigureAwait(false);
+        using var resp = await MempoolLimit.GetAsync(_http, $"{Base}/v1/difficulty-adjustment", ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         return ParseDifficulty(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
     }
@@ -84,7 +84,7 @@ public sealed class NetworkClient : IDisposable
     {
         var url = period is "all" or "" ? $"{Base}/v1/mining/pools" : $"{Base}/v1/mining/pools/{period}";
 
-        using var resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
+        using var resp = await MempoolLimit.GetAsync(_http, url, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
 

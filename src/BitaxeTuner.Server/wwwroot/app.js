@@ -135,7 +135,7 @@ const time = tv => tv ? new Date(tv).toLocaleString(LOCALE, { dateStyle: 'short'
 
 class ApiError extends Error { constructor(m, s) { super(m); this.status = s; } }
 
-async function api(path, { method = 'GET', body } = {}) {
+async function api(path, { method = 'GET', body, retried = false } = {}) {
   const headers = { Accept: 'application/json', 'Accept-Language': LANG };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET' && S.csrf) headers['X-CSRF-Token'] = S.csrf;
@@ -143,6 +143,7 @@ async function api(path, { method = 'GET', body } = {}) {
   const text = await r.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+  if (r.status === 401 && !retried && isKiosk() && await kioskLogin()) return api(path, { method, body, retried: true });
   if (r.status === 401 && !['/login', '/setup'].includes(path)) {
     S.role = 'None';
     stopEvents();
@@ -206,12 +207,16 @@ async function boot() {
   $('#lang').addEventListener('click', switchLanguage);
   window.addEventListener('hashchange', route);
 
+  // Kiosk-Link: Schlüssel merken und sofort aus der Adresszeile entfernen
+  const kiosk = location.hash.match(/^#\/kiosk\?k=([A-Za-z0-9_-]+)/);
+  if (kiosk) { localStorageSet('kiosk', kiosk[1]); history.replaceState(null, '', '#/kiosk'); }
   S.info = await api('/info');
   await loadLanguage(S.info.language);
   $('#version').textContent = 'v' + S.info.version;
   if (S.info.setupRequired) return renderSetup();
   const session = await api('/session');
   S.role = session.role; S.csrf = session.csrf; S.viewGroups = session.groups || null;
+  if (S.role === 'None' && isKiosk() && await kioskLogin()) return started();
   if (S.role === 'None') return renderLogin();
   started();
 }
@@ -341,6 +346,7 @@ function onStatus() {
   else if (v === 'compare') updateCompare();
   else if (v === 'device') updateDeviceLive();
   else if (v === 'fans') updateFanTable();
+  else if (v === 'kiosk') renderKiosk();
 }
 
 // ---------- Navigation ----------
@@ -348,7 +354,8 @@ function onStatus() {
 function route() {
   if (S.role === 'None') return;
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-  const view = parts[0] || 'overview';
+  const view = (parts[0] || 'overview').split('?')[0];
+  document.body.classList.toggle('kiosk-mode', view === 'kiosk');
   S.logEs?.close(); S.logEs = null;
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === view));
   if (view === 'device' && parts[1]) {
@@ -364,6 +371,7 @@ function route() {
     return renderPlug();
   }
   S.route = { view };
+  if (view === 'kiosk') return renderKiosk();
   if (view === 'compare') return renderCompare();
   if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
@@ -1627,6 +1635,137 @@ function tabAutomation() {
           }, t('Dauertest starten …')))));
 }
 
+// ---------- Kiosk / Wand-Tablet ----------
+
+/** Kiosk-Link: Schlüssel aus dem Link (nur im Fragment, nie an den Server-Log) merken und damit anmelden. */
+async function kioskLogin() {
+  const token = localStorageGet('kiosk');
+  if (!token) return false;
+  try {
+    const r = await fetch('/api/v1/kiosk/login', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': LANG },
+      body: JSON.stringify({ token }),
+    });
+    if (!r.ok) {
+      if (r.status === 401) localStorageSet('kiosk', '');   // widerrufen
+      return false;
+    }
+    const d = await r.json();
+    S.role = 'Viewer'; S.csrf = d.csrf;
+    const s = await fetch('/api/v1/session', { credentials: 'same-origin' }).then(x => x.json()).catch(() => null);
+    S.viewGroups = s?.groups || null;
+    return true;
+  } catch { return false; }
+}
+
+const isKiosk = () => location.hash.startsWith('#/kiosk');
+
+/** Vollbild-Anzeige ohne Menü: Summen, Warnungen, je Miner eine Kachel. Nur Ansehen. */
+function renderKiosk() {
+  const s = S.status;
+  if (!s) { api('/status').then(x => { S.status = x; renderKiosk(); }).catch(() => {}); mount(h('p', { class: 'muted center' }, t('Lade …'))); return; }
+  const tv = s.totals;
+  const power = tv.wallPower ?? tv.power;
+  const eff = tv.wallEfficiency ?? tv.efficiency;
+  const alerts = [];
+  s.devices.filter(d => !d.online && !d.maintenance).forEach(d => alerts.push(t('{0} offline', d.name)));
+  (s.fans?.channels || []).filter(c => c.stalled).forEach(c => alerts.push(t('Lüfter K{0} steht', c.channel)));
+  (s.fans?.sensors || []).filter(x => x.hot).forEach(x => alerts.push(`${x.name} ${n(x.temp, 1)} °C`));
+  const clock = h('span', { class: 'kiosk-clock' }, new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }));
+  const tile = (label, value, cls) => h('div', { class: `kiosk-tile ${cls || ''}` }, h('div', { class: 'label' }, label), h('div', { class: 'value' }, value));
+  const minerCls = d => !d.online ? (d.maintenance ? 'gray' : 'bad') : d.temp >= 65 || d.vrTemp >= 85 ? 'hot' : 'good';
+  mount(h('div', { class: 'kiosk' },
+    h('div', { class: 'kiosk-head' }, h('b', {}, 'BitaxeTuner'), S.viewGroups?.length ? h('span', { class: 'muted' }, S.viewGroups.join(', ')) : null,
+      h('span', { class: 'spacer' }), clock,
+      h('button', { class: 'btn small ghost', title: t('Vollbild'), onclick: () => document.documentElement.requestFullscreen?.().catch(() => {}) }, '⛶')),
+    alerts.length ? h('div', { class: 'kiosk-alerts' }, alerts.slice(0, 4).join(' · ') + (alerts.length > 4 ? ' · ' + t('+ {0} weitere', alerts.length - 4) : '')) : null,
+    h('div', { class: 'kiosk-tiles' },
+      tile(t('Hashrate'), hash(tv.hashrate)),
+      tile(t('Leistung'), t('{0} W', n(power, 0))),
+      tile(t('Effizienz'), eff != null ? t('{0} J/TH', n(eff, 1)) : '–'),
+      tile(t('Online'), `${tv.online}/${tv.count}`, tv.online < tv.count ? 'warn' : ''),
+      tv.costPerDay != null ? tile(t('Kosten pro Tag'), `${n(tv.costPerDay, 2)} ${tv.currency}`) : null,
+      s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 1))) : null),
+    h('div', { class: 'kiosk-miners' }, s.devices.map(d => h('div', { class: `kiosk-miner ${minerCls(d)}` },
+      h('div', { class: 'name' }, d.name),
+      d.online
+        ? [h('div', { class: 'big' }, hash(d.hashrate)),
+           h('div', { class: 'small' }, [d.temp != null ? `${n(d.temp, 0)} °C` : null, d.vrTemp ? `VR ${n(d.vrTemp, 0)} °C` : null, d.power != null ? t('{0} W', n(d.power, 1)) : null].filter(Boolean).join(' · '))]
+        : h('div', { class: 'big' }, d.maintenance ? t('Wartung') : 'offline')))),
+    h('div', { class: 'kiosk-foot muted small' }, t('Stand {0}', new Date(s.time).toLocaleTimeString(LOCALE)))));
+  keepAwake();
+}
+
+/** Bildschirm wach halten (Wake Lock, nur über HTTPS); nach dem Wechsel in den Vordergrund erneut anfordern. */
+async function keepAwake() {
+  if (!('wakeLock' in navigator) || S.wakeLock || document.visibilityState !== 'visible') return;
+  try {
+    S.wakeLock = await navigator.wakeLock.request('screen');
+    S.wakeLock.addEventListener('release', () => { S.wakeLock = null; });
+  } catch { /* nicht erlaubt (z. B. ohne HTTPS) – dann eben nicht */ }
+}
+document.addEventListener('visibilitychange', () => { if (isKiosk()) keepAwake(); });
+
+// Kiosk: Uhr aktualisieren und Verbindung nach Server-Neustart selbst wiederherstellen (minütlich)
+setInterval(async () => {
+  if (!isKiosk()) return;
+  const c = document.querySelector('.kiosk-clock');
+  if (c) c.textContent = new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  if (!S.es || S.es.readyState === EventSource.CLOSED || !$('#live').classList.contains('on')) {
+    if (S.role === 'None' || !(await fetch('/api/v1/session', { credentials: 'same-origin' }).then(r => r.json()).then(x => x.role !== 'None').catch(() => false))) {
+      if (!(await kioskLogin())) return;
+    }
+    startEvents();
+    api('/status').then(x => { S.status = x; renderKiosk(); }).catch(() => {});
+  }
+}, 60000);
+
+/** Einstellungen: Kiosk-Links anlegen/widerrufen, Erklärung der Anmeldung per PIN. */
+function kioskCard(groups) {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const base = `${location.origin}/#/kiosk`;
+  const load = async () => {
+    const list = await api('/kiosks').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!list) return;
+    const name = h('input', { placeholder: t('z. B. Tablet Flur') });
+    const picks = groups.map(g => ({ g, box: h('input', { type: 'checkbox' }) }));
+    const add = async () => {
+      const chosen = picks.filter(p => p.box.checked).map(p => p.g);
+      const r = await run(() => api('/kiosks', { method: 'POST', body: { name: name.value, groups: chosen } }));
+      if (!r) return;
+      const link = `${base}?k=${r.token}`;
+      const field = h('input', { value: link, readonly: true, onclick: e => e.target.select() });
+      await confirmBox(t('Kiosk-Link angelegt'), h('div', { class: 'stack' },
+        h('p', {}, t('Diesen Link einmal auf dem Tablet öffnen – er wird nur jetzt angezeigt. Danach meldet sich das Tablet nach jedem Server-Neustart selbst wieder an.')),
+        field,
+        h('button', { class: 'btn small', onclick: () => navigator.clipboard?.writeText(link).then(() => toast(t('Link kopiert.'), 'ok')) }, t('Kopieren'))), t('Fertig'));
+      load();
+    };
+    const revoke = async k => {
+      if (!await confirmBox(t('Kiosk-Link widerrufen'), t('Kiosk-Link „{0}“ widerrufen? Das Tablet wird sofort abgemeldet.', k.name), t('Widerrufen'), true)) return;
+      if (await run(() => api(`/kiosks/${encodeURIComponent(k.id)}`, { method: 'DELETE' }), t('Kiosk-Link widerrufen.'))) load();
+    };
+    fill(body,
+      list.length ? h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Name'), t('sieht'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
+        h('tbody', {}, list.map(k => h('tr', {},
+          h('td', {}, k.name), h('td', {}, k.groups.length ? k.groups.join(', ') : t('alle Miner')),
+          h('td', { class: 'nowrap' }, time(k.createdUtc)), h('td', { class: 'nowrap' }, k.lastUsedUtc ? time(k.lastUsedUtc) : t('noch nie')),
+          h('td', {}, h('button', { class: 'btn small danger', onclick: () => revoke(k) }, t('Widerrufen')))))))) : h('p', { class: 'muted small' }, t('Noch keine Kiosk-Links.')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name)),
+      groups.length ? h('div', { class: 'stack' }, h('label', {}, t('Nur diese Gruppen (keine = alle Miner)')),
+        h('div', { class: 'row' }, picks.map(p => h('label', { class: 'check' }, p.box, ' ', p.g)))) : null,
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: add }, t('Kiosk-Link anlegen'))));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Kiosk / Wand-Tablet')),
+    h('p', { class: 'muted small' }, t('Vollbild-Anzeige ohne Menü für ein Tablet an der Wand oder einen zweiten Bildschirm – nur Ansehen. Zwei Wege:')),
+    h('ul', { class: 'small' },
+      h('li', {}, t('Kiosk-Link: unten anlegen und einmal auf dem Tablet öffnen; das Tablet meldet sich danach selbst an, auch nach einem Server-Neustart. Jederzeit widerrufbar.')),
+      h('li', {}, t('Ansicht-PIN: auf dem Tablet mit einer PIN anmelden und dann diese Adresse öffnen: '), h('span', { class: 'mono' }, base))),
+    body);
+}
+
 // ---------- Gruppen-Automatik ----------
 
 /** Gruppen-Automatik: je Gruppe Zeitplan oder Strompreis-Regel, Freigabe, „jetzt umschalten“ mit Vorschau alt → neu. */
@@ -1852,6 +1991,7 @@ async function renderTax() {
   const salesText = sm.saleCount
     ? t('{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze {3} €)', sm.year, sm.saleCount, n(sm.taxableGainEur, 2), n(sm.freeLimitEur, 0))
       + (sm.saleMissingPrice ? t(' · Kurs fehlt') : '') + (sm.saleUnmatched ? t(' · Menge ohne Zufluss') : '')
+      + (sm.uncertainGainEur > 0 ? t(' · davon {0} € mit 0 € Anschaffung (Kurs fehlt/ohne Zufluss)', n(sm.uncertainGainEur, 2)) : '')
     : t('{0}: keine Verkäufe erfasst', sm.year);
   mount(h('div', { class: 'stack' },
     h('div', { class: 'card stack' },
@@ -2209,6 +2349,7 @@ async function renderSettings() {
           },
         }, t('Token erzeugen')))),
     viewersCard(status?.groups || []),
+    kioskCard(status?.groups || []),
     connectionCard(),
     metricsCard(),
     backupCard(),
@@ -2700,6 +2841,7 @@ function plugsCard() {
       const probe = async () => {
         const r = await run(() => api('/plugs/probe', { method: 'POST', body: { host: p.host, user: p.user, password: passwords[p.id] || null, id: p.id, channel: p.channel } }));
         if (r) toast(t('{0} (Gen {1}): {2} W', r.model, r.generation, n(r.powerW, 1)), 'ok', 8000);
+        if (r?.hint) toast(r.hint, 'info', 15000);
       };
       return h('div', { class: 'card stack' },
         h('div', { class: 'row' }, h('b', { style: 'flex:1' }, p.name || t('Smart Plug')),

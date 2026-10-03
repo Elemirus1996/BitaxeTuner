@@ -76,7 +76,7 @@ public sealed class WalletClient : IDisposable
         var info = new WalletInfo { Address = address };
 
         // Guthaben
-        using (var resp = await _http.GetAsync($"{Base}/address/{address}", ct).ConfigureAwait(false))
+        using (var resp = await MempoolLimit.GetAsync(_http, $"{Base}/address/{address}", ct).ConfigureAwait(false))
         {
             if (resp.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 throw new InvalidOperationException(L.T("Adresse ungültig"));
@@ -98,7 +98,7 @@ public sealed class WalletClient : IDisposable
         if (info.TxCount == 0) return info;
 
         // Letzte eingehende Transaktion suchen
-        using (var resp = await _http.GetAsync($"{Base}/address/{address}/txs", ct).ConfigureAwait(false))
+        using (var resp = await MempoolLimit.GetAsync(_http, $"{Base}/address/{address}/txs", ct).ConfigureAwait(false))
         {
             resp.EnsureSuccessStatusCode();
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));

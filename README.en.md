@@ -421,6 +421,10 @@ You can switch in both directions at any time with all your data (see *Switching
 - **View accesses** (Settings → View accesses): a separate PIN per person (at least 6 digits, stored only as a hash),
   optionally limited to certain miner groups – then without other miners, totals, history and e-paper across all
   miners. Revocable one by one (open sessions end immediately); sign-ins, creation and revocation are logged.
+- **Kiosk / wall tablet** (from 0.9.8, Settings → *Kiosk / wall tablet*): full screen without menu – totals, warnings,
+  one tile per miner, keeps the screen on (HTTPS). Sign-in as the admin prefers: a **kiosk link** (open once on the
+  tablet, signs in by itself even after server restarts, can be limited to groups, revocable) or a **view PIN** and then
+  open `…/#/kiosk`. Without server: the desktop app's phone view with `?kiosk=1`.
 - **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
   (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
   interface and polls **no** miners itself. The token can be revoked at any time.

@@ -124,6 +124,7 @@ public sealed partial class MinerHub : IDisposable
         WalletClient.UseBlockchairForBch(Blockchair);
         NetworkClient = new NetworkClient();
         Odds = new SoloOddsService(Blockchair);
+        Tax.TaxTime.Configure(config.TaxTimeZone);
         TaxRepository = new TaxLogRepository(explicitDir is null ? null : Path.Combine(explicitDir, "tax"));
         TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository);
         TaxEditor = new TaxEditor(TaxMonitor, TaxRepository);
@@ -386,11 +387,14 @@ public sealed partial class MinerHub : IDisposable
     /// <summary>Nach "Einstellungen speichern": Geräteliste, Takte und Caches neu, sofort abfragen.</summary>
     public async Task ApplySettingsChangedAsync()
     {
+        Tax.TaxTime.Configure(Config.TaxTimeZone);
         SyncDevices();
         if (_started && !_paused) RestartLoops();
         _lastFirmwareRefresh = DateTime.MinValue;
         await PollNowAsync();
-        await PollWalletsAsync();
+        // Audit I3: Wallets nur neu abfragen, wenn sich die Adressen geändert haben (nicht bei jedem Speichern)
+        if (!LookupAddresses(States, Config.WalletLookupConsent).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(_lastWalletAddresses))
+            await PollWalletsAsync();
     }
 
     private void RestartLoops()

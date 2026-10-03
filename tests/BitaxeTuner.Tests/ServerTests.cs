@@ -113,6 +113,43 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Info_without_login_does_not_reveal_os_or_device_count()
+    {
+        var admin = await AdminAsync();
+        var anon = await Json(await _factory.CreateClient().GetAsync("/api/v1/info"));
+        Assert.False(anon.TryGetProperty("os", out _));
+        Assert.False(anon.TryGetProperty("devices", out _));
+        Assert.True(anon.TryGetProperty("version", out _));
+        var full = await Json(await admin.GetAsync("/api/v1/info"));
+        Assert.True(full.TryGetProperty("os", out _));
+        Assert.Equal(1, full.GetProperty("devices").GetInt32());
+    }
+
+    [Fact]
+    public async Task Kiosk_link_logs_in_as_viewer_and_revoking_ends_it()
+    {
+        var admin = await AdminAsync();
+        var created = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Tablet Flur", groups = Array.Empty<string>() }));
+        var token = created.GetProperty("token").GetString()!;
+        Assert.StartsWith("btq_", token);
+        var list = await Json(await admin.GetAsync("/api/v1/kiosks"));
+        Assert.False(list[0].TryGetProperty("token", out _));                                  // nur beim Anlegen sichtbar
+        Assert.False(list[0].TryGetProperty("hash", out _));
+
+        var tablet = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = "btq_falsch" })).StatusCode);
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token }));
+        Assert.Equal("Viewer", (await Json(await tablet.GetAsync("/api/v1/session"))).GetProperty("role").GetString());
+        await Json(await tablet.GetAsync("/api/v1/status"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await tablet.GetAsync("/api/v1/kiosks")).StatusCode);   // kein Admin
+
+        await Json(await admin.DeleteAsync($"/api/v1/kiosks/{created.GetProperty("id").GetString()}"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await tablet.GetAsync("/api/v1/status")).StatusCode);   // sofort abgemeldet
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().PostAsJsonAsync("/api/v1/kiosk/login", new { token })).StatusCode);
+        Assert.Contains("Kiosk", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+    }
+
+    [Fact]
     public void New_installations_start_with_https_existing_ones_keep_http()
     {
         using var fresh = new TempDir();

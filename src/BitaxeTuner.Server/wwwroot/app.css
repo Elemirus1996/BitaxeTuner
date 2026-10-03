@@ -236,3 +236,27 @@ table.journal tr.clickable:focus-visible { outline: 2px solid var(--accent); out
 table.journal tr.explain td { background: var(--alt); white-space: normal; padding: 10px 14px; border-left: 3px solid var(--accent); }
 /* Bestwerte der Benchmark-Ergebnisse: Frequenz/Spannung und zwei Knöpfe brauchen mehr Platz */
 .tiles.wide { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+
+/* Kiosk / Wand-Tablet: ohne Kopf und Fuß, große Schrift */
+body.kiosk-mode header.top, body.kiosk-mode footer.status { display: none; }
+body.kiosk-mode #app { max-width: none; padding: 12px; }
+.kiosk { display: flex; flex-direction: column; gap: 14px; min-height: calc(100vh - 24px); }
+.kiosk-head { display: flex; align-items: center; gap: 12px; font-size: 20px; }
+.kiosk-clock { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kiosk-alerts { background: var(--danger); color: #fff; border-radius: var(--radius); padding: 10px 14px; font-size: 20px; font-weight: 600; }
+.kiosk-tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.kiosk-tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
+.kiosk-tile .label { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.kiosk-tile .value { font-size: clamp(22px, 3.2vw, 40px); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kiosk-head .spacer { flex: 1; }
+.kiosk-tile { min-width: 0; }
+.kiosk-tile.warn .value { color: var(--warn); }
+.kiosk-miners { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.kiosk-miner { background: var(--card); border: 1px solid var(--border); border-left: 6px solid var(--ok); border-radius: var(--radius); padding: 10px 14px; }
+.kiosk-miner.hot { border-left-color: var(--warn); }
+.kiosk-miner.bad { border-left-color: var(--danger); }
+.kiosk-miner.gray { border-left-color: var(--muted); }
+.kiosk-miner .name { font-weight: 600; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kiosk-miner .big { font-size: clamp(22px, 3vw, 32px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.kiosk-miner.bad .big { color: var(--danger); }
+.kiosk-foot { margin-top: auto; text-align: right; }
