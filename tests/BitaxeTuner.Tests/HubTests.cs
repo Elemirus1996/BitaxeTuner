@@ -7,6 +7,7 @@ using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Profiles;
 using BitaxeTuner.Core.Simulation;
+using BitaxeTuner.Core.Storage;
 
 namespace BitaxeTuner.Tests;
 
@@ -50,6 +51,42 @@ public class HubTests
             Hub.Dispose();
             Dir.Dispose();
         }
+    }
+
+    [Fact]
+    public async Task Restored_or_copied_fan_settings_must_respect_the_same_limits()
+    {
+        // Audit H5: Lüfterfelder aus einer Sicherung/Übertragung gegen dieselben Grenzen wie beim direkten Einstellen
+        using var rig = new Rig("10.0.0.31");
+        Assert.True(await rig.Hub.PollNowAsync());
+        var d = rig.Device("10.0.0.31");
+        SettingChange Change(string field, int value) => new(SettingGroup.Fan, field, field, "?", value.ToString(), System.Text.Json.Nodes.JsonValue.Create(value));
+        Assert.Null(MinerHub.CheckFanChanges(d, [Change("autofanspeed", 0), Change("manualFanSpeed", 60)]));
+        Assert.NotNull(MinerHub.CheckFanChanges(d, [Change("autofanspeed", 0), Change("manualFanSpeed", 5)]));    // zu wenig Lüfter
+        Assert.NotNull(MinerHub.CheckFanChanges(d, [Change("autofanspeed", 1), Change("temptarget", 95)]));       // Ziel zu heiß
+        Assert.Null(MinerHub.CheckFanChanges(d, [new SettingChange(SettingGroup.Pool, "stratumPort", "Port", "1", "2", System.Text.Json.Nodes.JsonValue.Create(2))]));
+        var snapshot = rig.Hub.Snapshots.List(d.Host).FirstOrDefault();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            rig.Hub.RestoreAsync(d, snapshot!, [Change("autofanspeed", 0), Change("manualFanSpeed", 5)]));
+    }
+
+    [Fact]
+    public void Benchmark_limits_above_the_profile_are_named_in_the_confirmation()
+    {
+        // Audit H4
+        var profile = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var s = BenchmarkSettings.FromProfile(profile);
+        Assert.Equal("", BenchmarkManager.AboveProfileWarning(s, profile));
+        s.MaxChipTempC = profile.MaxChipTempC + 10;
+        s.MaxPowerW = profile.MaxPowerW + 5;
+        var w = BenchmarkManager.AboveProfileWarning(s, profile);
+        Assert.Contains("ACHTUNG", w);
+        Assert.Contains("Chip", w);
+        Assert.Contains("Leistung", w);
+        s.MaxPowerW = 0;
+        Assert.NotEmpty(s.Validate());
+        s.MaxPowerW = 500;
+        Assert.NotEmpty(s.Validate());
     }
 
     [Fact]

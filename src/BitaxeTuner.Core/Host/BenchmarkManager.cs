@@ -55,6 +55,20 @@ public sealed class BenchmarkManager
     public BenchmarkSession? LatestSession(HubDevice device) =>
         device.Benchmark?.Session ?? _hub.Results.LoadLatest(device.Host, device.State.Normalized?.Hostname);
 
+    /// <summary>
+    /// Abbruchgrenzen über den Werten des Geräteprofils (Audit H4): erlaubt, aber im Bestätigungstext deutlich genannt,
+    /// damit sie bewusst bestätigt werden. Leer, wenn alles innerhalb des Profils liegt.
+    /// </summary>
+    public static string AboveProfileWarning(BenchmarkSettings s, Profiles.DeviceProfile p)
+    {
+        var above = new List<string>();
+        if (s.MaxChipTempC > p.MaxChipTempC) above.Add(L.T("Chip {0} °C (Profil {1} °C)", s.MaxChipTempC, p.MaxChipTempC));
+        if (s.MaxVrTempC > p.MaxVrTempC) above.Add(L.T("VR {0} °C (Profil {1} °C)", s.MaxVrTempC, p.MaxVrTempC));
+        if (s.MaxPowerW > p.MaxPowerW) above.Add(L.T("Leistung {0} W (Profil {1} W)", s.MaxPowerW, p.MaxPowerW));
+        return above.Count == 0 ? ""
+            : L.T("ACHTUNG – Abbruchgrenzen über den Werten des Geräteprofils: {0}. Nur bestätigen, wenn du das bewusst so willst.\n", string.Join(", ", above));
+    }
+
     /// <summary>Einstellungen prüfen (inkl. Profilgrenzen) und den Bestätigungstext bauen. Fehler → Exception mit Klartext.</summary>
     public async Task<BenchmarkPlan> PrepareAsync(HubDevice device, BenchmarkSettings requested, bool resume)
     {
@@ -90,6 +104,7 @@ public sealed class BenchmarkManager
                        ? L.T("Je stabiler Frequenz zusätzlich weniger Spannung testen – bis hinunter auf {0} mV\n", settings.MinVoltageMv)
                        : "") +
                    L.T("Grenzen: Chip {0} °C · VR {1} °C · {2} W\n", settings.MaxChipTempC, settings.MaxVrTempC, settings.MaxPowerW) +
+                   AboveProfileWarning(settings, profile) +
                    L.T("Profilgrenzen {0}: {1}–{2} MHz, {3}–{4} mV\n", profile.Name, profile.MinFrequencyMhz, profile.MaxFrequencyMhz, profile.MinVoltageMv, profile.MaxVoltageMv) +
                    L.T("Am Ende gesetzt: {0}\n", restore) +
                    $"{EstimatedDurationText(settings)}\n" +

@@ -88,6 +88,7 @@ public sealed class BenchmarkSettings
         if (MaxVoltageMv > 1500) errors.Add(L.T("Maximale Kernspannung über 1500 mV ist nicht erlaubt."));
         if (MaxChipTempC > 80) errors.Add(L.T("Maximale Chiptemperatur über 80 °C ist nicht erlaubt."));
         if (MaxVrTempC > 105) errors.Add(L.T("Maximale VR-Temperatur über 105 °C ist nicht erlaubt."));
+        if (MaxPowerW is <= 0 or > 400) errors.Add(L.T("Maximale Leistung muss zwischen 1 und 400 W liegen."));
         if (StabilityThreshold is <= 0 or > 1.2) errors.Add(L.T("Stabilitätsschwelle muss zwischen 0 und 1,2 liegen."));
         return errors;
     }

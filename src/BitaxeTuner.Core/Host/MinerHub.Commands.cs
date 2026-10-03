@@ -273,6 +273,7 @@ public sealed partial class MinerHub
     {
         if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
         if (changes.Count == 0) return;
+        if (CheckFanChanges(device, changes) is { } fanError) throw new InvalidOperationException(fanError);
 
         var freq = changes.FirstOrDefault(c => c.Field == "frequency");
         var volt = changes.FirstOrDefault(c => c.Field == "coreVoltage");
@@ -318,7 +319,7 @@ public sealed partial class MinerHub
             {
                 if (t.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Während eines Benchmarks nicht möglich."));
                 var changes = SettingsSnapshots.CopyDiff(sourceRaw, await t.Connection.GetRawInfoAsync(), groups);
-                list.Add(new CopyPreview(t, changes, null));
+                list.Add(new CopyPreview(t, changes, CheckFanChanges(t, changes)));
             }
             catch (Exception ex) when (ex is InvalidOperationException or MinerApiException or NotSupportedException or System.Text.Json.JsonException)
             {
@@ -395,6 +396,24 @@ public sealed partial class MinerHub
         if (!auto && (manualPercent < MinManualFanPercent || manualPercent > 100))
             return L.T("Lüfter manuell: {0}–100 %.", MinManualFanPercent);
         return null;
+    }
+
+    /// <summary>
+    /// Lüfterfelder einer Wiederherstellung bzw. Übertragung prüfen (Audit H5): Aus dem aktuellen Stand und den Änderungen
+    /// ergibt sich der neue Lüfterzustand; er muss dieselben Grenzen einhalten wie beim direkten Einstellen.
+    /// Ergebnis: Fehlermeldung oder null (auch, wenn keine Lüfterfelder dabei sind).
+    /// </summary>
+    public static string? CheckFanChanges(HubDevice device, IReadOnlyList<SettingChange> changes)
+    {
+        if (!changes.Any(c => c.Group == SettingGroup.Fan)) return null;
+        int? Value(string field) => changes.FirstOrDefault(c => c.Field == field) is { } c
+            ? Convert.ToInt32(SettingsSnapshots.ToPatchValue(c.Value), CultureInfo.InvariantCulture) : null;
+        var info = device.Info;
+        var auto = Value("autofanspeed") is { } a ? a > 0 : info?.AutoFan ?? true;
+        var target = Value("temptarget") ?? info?.FanTargetTempC;
+        var manual = Value("manualFanSpeed") ?? info?.FanPercent;
+        // Unbekannte, unveränderte Werte nicht prüfen (z. B. Firmware ohne Zieltemperatur)
+        return CheckMinerFan(device, auto, target ?? MinFanTargetTempC, manual ?? 100);
     }
 
     /// <summary>Text „alt → neu“ für die Bestätigung (Desktop und Browser gleich).</summary>
