@@ -118,6 +118,12 @@ public static class WhatsNew
                 server ? tr.T("Neue Installationen starten mit HTTPS. Bestehende Server lassen sich unter Einstellungen → Verbindung mit einem Klick umstellen – danach gehen Passwort, Token und Sitzung im Heimnetz verschlüsselt.")
                        : tr.T("Im Server-Betrieb: Läuft der Server noch unverschlüsselt, zeigt das Serverfenster einen Knopf „Auf HTTPS umstellen“; die App übernimmt Adresse und Zertifikat selbst."),
                 null),
+            new("0.9.5", tr.T("Sicherere Anmeldung"),
+                tr.T("Neue Ansicht-PINs brauchen mindestens 6 Ziffern und werden mit Salz gespeichert; ältere PINs gelten weiter, sollten aber einmal neu gesetzt werden. Viele Fehlversuche bremsen weitere Anmeldungen. Neue Pi-Images verlangen ein Passwort mit mindestens 10 Zeichen."),
+                null),
+            new("0.9.5", tr.T("Robuster im Dauerbetrieb"),
+                tr.T("Weniger Schreibzugriffe auf SD-Karte und SSD; schlägt das Speichern der Einstellungen fehl, gibt es einen deutlichen Hinweis; nicht zugestellte Push-Meldungen werden bis zu 6 Stunden lang erneut versucht."),
+                null),
         ];
     }
 
