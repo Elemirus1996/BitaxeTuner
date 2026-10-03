@@ -442,12 +442,12 @@
         <tbody>
           <tr><td>E-paper VCC</td><td class="mono">VSYS · Pin 39</td><td class="mono">b2</td><td>display socket pin 39</td></tr>
           <tr><td>E-paper GND</td><td class="mono">GND</td><td>upper blue rail</td><td>display socket pin 38</td></tr>
-          <tr><td>E-paper DIN</td><td class="mono">GP15 · Pin 20</td><td class="mono">i20</td><td>display socket pin 20</td></tr>
-          <tr><td>E-paper CLK</td><td class="mono">GP14 · Pin 19</td><td class="mono">i19</td><td>display socket pin 19</td></tr>
-          <tr><td>E-paper CS</td><td class="mono">GP13 · Pin 17</td><td class="mono">i17</td><td>display socket pin 17</td></tr>
-          <tr><td>E-paper DC</td><td class="mono">GP12 · Pin 16</td><td class="mono">i16</td><td>display socket pin 16</td></tr>
-          <tr><td>E-paper RST</td><td class="mono">GP11 · Pin 15</td><td class="mono">i15</td><td>display socket pin 15</td></tr>
-          <tr><td>E-paper BUSY</td><td class="mono">GP22 · Pin 29</td><td class="mono">a12</td><td>display socket pin 29</td></tr>
+          <tr><td>E-paper DIN</td><td class="mono">GP15 · Pin 20</td><td class="mono">i20</td><td>display socket pin 15</td></tr>
+          <tr><td>E-paper CLK</td><td class="mono">GP14 · Pin 19</td><td class="mono">i19</td><td>display socket pin 14</td></tr>
+          <tr><td>E-paper CS</td><td class="mono">GP13 · Pin 17</td><td class="mono">i17</td><td>display socket pin 12</td></tr>
+          <tr><td>E-paper DC</td><td class="mono">GP12 · Pin 16</td><td class="mono">i16</td><td>display socket pin 11</td></tr>
+          <tr><td>E-paper RST</td><td class="mono">GP11 · Pin 15</td><td class="mono">i15</td><td>display socket pin 16</td></tr>
+          <tr><td>E-paper BUSY</td><td class="mono">GP22 · Pin 29</td><td class="mono">a12</td><td>display socket pin 17</td></tr>
           <tr><td>Button 1 · next screen / acknowledge block found</td><td class="mono">GP1 · Pin 2</td><td class="mono">j2</td><td>tab A; tab B → lower GND rail</td></tr>
           <tr><td>Button 2 · fans automatic</td><td class="mono">GP3 · Pin 5</td><td class="mono">j5</td><td>as above</td></tr>
           <tr><td>Button 3 · fans 100 % (hold 5 s: fans off)</td><td class="mono">GP5 · Pin 7</td><td class="mono">j7</td><td>as above</td></tr>
@@ -464,7 +464,7 @@
     <div class="two">
       <div class="panel">
         <h3>E-paper 7.5" (red/black/white)</h3>
-        <p>The module is actually designed for plugging the Pico on top. Here the Pico stays on the breadboard, and only eight wires go via male-male jumpers into the module's socket header – each into the hole with the same pin number as on the Pico (pin 1 is marked on the module). The display's ribbon cable goes into the module's flip-lock connector, contacts facing down.</p>
+        <p>The module is actually designed for plugging the Pico on top. Here the Pico stays on the breadboard, and only eight wires go via male-male jumpers into the module's socket header – each into the hole where the module expects the signal (column “Target”, pin 1 is marked on the module). <strong>Do not plug the Pico directly onto the module:</strong> the module expects the display on GP8–GP13, but the fans use GP8 and GP10 here – BitaxeTuner drives the display on GP11–GP15 and GP22. The display's ribbon cable goes into the module's flip-lock connector, contacts facing down.</p>
         <p>The display refreshes at most every 3 minutes (default 5, optionally not at all at night) and takes about 16 seconds to do so. That protects the panel. On an alert (miner offline, case too warm) it refreshes immediately.</p>
       </div>
       <div class="panel">

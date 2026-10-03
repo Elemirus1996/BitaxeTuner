@@ -442,12 +442,12 @@
         <tbody>
           <tr><td>E-Paper VCC</td><td class="mono">VSYS · Pin 39</td><td class="mono">b2</td><td>Display-Buchse Pin 39</td></tr>
           <tr><td>E-Paper GND</td><td class="mono">GND</td><td>obere blaue Schiene</td><td>Display-Buchse Pin 38</td></tr>
-          <tr><td>E-Paper DIN</td><td class="mono">GP15 · Pin 20</td><td class="mono">i20</td><td>Display-Buchse Pin 20</td></tr>
-          <tr><td>E-Paper CLK</td><td class="mono">GP14 · Pin 19</td><td class="mono">i19</td><td>Display-Buchse Pin 19</td></tr>
-          <tr><td>E-Paper CS</td><td class="mono">GP13 · Pin 17</td><td class="mono">i17</td><td>Display-Buchse Pin 17</td></tr>
-          <tr><td>E-Paper DC</td><td class="mono">GP12 · Pin 16</td><td class="mono">i16</td><td>Display-Buchse Pin 16</td></tr>
-          <tr><td>E-Paper RST</td><td class="mono">GP11 · Pin 15</td><td class="mono">i15</td><td>Display-Buchse Pin 15</td></tr>
-          <tr><td>E-Paper BUSY</td><td class="mono">GP22 · Pin 29</td><td class="mono">a12</td><td>Display-Buchse Pin 29</td></tr>
+          <tr><td>E-Paper DIN</td><td class="mono">GP15 · Pin 20</td><td class="mono">i20</td><td>Display-Buchse Pin 15</td></tr>
+          <tr><td>E-Paper CLK</td><td class="mono">GP14 · Pin 19</td><td class="mono">i19</td><td>Display-Buchse Pin 14</td></tr>
+          <tr><td>E-Paper CS</td><td class="mono">GP13 · Pin 17</td><td class="mono">i17</td><td>Display-Buchse Pin 12</td></tr>
+          <tr><td>E-Paper DC</td><td class="mono">GP12 · Pin 16</td><td class="mono">i16</td><td>Display-Buchse Pin 11</td></tr>
+          <tr><td>E-Paper RST</td><td class="mono">GP11 · Pin 15</td><td class="mono">i15</td><td>Display-Buchse Pin 16</td></tr>
+          <tr><td>E-Paper BUSY</td><td class="mono">GP22 · Pin 29</td><td class="mono">a12</td><td>Display-Buchse Pin 17</td></tr>
           <tr><td>Taster 1 · Anzeige weiter / Blockfund quittieren</td><td class="mono">GP1 · Pin 2</td><td class="mono">j2</td><td>Lötfahne A; Lötfahne B → untere GND-Schiene</td></tr>
           <tr><td>Taster 2 · Lüfter Automatik</td><td class="mono">GP3 · Pin 5</td><td class="mono">j5</td><td>wie oben</td></tr>
           <tr><td>Taster 3 · Lüfter 100 % (5 s halten: Lüfter aus)</td><td class="mono">GP5 · Pin 7</td><td class="mono">j7</td><td>wie oben</td></tr>
@@ -464,7 +464,7 @@
     <div class="two">
       <div class="panel">
         <h3>E-Paper 7,5" (rot/schwarz/weiß)</h3>
-        <p>Das Modul ist eigentlich zum Aufstecken des Pico gebaut. Hier bleibt der Pico auf dem Steckbrett, und nur acht Leitungen gehen per Male-Male-Brücke in die Buchsenleiste des Moduls – jeweils in das Loch mit derselben Pin-Nummer wie am Pico (Pin 1 ist am Modul markiert). Das Flachbandkabel des Displays steckt in der Klappbuchse des Moduls, Kontakte nach unten.</p>
+        <p>Das Modul ist eigentlich zum Aufstecken des Pico gebaut. Hier bleibt der Pico auf dem Steckbrett, und nur acht Leitungen gehen per Male-Male-Brücke in die Buchsenleiste des Moduls – jeweils in das Loch, an dem das Modul das Signal erwartet (Spalte „Ziel“, Pin 1 ist am Modul markiert). <strong>Den Pico nicht direkt auf das Modul stecken:</strong> Das Modul erwartet das Display auf GP8–GP13, dort liegen hier aber die Lüfter (GP8, GP10) – BitaxeTuner nutzt für das Display GP11–GP15 und GP22. Das Flachbandkabel des Displays steckt in der Klappbuchse des Moduls, Kontakte nach unten.</p>
         <p>Die Anzeige erneuert sich höchstens alle 3 Minuten (Standard 5, nachts auf Wunsch gar nicht) und braucht dafür etwa 16 Sekunden. Das schont das Panel. Bei einem Alarm (Miner offline, Gehäuse zu warm) aktualisiert sie sofort.</p>
       </div>
       <div class="panel">

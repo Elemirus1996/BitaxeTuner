@@ -12,7 +12,7 @@ Fertig bestückbare Platine für die Pico-Lüftersteuerung von BitaxeTuner – d
 | Pico 2 H | steckbar auf zwei Buchsenleisten 1×20 (tauschbar), USB des Pico zum oberen Rand → Raspberry Pi |
 | Lüfter K1–K6 | 4-Pin-PWM-Lüfter **5 V** (Molex 47053, mit Nase), je Kanal BC847B + 1 kΩ + 10 kΩ (Ausfallschutz) + 10 kΩ Tacho-Pull-up auf 3,3 V |
 | Lüfterstrom | USB-C nur als Stromeingang (5 V von einem USB-Ladegerät, mind. 2 A), Sicherung 2 A, Überspannungsabschaltung ab ca. 6,2 V, TVS-Diode, Elko 470 µF |
-| E-Paper | Stiftleiste 1×8: VSYS, GND, DIN, CLK, CS, DC, RST, BUSY (Kabel zum Waveshare 7,5" B) |
+| E-Paper | Stiftleiste 1×8: VSYS, GND, DIN, CLK, CS, DC, RST, BUSY (Kabel zum Waveshare Pico-ePaper 7,5" B, dort in die Buchse: VSYS → Pin 39, GND → 38, DIN → 15, CLK → 14, CS → 12, DC → 11, RST → 16, BUSY → 17 – das Modul nicht auf einen Pico stecken) |
 | Taster | Stiftleiste 1×8: je Taster Signal + GND nebeneinander (B1 G B2 G B3 G B4 G) |
 | Temperaturfühler | 3 Schraubklemmen für DS18B20 (1 = GND, 2 = DQ, 3 = 3,3 V), ein 4,7 kΩ für alle |
 | Messpunkte | TP1 Eingang, TP2 +5 V Lüfter, TP3 GND – für die Prüfung mit Labornetzteil |
