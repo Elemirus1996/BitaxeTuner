@@ -442,7 +442,9 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
 
 - Server: *Einstellungen → Server-Update*. Raspberry Pi/Linux: neue Version wird neben die alte gelegt und atomar
   umgeschaltet (die alte bleibt als Rückfall in `/opt/bitaxetuner/versions`). Windows: stilles Setup, der Dienst startet neu.
-  Docker: `docker compose pull && docker compose up -d`. Jede Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft.
+  Docker: `docker compose pull && docker compose up -d`. Jede Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft;
+  ab 0.9.4 muss die Prüfsummenliste außerdem mit dem Release-Schlüssel des Projekts signiert sein (`SHA256SUMS.txt.sig`),
+  sonst installieren Desktop-App und Server nichts.
 - Desktop-App und Server prüfen die Versionen beim Verbinden; passen sie nicht zusammen, gibt es eine klare Meldung.
 
 ## Bedienung
@@ -566,6 +568,9 @@ The full English documentation is in **[README.en.md](README.en.md)**; the progr
 - Code-Signatur: Die Windows-Setups sind **noch nicht digital signiert** (daher die Windows-Warnung beim Installieren:
   „Weitere Informationen“ → „Trotzdem ausführen“). Wir arbeiten daran, das Programm signieren zu lassen. Bis dahin lässt
   sich die Echtheit über die SHA-256-Prüfsummen (`SHA256SUMS.txt` im Release) prüfen.
+- Release-Signatur (ab 0.9.4): `SHA256SUMS.txt` ist mit ECDSA P-256 signiert (`SHA256SUMS.txt.sig`, Base64). Die
+  öffentlichen Schlüssel stehen in [`src/BitaxeTuner.Core/Update/ReleaseSignature.cs`](src/BitaxeTuner.Core/Update/ReleaseSignature.cs);
+  die eingebauten Updates prüfen die Signatur vor jeder Installation. Alle GitHub Actions sind auf feste Commits gepinnt.
 
 ## Mitmachen, Fehler melden, Sicherheit
 

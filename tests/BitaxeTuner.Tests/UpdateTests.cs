@@ -11,6 +11,23 @@ public class UpdateTests
     private static readonly byte[] SetupBytes = Encoding.ASCII.GetBytes("fake setup exe");
     private static readonly string SetupSha = Convert.ToHexString(SHA256.HashData(SetupBytes)).ToLowerInvariant();
 
+    // Eigener Testschlüssel (Audit S2) – die echten Release-Schlüssel braucht kein Test
+    private static readonly ECDsa TestKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private static readonly string TestPublic = Convert.ToBase64String(TestKey.ExportSubjectPublicKeyInfo());
+    private static readonly string TestPrivate = Convert.ToBase64String(TestKey.ExportPkcs8PrivateKey());
+    private static string Sums(string tag) => $"0000  andere.zip\r\n{SetupSha}  BitaxeTuner-Setup-{tag.TrimStart('v')}.exe\r\n";
+    private static string SignatureOf(string text, string? key = null) => ReleaseSignature.Sign(Encoding.UTF8.GetBytes(text), key ?? TestPrivate);
+
+    /// <summary>GitHub mit signierter SHA256SUMS.txt; <paramref name="sig"/> überschreibt die Signatur (Fälschung).</summary>
+    private static Func<HttpRequestMessage, HttpResponseMessage> Signed(string tag, string? sig = null, string? sums = null, bool withDigest = true) => req =>
+    {
+        var url = req.RequestUri!.AbsoluteUri;
+        if (url.EndsWith("/sig")) return Ok(sig ?? SignatureOf(Sums(tag)));
+        if (url.EndsWith("/sums")) return Ok(sums ?? Sums(tag));
+        if (url.Contains("setup")) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(SetupBytes) };
+        return Ok(Release(tag, withDigest));
+    };
+
     private sealed class FakeGitHub(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
@@ -24,11 +41,12 @@ public class UpdateTests
             { "name": "BitaxeTuner-{{tag.TrimStart('v')}}-portable-win-x64.zip", "browser_download_url": "https://dl/zip", "size": 10 },
             { "name": "BitaxeTuner-Setup-{{tag.TrimStart('v')}}.exe", "browser_download_url": "https://dl/setup", "size": {{SetupBytes.Length}}
               {{(withDigest ? $", \"digest\": \"sha256:{digest ?? SetupSha}\"" : "")}} },
-            { "name": "SHA256SUMS.txt", "browser_download_url": "https://dl/sums", "size": 100 } ] }
+            { "name": "SHA256SUMS.txt", "browser_download_url": "https://dl/sums", "size": 100 },
+            { "name": "SHA256SUMS.txt.sig", "browser_download_url": "https://dl/sig", "size": 100 } ] }
         """;
 
     private static UpdateService Service(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
-        new(new HttpClient(new FakeGitHub(respond)), "x/y");
+        new(new HttpClient(new FakeGitHub(respond)), "x/y", trustedKeys: [TestPublic]);
 
     private static HttpResponseMessage Ok(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
 
@@ -74,8 +92,9 @@ public class UpdateTests
     public async Task Download_verifies_checksum_and_deletes_tampered_file()
     {
         using var dir = new TempDir();
-        var good = Service(req => req.RequestUri!.AbsoluteUri.Contains("setup") ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(SetupBytes) } : Ok(Release("v0.3.0")));
+        var good = Service(Signed("v0.3.0"));
         var update = (await good.CheckAsync(new Version(0, 2, 0))).Update!;
+        Assert.True(update.Signed);
         var file = await good.DownloadAsync(update, dir.Path);
         Assert.Equal(SetupBytes, File.ReadAllBytes(file));
 
@@ -84,6 +103,53 @@ public class UpdateTests
         Assert.False(File.Exists(Path.Combine(dir.File("b"), bad.SetupName)));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => good.DownloadAsync(update with { Sha256 = null }, dir.File("c")));
+    }
+
+    [Fact]
+    public async Task Only_validly_signed_releases_are_installed()
+    {
+        using var dir = new TempDir();
+        // gültig signiert (auch ohne GitHub-Digest) → installierbar
+        var ok = (await Service(Signed("v0.3.0", withDigest: false)).CheckAsync(new Version(0, 2, 0))).Update!;
+        Assert.True(ok.Signed);
+        Assert.Equal(SetupSha, ok.Sha256);
+
+        // Signatur mit fremdem Schlüssel (z. B. kompromittiertes GitHub-Konto) → nicht installierbar
+        using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var forged = Signed("v0.3.0", sig: SignatureOf(Sums("v0.3.0"), Convert.ToBase64String(other.ExportPkcs8PrivateKey())));
+        var f = (await Service(forged).CheckAsync(new Version(0, 2, 0))).Update!;
+        Assert.False(f.Signed);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service(forged).DownloadAsync(f, dir.File("f")));
+
+        // Prüfsummenliste nachträglich verändert → Signatur passt nicht
+        var tampered = Signed("v0.3.0", sums: Sums("v0.3.0").Replace("0000", "1111"));
+        Assert.False((await Service(tampered).CheckAsync(new Version(0, 2, 0))).Update!.Signed);
+
+        // GitHub-Digest weicht von der signierten Liste ab → nicht installierbar
+        var mismatch = Signed("v0.3.0", sums: $"{new string('a', 64)}  BitaxeTuner-Setup-0.3.0.exe\r\n",
+            sig: SignatureOf($"{new string('a', 64)}  BitaxeTuner-Setup-0.3.0.exe\r\n"));
+        var m = (await Service(mismatch).CheckAsync(new Version(0, 2, 0))).Update!;
+        Assert.False(m.Signed);
+        Assert.Null(m.Sha256);
+
+        // ohne Signaturdatei (alte Releases) → Hinweis statt Installation
+        var unsigned = (await Service(_ => Ok(Release("v0.3.0"))).CheckAsync(new Version(0, 2, 0))).Update!;
+        Assert.False(unsigned.Signed);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Service(Signed("v0.3.0")).DownloadAsync(unsigned, dir.File("u")));
+        Assert.Contains("signiert", ex.Message);
+    }
+
+    [Fact]
+    public void Built_in_keys_are_valid_p256_public_keys()
+    {
+        Assert.Equal(2, ReleaseSignature.TrustedKeys.Count);
+        foreach (var k in ReleaseSignature.TrustedKeys)
+        {
+            using var e = ECDsa.Create();
+            e.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
+            Assert.Equal(256, e.KeySize);
+        }
+        Assert.False(ReleaseSignature.Verify(Encoding.UTF8.GetBytes("x"), SignatureOf("x")));   // Testschlüssel ist nicht vertrauenswürdig
     }
 
     [Fact]

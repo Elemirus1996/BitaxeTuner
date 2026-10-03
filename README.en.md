@@ -438,7 +438,9 @@ You can switch in both directions at any time with all your data (see *Switching
 
 - Server: *Settings → Server update*. Raspberry Pi/Linux: the new version is placed next to the old one and switched
   atomically (the old one stays as a fallback in `/opt/bitaxetuner/versions`). Windows: silent setup, the service restarts.
-  Docker: `docker compose pull && docker compose up -d`. Every file is checked against the published SHA-256 checksum.
+  Docker: `docker compose pull && docker compose up -d`. Every file is checked against the published SHA-256 checksum;
+  from 0.9.4 the checksum list must also be signed with the project's release key (`SHA256SUMS.txt.sig`), otherwise
+  neither the desktop app nor the server installs anything.
 - Desktop app and server check each other's versions when connecting; if they don't match, you get a clear message.
 
 ## Usage
@@ -552,6 +554,9 @@ installer/               Inno Setup scripts (desktop, server service)
 - Code signing: the Windows setups are **not digitally signed yet** (hence the Windows warning during installation:
   “More info” → “Run anyway”). We are working on getting the program signed. Until then you can verify authenticity
   with the SHA-256 checksums (`SHA256SUMS.txt` in the release).
+- Release signature (from 0.9.4): `SHA256SUMS.txt` is signed with ECDSA P-256 (`SHA256SUMS.txt.sig`, Base64). The
+  public keys are in [`src/BitaxeTuner.Core/Update/ReleaseSignature.cs`](src/BitaxeTuner.Core/Update/ReleaseSignature.cs);
+  the built-in updates verify the signature before every installation. All GitHub Actions are pinned to fixed commits.
 
 ## Contributing, bug reports, security
 

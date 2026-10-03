@@ -10,7 +10,9 @@ namespace BitaxeTuner.Core.Update;
 /// <summary>Ein veröffentlichter Release mit Setup-Datei.</summary>
 public sealed record UpdateInfo(
     Version Version, string Tag, string Name, string Notes, string ReleaseUrl,
-    string SetupName, string SetupUrl, long SetupSize, string? Sha256);
+    string SetupName, string SetupUrl, long SetupSize, string? Sha256,
+    /// <summary>Prüfsumme stammt aus der signierten SHA256SUMS.txt (Audit S2); ohne gültige Signatur keine Installation.</summary>
+    bool Signed = false);
 
 public enum UpdateCheckStatus
 {
@@ -29,7 +31,9 @@ public sealed record UpdateCheckResult(UpdateCheckStatus Status, UpdateInfo? Upd
 /// Vorabversionen (Pre-Release) liefert <c>releases/latest</c> nicht aus.
 /// </summary>
 /// <param name="assetFilter">Welche Release-Datei passt (Standard: Setup der Desktop-App). Der Server wählt sein Paket je Plattform.</param>
-public sealed partial class UpdateService(HttpClient http, string repository, Func<string, bool>? assetFilter = null)
+/// <param name="trustedKeys">Öffentliche Signaturschlüssel; ohne Angabe die eingebauten (<see cref="ReleaseSignature.TrustedKeys"/>).</param>
+public sealed partial class UpdateService(HttpClient http, string repository, Func<string, bool>? assetFilter = null,
+    IReadOnlyList<string>? trustedKeys = null)
 {
     public const string SetupPrefix = "BitaxeTuner-Setup-";
 
@@ -86,7 +90,7 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
         if (ParseVersion(tag) is not { } version) return null;
 
         JsonElement? setup = null;
-        string? sumsUrl = null;
+        string? sumsUrl = null, sigUrl = null;
         foreach (var a in r.GetProperty("assets").EnumerateArray())
         {
             var name = a.GetProperty("name").GetString() ?? "";
@@ -95,8 +99,10 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
             {
                 if (setup is null || isUpdateCopy) setup = a;
             }
-            else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
+            else if (name.Equals(ReleaseSignature.SumsName, StringComparison.OrdinalIgnoreCase))
                 sumsUrl = a.GetProperty("browser_download_url").GetString();
+            else if (name.Equals(ReleaseSignature.SignatureName, StringComparison.OrdinalIgnoreCase))
+                sigUrl = a.GetProperty("browser_download_url").GetString();
         }
         if (setup is not { } s) return null;
 
@@ -104,14 +110,29 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
         string? sha = null;
         if (s.TryGetProperty("digest", out var dg) && dg.GetString() is { } digest && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
             sha = digest[7..].ToLowerInvariant();
-        if (sha is null && sumsUrl is not null)
+        // Signierte Prüfsummenliste: maßgeblich für die Installation. Weicht der GitHub-Digest ab, wird nicht installiert.
+        var signed = false;
+        if (sumsUrl is not null)
         {
             try
             {
-                var sums = await http.GetStringAsync(sumsUrl, ct).ConfigureAwait(false);
-                sha = ShaFromSums(sums, setupName);
+                var sumsBytes = await http.GetByteArrayAsync(sumsUrl, ct).ConfigureAwait(false);
+                var fromSums = ShaFromSums(System.Text.Encoding.UTF8.GetString(sumsBytes), setupName);
+                var verified = false;
+                if (sigUrl is not null && fromSums is not null)
+                {
+                    var signature = await http.GetStringAsync(sigUrl, ct).ConfigureAwait(false);
+                    if (ReleaseSignature.Verify(sumsBytes, signature, trustedKeys))
+                    {
+                        verified = true;
+                        signed = sha is null || string.Equals(sha, fromSums, StringComparison.OrdinalIgnoreCase);
+                        sha = signed ? fromSums : null;   // Widerspruch zwischen Digest und signierter Liste: gar keine Prüfsumme
+                    }
+                }
+                if (!verified) sha ??= fromSums;
             }
-            catch (HttpRequestException) { /* ohne Prüfsumme – der Download wird dann abgelehnt */ }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            { /* ohne Prüfsumme/Signatur – der Download wird dann abgelehnt */ }
         }
 
         return new UpdateInfo(version, tag,
@@ -119,7 +140,7 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
             r.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "",
             r.GetProperty("html_url").GetString() ?? "",
             setupName, s.GetProperty("browser_download_url").GetString()!,
-            s.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0, sha);
+            s.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0, sha, signed);
     }
 
     /// <summary>
@@ -130,6 +151,8 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
     {
         if (string.IsNullOrWhiteSpace(update.Sha256))
             throw new InvalidOperationException(L.T("Für diese Setup-Datei ist keine SHA-256-Prüfsumme veröffentlicht – Installation abgebrochen."));
+        if (!update.Signed)
+            throw new InvalidOperationException(L.T("Dieses Update ist nicht gültig signiert – Installation abgebrochen. Bitte manuell von der Release-Seite installieren."));
 
         Directory.CreateDirectory(targetDirectory);
         var file = Path.Combine(targetDirectory, update.SetupName);

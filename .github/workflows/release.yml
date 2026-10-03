@@ -11,8 +11,8 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 8.0.x
 
@@ -23,8 +23,16 @@ jobs:
         shell: pwsh
         run: ./build.ps1 -Version "${{ github.ref_name }}"
 
+      # Signatur der Prüfsummenliste (Audit S2): ohne gültigen Schlüssel kein Release. Das Werkzeug prüft die Signatur
+      # sofort mit den in der App eingebauten öffentlichen Schlüsseln – passt das Secret nicht, bricht der Release hier ab.
+      - name: Sign SHA256SUMS.txt
+        shell: pwsh
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: dotnet run --project tools/sign-release -c Release -- artifacts/SHA256SUMS.txt artifacts/SHA256SUMS.txt.sig
+
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           name: BitaxeTuner ${{ github.ref_name }}
           generate_release_notes: true
@@ -35,6 +43,7 @@ jobs:
             artifacts/BitaxeTuner-Server-*-linux-*.tar.gz
             artifacts/update-BitaxeTuner-*
             artifacts/SHA256SUMS.txt
+            artifacts/SHA256SUMS.txt.sig
 
   # Docker-Image für NAS/Home-Server/Raspberry Pi: ghcr.io/<owner>/bitaxetuner-server:<version> und :latest
   docker:
@@ -44,10 +53,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -57,7 +66,7 @@ jobs:
         run: |
           echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/bitaxetuner-server" >> "$GITHUB_OUTPUT"
           echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -73,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Werkzeuge
         run: sudo apt-get update -qq && sudo apt-get install -y -qq parted e2fsprogs xz-utils
       - name: Server-Paket (linux-arm64) aus dem Release holen
