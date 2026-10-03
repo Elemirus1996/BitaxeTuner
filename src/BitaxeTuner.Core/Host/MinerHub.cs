@@ -101,7 +101,12 @@ public sealed partial class MinerHub : IDisposable
             TuningApplied?.Invoke(e);
         };
 
-        Notify = new NotificationService(() => Config.Notifications) { GroupsOf = GroupsOfHost };
+        Notify = new NotificationService(() => Config.Notifications)
+        {
+            GroupsOf = GroupsOfHost,
+            QueueFile = Path.Combine(DataDirectory, "push-queue.json"),
+        };
+        config.SaveFailed += OnConfigSaveFailed;
         Firmware = new FirmwareChecker();
 
         Blockchair = new BlockchairBlockchainService(config.BlockchairApiKey);
@@ -189,6 +194,14 @@ public sealed partial class MinerHub : IDisposable
     public event Action<HubDevice>? DeviceChanged;
 
     internal void RaiseStatus(bool ok, string text) => StatusMessage?.Invoke(ok, text);
+
+    /// <summary>config.json ließ sich nicht schreiben (Audit E2): ins Protokoll und als Statusmeldung.</summary>
+    private void OnConfigSaveFailed(string error)
+    {
+        var text = L.T("Einstellungen konnten nicht gespeichert werden: {0}", error);
+        LogEvent(null, EventCategories.Settings, text);
+        RaiseStatus(false, text);
+    }
     internal void RaiseDeviceChanged(HubDevice device) => DeviceChanged?.Invoke(device);
 
     /// <summary>Gruppen eines Miners laut Einstellungen (leer, wenn unbekannt).</summary>
@@ -433,6 +446,7 @@ public sealed partial class MinerHub : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Config.SaveFailed -= OnConfigSaveFailed;
         _loops?.Cancel();
         _fanLoop?.Cancel();
         _mqttLoop?.Cancel();

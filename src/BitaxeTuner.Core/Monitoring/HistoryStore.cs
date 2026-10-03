@@ -51,6 +51,14 @@ public sealed class HistoryStore : IDisposable
 
     private readonly SqliteConnection _db;
     private readonly object _lock = new();
+    private bool _inBatch;
+
+    /// <summary>
+    /// Plug-Messwerte der laufenden Minute (Audit E1): Plugs liefern alle paar Sekunden, gespeichert wird je Minute nur der
+    /// letzte Wert – also erst beim Minutenwechsel schreiben statt bei jedem Messwert. Vor jedem Lesen, jeder Sicherung und
+    /// beim Schließen wird der Puffer geschrieben, sodass Abfragen nichts fehlt.
+    /// </summary>
+    private readonly Dictionary<string, (long Ts, double PowerW, double? EnergyWh)> _pendingPlugs = new();
 
     public HistoryStore(string? path = null)
     {
@@ -62,6 +70,9 @@ public sealed class HistoryStore : IDisposable
         _db.Open();
 
         Execute("PRAGMA journal_mode=WAL;");
+        // Audit E1: im WAL-Modus genügt NORMAL – kein fsync je Commit (schont SD-Karte/SSD), bei Stromausfall gehen
+        // höchstens die letzten Sekunden verloren, die Datei bleibt aber konsistent.
+        Execute("PRAGMA synchronous=NORMAL;");
         Execute("""
             CREATE TABLE IF NOT EXISTS samples (
                 host     TEXT    NOT NULL,
@@ -161,6 +172,31 @@ public sealed class HistoryStore : IDisposable
             );
             CREATE INDEX IF NOT EXISTS ix_events_ts ON events (ts);
             """);
+    }
+
+    /// <summary>
+    /// Mehrere Schreibvorgänge in einer Transaktion (Audit E1): ein Commit je Takt statt einer je Zeile. Wirft
+    /// <paramref name="write"/> eine Ausnahme, wird alles zurückgenommen und die Ausnahme weitergereicht.
+    /// </summary>
+    public void Batch(Action write)
+    {
+        lock (_lock)
+        {
+            if (_inBatch) { write(); return; }
+            Execute("BEGIN;");
+            _inBatch = true;
+            try
+            {
+                write();
+                Execute("COMMIT;");
+            }
+            catch
+            {
+                try { Execute("ROLLBACK;"); } catch { /* Transaktion bereits beendet */ }
+                throw;
+            }
+            finally { _inBatch = false; }
+        }
     }
 
     // ---------- Protokoll ----------
@@ -364,6 +400,7 @@ public sealed class HistoryStore : IDisposable
         var result = new Dictionary<long, (double, int)>();
         lock (_lock)
         {
+            FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = sql;
             if (key is not null) cmd.Parameters.AddWithValue("$key", key);
@@ -377,20 +414,41 @@ public sealed class HistoryStore : IDisposable
 
     // ---------- Smart Plugs ----------
 
-    /// <summary>Messwert eines Plugs; je Minute bleibt der letzte Wert (Zeit auf die volle Minute gerundet).</summary>
+    /// <summary>
+    /// Messwert eines Plugs; je Minute bleibt der letzte Wert (Zeit auf die volle Minute gerundet). Geschrieben wird beim
+    /// Wechsel der Minute (bzw. vor dem nächsten Lesen), nicht bei jedem Messwert.
+    /// </summary>
     public void AddPlugSample(string plugId, DateTime time, double powerW, double? energyWh)
     {
         var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
         lock (_lock)
         {
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = "INSERT OR REPLACE INTO plug_samples (plug, ts, power, energy) VALUES ($plug, $ts, $p, $e);";
-            cmd.Parameters.AddWithValue("$plug", plugId);
-            cmd.Parameters.AddWithValue("$ts", ts);
-            cmd.Parameters.AddWithValue("$p", powerW);
-            cmd.Parameters.AddWithValue("$e", energyWh is { } e ? e : DBNull.Value);
-            cmd.ExecuteNonQuery();
+            if (_pendingPlugs.TryGetValue(plugId, out var pending) && pending.Ts != ts) WritePlugSample(plugId, pending);
+            _pendingPlugs[plugId] = (ts, powerW, energyWh);
         }
+    }
+
+    /// <summary>Gepufferte Plug-Werte schreiben (vor Abfragen, Sicherung, Aufräumen und beim Schließen).</summary>
+    public void FlushPlugSamples()
+    {
+        lock (_lock)
+        {
+            if (_pendingPlugs.Count == 0) return;
+            var pending = _pendingPlugs.ToList();
+            _pendingPlugs.Clear();
+            Batch(() => { foreach (var (plug, v) in pending) WritePlugSample(plug, v); });
+        }
+    }
+
+    private void WritePlugSample(string plugId, (long Ts, double PowerW, double? EnergyWh) v)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "INSERT OR REPLACE INTO plug_samples (plug, ts, power, energy) VALUES ($plug, $ts, $p, $e);";
+        cmd.Parameters.AddWithValue("$plug", plugId);
+        cmd.Parameters.AddWithValue("$ts", v.Ts);
+        cmd.Parameters.AddWithValue("$p", v.PowerW);
+        cmd.Parameters.AddWithValue("$e", v.EnergyWh is { } e ? e : DBNull.Value);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>Mittlere Leistung und Anzahl Messminuten eines Plugs im Zeitfenster; null ohne Daten.</summary>
@@ -398,6 +456,7 @@ public sealed class HistoryStore : IDisposable
     {
         lock (_lock)
         {
+            FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*), AVG(power) FROM plug_samples WHERE plug = $plug AND ts BETWEEN $from AND $to;";
             cmd.Parameters.AddWithValue("$plug", plugId);
@@ -418,6 +477,7 @@ public sealed class HistoryStore : IDisposable
         var result = new List<(DateTime, double)>();
         lock (_lock)
         {
+            FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = """
                 SELECT (ts / $b) * $b AS bucket, AVG(power) FROM plug_samples
@@ -562,6 +622,7 @@ public sealed class HistoryStore : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
         lock (_lock)
         {
+            FlushPlugSamples();
             using var target = new SqliteConnection($"Data Source={targetFile};Pooling=False");
             target.Open();
             _db.BackupDatabase(target);
@@ -569,7 +630,11 @@ public sealed class HistoryStore : IDisposable
     }
 
     /// <summary>Zeilen je Tabelle – für die Prüfung nach Sicherung/Umzug.</summary>
-    public Dictionary<string, long> CountRows() => CountRows(_db, _lock);
+    public Dictionary<string, long> CountRows()
+    {
+        lock (_lock) FlushPlugSamples();
+        return CountRows(_db, _lock);
+    }
 
     public static Dictionary<string, long> CountRows(SqliteConnection db, object? gate = null)
     {
@@ -709,6 +774,7 @@ public sealed class HistoryStore : IDisposable
         var cutoff = DateTimeOffset.Now.AddDays(-Math.Max(1, keepDays)).ToUnixTimeSeconds();
         lock (_lock)
         {
+            FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
@@ -787,6 +853,7 @@ public sealed class HistoryStore : IDisposable
     /// <summary>Verbindung schließen und aus dem Pool nehmen – sonst hält SQLite die Datei (und das WAL) noch offen.</summary>
     public void Dispose()
     {
+        try { FlushPlugSamples(); } catch { /* Datei weg oder gesperrt – nur die letzte Minute fehlt */ }
         var cs = _db.ConnectionString;
         _db.Dispose();
         using var pooled = new SqliteConnection(cs);

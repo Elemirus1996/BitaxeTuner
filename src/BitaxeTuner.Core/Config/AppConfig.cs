@@ -208,6 +208,13 @@ public sealed class AppConfig
     [JsonIgnore]
     public Dictionary<string, string> UnresolvedSecrets { get; set; } = [];
 
+    /// <summary>Letzter Fehler beim Speichern (Audit E2); null, sobald wieder erfolgreich gespeichert wurde.</summary>
+    [JsonIgnore]
+    public string? LastSaveError { get; private set; }
+
+    /// <summary>Speichern fehlgeschlagen (Datei gesperrt, Datenträger voll …) – der Hub protokolliert und meldet es.</summary>
+    public event Action<string>? SaveFailed;
+
     public void Save() => Save(FilePath ?? DataPaths.ConfigFile);
 
     public void Save(string filePath)
@@ -223,8 +230,14 @@ public sealed class AppConfig
             var tmp = filePath + ".tmp";
             File.WriteAllText(tmp, root.ToJsonString(WriteOptions));
             File.Move(tmp, filePath, overwrite: true);
+            LastSaveError = null;
         }
-        catch { /* nicht kritisch */ }
+        catch (Exception ex)
+        {
+            // Nicht mehr still verschlucken (Audit E2): Änderungen wären beim nächsten Start sonst unbemerkt weg
+            LastSaveError = ex.Message;
+            SaveFailed?.Invoke(ex.Message);
+        }
     }
 }
 

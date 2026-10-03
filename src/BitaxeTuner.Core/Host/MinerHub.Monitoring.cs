@@ -24,6 +24,7 @@ public sealed partial class MinerHub
     /// <summary>Für das Protokoll: als offline eingetragen (unabhängig von Push-Einstellungen).</summary>
     private readonly HashSet<string> _offlineLogged = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastPrune = DateTime.MinValue;
+    private DateTime _lastPushRetry = DateTime.MinValue;
     private DateTime _lastFirmwareRefresh = DateTime.MinValue;
 
     private readonly Dictionary<string, int> _failCount = new();
@@ -149,6 +150,13 @@ public sealed partial class MinerHub
         _ = RefreshFirmwareAsync();
         TickAutomation(now);
 
+        // Audit I1: nicht zugestellte Push-Meldungen erneut versuchen
+        if ((now - _lastPushRetry).TotalSeconds >= 60)
+        {
+            _lastPushRetry = now;
+            _ = Notify.RetryPendingAsync(DateTime.UtcNow);
+        }
+
         if ((now - _lastPrune).TotalHours >= 24)
         {
             try { History?.Prune(Config.HistoryDays); } catch { /* nicht kritisch */ }
@@ -163,34 +171,38 @@ public sealed partial class MinerHub
     {
         if (History is null) return;
 
-        try
-        {
-            foreach (var s in States)
-            {
-                var host = s.Config.Host;
-                if (IsSimulated(host)) continue;
-                if (_lastHistoryWrite.TryGetValue(host, out var last) && (now - last).TotalSeconds < 60) continue;
-                _lastHistoryWrite[host] = now;
-
-                if (s.Online && s.Info is { } i) History.AddSample(host, now, i.hashRate, i.temp, i.power, true);
-                else History.AddSample(host, now, 0, 0, 0, false);
-            }
-
-            if ((now - _lastAggWrite).TotalSeconds >= 60 && States.Count > 0)
-            {
-                _lastAggWrite = now;
-                var online = States.Where(s => s.Online && s.Info is not null && !IsSimulated(s.Config.Host))
-                                   .Select(s => s.Info!).ToList();
-                History.AddSample(HistoryStore.AggregateHost, now,
-                    online.Sum(i => i.hashRate),
-                    online.Count > 0 ? online.Max(i => i.temp) : 0,
-                    online.Sum(i => i.power),
-                    online.Count > 0);
-            }
-        }
+        // Audit E1: alle Minutenwerte eines Takts in einer Transaktion
+        try { History.Batch(() => WriteHistory(now)); }
         catch (Exception ex)
         {
             RaiseStatus(false, L.T("Verlauf konnte nicht gespeichert werden: ") + ex.Message);
+        }
+    }
+
+    private void WriteHistory(DateTime now)
+    {
+        var history = History!;
+        foreach (var s in States)
+        {
+            var host = s.Config.Host;
+            if (IsSimulated(host)) continue;
+            if (_lastHistoryWrite.TryGetValue(host, out var last) && (now - last).TotalSeconds < 60) continue;
+            _lastHistoryWrite[host] = now;
+
+            if (s.Online && s.Info is { } i) history.AddSample(host, now, i.hashRate, i.temp, i.power, true);
+            else history.AddSample(host, now, 0, 0, 0, false);
+        }
+
+        if ((now - _lastAggWrite).TotalSeconds >= 60 && States.Count > 0)
+        {
+            _lastAggWrite = now;
+            var online = States.Where(s => s.Online && s.Info is not null && !IsSimulated(s.Config.Host))
+                               .Select(s => s.Info!).ToList();
+            history.AddSample(HistoryStore.AggregateHost, now,
+                online.Sum(i => i.hashRate),
+                online.Count > 0 ? online.Max(i => i.temp) : 0,
+                online.Sum(i => i.power),
+                online.Count > 0);
         }
     }
 

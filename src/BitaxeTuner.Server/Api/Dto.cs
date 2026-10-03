@@ -73,6 +73,8 @@ public static class Dto
                 : null,
             // Einmalige Frage: erkannte Wallet-Adressen bei Dritten abfragen? (nur Admin)
             walletConsentNeeded = role == Role.Admin && hub.WalletConsentNeeded,
+            // Audit E2: config.json ließ sich zuletzt nicht schreiben (nur Admin)
+            configSaveError = role == Role.Admin ? hub.Config.LastSaveError : null,
             onboarding = role == Role.Admin && Onboarding.ShouldShow(hub.Config)
                 ? Onboarding.Steps(hub.Config, server: true, Loc.For("de")).Select(o => new { o.Id, o.Title, o.Text, o.Done, o.Section }).ToList()
                 : null,

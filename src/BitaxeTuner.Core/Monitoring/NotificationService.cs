@@ -93,19 +93,135 @@ public sealed class NotificationService : IDisposable
         {
             try
             {
-                if (TransportOverride is { } transport) await transport(title, message!, priority);
-                else await SendRawAsync(target, title, message!, priority);
+                await DeliverAsync(target, title, message!, priority);
                 DeliveredTo?.Invoke(target.Id, key);
                 Delivered?.Invoke(target.Id, key, message!);
             }
             catch (Exception ex)
             {
                 errors.Add(targets.Count > 1 ? $"{target.Title}: {ex.Message}" : ex.Message);
+                // Audit I1: später erneut versuchen statt verwerfen – die Sperrzeit bleibt, sonst käme die Meldung doppelt
+                Enqueue(target.Id, title, message!, priority, DateTime.UtcNow);
             }
         }
         LastError = errors.Count > 0 ? string.Join("; ", errors) : null;
-        // Kam bei keinem Ziel etwas an: Sperre aufheben, damit der nächste Versuch nicht blockiert ist
-        if (errors.Count == targets.Count) lock (_lastSent) _lastSent.Remove(key);
+    }
+
+    private Task DeliverAsync(PushTarget target, string title, string message, NotifyPriority priority) =>
+        TransportOverride is { } transport ? transport(title, message, priority) : SendRawAsync(target, title, message, priority);
+
+    // ---------- Wiederholung (Audit I1) ----------
+
+    /// <summary>Nicht zugestellte Meldung für ein Ziel; wird mit wachsendem Abstand erneut versucht.</summary>
+    public sealed record PendingPush(string TargetId, string Title, string Message, NotifyPriority Priority,
+                                     DateTime CreatedUtc, int Attempts, DateTime NextTryUtc);
+
+    /// <summary>Ältere Meldungen sind nicht mehr aktuell und werden verworfen.</summary>
+    public static readonly TimeSpan RetryMaxAge = TimeSpan.FromHours(6);
+    public const int RetryMaxEntries = 50;
+
+    private readonly List<PendingPush> _queue = [];
+    private bool _queueLoaded;
+    private int _retrying;
+
+    /// <summary>Datei der Warteschlange (Hub: push-queue.json im Datenordner) – übersteht Neustarts; null = nur im Speicher.</summary>
+    public string? QueueFile { get; set; }
+
+    /// <summary>Noch nicht zugestellte Meldungen.</summary>
+    public IReadOnlyList<PendingPush> Pending
+    {
+        get { lock (_queue) { LoadQueue(); return _queue.ToList(); } }
+    }
+
+    /// <summary>Abstand bis zum nächsten Versuch: 1, 2, 4, 8, 16, dann alle 30 Minuten.</summary>
+    internal static TimeSpan Backoff(int attempts) => TimeSpan.FromMinutes(Math.Min(30, Math.Pow(2, Math.Max(0, attempts - 1))));
+
+    private void Enqueue(string targetId, string title, string message, NotifyPriority priority, DateTime nowUtc)
+    {
+        lock (_queue)
+        {
+            LoadQueue();
+            _queue.Add(new PendingPush(targetId, title, message, priority, nowUtc, 1, nowUtc + Backoff(1)));
+            while (_queue.Count > RetryMaxEntries) _queue.RemoveAt(0);   // älteste zuerst verwerfen
+            SaveQueue();
+        }
+    }
+
+    /// <summary>
+    /// Fällige Meldungen erneut senden (vom Hub etwa minütlich). Gelöschte oder abgeschaltete Ziele und Meldungen älter als
+    /// <see cref="RetryMaxAge"/> werden verworfen. Liefert die Anzahl zugestellter Meldungen.
+    /// </summary>
+    public async Task<int> RetryPendingAsync(DateTime nowUtc)
+    {
+        if (Interlocked.Exchange(ref _retrying, 1) == 1) return 0;
+        try
+        {
+            List<PendingPush> due;
+            lock (_queue)
+            {
+                LoadQueue();
+                if (_queue.RemoveAll(p => nowUtc - p.CreatedUtc > RetryMaxAge) > 0) SaveQueue();
+                due = _queue.Where(p => p.NextTryUtc <= nowUtc).ToList();
+            }
+            if (due.Count == 0) return 0;
+
+            var targets = _settings().EffectiveTargets();
+            var delivered = 0;
+            foreach (var p in due)
+            {
+                PendingPush? again = null;
+                if (targets.FirstOrDefault(t => t.Id == p.TargetId && t.Enabled && Providers.Contains(t.Provider)) is { } target)
+                {
+                    var text = p.Message + "\n\n" + L.T("(verspätet zugestellt, ursprünglich {0})", L.Short(p.CreatedUtc.ToLocalTime()));
+                    try
+                    {
+                        await DeliverAsync(target, p.Title, text, p.Priority);
+                        delivered++;
+                    }
+                    catch (Exception ex)
+                    {
+                        LastError = ex.Message;
+                        again = p with { Attempts = p.Attempts + 1, NextTryUtc = nowUtc + Backoff(p.Attempts + 1) };
+                    }
+                }
+                lock (_queue)
+                {
+                    var i = _queue.IndexOf(p);
+                    if (i < 0) continue;
+                    if (again is null) _queue.RemoveAt(i);
+                    else _queue[i] = again;
+                }
+            }
+            lock (_queue) SaveQueue();
+            return delivered;
+        }
+        finally { Volatile.Write(ref _retrying, 0); }
+    }
+
+    private void LoadQueue()
+    {
+        if (_queueLoaded) return;
+        _queueLoaded = true;
+        if (QueueFile is null || !File.Exists(QueueFile)) return;
+        try
+        {
+            var list = System.Text.Json.JsonSerializer.Deserialize<List<PendingPush>>(File.ReadAllText(QueueFile));
+            if (list is not null) _queue.InsertRange(0, list);
+        }
+        catch { /* beschädigt: neu anfangen – es geht nur um verspätete Meldungen */ }
+    }
+
+    private void SaveQueue()
+    {
+        if (QueueFile is null) return;
+        try
+        {
+            if (_queue.Count == 0) { File.Delete(QueueFile); return; }
+            var tmp = QueueFile + ".tmp";
+            File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(_queue));
+            File.Move(tmp, QueueFile, overwrite: true);
+        }
+        catch { /* nicht kritisch: die Warteschlange im Speicher bleibt */ }
     }
 
     /// <summary>Sperre für einen Schlüssel aufheben, z. B. wenn ein Miner wieder online ist.</summary>
