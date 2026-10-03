@@ -11,7 +11,7 @@ public sealed class ProfileRegistry
 {
     public const string UserFileName = "profiles.json";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,

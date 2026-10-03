@@ -342,14 +342,6 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void EditProfiles()
-    {
-        var path = ProfileRegistry.WriteUserTemplate(DataPaths.TuningDirectory);
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        StatusText = L.T("Profile bearbeiten, speichern und das Programm neu starten.");
-    }
-
-    [RelayCommand]
     private void OpenUpdate()
     {
         if (UpdateUrl is not null)

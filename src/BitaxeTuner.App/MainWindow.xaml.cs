@@ -258,6 +258,8 @@ public partial class MainWindow : Window
 
     private void OnHelpClick(object sender, RoutedEventArgs e) => new Views.HelpWindow { Owner = this }.Show();
 
+    private void OnProfilesClick(object sender, RoutedEventArgs e) => new Views.ProfilesWindow(Vm.Host.Hub) { Owner = this }.Show();
+
     /// <summary>Datenordner umziehen: Abfragen anhalten, kopieren und prüfen, erst dann umschalten.</summary>
     private async Task<DataDirectoryMigrator.Result> MoveDataDirectoryAsync(string target)
     {

@@ -233,7 +233,10 @@ abgelehnte Shares werden seit 0.7.0 aufgezeichnet – der Vergleich braucht eini
 Werte laut ESP-Miner `main/device_config.h` und NerdQAxePlus `main/boards/*.cpp` (Stand 09/2026); Quelle je Profil
 steht in dessen Notiz. Meldet das Gerät Chipanzahl oder Small-Cores selbst, haben diese Angaben Vorrang.
 Unbekannte Geräte mit AxeOS-kompatibler API laufen mit einem konservativen generischen Profil.
-Alle Profile lassen sich über **„Profile bearbeiten“** (`profiles.json` im Datenordner) anpassen oder ergänzen.
+Alle Profile lassen sich am Desktop über **„Profile bearbeiten“** und im Browser unter **Einstellungen → Geräteprofile**
+anpassen, als eigene Kopie anlegen oder auf den eingebauten Stand zurücksetzen (gespeichert in `profiles.json` im
+Datenordner, der vorige Stand bleibt als `profiles.json.bak`). Grenzen über dem eingebauten Profil werden nur nach einer
+Rückfrage mit altem und neuem Wert übernommen; jede Änderung steht im Protokoll.
 
 ## Installation
 

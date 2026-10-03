@@ -150,6 +150,43 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Profiles_can_be_edited_in_the_browser_with_confirmation_above_built_in_limits()
+    {
+        var admin = await AdminAsync();
+        var list = await Json(await admin.GetAsync("/api/v1/profiles"));
+        var gamma = System.Text.Json.Nodes.JsonNode.Parse(list.GetProperty("profiles").EnumerateArray()
+            .First(x => x.GetProperty("profile").GetProperty("id").GetString() == "bitaxe-gamma").GetProperty("profile").GetRawText())!;
+
+        // Kopie anlegen und speichern
+        var copy = System.Text.Json.Nodes.JsonNode.Parse((await Json(await admin.PostAsJsonAsync("/api/v1/profiles/bitaxe-gamma/copy", new { }))).GetProperty("profile").GetRawText())!;
+        var saved = await Json(await admin.PostAsJsonAsync("/api/v1/profiles", new { profile = copy, confirmed = false }));
+        Assert.True(saved.GetProperty("saved").GetBoolean());
+
+        // Höhere Spannung als eingebaut: erst Rückfrage, nichts gespeichert; dann bestätigt
+        gamma["maxVoltageMv"] = gamma["maxVoltageMv"]!.GetValue<int>() + 40;
+        var ask = await Json(await admin.PutAsJsonAsync("/api/v1/profiles/bitaxe-gamma", new { profile = gamma, confirmed = false }));
+        Assert.True(ask.GetProperty("needsConfirmation").GetBoolean());
+        Assert.NotEmpty(ask.GetProperty("warnings").EnumerateArray());
+        var ok = await Json(await admin.PutAsJsonAsync("/api/v1/profiles/bitaxe-gamma", new { profile = gamma, confirmed = true }));
+        Assert.True(ok.GetProperty("saved").GetBoolean());
+
+        // Unsinnige Werte: 400
+        gamma["defaultFrequencyMhz"] = 5000;
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/profiles/bitaxe-gamma", new { profile = gamma, confirmed = true })).StatusCode);
+
+        // Zurücksetzen und Löschen, Protokoll
+        Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync("/api/v1/profiles/bitaxe-gamma")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync($"/api/v1/profiles/{copy["id"]!.GetValue<string>()}")).StatusCode);
+        Assert.Contains("Geräteprofil", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+
+        // Nur Admin
+        var kiosk = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Profiltest", groups = Array.Empty<string>() }));
+        var tablet = _factory.CreateClient();
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
+        Assert.Equal(HttpStatusCode.Forbidden, (await tablet.GetAsync("/api/v1/profiles")).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

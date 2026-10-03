@@ -2617,6 +2617,7 @@ async function renderSettings() {
             renderSettings();
           },
         }, t('Token erzeugen')))),
+    profilesCard(),
     viewersCard(status?.groups || []),
     kioskCard(status?.groups || []),
     connectionCard(),
@@ -3261,6 +3262,105 @@ function connectionCard() {
 }
 
 /** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */
+/** Geräteprofile (0.9.9): eigene Profile anlegen, eingebaute anpassen oder zurücksetzen – wie am Desktop. */
+function profilesCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const editor = h('div', { class: 'stack' });
+  const num = (obj, key, step = 1) => h('input', { type: 'number', step, value: obj[key] ?? '', oninput: e => { obj[key] = e.target.value === '' ? null : Number(e.target.value); } });
+  const txt = (obj, key) => h('input', { value: obj[key] ?? '', oninput: e => { obj[key] = e.target.value; } });
+  const list = (obj, key) => h('input', { value: (obj[key] || []).join(', '), oninput: e => { obj[key] = e.target.value.split(',').map(x => x.trim()).filter(Boolean); } });
+
+  const open = (entry, isNew) => {
+    const p = JSON.parse(JSON.stringify(entry.profile));
+    const b = entry.builtIn;
+    const hint = key => b ? h('small', { class: 'muted' }, t('eingebaut: {0}', b[key])) : null;
+    const field = (label, input, key) => h('div', {}, h('label', {}, label), input, key ? hint(key) : null);
+    const save = async confirmed => {
+      const r = await run(() => api(isNew ? '/profiles' : `/profiles/${encodeURIComponent(entry.profile.id)}`, { method: isNew ? 'POST' : 'PUT', body: { profile: p, confirmed } }));
+      if (!r) return;
+      if (r.needsConfirmation) {
+        const ok = await confirmBox(t('Grenzen über dem eingebauten Profil'), h('div', { class: 'stack' },
+          h('p', {}, t('Diese Werte liegen über den Grenzen, die BitaxeTuner für dieses Modell vorsieht. Höhere Grenzen können den Miner beschädigen – nur übernehmen, wenn du dir sicher bist.')),
+          h('ul', {}, r.warnings.map(w => h('li', {}, w))),
+          r.changes.length ? h('p', { class: 'small' }, r.changes.join(' · ')) : null), t('Trotzdem speichern'), true);
+        if (ok) await save(true);
+        return;
+      }
+      toast(t('Profil gespeichert.'));
+      fill(editor);
+      load();
+    };
+    fill(editor, h('div', { class: 'card stack', style: 'border:1px solid var(--accent)' },
+      h('h3', {}, isNew ? t('Neues Profil') : t('Profil bearbeiten: {0}', entry.profile.name)),
+      h('div', { class: 'form' },
+        field(t('Kennung'), isNew ? txt(p, 'id') : h('input', { value: p.id, disabled: true })),
+        field(t('Name'), txt(p, 'name')),
+        field(t('Familie'), txt(p, 'family')),
+        field(t('ASIC-Modell'), txt(p, 'asicModel')),
+        field(t('ASIC-Anzahl'), num(p, 'asicCount'), 'asicCount'),
+        field(t('Small-Cores je ASIC'), num(p, 'smallCoresPerAsic'), 'smallCoresPerAsic')),
+      h('h3', {}, t('Frequenz und Spannung')),
+      h('div', { class: 'form' },
+        field(t('Min. Frequenz (MHz)'), num(p, 'minFrequencyMhz'), 'minFrequencyMhz'),
+        field(t('Standard-Frequenz (MHz)'), num(p, 'defaultFrequencyMhz'), 'defaultFrequencyMhz'),
+        field(t('Max. Frequenz (MHz)'), num(p, 'maxFrequencyMhz'), 'maxFrequencyMhz'),
+        field(t('Min. Spannung (mV)'), num(p, 'minVoltageMv'), 'minVoltageMv'),
+        field(t('Standard-Spannung (mV)'), num(p, 'defaultVoltageMv'), 'defaultVoltageMv'),
+        field(t('Max. Spannung (mV)'), num(p, 'maxVoltageMv'), 'maxVoltageMv')),
+      h('h3', {}, t('Sicherheitsgrenzen')),
+      h('div', { class: 'form' },
+        field(t('Max. Chiptemperatur (°C)'), num(p, 'maxChipTempC', 0.5), 'maxChipTempC'),
+        field(t('Max. VR-Temperatur (°C)'), num(p, 'maxVrTempC', 0.5), 'maxVrTempC'),
+        field(t('Max. Leistung (W)'), num(p, 'maxPowerW', 0.5), 'maxPowerW'),
+        field(t('Min. Eingangsspannung (mV)'), num(p, 'minInputVoltageMv'), 'minInputVoltageMv'),
+        field(t('Max. Eingangsspannung (mV)'), num(p, 'maxInputVoltageMv'), 'maxInputVoltageMv')),
+      h('h3', {}, t('Erkennung')),
+      h('div', { class: 'form' },
+        h('div', { class: 'wide' }, h('label', {}, t('Gerätemodell enthält (durch Komma getrennt)')), list(p, 'deviceModelMatches')),
+        h('div', { class: 'wide' }, h('label', {}, t('Board-Versionen (durch Komma getrennt)')), list(p, 'boardVersions')),
+        h('div', { class: 'wide' }, h('label', {}, t('Notiz')), txt(p, 'notes'))),
+      h('p', { class: 'muted small' }, t('Frequenz und Spannung eines Miners werden nur innerhalb dieser Grenzen gesetzt – vom Benchmark, der Automatik und beim manuellen Einstellen. Die Grenzen selbst ändern nichts am Miner.')),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: () => save(false) }, t('Profil speichern')),
+        h('button', { class: 'btn', onclick: () => fill(editor) }, t('Abbrechen')))));
+    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const load = async () => {
+    const d = await api('/profiles').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!d) return;
+    const copy = async e => {
+      const r = await run(() => api(`/profiles/${encodeURIComponent(e.profile.id)}/copy`, { method: 'POST', body: {} }));
+      if (r) open({ profile: r.profile, builtIn: e.builtIn || null }, true);
+    };
+    const remove = async e => {
+      const reset = e.isBuiltIn;
+      if (!await confirmBox(reset ? t('Profil zurücksetzen') : t('Profil löschen'),
+        reset ? t('„{0}“ auf den eingebauten Stand zurücksetzen? Deine Änderungen gehen verloren.', e.profile.name)
+              : t('„{0}“ löschen? Miner, denen es fest zugewiesen ist, werden wieder automatisch erkannt.', e.profile.name),
+        reset ? t('Zurücksetzen') : t('Löschen'), true)) return;
+      if (await run(() => api(`/profiles/${encodeURIComponent(e.profile.id)}`, { method: 'DELETE' }), reset ? t('Profil zurückgesetzt.') : t('Profil gelöscht.'))) load();
+    };
+    const badge = e => !e.isBuiltIn ? h('span', { class: 'pill' }, t('eigen')) : e.isCustomized ? h('span', { class: 'pill', style: 'color:var(--warn)' }, t('angepasst')) : null;
+    fill(body, h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Profil'), t('ASIC'), t('Frequenz (MHz)'), t('Spannung (mV)'), t('Miner'), ''].map(x => h('th', {}, x)))),
+      h('tbody', {}, d.profiles.map(e => h('tr', {},
+        h('td', {}, e.profile.name, ' ', badge(e)),
+        h('td', {}, `${e.profile.asicModel || '–'} × ${e.profile.asicCount}`),
+        h('td', {}, `${e.profile.minFrequencyMhz}–${e.profile.maxFrequencyMhz}`),
+        h('td', {}, `${e.profile.minVoltageMv}–${e.profile.maxVoltageMv}`),
+        h('td', { class: 'small' }, e.devices.join(', ') || '–'),
+        h('td', { class: 'row', style: 'justify-content:flex-end;flex-wrap:nowrap' },
+          h('button', { class: 'btn small', onclick: () => open(e, false) }, t('Bearbeiten')),
+          h('button', { class: 'btn small', onclick: () => copy(e) }, t('Kopie')),
+          !e.isBuiltIn || e.isCustomized ? h('button', { class: 'btn small danger', onclick: () => remove(e) }, e.isBuiltIn ? t('Zurücksetzen') : t('Löschen')) : null)))))));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Geräteprofile')),
+    h('p', { class: 'muted small' }, t('Ein Profil legt je Modell die Grenzen für Frequenz, Spannung, Temperatur und Leistung fest. Eingebaute Profile lassen sich anpassen und jederzeit zurücksetzen; für Sonderfälle (z. B. Umbau mit größerer Kühlung) eine Kopie anlegen und dem Miner unter Gerät → Live zuweisen.')),
+    body, editor);
+}
+
 function metricsCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const load = async () => {

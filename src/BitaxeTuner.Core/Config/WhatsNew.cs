@@ -136,6 +136,10 @@ public static class WhatsNew
                 server ? tr.T("Neuer Menüpunkt „Hilfe“: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche.")
                        : tr.T("Neuer Knopf „Hilfe“ oben: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche."),
                 null),
+            new("0.9.9", tr.T("Geräteprofile bearbeiten"),
+                server ? tr.T("Einstellungen → Geräteprofile: Grenzen je Modell anpassen, eigene Profile als Kopie anlegen oder auf den eingebauten Stand zurücksetzen. Grenzen über dem eingebauten Profil nur nach Rückfrage; jede Änderung steht im Protokoll.")
+                       : tr.T("„Profile bearbeiten“ öffnet jetzt ein Formular statt der JSON-Datei: Grenzen je Modell anpassen, eigene Profile als Kopie anlegen oder zurücksetzen – wirkt sofort, ohne Neustart."),
+                null),
             new("0.9.9", tr.T("Blockfund-Anzeige bis zur Taste"),
                 tr.T("Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen)."),
                 null),

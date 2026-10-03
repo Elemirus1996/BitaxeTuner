@@ -234,7 +234,10 @@ rejected shares are recorded since 0.7.0 – the comparison needs a few weeks of
 Values according to ESP-Miner `main/device_config.h` and NerdQAxePlus `main/boards/*.cpp` (as of 09/2026); the source
 of each profile is in its note. If the device reports its chip count or small cores itself, those values take precedence.
 Unknown devices with an AxeOS-compatible API run with a conservative generic profile.
-All profiles can be adjusted or extended via **“Edit profiles”** (`profiles.json` in the data folder).
+All profiles can be adjusted on the desktop via **“Edit profiles”** and in the browser under **Settings → Device
+profiles**, copied as your own profile or reset to the built-in values (stored in `profiles.json` in the data folder;
+the previous state is kept as `profiles.json.bak`). Limits above the built-in profile are only applied after a
+confirmation showing the old and new value; every change is logged.
 
 ## Installation
 

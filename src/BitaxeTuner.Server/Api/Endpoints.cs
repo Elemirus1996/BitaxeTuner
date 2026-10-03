@@ -769,6 +769,7 @@ public static class Endpoints
         TaxEndpoints.Map(g);
         KioskEndpoints.Map(g);
         GroupEndpoints.Map(g);
+        ProfileEndpoints.Map(g);
         g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
         g.MapPut("/settings", async (SettingsDto req, HubService hub) => Results.Json(await hub.RunAsync(async h =>

@@ -51,7 +51,7 @@
                             ToolTip="{l:T 'Dauerhaftes Protokoll: Frequenz/Spannung, Benchmark, Lüfter, Verbindungen (mindestens 30 Tage, filterbar)'}" />
                     <Button Content="{l:T 'Smart Plugs …'}" Click="OnSmartPlugsClick"
                             ToolTip="{l:T 'Shelly-Steckdosen für den echten Verbrauch an der Steckdose (nur messen, nie schalten)'}" />
-                    <Button Content="{l:T 'Profile bearbeiten'}" Command="{Binding EditProfilesCommand}" />
+                    <Button Content="{l:T 'Profile bearbeiten'}" Click="OnProfilesClick" />
                     <Button Content="{l:T 'Datenordner öffnen'}" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
                     <Button Content="{l:T 'Hilfe'}" Click="OnHelpClick"
                             ToolTip="{l:T 'Anleitung, Erklärung des Protokolls und der Miner-Logs, häufige Fragen'}" />
