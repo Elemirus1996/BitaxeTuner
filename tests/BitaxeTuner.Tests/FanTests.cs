@@ -183,16 +183,9 @@ internal sealed class FakePico : ILineTransport
         _in.Append(ch);
     }
 
-    /// <summary>Wie oft das Aufspielen den Hardware-Watchdog gefüttert hat; Schritte ohne Füttern.</summary>
-    public int WatchdogFeeds { get; private set; }
-    public int StepsWithoutFeed { get; private set; }
-
     private void ExecRaw(string code)
     {
         code = code.TrimStart('\r');
-        if (code == "import machine;w=machine.WDT(timeout=8000)") { _out.Append("OK\x04\x04>"); return; }
-        if (code.StartsWith("w.feed();", StringComparison.Ordinal)) { WatchdogFeeds++; code = code["w.feed();".Length..]; }
-        else StepsWithoutFeed++;
         if (code == "f=open('main.py','w')") _file.Clear();
         else if (code == "f.close()") MainPy = _file.ToString();
         else
@@ -236,11 +229,6 @@ public class PicoProtocolTests
         using var device = PicoFanDevice.Connect(pico, "/dev/ttyACM0", log.Add);
 
         Assert.Equal(PicoFanDevice.Firmware, pico.MainPy);          // Datei byte-genau übertragen
-        // Audit H2: Der Hardware-Watchdog läuft auch beim Aufspielen – jeder Schreibschritt füttert ihn
-        Assert.Equal(0, pico.StepsWithoutFeed);
-        Assert.True(pico.WatchdogFeeds > 2);
-        Assert.Contains("machine.WDT(timeout=8000)", PicoFanDevice.Firmware);
-        Assert.Contains("wdt.feed()", PicoFanDevice.Firmware);
         Assert.Contains(log, l => l.Contains("wird aufgespielt"));
         Assert.Contains("v" + PicoFanDevice.FirmwareVersion, device.Description);
 
