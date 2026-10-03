@@ -59,6 +59,25 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         }
     }
 
+    /// <summary>Kursverlauf der letzten 24 Stunden in EUR (für die Anzeige); leer bei Fehler.</summary>
+    public async Task<List<(DateTime Time, double Eur)>> GetDayChartAsync(CoinType coin, CancellationToken ct = default)
+    {
+        try
+        {
+            using var doc = await GetJsonAsync($"api/v3/coins/{coin.CoinGeckoId()}/market_chart?vs_currency=eur&days=1", ct);
+            if (doc is null || !doc.RootElement.TryGetProperty("prices", out var prices) || prices.ValueKind != JsonValueKind.Array) return [];
+            var list = new List<(DateTime, double)>();
+            foreach (var p in prices.EnumerateArray())
+                if (p.GetArrayLength() >= 2 && p[0].TryGetInt64(out var ms) && p[1].TryGetDouble(out var eur) && eur > 0)
+                    list.Add((DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime, eur));
+            return list;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return [];
+        }
+    }
+
     /// <summary>Kurspunkt aus der Zeitreihe, der dem Zeitpunkt am nächsten liegt.</summary>
     private async Task<PriceQuote?> FromRangeAsync(CoinType coin, DateTime atUtc, CancellationToken ct)
     {

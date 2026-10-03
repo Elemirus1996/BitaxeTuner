@@ -36,6 +36,15 @@ public sealed record DisplayModel(
     public DisplayNetwork? Network { get; init; }
     /// <summary>Schwarz und Weiß tauschen (helle Schrift auf schwarzem Grund); Rot bleibt rot.</summary>
     public bool Inverted { get; init; }
+    // 0.9.7 – neue Seiten
+    public IReadOnlyList<DisplayCoin>? Coins { get; init; }
+    public DisplayDifficulty? Difficulty { get; init; }
+    /// <summary>Tagesbilanz mit Graph statt Minerliste.</summary>
+    public DisplaySeries? DailySeries { get; init; }
+    public DisplayMonthly? Monthly { get; init; }
+    public DisplayPower? Power { get; init; }
+    public DisplayQr? Qr { get; init; }
+    public IReadOnlyList<DisplaySensor>? Sensors { get; init; }
 }
 
 /// <summary>
@@ -73,7 +82,14 @@ public static partial class StatusRenderer
                 case DisplayScene.BlockFound when m.BlockFound is not null: DrawBlockFound(ctx, m); break;
                 case DisplayScene.Alarm: DrawAlarm(ctx, m); break;
                 case DisplayScene.BestDiff when m.BestDiff is not null: DrawBestDiff(ctx, m); break;
+                case DisplayScene.Daily when m.Daily is not null && m.DailySeries is not null: DrawDailyChart(ctx, m); break;
                 case DisplayScene.Daily when m.Daily is not null: DrawDaily(ctx, m); break;
+                case DisplayScene.Prices when m.Coins is { Count: > 0 }: DrawCoins(ctx, m); break;
+                case DisplayScene.Monthly when m.Monthly is not null: DrawMonthly(ctx, m); break;
+                case DisplayScene.Power when m.Power is not null: DrawPower(ctx, m); break;
+                case DisplayScene.Qr when m.Qr is not null: DrawQr(ctx, m); break;
+                case DisplayScene.Group: DrawOverview(ctx, m); break;
+                case DisplayScene.Sensors: DrawSensors(ctx, m); break;
                 case DisplayScene.Chart when m.Chart is not null: DrawChart(ctx, m); break;
                 case DisplayScene.Soak when m.Soaks is not null: DrawSoak(ctx, m); break;
                 case DisplayScene.Network when m.Network is not null: DrawNetwork(ctx, m); break;

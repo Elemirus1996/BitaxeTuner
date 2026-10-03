@@ -940,6 +940,12 @@ public static class Endpoints
             req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
             req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
             req.Device = req.Device == "own" ? "own" : "fans";
+            req.PriceCoins = req.PriceCoins is "bch" or "both" ? req.PriceCoins : "btc";
+            req.DailyChart = req.DailyChart is "hashrate" or "power" or "efficiency" or "temp" ? req.DailyChart : "none";
+            req.MonthlyChart = req.MonthlyChart is "cost" or "income" or "hashrate" ? req.MonthlyChart : "kwh";
+            req.QrUrl = (req.QrUrl ?? "").Trim();
+            if (req.QrUrl.Length > 0 && (req.QrUrl.Length > 200 || !Uri.TryCreate(req.QrUrl, UriKind.Absolute, out var qr) || qr.Scheme is not ("http" or "https")))
+                throw new LocalizedException("QR-Code: bitte eine Adresse mit http:// oder https:// eintragen (höchstens 200 Zeichen).");
             req.Port = string.IsNullOrWhiteSpace(req.Port) ? "auto" : req.Port.Trim();
             (req.Connection, req.NetworkHost) = ValidatePicoConnection(req.Connection, req.NetworkHost);
             req.NetworkIp = System.Net.IPAddress.TryParse(req.NetworkIp ?? "", out _) ? req.NetworkIp! : "";

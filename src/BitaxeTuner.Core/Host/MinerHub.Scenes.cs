@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Display;
+using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.I18n;
 
@@ -103,17 +105,26 @@ public sealed partial class MinerHub
 
     // ---------- Szene wählen ----------
 
-    /// <summary>Seiten, die gerade in Frage kommen (Dauertest nur, wenn einer läuft).</summary>
-    private List<DisplayScene> EnabledPages()
+    /// <summary>Eine Seite im Wechsel; Group nur bei der Gruppenseite.</summary>
+    private readonly record struct DisplayPage(DisplayScene Scene, string? Group = null);
+
+    /// <summary>Seiten, die gerade in Frage kommen (Dauertest nur, wenn einer läuft; je Gruppe eine Seite).</summary>
+    private List<DisplayPage> EnabledPages()
     {
         var p = Config.Display.Pages;
-        var list = new List<DisplayScene>();
-        if (p.Overview) list.Add(DisplayScene.Overview);
-        if (p.Daily && History is not null) list.Add(DisplayScene.Daily);
-        if (p.Chart && History is not null) list.Add(DisplayScene.Chart);
-        if (p.Soak && Devices.Any(d => d.Config.Soak is not null)) list.Add(DisplayScene.Soak);
-        if (p.Network) list.Add(DisplayScene.Network);
-        if (list.Count == 0) list.Add(DisplayScene.Overview);
+        var list = new List<DisplayPage>();
+        if (p.Overview) list.Add(new(DisplayScene.Overview));
+        if (p.Groups) list.AddRange(MinerGroups.All(Config.Devices).Select(g => new DisplayPage(DisplayScene.Group, g)));
+        if (p.Daily && History is not null) list.Add(new(DisplayScene.Daily));
+        if (p.Chart && History is not null) list.Add(new(DisplayScene.Chart));
+        if (p.Monthly && History is not null) list.Add(new(DisplayScene.Monthly));
+        if (p.Prices) list.Add(new(DisplayScene.Prices));
+        if (p.Power) list.Add(new(DisplayScene.Power));
+        if (p.Sensors && Config.Fans.Sensors.Count > 0) list.Add(new(DisplayScene.Sensors));
+        if (p.Soak && Devices.Any(d => d.Config.Soak is not null)) list.Add(new(DisplayScene.Soak));
+        if (p.Network) list.Add(new(DisplayScene.Network));
+        if (p.Qr) list.Add(new(DisplayScene.Qr));
+        if (list.Count == 0) list.Add(new(DisplayScene.Overview));
         return list;
     }
 
@@ -135,7 +146,7 @@ public sealed partial class MinerHub
         var pages = EnabledPages();
         if (nextPage && s.RotatePages) st.PageIndex++;
         var index = ((st.PageIndex % pages.Count) + pages.Count) % pages.Count;
-        return WithPage(model with { PageLabel = pages.Count > 1 ? L.T("Seite {0}/{1}", index + 1, pages.Count) : null }, pages[index], now);
+        return WithPage(model with { PageLabel = pages.Count > 1 ? L.T("Seite {0}/{1}", index + 1, pages.Count) : null }, pages[index].Scene, now, pages[index].Group);
     }
 
     /// <summary>Nach dem Anzeigen: gezeigte Szene merken, einmalige Anzeigen als gesehen markieren.</summary>
@@ -177,16 +188,34 @@ public sealed partial class MinerHub
                 Scene = scene,
                 BestDiff = st.BestDiff ?? new DisplayBestDiff(Devices.FirstOrDefault()?.Title ?? "Bitaxe", "BTC", 845.ToString(L.Culture) + " M", 1.23.ToString("0.00", L.Culture) + " G", now),
             },
-            _ => WithPage(model, scene, now),
+            _ => WithPage(model, scene, now, scene == DisplayScene.Group ? MinerGroups.All(Config.Devices).FirstOrDefault() : null),
         };
     }
 
-    private DisplayModel WithPage(DisplayModel model, DisplayScene page, DateTime now)
+    private DisplayModel WithPage(DisplayModel model, DisplayScene page, DateTime now, string? group = null)
     {
         switch (page)
         {
+            case DisplayScene.Group:
+                // ohne Gruppen (nur Vorschau): alle Miner
+                return (group is null ? model : BuildDisplayModel(now, group) with { PageLabel = model.PageLabel }) with { Scene = DisplayScene.Group };
             case DisplayScene.Daily when BuildDaily(now) is { } daily:
-                return model with { Scene = page, Daily = daily };
+                return model with { Scene = page, Daily = daily, DailySeries = BuildDailySeries(now) };
+            case DisplayScene.Monthly when BuildMonthly(now) is { } monthly:
+                return model with { Scene = page, Monthly = monthly };
+            case DisplayScene.Prices:
+                _ = RefreshMarketAsync(force: false);
+                return model with { Scene = page, Coins = BuildCoins(), Difficulty = Config.Display.PriceCoins != "bch" ? _difficulty?.Data : null };
+            case DisplayScene.Power:
+                return model with { Scene = page, Power = BuildPower(now) };
+            case DisplayScene.Qr:
+                return model with { Scene = page, Qr = BuildQr() };
+            case DisplayScene.Sensors:
+                return model with
+                {
+                    Scene = page,
+                    Sensors = (FanStatus.Sensors ?? []).Select(s => new DisplaySensor(s.Name, s.Temp, s.WarnTemp, s.Hot)).ToList(),
+                };
             case DisplayScene.Chart when History is not null:
                 List<Sample> pts;
                 try { pts = History.Query(HistoryStore.AggregateHost, now.AddHours(-24), now, 300); }
@@ -251,6 +280,158 @@ public sealed partial class MinerHub
         {
             return null;
         }
+    }
+
+    // ---------- Neue Seiten (0.9.7) ----------
+
+    private (DateTime Fetched, Network.DifficultyDto Dto, DisplayDifficulty Data)? _difficulty;
+    private readonly Dictionary<CoinType, (DateTime Fetched, List<(DateTime Time, double Eur)> Points)> _coinCharts = [];
+    private bool _marketBusy;
+    private (DateTime At, string Key, DisplayMonthly Data)? _monthlyCache;
+
+    private IEnumerable<CoinType> DisplayCoins() => Config.Display.PriceCoins switch
+    {
+        "bch" => [CoinType.BitcoinCash],
+        "both" => [CoinType.Bitcoin, CoinType.BitcoinCash],
+        _ => [CoinType.Bitcoin],
+    };
+
+    private List<DisplayCoin> BuildCoins() => DisplayCoins().Select(c =>
+    {
+        var pts = _coinCharts.TryGetValue(c, out var v) ? v.Points : [];
+        double? now = pts.Count > 0 ? pts[^1].Eur : null;
+        double? change = pts.Count > 1 && pts[0].Eur > 0 ? (pts[^1].Eur / pts[0].Eur - 1) * 100 : null;
+        return new DisplayCoin(c.Symbol(), c == CoinType.Bitcoin ? "Bitcoin (BTC)" : "Bitcoin Cash (BCH)", now, change,
+            pts.Select(p => new DisplayValue(p.Time, p.Eur)).ToList());
+    }).ToList();
+
+    /// <summary>Kurse (CoinGecko) und Difficulty (mempool.space) höchstens alle 10 Minuten holen – nur für die Kurs-Seite.</summary>
+    private async Task RefreshMarketAsync(bool force)
+    {
+        if (!Options.OnlineChecks || _marketBusy) return;
+        var now = DateTime.Now;
+        _marketBusy = true;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            foreach (var coin in DisplayCoins())
+            {
+                if (!force && _coinCharts.TryGetValue(coin, out var c) && now - c.Fetched < TimeSpan.FromMinutes(10)) continue;
+                var pts = await CoinGecko.GetDayChartAsync(coin, cts.Token);
+                if (pts.Count > 0) _coinCharts[coin] = (now, pts);
+            }
+            if (Config.Display.PriceCoins != "bch" && (force || _difficulty is not { } d || now - d.Fetched >= TimeSpan.FromMinutes(10)))
+            {
+                var dto = await NetworkClient.GetDifficultyAsync(cts.Token);
+                _difficulty = (now, dto, new DisplayDifficulty(dto.ProgressPercent, dto.ExpectedChangePercent, dto.RemainingBlocks, dto.Eta));
+            }
+        }
+        catch { /* ohne Kursdaten weiter */ }
+        finally
+        {
+            _marketBusy = false;
+        }
+    }
+
+    /// <summary>24-h-Graph der Tagesbilanz (Summe aller Miner) – nur, wenn in den Einstellungen gewählt.</summary>
+    private DisplaySeries? BuildDailySeries(DateTime now)
+    {
+        var kind = Config.Display.DailyChart;
+        if (History is null || kind is not ("hashrate" or "power" or "efficiency" or "temp")) return null;
+        List<Monitoring.Sample> pts;
+        try { pts = History.Query(HistoryStore.AggregateHost, now.AddHours(-24), now, 300); }
+        catch { pts = []; }
+        var hash = pts.Count > 0 && pts.Max(p => p.HashRateGh) >= 1000;
+        return kind switch
+        {
+            "power" => new DisplaySeries(L.T("Leistung"), "W", "0", pts.Where(p => p.Power > 0).Select(p => new DisplayValue(p.Time, p.Power)).ToList()),
+            "efficiency" => new DisplaySeries(L.T("Effizienz"), "J/TH", "0.0",
+                pts.Where(p => p.HashRateGh > 1 && p.Power > 0).Select(p => new DisplayValue(p.Time, p.Power / (p.HashRateGh / 1000))).ToList()),
+            "temp" => new DisplaySeries(L.T("Höchste Chip-Temperatur"), "°C", "0", pts.Where(p => p.Temp > 0).Select(p => new DisplayValue(p.Time, p.Temp)).ToList()),
+            _ => new DisplaySeries(L.T("Hashrate"), hash ? "TH/s" : "GH/s", hash ? "0.00" : "0",
+                pts.Where(p => p.HashRateGh > 0).Select(p => new DisplayValue(p.Time, hash ? p.HashRateGh / 1000 : p.HashRateGh)).ToList()),
+        };
+    }
+
+    /// <summary>Monatsbilanz des laufenden Monats (höchstens alle 30 Minuten neu berechnet).</summary>
+    private DisplayMonthly? BuildMonthly(DateTime now)
+    {
+        if (History is null) return null;
+        var kind = Config.Display.MonthlyChart is "cost" or "income" or "hashrate" ? Config.Display.MonthlyChart : "kwh";
+        var key = $"{now:yyyy-MM}|{kind}";
+        if (_monthlyCache is { } c && c.Key == key && now - c.At < TimeSpan.FromMinutes(30) && now >= c.At) return c.Data;
+        try
+        {
+            var report = BuildReport(now.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture), now);
+            var start = new DateTime(now.Year, now.Month, 1);
+            var hosts = ReportMiners().Select(m => m.Host).ToList();
+            List<MinedReward> rewards;
+            try { rewards = TaxRepository.LoadRewards(); } catch { rewards = []; }
+            var bars = new List<DisplayValue>();
+            for (var day = start; day <= now.Date; day = day.AddDays(1))
+            {
+                var end = day.AddDays(1) < now ? day.AddDays(1) : now;
+                double value = kind switch
+                {
+                    "hashrate" => History.Average(HistoryStore.AggregateHost, day, end)?.HashRateGh ?? 0,
+                    "income" => (double)rewards.Where(r => r.ReceivedAtUtc.ToLocalTime().Date == day).Sum(r => r.EurValue ?? 0),
+                    "cost" => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Cost,
+                    _ => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Kwh,
+                };
+                if (value > 0) bars.Add(new DisplayValue(day, value));
+            }
+            var tera = kind == "hashrate" && bars.Any(b => b.Value >= 1000);
+            if (tera) bars = bars.Select(b => b with { Value = b.Value / 1000 }).ToList();
+            var (label, format) = kind switch
+            {
+                "hashrate" => (tera ? L.T("Ø Hashrate je Tag (TH/s)") : L.T("Ø Hashrate je Tag (GH/s)"), tera ? "0.00" : "0"),
+                "income" => (L.T("Ertrag je Tag (€)"), "0.00"),
+                "cost" => (L.T("Stromkosten je Tag ({0})", Config.Currency), "0.00"),
+                _ => (L.T("Strom je Tag (kWh)"), "0.0"),
+            };
+            var data = new DisplayMonthly(start, report.Partial, report.Energy.Kwh, report.Energy.Cost, report.Currency, (double)report.IncomeEur,
+                report.Income.Sum(i => i.EurMissing), report.TotalAvgHashGh, label, format, bars);
+            _monthlyCache = (now, key, data);
+            return data;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Strompreise der nächsten 24 Stunden (Stundenmittel) und das günstigste 3-Stunden-Fenster.</summary>
+    private DisplayPower BuildPower(DateTime now)
+    {
+        var utc = now.ToUniversalTime();
+        var hourStart = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
+        var hours = Prices.Prices.Where(p => p.EndUtc > utc && p.StartUtc < utc.AddHours(24))
+            .GroupBy(p => p.StartUtc.ToLocalTime() is var t ? new DateTime(t.Year, t.Month, t.Day, t.Hour, 0, 0) : default)
+            .Where(g => g.Key >= hourStart)
+            .OrderBy(g => g.Key)
+            .Select(g => new DisplayValue(g.Key, g.Average(p => p.CtPerKwh)))
+            .Take(24).ToList();
+        DateTime? cheapFrom = null;
+        double? cheapAvg = null;
+        for (var i = 0; i + 3 <= hours.Count; i++)
+        {
+            if (hours[i + 2].Time - hours[i].Time != TimeSpan.FromHours(2)) continue;   // nur zusammenhängende Stunden
+            var avg = (hours[i].Value + hours[i + 1].Value + hours[i + 2].Value) / 3;
+            if (cheapAvg is null || avg < cheapAvg) (cheapFrom, cheapAvg) = (hours[i].Time, avg);
+        }
+        return new DisplayPower(Prices.PriceAt(utc), hours, cheapFrom, cheapAvg, Prices.SourceName);
+    }
+
+    /// <summary>QR-Code zur Browser-Oberfläche: eigene Adresse aus den Einstellungen oder die dieses Servers.</summary>
+    private DisplayQr BuildQr()
+    {
+        var url = Config.Display.QrUrl is { Length: > 0 } own ? own.Trim()
+            : Options.WebUrl?.Invoke() ?? Web.WebViewServer.LocalUrls(Config.WebView.Port).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(url) || url.Length > 200) return new DisplayQr("", []);
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(url, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var rows = data.ModuleMatrix.Select(r => Enumerable.Range(0, r.Length).Select(i => r[i]).ToArray()).ToList();
+        return new DisplayQr(url, rows);
     }
 
     private DisplayNetwork BuildNetwork()

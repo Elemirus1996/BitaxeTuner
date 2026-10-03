@@ -27,6 +27,7 @@ System.IO.Ports (inkl. runtime.*.native.     MIT                 .NET Foundation
 CommunityToolkit.Mvvm                        MIT                 .NET Foundation and Contributors
 System.Security.Cryptography.ProtectedData   MIT                 .NET Foundation and Contributors
 MQTTnet (Home Assistant / MQTT)              MIT                 .NET Foundation and Contributors
+QRCoder (QR-Code auf dem E-Paper)            MIT                 Copyright (c) 2013-2018 Raffael Herrmann
 SMBLibrary (Sicherung auf Netzlaufwerk)      LGPL-3.0-or-later   Copyright (c) Tal Aloni 2014-2026 (4)
 SQLitePCLRaw (bundle_e_sqlite3)              Apache-2.0          Copyright 2014-2024 SourceGear, LLC
 SQLite                                       Public Domain       https://sqlite.org/copyright.html

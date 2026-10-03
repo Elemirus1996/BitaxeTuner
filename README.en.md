@@ -310,7 +310,9 @@ Optionally a 7.5" e-paper (red/black/white) shows the most important values, plu
 *next screen/acknowledge* · *fans automatic* · *100 %* (hold 5 s: *fans off*) · *restart Pi + Pico* (hold 3 s).
 The server flashes the Pico program itself. Safety: miner offline or data older than 30 s → 100 %; Pico without a
 command for 5 s → 100 %; without the Pico every fan runs at full speed via the circuit.
-The e-paper rotates pages (overview, daily summary, history 24 h, soak test, pool & network) and shows special screens
+The e-paper rotates pages (overview, daily summary – optionally with graph –, history 24 h, soak test, pool & network;
+from 0.9.7 also per miner group, monthly summary with a bar per day, BTC/BCH price with difficulty countdown, electricity
+price traffic light, temperature sensors and a QR code to the web UI; colours optionally inverted) and shows special screens
 full-screen: **block found** (until button 1 or 24 h), **warnings** (until acknowledged, a new warning shows again),
 **best diff record** (once) – each can be switched on or off. Settings and a preview of each page:
 browser → *Fans & display*. Wiring diagram, solder-free breadboard build and shopping list are in the build guide

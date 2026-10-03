@@ -199,9 +199,10 @@ public sealed partial class MinerHub
     }
 
     /// <summary>Aktueller Inhalt der Anzeige (auch für die Vorschau im Browser).</summary>
-    public DisplayModel BuildDisplayModel(DateTime now)
+    public DisplayModel BuildDisplayModel(DateTime now, string? group = null)
     {
-        var devices = Devices.Where(d => !d.IsSimulated || Devices.All(x => x.IsSimulated)).ToList();
+        var devices = Devices.Where(d => !d.IsSimulated || Devices.All(x => x.IsSimulated))
+            .Where(d => group is null || d.Config.Groups.Any(g => string.Equals(g, group, StringComparison.OrdinalIgnoreCase))).ToList();
         var fans = FanStatus.Channels;
         var alerts = new List<string>();
         var miners = new List<DisplayMiner>();
@@ -239,7 +240,7 @@ public sealed partial class MinerHub
             FanOverride.Full => L.T("100 % (Taste)"),
             _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? L.T("Automatik · Gehäuse {0} %", caseFan.Percent) : L.T("Automatik"),
         };
-        return new DisplayModel(Config.Display.Title, now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
+        return new DisplayModel(group is null ? Config.Display.Title : $"{Config.Display.Title} · {group}", now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
             Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps)
         {
             Inverted = Config.Display.Inverted,

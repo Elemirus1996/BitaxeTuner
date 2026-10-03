@@ -53,6 +53,9 @@ public sealed class HubService : IHostedService, IDisposable
             BenchmarkDelay = _options?.BenchmarkDelay,
             FanDeviceFactory = _options?.FanDeviceFactory,
             SystemReboot = _options?.SystemReboot ?? DefaultReboot(),
+            // QR-Code auf dem E-Paper: diese Oberfläche unter der ersten Adresse im Heimnetz
+            WebUrl = () => Core.Discovery.NetworkScanner.LocalIPv4Addresses().FirstOrDefault(Security.NetworkRules.IsPrivate) is { } ip
+                ? $"{(Settings.Https ? "https" : "http")}://{ip}:{Settings.Port}/" : null,
             Clock = _options?.Clock,
         });
         if (hub.HistoryError is { } error) _log.LogError("Verlaufsdatenbank nicht verfügbar: {Error}", error);

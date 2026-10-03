@@ -7,7 +7,7 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Display;
 
 /// <summary>Was das E-Paper zeigt: Seiten im Wechsel und Sonderanzeigen.</summary>
-public enum DisplayScene { Overview, Daily, Chart, Soak, Network, BlockFound, Alarm, BestDiff }
+public enum DisplayScene { Overview, Daily, Chart, Soak, Network, BlockFound, Alarm, BestDiff, Prices, Monthly, Group, Power, Qr, Sensors }
 
 public sealed record DisplayBlockFound(string Miner, DateTime Time, int Count, long? Height, bool Example = false);
 public sealed record DisplayBestDiff(string Miner, string Coin, string Previous, string Current, DateTime Time);

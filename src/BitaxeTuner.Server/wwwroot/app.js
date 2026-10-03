@@ -2230,8 +2230,9 @@ function quickActions(fans, display) {
 function displayCard(d) {
   const st = d.status;
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
-  const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+  const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
+    ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')
@@ -2273,7 +2274,21 @@ function displayCard(d) {
         checkInput(s.pages, 'daily', t('Tagesbilanz')),
         checkInput(s.pages, 'chart', t('Verlauf 24 h')),
         checkInput(s.pages, 'soak', t('Dauertest (wenn aktiv)')),
-        checkInput(s.pages, 'network', t('Pool & Netzwerk'))),
+        checkInput(s.pages, 'network', t('Pool & Netzwerk')),
+        checkInput(s.pages, 'groups', t('je Miner-Gruppe')),
+        checkInput(s.pages, 'monthly', t('Monatsbilanz')),
+        checkInput(s.pages, 'prices', t('Kurs')),
+        checkInput(s.pages, 'power', t('Strompreis-Ampel')),
+        checkInput(s.pages, 'sensors', t('Temperaturfühler')),
+        checkInput(s.pages, 'qr', t('QR-Code'))),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')]])),
+        h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
+          ['power', t('Graph: Leistung')], ['efficiency', t('Graph: Effizienz')], ['temp', t('Graph: Temperatur')]])),
+        h('div', {}, h('label', {}, t('Monatsbilanz: Balken je Tag')), pageSelect(s, 'monthlyChart', [['kwh', 'kWh'], ['cost', t('Stromkosten')],
+          ['income', t('Ertrag')], ['hashrate', t('Hashrate')]])),
+        h('div', {}, h('label', {}, t('QR-Code-Adresse (leer = dieser Server)')), h('input', { value: s.qrUrl || '', placeholder: 'https://…', oninput: e => { s.qrUrl = e.target.value; } }))),
+      h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
       checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
       h('h3', {}, t('Sonderanzeigen')),
       h('div', { class: 'form' },
@@ -2290,6 +2305,13 @@ function displayCard(d) {
       h('p', { class: 'muted small' }, t('Das E-Paper wird höchstens alle 3 Minuten neu aufgebaut (Herstellerempfehlung), ein Bildaufbau dauert etwa 16 Sekunden.')));
   }
   return h('div', { class: 'card stack' }, parts);
+}
+
+/** Auswahlfeld für eine Einstellung der Anzeige. */
+function pageSelect(obj, key, options) {
+  const el = h('select', { style: 'width:auto', onchange: e => { obj[key] = e.target.value; } }, options.map(([v, l]) => h('option', { value: v }, l)));
+  el.value = obj[key] || options[0][0];
+  return el;
 }
 
 /** Verbindung eines Pico: USB (Port) oder WLAN (Gerätename/IP). obj = Lüfter- oder Anzeige-Einstellungen. */

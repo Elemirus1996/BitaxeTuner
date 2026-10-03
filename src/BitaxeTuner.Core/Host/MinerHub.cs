@@ -30,6 +30,9 @@ public sealed class MinerHubOptions
     /// <summary>Rechner neu starten (Server auf dem Pi: systemctl reboot). Null = nicht verfügbar.</summary>
     public Func<Task>? SystemReboot { get; init; }
 
+    /// <summary>Adresse der Browser-Oberfläche im Heimnetz (QR-Code auf dem E-Paper); vom Server gesetzt.</summary>
+    public Func<string?>? WebUrl { get; init; }
+
     /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
     public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
 

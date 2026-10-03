@@ -132,6 +132,9 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.7", tr.T("Neue Seiten auf dem E-Paper"),
+                tr.T("Kurs von BTC, BCH oder beiden mit 24-h-Verlauf und Countdown bis zur nächsten Difficulty-Anpassung, Monatsbilanz mit Balken je Tag, Tagesbilanz wahlweise mit Graph, je Miner-Gruppe eine Seite, Strompreis-Ampel, Temperaturfühler und QR-Code zur Oberfläche – einzeln unter Lüfter & Anzeige einschaltbar."),
+                null),
             new("0.9.7", tr.T("Eigener Display-Pico"),
                 tr.T("Das E-Paper kann einen eigenen Pico bekommen, der einfach auf das Waveshare-Modul gesteckt wird – ohne Kabel und ohne Platine. Neu außerdem: Farben umkehren (helle Schrift auf Schwarz)."),
                 null),

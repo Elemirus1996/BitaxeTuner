@@ -62,6 +62,18 @@ public sealed class DisplaySettings
 
     /// <summary>Bei jeder regelmäßigen Aktualisierung zur nächsten Seite wechseln (sonst nur per Taste 1).</summary>
     public bool RotatePages { get; set; } = true;
+
+    /// <summary>0.9.7, Seite „Kurs“: "btc", "bch" oder "both". Additiv.</summary>
+    public string PriceCoins { get; set; } = "btc";
+
+    /// <summary>0.9.7, Tagesbilanz: "none" (Minerliste wie bisher), "hashrate", "power", "efficiency" oder "temp" als 24-h-Graph.</summary>
+    public string DailyChart { get; set; } = "none";
+
+    /// <summary>0.9.7, Monatsbilanz: Balken je Tag – "kwh", "cost", "income" oder "hashrate".</summary>
+    public string MonthlyChart { get; set; } = "kwh";
+
+    /// <summary>0.9.7, Seite „QR-Code“: eigene Adresse; leer = Adresse dieses Servers im Heimnetz.</summary>
+    public string QrUrl { get; set; } = "";
 }
 
 public sealed class DisplayPages
@@ -73,4 +85,18 @@ public sealed class DisplayPages
     public bool Soak { get; set; } = true;
     /// <summary>Pool-Status je Miner und Stand des Bitcoin-Netzwerks (mempool.space).</summary>
     public bool Network { get; set; }
+
+    // 0.9.7 – neue Seiten, standardmäßig aus (bestehende Anzeigen ändern sich nicht)
+    /// <summary>Kurs BTC/BCH (CoinGecko) mit 24-h-Verlauf, bei BTC Countdown bis zur Difficulty-Anpassung (mempool.space).</summary>
+    public bool Prices { get; set; }
+    /// <summary>Monatsbilanz: Ertrag, kWh, Kosten, Differenz, Balken je Tag.</summary>
+    public bool Monthly { get; set; }
+    /// <summary>Je Miner-Gruppe eine Übersichtsseite.</summary>
+    public bool Groups { get; set; }
+    /// <summary>Strompreis-Ampel für die nächsten Stunden (aWATTar/Tibber).</summary>
+    public bool Power { get; set; }
+    /// <summary>QR-Code zur Browser-Oberfläche.</summary>
+    public bool Qr { get; set; }
+    /// <summary>Alle Temperaturfühler mit Warnschwelle.</summary>
+    public bool Sensors { get; set; }
 }

@@ -310,7 +310,9 @@ vier Taster: *Anzeige weiter/quittieren* · *Lüfter Automatik* · *100 %* (5 s 
 *Neustart Pi + Pico* (3 s halten).
 Das Pico-Programm spielt der Server selbst auf. Sicherheit: Miner offline oder Daten älter als 30 s → 100 %;
 Pico ohne Befehl für 5 s → 100 %; ohne Pico läuft jeder Lüfter über die Schaltung mit voller Drehzahl.
-Das E-Paper zeigt Seiten im Wechsel (Übersicht, Tagesbilanz, Verlauf 24 h, Dauertest, Pool & Netzwerk) und
+Das E-Paper zeigt Seiten im Wechsel (Übersicht, Tagesbilanz – wahlweise mit Graph –, Verlauf 24 h, Dauertest,
+Pool & Netzwerk; ab 0.9.7 außerdem je Miner-Gruppe, Monatsbilanz mit Balken je Tag, Kurs BTC/BCH mit Difficulty-Countdown,
+Strompreis-Ampel, Temperaturfühler und QR-Code zur Oberfläche; Farben auf Wunsch umgekehrt) und
 Sonderanzeigen als Vollbild: **Blockfund** (bis Taste 1 oder 24 h), **Warnungen** (bis quittiert, neue Warnung zeigt
 wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellungen und Vorschau jeder Seite:
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste

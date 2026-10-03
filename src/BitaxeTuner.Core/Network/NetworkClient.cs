@@ -9,6 +9,9 @@ public sealed record BlockDto(long Height, DateTime Time, string Pool, string Po
 
 public sealed record PoolDto(string Name, string Slug, int BlockCount);
 
+/// <summary>Nächste Difficulty-Anpassung: Fortschritt in %, erwartete Änderung in %, Restblöcke, geschätzter Zeitpunkt.</summary>
+public sealed record DifficultyDto(double ProgressPercent, double ExpectedChangePercent, int RemainingBlocks, DateTime? Eta, long NextHeight);
+
 /// <summary>
 /// Netzwerkdaten von mempool.space: zuletzt gefundene Blöcke und Pool-Ranking.
 /// </summary>
@@ -54,6 +57,24 @@ public sealed class NetworkClient : IDisposable
         }
 
         return list.OrderByDescending(x => x.Height).ToList();
+    }
+
+    /// <summary>Stand der nächsten Difficulty-Anpassung (alle 2016 Blöcke).</summary>
+    public async Task<DifficultyDto> GetDifficultyAsync(CancellationToken ct)
+    {
+        using var resp = await _http.GetAsync($"{Base}/v1/difficulty-adjustment", ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        return ParseDifficulty(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+    }
+
+    public static DifficultyDto ParseDifficulty(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var r = doc.RootElement;
+        double D(string name) => r.TryGetProperty(name, out var v) && v.TryGetDouble(out var d) ? d : 0;
+        var eta = D("estimatedRetargetDate");
+        return new DifficultyDto(D("progressPercent"), D("difficultyChange"), (int)D("remainingBlocks"),
+            eta > 0 ? DateTimeOffset.FromUnixTimeMilliseconds((long)eta).LocalDateTime : null, (long)D("nextRetargetHeight"));
     }
 
     /// <summary>
