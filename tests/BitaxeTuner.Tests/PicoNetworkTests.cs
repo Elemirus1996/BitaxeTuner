@@ -106,6 +106,28 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Hardware_watchdog_is_fed_while_the_program_runs()
+    {
+        if (StartPico() is not var (port, key)) return;
+        using var device = PicoFanDevice.ConnectNetwork(NetworkLineTransport.Connect("127.0.0.1", port, key));
+        await device.ShowImageAsync(new byte[PicoFanDevice.ImageBytes]);
+        await Task.Delay(9500);                                                     // länger als der Watchdog (8 s)
+        Assert.False(_pico!.HasExited);
+        Assert.Equal(6, (await device.ExchangeAsync([10, 20, 30, 40, 50, 60])).Length);
+    }
+
+    [Fact]
+    public void Hanging_program_is_restarted_by_the_hardware_watchdog()
+    {
+        const string loop = "    while True:\n        wdt.feed()\n";
+        Assert.Contains(loop, PicoFanDevice.Firmware);
+        var hanging = PicoFanDevice.Firmware.Replace(loop, "    while True:\n        time.sleep(30)\n");
+        if (StartPico(firmware: hanging) is null) return;
+        Assert.True(_pico!.WaitForExit(15000));
+        Assert.Equal(4, _pico.ExitCode);                                            // Simulator: "WATCHDOG RESET"
+    }
+
+    [Fact]
     public void Wrong_key_is_rejected_and_nothing_runs()
     {
         if (StartPico() is not var (port, _)) return;
@@ -141,7 +163,7 @@ public sealed class PicoNetworkTests : IDisposable
     [Fact]
     public void Older_program_is_updated_over_wlan_and_verified()
     {
-        var old = PicoFanDevice.Firmware.Replace("VERSION = \"7\"", "VERSION = \"6x\"");
+        var old = PicoFanDevice.Firmware.Replace("VERSION = \"8\"", "VERSION = \"6x\"");
         Assert.NotEqual(PicoFanDevice.Firmware, old);
         if (StartPico(firmware: old) is not var (port, key)) return;
         var io = NetworkLineTransport.Connect("127.0.0.1", port, key);

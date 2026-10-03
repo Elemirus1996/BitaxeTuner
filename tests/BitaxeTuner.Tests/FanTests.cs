@@ -188,9 +188,17 @@ internal sealed class FakePico : ILineTransport
         _in.Append(ch);
     }
 
+    /// <summary>Hardware-Watchdog im Raw-REPL gestartet (ab Programm v8) und wie oft er gefüttert wurde.</summary>
+    public bool WatchdogStarted { get; private set; }
+    public int WatchdogFeeds { get; private set; }
+
     private void ExecRaw(string code)
     {
         code = code.TrimStart('\r');
+        if (code == "import machine;w=machine.WDT(timeout=8000)") { WatchdogStarted = true; _out.Append("OK\x04\x04>"); return; }
+        // Läuft der Watchdog, muss jeder Schritt ihn füttern – sonst würde der echte Pico mitten im Schreiben neu starten
+        if (code.StartsWith("w.feed();", StringComparison.Ordinal)) { WatchdogFeeds++; code = code["w.feed();".Length..]; }
+        else if (WatchdogStarted) { _out.Append("OK\x04Traceback: watchdog not fed\x04>"); return; }
         var open = Regex.Match(code, @"^f=open\('([^']+)','w'\)$");
         if (open.Success) { _file.Clear(); _fileName = open.Groups[1].Value; }
         else if (code == "f.close()") Files[_fileName] = _file.ToString();
@@ -235,6 +243,8 @@ public class PicoProtocolTests
         using var device = PicoFanDevice.Connect(pico, "/dev/ttyACM0", log.Add);
 
         Assert.Equal(PicoFanDevice.Firmware, pico.MainPy);          // Datei byte-genau übertragen
+        Assert.True(pico.WatchdogStarted);                          // ab v8: Watchdog beim Aufspielen gefüttert
+        Assert.True(pico.WatchdogFeeds > 10);
         Assert.Contains(log, l => l.Contains("wird aufgespielt"));
         Assert.Contains("v" + PicoFanDevice.FirmwareVersion, device.Description);
 

@@ -71,7 +71,30 @@ def reset():
     os._exit(3)
 
 
-machine.Pin, machine.PWM, machine.SPI, machine.reset = Pin, PWM, SPI, reset
+class WDT:
+    """Hardware watchdog like on the Pico: without feed() for `timeout` ms the "Pico" restarts (exit code 4)."""
+
+    def __init__(self, timeout=8000):
+        import threading
+        self.timeout = timeout / 1000
+        self.last = time.time()
+        WDT.feeds = 0
+
+        def watch():
+            while True:
+                time.sleep(0.2)
+                if time.time() - self.last > self.timeout:
+                    sys.stderr.write("WATCHDOG RESET\n")
+                    sys.stderr.flush()
+                    os._exit(4)
+        threading.Thread(target=watch, daemon=True).start()
+
+    def feed(self):
+        self.last = time.time()
+        WDT.feeds += 1
+
+
+machine.Pin, machine.PWM, machine.SPI, machine.reset, machine.WDT = Pin, PWM, SPI, reset, WDT
 machine.disable_irq = lambda: 0
 machine.enable_irq = lambda s: None
 sys.modules["machine"] = machine

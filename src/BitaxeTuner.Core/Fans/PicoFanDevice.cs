@@ -101,7 +101,7 @@ public sealed class PicoUpdatedException(string message) : IOException(message);
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "7";
+    public const string FirmwareVersion = "8";
     public const string RoleFans = "fans";
     public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;
@@ -281,12 +281,17 @@ public sealed class PicoFanDevice : IFanDevice
                 throw new IOException(L.T("Fehler beim Aufspielen: ") + (parts.Length > 1 ? parts[1].Trim() : reply));
         }
 
+        // Ab Programm v8 läuft der Hardware-Watchdog des Pico (8 s) und lässt sich nicht anhalten – auch nicht im
+        // Raw-REPL. Deshalb bei jedem Schritt füttern, sonst startet der Pico mitten im Schreiben neu. Auf einem Pico
+        // ohne laufenden Watchdog startet ihn diese Zeile; das neue Programm füttert ihn nach dem Soft-Reset weiter.
+        Exec("import machine;w=machine.WDT(timeout=8000)");
+
         void WriteFile(string name, string content)
         {
-            Exec($"f=open('{name}','w')");
+            Exec($"w.feed();f=open('{name}','w')");
             for (var i = 0; i < content.Length; i += 192)
-                Exec("f.write(" + PyString(content.Substring(i, Math.Min(192, content.Length - i))) + ")");
-            Exec("f.close()");
+                Exec("w.feed();f.write(" + PyString(content.Substring(i, Math.Min(192, content.Length - i))) + ")");
+            Exec("w.feed();f.close()");
         }
 
         foreach (var (name, content) in files ?? new Dictionary<string, string>()) WriteFile(name, content);

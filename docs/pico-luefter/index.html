@@ -552,6 +552,7 @@
       <li><b>Erst USB-Ladegerät, dann einen Lüfter an K1:</b> Ohne Pico muss er sofort mit voller Drehzahl laufen. Das ist der Ausfallschutz, der hier schon ohne Software wirkt.</li>
       <li><b>Pico per USB an den Pi 3 stecken.</b> Der Server erkennt ihn, lädt das Lüfterprogramm hoch und übernimmt die Regelung; die Drehzahl erscheint in der Oberfläche.</li>
       <li><b>Lüfter zuordnen</b> (Einstellungen → Lüfter) und die übrigen Kanäle anschließen.</li>
+      <li><b>Gut zu wissen:</b> Ab Lüfterprogramm v8 überwacht ein Hardware-Watchdog den Pico. Hängt sein Programm, startet er nach 8 Sekunden neu, und die Lüfter laufen bis dahin mit voller Drehzahl. Wer den Pico zum Basteln mit Thonny oder einem Terminal öffnet, sieht deshalb alle paar Sekunden einen Neustart – zum Basteln vorher MicroPython neu aufspielen (BOOTSEL + UF2); das Lüfterprogramm spielt der Server danach wieder auf.</li>
     </ol>
   </section>
 

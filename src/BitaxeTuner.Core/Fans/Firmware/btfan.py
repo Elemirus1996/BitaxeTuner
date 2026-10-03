@@ -14,7 +14,9 @@
 # Both roles: buttons GP1,3,5,7 to GND (internal pull-up), onboard LED blinks on every press;
 #   DS18B20 on GP26 (1-Wire, one 4.7k pull-up to 3V3), several sensors in parallel, each reported with its ROM id.
 #
-# Protocol (one command per line, every valid line resets the watchdog):
+# Protocol (one command per line). Fan watchdog: only SET/GET/HELLO count as a sign of life of the fan control;
+# other lines (e.g. image data) keep only the "server lost" display timer alive.
+# Hardware watchdog (machine.WDT, 8 s): if this program hangs, the Pico restarts; without PWM signal the fans run at 100 %.
 #   HELLO                -> OK BTFAN <version> <channels> <role>
 #   SET p1 .. p6         -> RPM r1 .. r6 [T id=t id=t ..]   (fan percent 0..100; T = DS18B20 ROM id (hex) = deg C)
 #   GET                  -> RPM r1 .. r6 [T id=t id=t ..]   (role display: "RPM" without fan values)
@@ -47,7 +49,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "7"
+VERSION = "8"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -280,6 +282,7 @@ def epd_wait(ms):
     while not epd_idle():
         if time.ticks_diff(time.ticks_ms(), t0) > ms:
             return False
+        wdt.feed()
         time.sleep_ms(10)
     return True
 
@@ -447,12 +450,14 @@ def upd_commit():
 
 
 def handle(line):
-    global last_cmd, failsafe, img, img_pos, img_len
+    global last_cmd, last_fan, failsafe, img, img_pos, img_len
     parts = line.strip().split()
     if not parts:
         return
     cmd = parts[0].upper()
     last_cmd = time.ticks_ms()
+    if cmd in ("SET", "GET", "HELLO"):
+        last_fan = last_cmd
     if cmd == "D":
         if img is not None and len(parts) > 1:
             try:
@@ -753,12 +758,16 @@ usb = select.poll()
 usb.register(sys.stdin, select.POLLIN)
 buf = ""
 last_cmd = time.ticks_ms()
+last_fan = last_cmd
 failsafe = True
 last_rpm = time.ticks_ms()
+# Hardware watchdog: cannot be stopped once started (also not by Ctrl-C); the server feeds it while installing.
+wdt = machine.WDT(timeout=8000)
 net_setup()
 
 try:
     while True:
+        wdt.feed()
         # read everything that is waiting (image transfers are large)
         budget = 600
         while budget > 0 and usb.poll(0 if budget < 600 else (5 if wlan is not None else 20)):
@@ -787,7 +796,7 @@ try:
             for i in range(N):
                 rpm[i] = snap[i] * 60000 // (PULSES_PER_REV * dt)
             last_rpm = now
-        if not failsafe and time.ticks_diff(now, last_cmd) > WATCHDOG_MS:
+        if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS:
             all_full()
             failsafe = True
         poll_buttons(now)
