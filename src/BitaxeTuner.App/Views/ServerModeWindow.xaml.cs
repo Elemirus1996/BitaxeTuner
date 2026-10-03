@@ -70,7 +70,8 @@ public partial class ServerModeWindow : Window
     /// <summary>Verbindung und Token prüfen. Bei selbst signiertem HTTPS-Zertifikat den Fingerabdruck bestätigen lassen.</summary>
     private async Task<(ServerClient Client, ServerInfo Info)?> ConnectAsync()
     {
-        for (var attempt = 0; attempt < 2; attempt++)
+        var triedHttps = false;
+        for (var attempt = 0; attempt < 3; attempt++)
         {
             var client = CreateClient();
             try
@@ -93,7 +94,23 @@ public partial class ServerModeWindow : Window
                 _config.Save();
                 return (client, info);
             }
-            catch (ServerException ex) when (attempt == 0 && client.PresentedFingerprint is { } fp && ex.Message.StartsWith(L.T("Zertifikat")))
+            catch (ServerException ex) when (!triedHttps && client.BaseUri.Scheme == "http" && client.PresentedFingerprint is null)
+            {
+                // Server ist vielleicht auf HTTPS umgestellt (Audit S4): dieselbe Adresse mit https versuchen,
+                // das Zertifikat bestätigt man im nächsten Durchlauf
+                var uri = client.BaseUri;
+                client.Dispose();
+                triedHttps = true;
+                if (!await RespondsWithHttpsAsync(uri))
+                {
+                    ConnectionText.Text = ex.Message;
+                    Log(ex.Message);
+                    return null;
+                }
+                UrlBox.Text = ServerClient.ToHttps(uri).ToString();
+                Log(L.T("Server antwortet nur noch verschlüsselt – Adresse auf {0} umgestellt.", UrlBox.Text));
+            }
+            catch (ServerException ex) when (attempt < 2 && client.PresentedFingerprint is { } fp && ex.Message.StartsWith(L.T("Zertifikat")))
             {
                 client.Dispose();
                 var ok = MessageBox.Show(this,
@@ -112,6 +129,23 @@ public partial class ServerModeWindow : Window
             }
         }
         return null;
+    }
+
+    /// <summary>Antwortet unter derselben Adresse ein HTTPS-Server (gleich welches Zertifikat)?</summary>
+    private static async Task<bool> RespondsWithHttpsAsync(Uri httpUri)
+    {
+        try
+        {
+            using var handler = new System.Net.Http.SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(4),
+                SslOptions = new System.Net.Security.SslClientAuthenticationOptions { RemoteCertificateValidationCallback = (_, _, _, _) => true },
+            };
+            using var http = new System.Net.Http.HttpClient(handler) { Timeout = TimeSpan.FromSeconds(6) };
+            using var r = await http.GetAsync(new Uri(ServerClient.ToHttps(httpUri), "api/v1/info"));
+            return r.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 
     private async void Test_Click(object sender, RoutedEventArgs e)
@@ -370,7 +404,8 @@ public partial class ServerModeWindow : Window
             PiPassword2.Clear();
             PiUserPassword.Clear();
             PiWifiPassword.Clear();
-            _config.Server.Url = "http://bitaxetuner.local:8484/";
+            // Neue Installationen starten mit HTTPS (Audit S4); den Fingerabdruck bestätigt man beim ersten Verbinden
+            _config.Server.Url = "https://bitaxetuner.local:8484/";
             _config.Server.Token = token;
             _config.Server.CertificateFingerprint = null;
             _config.Save();

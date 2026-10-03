@@ -23,6 +23,44 @@ public sealed class ServerSettings
     public bool AllowPublic { get; init; }
     public bool Https { get; init; }
 
+    /// <summary>HTTPS fest über Aufruf/Umgebung vorgegeben (--https, BITAXETUNER_HTTPS) – dann nicht in der Oberfläche umschaltbar.</summary>
+    public bool HttpsFixed { get; init; }
+
+    /// <summary>Gespeicherte Wahl HTTP/HTTPS im Datenordner (server-settings.json, additiv).</summary>
+    public const string StoredFile = "server-settings.json";
+
+    private sealed record Stored(bool? Https);
+
+    public static bool? ReadStoredHttps(string dataDirectory)
+    {
+        try
+        {
+            var file = Path.Combine(dataDirectory, StoredFile);
+            return File.Exists(file) ? System.Text.Json.JsonSerializer.Deserialize<Stored>(File.ReadAllText(file))?.Https : null;
+        }
+        catch { return null; }
+    }
+
+    public static void WriteStoredHttps(string dataDirectory, bool https)
+    {
+        Directory.CreateDirectory(dataDirectory);
+        var file = Path.Combine(dataDirectory, StoredFile);
+        File.WriteAllText(file + ".tmp", System.Text.Json.JsonSerializer.Serialize(new Stored(https)));
+        File.Move(file + ".tmp", file, overwrite: true);
+    }
+
+    /// <summary>
+    /// HTTPS (Audit S4): fest vorgegeben → so; sonst die gespeicherte Wahl; sonst Neuinstallation (noch keine Zugangsdaten
+    /// und keine Einstellungen) → HTTPS; bestehende Installation → HTTP wie bisher (Umstellen in der Oberfläche).
+    /// </summary>
+    internal static bool ResolveHttps(string dataDirectory, bool? fixedValue)
+    {
+        if (fixedValue is { } f) return f;
+        if (ReadStoredHttps(dataDirectory) is { } stored) return stored;
+        // Ohne Schreiben: gemerkt wird die Wahl erst beim echten Start (Program.cs), nicht schon beim Lesen der Argumente
+        return !File.Exists(Path.Combine(dataDirectory, "server-auth.json")) && !File.Exists(Path.Combine(dataDirectory, "config.json"));
+    }
+
     public static ServerSettings FromArgs(string[] args)
     {
         string? Arg(string name)
@@ -36,13 +74,16 @@ public sealed class ServerSettings
         var data = Arg("--data") ?? Env(DataPaths.EnvironmentVariable) ?? DefaultDataDirectory();
         var port = int.TryParse(Arg("--port") ?? Env("BITAXETUNER_PORT"), out var p) && p is > 0 and < 65536 ? p : DefaultPort;
         var bind = IPAddress.TryParse(Arg("--bind") ?? Env("BITAXETUNER_BIND"), out var ip) ? ip : null;
+        var dir = Path.GetFullPath(data);
+        bool? httpsFixed = args.Contains("--https") ? true : Env("BITAXETUNER_HTTPS") is { } h ? Flag(h) : null;
         return new ServerSettings
         {
-            DataDirectory = Path.GetFullPath(data),
+            DataDirectory = dir,
             Port = port,
             Bind = bind,
             AllowPublic = args.Contains("--allow-public") || Flag(Env("BITAXETUNER_ALLOW_PUBLIC")),
-            Https = args.Contains("--https") || Flag(Env("BITAXETUNER_HTTPS")),
+            Https = ResolveHttps(dir, httpsFixed),
+            HttpsFixed = httpsFixed is not null,
         };
     }
 

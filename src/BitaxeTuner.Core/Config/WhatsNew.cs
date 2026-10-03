@@ -114,6 +114,10 @@ public static class WhatsNew
             new("0.9.4", tr.T("Signierte Updates"),
                 tr.T("Jedes Release ist jetzt mit dem Schlüssel des Projekts signiert. Desktop-App und Server installieren ein Update nur, wenn die Signatur gültig ist – ein gekapertes GitHub-Konto allein reicht nicht mehr, um ein Update unterzuschieben."),
                 null),
+            new("0.9.4", tr.T("Verschlüsselte Verbindung (HTTPS)"),
+                server ? tr.T("Neue Installationen starten mit HTTPS. Bestehende Server lassen sich unter Einstellungen → Verbindung mit einem Klick umstellen – danach gehen Passwort, Token und Sitzung im Heimnetz verschlüsselt.")
+                       : tr.T("Im Server-Betrieb: Läuft der Server noch unverschlüsselt, zeigt das Serverfenster einen Knopf „Auf HTTPS umstellen“; die App übernimmt Adresse und Zertifikat selbst."),
+                null),
         ];
     }
 

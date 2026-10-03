@@ -141,6 +141,7 @@ public partial class RemoteWindow : Window
             core.CookieManager.AddOrUpdateCookie(cookie);
             core.Navigate(client.BaseUri.ToString());
             ErrorPanel.Visibility = Visibility.Collapsed;
+            await ShowHttpsHintAsync(client);
             _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(AskPickupOnce));
         }
         catch (Exception ex) when (ex is ServerException or WebView2RuntimeNotFoundException)
@@ -199,8 +200,47 @@ public partial class RemoteWindow : Window
         _webReady = true;
     }
 
+    /// <summary>Unverschlüsselte Verbindung: Knopf zum Umstellen zeigen, wenn der Server das erlaubt (Audit S4).</summary>
+    private async Task ShowHttpsHintAsync(ServerClient client)
+    {
+        HttpsButton.Visibility = Visibility.Collapsed;
+        if (client.BaseUri.Scheme != "http") return;
+        try
+        {
+            var (enabled, configurable, _) = await client.HttpsStatusAsync();
+            if (!enabled && configurable) HttpsButton.Visibility = Visibility.Visible;
+        }
+        catch (ServerException) { /* älterer Server ohne diese Funktion */ }
+    }
+
+    private async void Https_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this,
+                L.T("Server auf HTTPS umstellen?\n\nDanach sind Passwort, Token und Sitzung im Heimnetz verschlüsselt. Der Server startet dabei neu (etwa 10–20 Sekunden); die Miner laufen weiter.\n\nDiese App übernimmt die neue Adresse und den Fingerabdruck des Zertifikats selbst. Im Browser erscheint beim ersten Aufruf eine Warnung wegen des selbst signierten Zertifikats – das ist in Ordnung."),
+                L.T("Auf HTTPS umstellen"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        try
+        {
+            using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
+            var fingerprint = await client.EnableHttpsAsync();
+            _config.Server.Url = ServerClient.ToHttps(client.BaseUri).ToString();
+            _config.Server.CertificateFingerprint = fingerprint;
+            _config.Save();
+            HttpsButton.Visibility = Visibility.Collapsed;
+            ServerText.Text = L.T("Server startet mit HTTPS neu …");
+            _retry.Stop();
+            await Task.Delay(TimeSpan.FromSeconds(15));
+            await ConnectAsync();
+        }
+        catch (ServerException ex)
+        {
+            MessageBox.Show(this, ex.Message, L.T("Auf HTTPS umstellen"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void ShowError(string text)
     {
+        if (_config.Server.Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            text += L.T("\n\nWurde der Server auf HTTPS umgestellt? Dann unter „Betriebsart …“ einmal „Verbindung testen“ – die App erkennt das und fragt nach dem Zertifikat.");
         ErrorText.Text = text;
         ErrorPanel.Visibility = Visibility.Visible;
         _retry.Start();

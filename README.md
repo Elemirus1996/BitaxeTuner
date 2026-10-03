@@ -296,7 +296,8 @@ SYSTEM und Administratoren lesbar (Zugangsdaten); den Code also z. B. mit dem Ed
 **Docker**: [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml) herunterladen, `docker compose up -d`,
 Einrichtungs-Code mit `docker compose logs bitaxetuner`. Daten im Volume `/data`.
 
-**Einrichten**: Im Browser `http://<IP>:8484/` öffnen, Einrichtungs-Code eingeben und ein Admin-Passwort festlegen.
+**Einrichten**: Im Browser `https://<IP>:8484/` öffnen (ab 0.9.4 starten neue Installationen verschlüsselt; die Warnung
+wegen des selbst signierten Zertifikats einmal bestätigen), Einrichtungs-Code eingeben und ein Admin-Passwort festlegen.
 Danach unter *Einstellungen* Geräte, Push-Dienst usw. einrichten – oder die Daten vom PC übertragen (siehe unten).
 
 ### Zusatzlüfter, E-Paper-Anzeige und Taster (Raspberry Pi Pico)
@@ -435,8 +436,11 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
   Router freigeben – für unterwegs ein VPN verwenden.
 - Admin-Passwort als PBKDF2-Hash, Sperre nach 5 Fehlversuchen, Sitzungs-Cookies HttpOnly/SameSite=Strict,
   CSRF-Schutz für alle Änderungen, API-Token nur als Hash gespeichert.
-- Optional HTTPS mit selbst signiertem Zertifikat (`BITAXETUNER_HTTPS=1`); die Desktop-App lässt den Fingerabdruck
-  beim ersten Verbinden bestätigen.
+- HTTPS mit selbst signiertem Zertifikat: **neue Installationen (ab 0.9.4) starten verschlüsselt**. Bestehende Server
+  bleiben bei HTTP und zeigen dem Admin einen Hinweis „Auf HTTPS umstellen“ (Übersicht bzw. *Einstellungen → Verbindung*,
+  in der Desktop-App ein Knopf im Serverfenster); der Server startet dabei neu. Die Desktop-App übernimmt Adresse und
+  Fingerabdruck beim Umstellen selbst, sonst lässt sie den Fingerabdruck beim ersten Verbinden bestätigen. Fest vorgeben
+  lässt es sich weiter mit `BITAXETUNER_HTTPS=1` bzw. `=0`.
 
 ### Updates
 

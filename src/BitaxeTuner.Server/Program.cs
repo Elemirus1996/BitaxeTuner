@@ -63,6 +63,7 @@ builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<Lockout>();
 builder.Services.AddSingleton<EventStream>();
 builder.Services.AddSingleton<ServerUpdater>();
+builder.Services.AddSingleton<ServerRestart>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerUpdater>());
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
@@ -87,6 +88,11 @@ builder.WebHost.ConfigureKestrel(k =>
 
 var app = builder.Build();
 settings = app.Services.GetRequiredService<ServerSettings>(); // Tests ersetzen die Einstellungen per DI
+// Neuinstallation mit HTTPS: Wahl merken, damit sie nach dem Anlegen von Zugangsdaten/Einstellungen bestehen bleibt
+if (settings.Https && !settings.HttpsFixed && ServerSettings.ReadStoredHttps(settings.DataDirectory) is null)
+{
+    try { ServerSettings.WriteStoredHttps(settings.DataDirectory, true); } catch { /* nur Merken */ }
+}
 var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BitaxeTuner.Server");
 
 // 1. Nur Heimnetz/VPN (außer ausdrücklich freigegeben), Sicherheits-Header, Anmeldung auflösen

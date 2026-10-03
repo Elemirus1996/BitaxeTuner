@@ -273,6 +273,7 @@ function started() {
   startEvents();
   route();
   if (isAdmin()) refreshUpdateInfo();
+  if (isAdmin()) api('/admin/https').then(r => { S.https = r; }).catch(() => {});
 }
 
 /** Update-Stand für den Hinweis in der Übersicht – höchstens alle 30 min vom Server holen (Übersicht zeichnet oft neu). */
@@ -489,6 +490,7 @@ function renderOverview() {
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
     s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     isAdmin() && s.walletConsentNeeded ? walletConsentBanner() : null,
+    isAdmin() && S.https && !S.https.enabled && S.https.configurable && localStorageGet('httpsHint') !== 'later' ? httpsBanner() : null,
     isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
@@ -1946,6 +1948,7 @@ async function renderSettings() {
           },
         }, t('Token erzeugen')))),
     viewersCard(status?.groups || []),
+    connectionCard(),
     metricsCard(),
     backupCard(),
     mqttCard(),
@@ -2462,6 +2465,46 @@ function restoreUploadBox() {
     h('h3', {}, t('Sicherung einspielen')),
     h('p', { class: 'muted small' }, t('Eine Sicherungsdatei (bitaxetuner-backup-….zip) vom PC, USB-Stick oder NAS hochladen – z. B. auf einem neu aufgesetzten Server. Sie wird vor dem Einspielen vollständig geprüft.')),
     h('div', { class: 'row' }, file, h('button', { class: 'btn', onclick: go }, t('Hochladen und einspielen …'))));
+}
+
+/** HTTP ↔ HTTPS umstellen (Audit S4): Wahl speichern, Server startet neu, danach auf die neue Adresse wechseln. */
+async function switchHttps(enable) {
+  const text = enable
+    ? t('Server auf HTTPS umstellen?\n\nDanach sind Passwort, Token und Sitzung im Heimnetz verschlüsselt. Der Server startet dabei neu (etwa 10–20 Sekunden); die Miner laufen weiter.\n\nDer Browser zeigt beim ersten Aufruf eine Warnung wegen des selbst signierten Zertifikats – „Erweitert“ → „Weiter“ ist hier in Ordnung. Die Desktop-App übernimmt die Umstellung über ihren eigenen Knopf bzw. „Verbindung testen“.')
+    : t('Server wieder auf HTTP (unverschlüsselt) umstellen?\n\nPasswort, Token und Sitzung gehen dann wieder unverschlüsselt durchs Heimnetz. Der Server startet neu.');
+  if (!await confirmBox(enable ? t('Auf HTTPS umstellen') : t('Auf HTTP umstellen'), text, enable ? t('Umstellen') : t('Trotzdem umstellen'), !enable)) return;
+  const r = await run(() => api('/admin/https', { method: 'POST', body: { enable } }));
+  if (!r?.restarting) return;
+  const target = `${enable ? 'https' : 'http'}://${location.hostname}:${r.port || location.port}/`;
+  toast(t('Server startet neu – in etwa 15 Sekunden geht es unter {0} weiter.', target), 'ok', 20000);
+  setTimeout(() => { location.href = target; }, 15000);
+}
+
+function httpsBanner() {
+  return h('div', { class: 'banner stack' },
+    h('b', {}, t('Verbindung unverschlüsselt (HTTP)')),
+    h('p', { class: 'small' }, t('Admin-Passwort, Token und Sitzung gehen im Heimnetz bisher unverschlüsselt. Mit HTTPS (selbst signiertes Zertifikat) sind sie verschlüsselt.')),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', onclick: () => switchHttps(true) }, t('Auf HTTPS umstellen …')),
+      h('button', { class: 'btn', onclick: () => { localStorageSet('httpsHint', 'later'); route(); } }, t('Später'))));
+}
+
+/** Einstellungen → Verbindung: Stand HTTP/HTTPS, Fingerabdruck, umstellen. */
+function connectionCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  api('/admin/https').then(c => {
+    S.https = c;
+    fill(body,
+      h('p', {}, c.enabled ? h('span', { class: 'ok' }, t('Verschlüsselt (HTTPS, selbst signiertes Zertifikat).')) : h('span', { class: 'warn' }, t('Unverschlüsselt (HTTP).'))),
+      c.fingerprint ? h('p', { class: 'small' }, t('Fingerabdruck (SHA-256): '), h('code', {}, c.fingerprint)) : null,
+      c.configurable
+        ? h('div', { class: 'row' }, h('button', { class: c.enabled ? 'btn' : 'btn primary', onclick: () => switchHttps(!c.enabled) },
+            c.enabled ? t('Auf HTTP umstellen …') : t('Auf HTTPS umstellen …')))
+        : h('p', { class: 'muted small' }, t('Beim Start fest vorgegeben (--https bzw. BITAXETUNER_HTTPS) – hier nicht umschaltbar.')));
+  }).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Verbindung')),
+    h('p', { class: 'muted small' }, t('Neue Installationen starten verschlüsselt. Den Fingerabdruck kannst du mit der Warnung im Browser bzw. der Rückfrage der Desktop-App vergleichen.')),
+    body);
 }
 
 /** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */

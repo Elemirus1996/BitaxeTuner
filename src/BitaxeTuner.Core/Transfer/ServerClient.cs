@@ -129,6 +129,27 @@ public sealed class ServerClient : IDisposable
         return e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
     }
 
+    /// <summary>Verbindung des Servers: HTTPS an?, umschaltbar?, Fingerabdruck des Zertifikats (Audit S4).</summary>
+    public async Task<(bool Enabled, bool Configurable, string? Fingerprint)> HttpsStatusAsync(CancellationToken ct = default)
+    {
+        var e = await GetJsonAsync("api/v1/admin/https", ct);
+        return (e.GetProperty("enabled").GetBoolean(), e.GetProperty("configurable").GetBoolean(),
+            e.TryGetProperty("fingerprint", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() : null);
+    }
+
+    /// <summary>
+    /// Server auf HTTPS umstellen. Liefert den Fingerabdruck seines Zertifikats – über die angemeldete Verbindung, daher
+    /// ohne Rückfrage festzuhalten. Der Server startet danach neu (etwa 10–20 s).
+    /// </summary>
+    public async Task<string?> EnableHttpsAsync(CancellationToken ct = default)
+    {
+        var e = await SendAsync(HttpMethod.Post, "api/v1/admin/https", JsonContent.Create(new { enable = true }), ct);
+        return e.TryGetProperty("fingerprint", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() : null;
+    }
+
+    /// <summary>Gleiche Adresse mit https statt http (Port bleibt).</summary>
+    public static Uri ToHttps(Uri uri) => new UriBuilder(uri) { Scheme = "https", Port = uri.Port }.Uri;
+
     /// <summary>Update-Stand des Servers (nach einer frischen Prüfung bei GitHub).</summary>
     public async Task<ServerUpdateStatus> CheckServerUpdateAsync(CancellationToken ct = default)
     {

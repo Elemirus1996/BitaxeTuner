@@ -12,6 +12,8 @@ public static class Certificates
 {
     public static X509Certificate2 LoadOrCreate(string dataDirectory)
     {
+        // Neuinstallation mit HTTPS: beim ersten Start gibt es den Datenordner noch nicht (sonst Absturz beim Speichern)
+        Directory.CreateDirectory(dataDirectory);
         var file = Path.Combine(dataDirectory, "server-cert.pfx");
         if (File.Exists(file))
         {

@@ -297,7 +297,8 @@ administrators (credentials), so open the code e.g. with Notepad “Run as admin
 **Docker**: download [`deploy/docker/docker-compose.yml`](deploy/docker/docker-compose.yml), run `docker compose up -d`,
 get the setup code with `docker compose logs bitaxetuner`. Data in the volume `/data`.
 
-**Setup**: open `http://<IP>:8484/` in the browser, enter the setup code and set an admin password.
+**Setup**: open `https://<IP>:8484/` in the browser (from 0.9.4 new installations start encrypted; confirm the warning
+about the self-signed certificate once), enter the setup code and set an admin password.
 Then add devices, push service etc. under *Settings* – or transfer the data from your PC (see below).
 
 ### Extra fans, e-paper display and buttons (Raspberry Pi Pico)
@@ -431,8 +432,11 @@ You can switch in both directions at any time with all your data (see *Switching
   Do **not** forward the port in your router – use a VPN when you're away.
 - Admin password as a PBKDF2 hash, lockout after 5 failed attempts, session cookies HttpOnly/SameSite=Strict,
   CSRF protection for all changes, API tokens stored only as hashes.
-- Optional HTTPS with a self-signed certificate (`BITAXETUNER_HTTPS=1`); the desktop app asks you to confirm the
-  fingerprint when connecting for the first time.
+- HTTPS with a self-signed certificate: **new installations (from 0.9.4) start encrypted**. Existing servers stay on
+  HTTP and show the admin a hint “Switch to HTTPS” (overview or *Settings → Connection*, in the desktop app a button in
+  the server window); the server restarts. The desktop app takes over address and fingerprint itself when switching,
+  otherwise it asks you to confirm the fingerprint when connecting for the first time. It can still be fixed with
+  `BITAXETUNER_HTTPS=1` or `=0`.
 
 ### Updates
 

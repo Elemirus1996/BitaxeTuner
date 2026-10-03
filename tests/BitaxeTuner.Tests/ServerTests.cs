@@ -32,6 +32,9 @@ public sealed class ServerTests : IDisposable
             {
                 s.RemoveAll<ServerSettings>();
                 s.AddSingleton(new ServerSettings { DataDirectory = _dir.Path });
+                // Neustart beendet sonst den Prozess – in Tests nur mitzählen
+                s.RemoveAll<ServerRestart>();
+                s.AddSingleton<ServerRestart>(sp => _restart = new FakeRestart(sp.GetRequiredService<HubService>()));
                 s.AddSingleton(new MinerHubOptions
                 {
                     ClientFactory = h => new SimulatedMinerClient(gamma, 3, h),
@@ -40,6 +43,55 @@ public sealed class ServerTests : IDisposable
                 });
             });
         });
+    }
+
+    private FakeRestart? _restart;
+
+    private sealed class FakeRestart(HubService hub) : ServerRestart(hub, Microsoft.Extensions.Logging.Abstractions.NullLogger<ServerRestart>.Instance)
+    {
+        public List<string> Reasons { get; } = [];
+        public override void Schedule(string reason) => Reasons.Add(reason);
+    }
+
+    [Fact]
+    public async Task Https_can_be_switched_on_and_the_app_gets_the_fingerprint()
+    {
+        // Audit S4: bestehende Installation (HTTP) → umstellen speichert die Wahl, liefert den Fingerabdruck, startet neu
+        var admin = await AdminAsync();
+        var status = await Json(await admin.GetAsync("/api/v1/admin/https"));
+        Assert.False(status.GetProperty("enabled").GetBoolean());
+        Assert.True(status.GetProperty("configurable").GetBoolean());
+
+        var r = await Json(await admin.PostAsJsonAsync("/api/v1/admin/https", new { enable = true }));
+        Assert.True(r.GetProperty("restarting").GetBoolean());
+        Assert.Matches("^([0-9A-F]{2}:){31}[0-9A-F]{2}$", r.GetProperty("fingerprint").GetString()!);
+        Assert.True(ServerSettings.ReadStoredHttps(_dir.Path));
+        Assert.Single(_restart!.Reasons);
+        Assert.Contains("HTTPS", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+
+        // nur für Admins
+        var anon = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.PostAsJsonAsync("/api/v1/admin/https", new { enable = true })).StatusCode);
+    }
+
+    [Fact]
+    public void New_installations_start_with_https_existing_ones_keep_http()
+    {
+        using var fresh = new TempDir();
+        Assert.True(ServerSettings.ResolveHttps(fresh.Path, null));                 // Neuinstallation
+        Assert.False(File.Exists(Path.Combine(fresh.Path, ServerSettings.StoredFile)));   // Lesen schreibt nichts
+        using var existing = new TempDir();
+        File.WriteAllText(Path.Combine(existing.Path, "config.json"), "{}");
+        Assert.False(ServerSettings.ResolveHttps(existing.Path, null));             // bestehend: wie bisher HTTP
+        ServerSettings.WriteStoredHttps(existing.Path, true);
+        Assert.True(ServerSettings.ResolveHttps(existing.Path, null));              // gespeicherte Wahl gilt
+        Assert.False(ServerSettings.ResolveHttps(existing.Path, false));            // fest vorgegeben gewinnt
+
+        // Erster Start einer Neuinstallation: Datenordner gibt es noch nicht – Zertifikat darf nicht abstürzen
+        var notYet = Path.Combine(fresh.Path, "neu", "data");
+        var cert = Certificates.LoadOrCreate(notYet);
+        Assert.True(File.Exists(Path.Combine(notYet, "server-cert.pfx")));
+        Assert.Equal(Certificates.Fingerprint(cert), Certificates.Fingerprint(Certificates.LoadOrCreate(notYet)));   // bleibt gleich
     }
 
     public void Dispose()

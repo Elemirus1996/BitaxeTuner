@@ -32,6 +32,7 @@ public sealed record DeviceRequest(string? Name, string? Host, string? WalletAdd
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
+public sealed record HttpsRequest(bool Enable);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
@@ -773,6 +774,34 @@ public static class Endpoints
 
         g.MapPost("/wallet-consent", async (WalletConsentRequest req, HubService hub) =>
             Results.Json(await hub.RunAsync(async h => { await h.SetWalletConsentAsync(req.Allow); return new { ok = true }; })));
+
+        // Verbindung HTTP/HTTPS (Audit S4). Umstellen speichert die Wahl und startet den Dienst neu; der Fingerabdruck des
+        // selbst signierten Zertifikats geht an die (angemeldete) App, die ihn damit ohne Rückfrage festhalten kann.
+        g.MapGet("/admin/https", (ServerSettings settings) => Results.Json(new
+        {
+            enabled = settings.Https,
+            configurable = !settings.HttpsFixed,
+            fingerprint = settings.Https ? Certificates.Fingerprint(Certificates.LoadOrCreate(settings.DataDirectory)) : null,
+            port = settings.Port,
+        }));
+
+        g.MapPost("/admin/https", async (HttpsRequest req, ServerSettings settings, ServerRestart restart, HubService hub) =>
+        {
+            if (settings.HttpsFixed)
+                return Error(400, L.N("HTTPS ist beim Start fest vorgegeben (--https bzw. BITAXETUNER_HTTPS) und lässt sich hier nicht umstellen."));
+            if (req.Enable == settings.Https) return Results.Json(new { ok = true, restarting = false, fingerprint = (string?)null });
+            var fingerprint = req.Enable ? Certificates.Fingerprint(Certificates.LoadOrCreate(settings.DataDirectory)) : null;
+            ServerSettings.WriteStoredHttps(settings.DataDirectory, req.Enable);
+            await hub.RunAsync(h =>
+            {
+                h.LogEvent(null, EventCategories.Settings, req.Enable
+                    ? L.T("Verbindung auf HTTPS umgestellt – der Server startet neu.")
+                    : L.T("Verbindung auf HTTP (unverschlüsselt) umgestellt – der Server startet neu."));
+                return true;
+            });
+            restart.Schedule(req.Enable ? "HTTPS eingeschaltet" : "HTTPS ausgeschaltet");
+            return Results.Json(new { ok = true, restarting = true, fingerprint, port = settings.Port });
+        });
 
         // Prometheus-Export: ein-/ausschalten, Token erzeugen (wird nur einmal angezeigt)
         g.MapGet("/metrics/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => new

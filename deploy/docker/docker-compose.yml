@@ -22,7 +22,7 @@ services:
     #   - dialout
     environment:
       - TZ=Europe/Berlin
-      # - BITAXETUNER_HTTPS=1        # selbst signiertes Zertifikat (Fingerabdruck im Protokoll)
+      # - BITAXETUNER_HTTPS=1        # HTTPS fest vorgeben (neue Installationen starten ab 0.9.4 ohnehin mit HTTPS)
 
 volumes:
   bitaxetuner-data:

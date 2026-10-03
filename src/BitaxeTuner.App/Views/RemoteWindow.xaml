@@ -21,6 +21,9 @@
                     <TextBlock x:Name="VersionText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <TextBlock x:Name="BackupText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <Button x:Name="UpdateButton" Click="Update_Click" Style="{StaticResource PrimaryButton}" Margin="14,0,0,0" Padding="10,2" Visibility="Collapsed" />
+                    <Button x:Name="HttpsButton" Click="Https_Click" Margin="10,0,0,0" Padding="10,2" Visibility="Collapsed"
+                            Content="{l:T 'Unverschlüsselt (HTTP) – auf HTTPS umstellen …'}"
+                            ToolTip="{l:T 'Passwort, Token und Sitzung gehen im Heimnetz bisher unverschlüsselt. Mit HTTPS sind sie verschlüsselt.'}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="{l:T 'Neu laden'}" Click="Reload_Click" />
