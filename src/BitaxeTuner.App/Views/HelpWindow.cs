@@ -53,13 +53,13 @@ public sealed class HelpWindow : Window
                 _list.Children.Add(intro);
             }
             foreach (var item in items)
-                _list.Children.Add(new Expander
-                {
-                    Header = new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap },
-                    Content = new TextBlock { Text = item.Text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(22, 4, 0, 8) },
-                    IsExpanded = q.Length > 0,
-                    Margin = new Thickness(0, 2, 0, 2),
-                });
+            {
+                var header = new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+                var body = new TextBlock { Text = item.Text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(22, 4, 0, 8) };
+                header.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+                body.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+                _list.Children.Add(new Expander { Header = header, Content = body, IsExpanded = q.Length > 0, Margin = new Thickness(0, 2, 0, 2) });
+            }
         }
     }
 }

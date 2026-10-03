@@ -466,6 +466,8 @@
         <h3>E-paper 7.5" (red/black/white)</h3>
         <p>The module is actually designed for plugging the Pico on top. Here the Pico stays on the breadboard, and only eight wires go via male-male jumpers into the module's socket header – each into the hole where the module expects the signal (column “Target”, pin 1 is marked on the module). <strong>Do not plug the Pico directly onto the module:</strong> the module expects the display on GP8–GP13, but the fans use GP8 and GP10 here – BitaxeTuner drives the display on GP11–GP15 and GP22. The display's ribbon cable goes into the module's flip-lock connector, contacts facing down.</p>
         <p>The display refreshes at most every 3 minutes (default 5, optionally not at all at night) and takes about 16 seconds to do so. That protects the panel. On an alert (miner offline, case too warm) it refreshes immediately.</p>
+        <p>Pages (each can be switched on or off, preview in the browser under <b>Fans &amp; display</b>): overview, daily summary, history, BTC, BCH or both prices, monthly and daily summary with a selectable chart, groups, electricity price traffic light, temperature sensors and a QR code to the web UI. Colours can be inverted (white text on black). The block found screen ends either after a configurable number of hours or – like the warnings – only with button 1.</p>
+        <p><b>Program updates:</b> when a new BitaxeTuner version ships a new fan program, the server installs it by itself on the next connection – via USB or over Wi-Fi – and the Pico restarts. Only MicroPython itself is updated by hand (UF2 file, as during the first setup).</p>
       </div>
       <div class="panel">
         <h3>Buttons</h3>

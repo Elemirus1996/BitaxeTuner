@@ -681,7 +681,8 @@ function onboardingCard(steps) {
     h('div', { class: 'stack' }, steps.map((x, i) => h('div', { class: 'row', style: 'align-items:flex-start' },
       h('span', { class: x.done ? 'ok' : 'muted', style: 'font-size:18px;line-height:1' }, x.done ? '✔' : String(i + 1)),
       h('div', { style: 'flex:1' }, h('b', {}, t(x.title)), h('div', { class: 'small muted' }, t(x.text))),
-      x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = t(x.section); } }, x.done ? t('Ansehen') : t('Einrichten')) : null))));
+      x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = t(x.section); } }, x.done ? t('Ansehen') : t('Einrichten')) : null))),
+    h('p', { class: 'muted small' }, t('Fragen? Unter „Hilfe“ stehen eine Kurzanleitung, Erklärungen zu jedem Protokolleintrag und zu den Miner-Logs.'), ' ', h('a', { href: '#/help' }, t('Hilfe öffnen'))));
 }
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */

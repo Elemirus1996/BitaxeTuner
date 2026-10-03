@@ -34,7 +34,8 @@ public sealed class OnboardingWindow : Window
         var intro = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 12),
-            Text = L.T("Diese Schritte richten das Wichtigste ein – jeder hakt sich selbst ab. Später wieder aufrufen: Einstellungen → Programm und Tuning."),
+            Text = L.T("Diese Schritte richten das Wichtigste ein – jeder hakt sich selbst ab. Später wieder aufrufen: Einstellungen → Programm und Tuning.")
+                + "\n" + L.T("Fragen? Unter „Hilfe“ stehen eine Kurzanleitung, Erklärungen zu jedem Protokolleintrag und zu den Miner-Logs."),
         };
         intro.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
         _progress.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");

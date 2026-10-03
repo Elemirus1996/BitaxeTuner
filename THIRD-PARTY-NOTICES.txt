@@ -23,11 +23,14 @@ Microsoft.Data.Sqlite                        MIT                 .NET Foundation
 System.IO.Ports (inkl. runtime.*.native.     MIT                 .NET Foundation and Contributors
   System.IO.Ports), System.Memory,
   System.Buffers, System.Diagnostics.EventLog,
-  System.ServiceProcess.ServiceController
+  System.ServiceProcess.ServiceController,
+  System.Net.Http, System.Text.RegularExpressions,
+  System.Drawing.Common, Microsoft.Win32.SystemEvents
 CommunityToolkit.Mvvm                        MIT                 .NET Foundation and Contributors
 System.Security.Cryptography.ProtectedData   MIT                 .NET Foundation and Contributors
 MQTTnet (Home Assistant / MQTT)              MIT                 .NET Foundation and Contributors
-QRCoder (QR-Code auf dem E-Paper)            MIT                 Copyright (c) 2013-2018 Raffael Herrmann
+QRCoder (QR-Code auf dem E-Paper)            MIT                 Copyright (c) 2013-2025 Raffael Herrmann;
+                                                                 Copyright (c) 2024-2025 Shane Krueger
 SMBLibrary (Sicherung auf Netzlaufwerk)      LGPL-3.0-or-later   Copyright (c) Tal Aloni 2014-2026 (4)
 SQLitePCLRaw (bundle_e_sqlite3)              Apache-2.0          Copyright 2014-2024 SourceGear, LLC
 SQLite                                       Public Domain       https://sqlite.org/copyright.html
@@ -35,6 +38,7 @@ SixLabors.ImageSharp, .Drawing, .Fonts       Apache-2.0 (1)      Copyright (c) S
 Microsoft.Web.WebView2 (SDK, nur Desktop)    BSD-artig (2)       Copyright (C) Microsoft Corporation
 DejaVu Sans Condensed (Schrift, E-Paper)     Bitstream Vera /    Copyright (c) 2003 Bitstream, Inc.;
                                              DejaVu (3)          DejaVu changes are in public domain
+Pool-Symbol (pool.svg, Desktop-Geräteliste)  ISC (5)             Copyright (c) Lucide Icons and Contributors
 
 (1) Six Labors Split License v1.0: für Software unter einer Open-Source-Lizenz gilt die
     Apache License 2.0. BitaxeTuner ist Open Source (GPL-3.0), daher Apache License 2.0.
@@ -44,6 +48,7 @@ DejaVu Sans Condensed (Schrift, E-Paper)     Bitstream Vera /    Copyright (c) 2
 (4) GNU Lesser General Public License v3 (Text in Abschnitt 8; sie ergänzt die GPL v3, siehe LICENSE).
     Quelltext: https://github.com/TalAloni/SMBLibrary. Da BitaxeTuner selbst quelloffen ist, kann jeder
     die Programme mit einer geänderten SMBLibrary neu bauen.
+(5) Gestaltet nach dem Symbol „waves-ladder“ von Lucide (https://lucide.dev); ISC-Lizenztext in Abschnitt 9.
 
 Die Liste der Pool-Statistikseiten (Pool-Quick-Links) folgt der Liste in ESP-Miner/AxeOS
 (quicklink.service.ts, GNU GPL v3.0, https://github.com/bitaxeorg/ESP-Miner) und wurde ergänzt.
@@ -97,6 +102,9 @@ Debian-Pakete: https://deb.debian.org/debian/ und https://sources.debian.org.
 ----------------
 
 Das Lüfterprogramm für den Raspberry Pi Pico (btfan.py) ist Teil von BitaxeTuner (GPL-3.0).
+Die Ansteuerung des E-Papers ist eigener Code; Pinbelegung und Initialisierungswerte der Register
+folgen dem Datenblatt des Controllers und den Beispielen von Waveshare team (Pico_ePaper_Code:
+Dateien mit MIT-Hinweis, Repository unter GPL-3.0 – beides mit BitaxeTuner verträglich).
 MicroPython (MIT-Lizenz, https://micropython.org) wird vom Nutzer selbst installiert und ist
 nicht in BitaxeTuner enthalten.
 
@@ -107,6 +115,7 @@ nicht in BitaxeTuner enthalten.
 The MIT License (MIT)
 
 Copyright (c) .NET Foundation and Contributors
+Copyright (c) 2013-2025 Raffael Herrmann, Copyright (c) 2024-2025 Shane Krueger (QRCoder)
 
 All rights reserved.
 
@@ -727,3 +736,23 @@ whether future versions of the GNU Lesser General Public License shall
 apply, that proxy's public statement of acceptance of any version is
 permanent authorization for you to choose that version for the
 Library.
+
+
+9. ISC License (Lucide – Pool-Symbol)
+-------------------------------------
+
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.

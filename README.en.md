@@ -113,6 +113,9 @@ Corrections to the English texts are welcome: they all live in
   tests, automation/watchdog, fan control (VR and case), offline/online, settings and server events. Filter by period,
   miner, category and text, CSV export; continues after restarts and updates. Click an entry to see what it means and
   what you can do.
+- **Help** (browser *Help*, desktop *Help*): short guide to the main workflows, every log entry with its meaning and
+  “what to do”, the miner logs (AxeOS/ESP-Miner: structure of a line, pool, ASIC, temperature, voltage regulator,
+  Wi-Fi, crash) and frequently asked questions – searchable, for every role.
 - **Miner logs** per device live (`ws://<host>/api/ws`) and as a buffer (`/api/system/logs`), with text filter, levels,
   **categories** (shares, pool/stratum, ASIC/jobs, temperature/fan/power, system/Wi-Fi – with a count per type) and saving;
   same in desktop and browser.
@@ -317,7 +320,7 @@ command for 5 s → 100 %; without the Pico every fan runs at full speed via the
 The e-paper rotates pages (overview, daily summary – optionally with graph –, history 24 h, soak test, pool & network;
 from 0.9.7 also per miner group, monthly summary with a bar per day, BTC/BCH price with difficulty countdown, electricity
 price traffic light, temperature sensors and a QR code to the web UI; colours optionally inverted) and shows special screens
-full-screen: **block found** (until button 1 or 24 h), **warnings** (until acknowledged, a new warning shows again),
+full-screen: **block found** (selectable: until button 1 or after a configurable number of hours, or like warnings only with button 1), **warnings** (until acknowledged, a new warning shows again),
 **best diff record** (once) – each can be switched on or off. Settings and a preview of each page:
 browser → *Fans & display*. Wiring diagram, solder-free breadboard build and shopping list are in the build guide
 [docs/en/pico-fans](https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/).
@@ -592,6 +595,6 @@ installer/               Inno Setup scripts (desktop, server service)
 
 Copyright © 2026 BitaxeTuner contributors. Licence: **GNU GPL v3.0** – see [LICENSE](LICENSE).
 The source code of every published version is in this repository (tag `vX.Y.Z` or “Source code” on the release page).
-Components by other authors (including .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet, DejaVu fonts, WebView2 SDK,
-Inno Setup) and notes on the Raspberry Pi and Docker images: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+Components by other authors (including .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet, QRCoder, DejaVu fonts, Lucide
+icon, WebView2 SDK, Inno Setup) and notes on the Raspberry Pi and Docker images: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 `LICENSE` and `THIRD-PARTY-NOTICES.txt` are included in every package.

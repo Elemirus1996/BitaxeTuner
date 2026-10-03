@@ -132,6 +132,13 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.9", tr.T("Hilfe im Programm"),
+                server ? tr.T("Neuer Menüpunkt „Hilfe“: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche.")
+                       : tr.T("Neuer Knopf „Hilfe“ oben: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche."),
+                null),
+            new("0.9.9", tr.T("Blockfund-Anzeige bis zur Taste"),
+                tr.T("Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen)."),
+                null),
             new("0.9.8", tr.T("Kiosk / Wand-Tablet"),
                 server ? tr.T("Vollbild-Anzeige ohne Menü für ein Tablet an der Wand – frei gestaltbar im Kiosk-Designer: Farben, Animationen, Panels per Ziehen anordnen, je Kiosk-Link ein eigenes Design. Anmeldung per Kiosk-Link (meldet sich selbst wieder an, widerrufbar) oder Ansicht-PIN – unter Einstellungen → Kiosk / Wand-Tablet.")
                        : tr.T("Handy-Ansicht mit „?kiosk=1“ öffnen: große Anzeige für ein Tablet an der Wand. Im Server-Betrieb gibt es zusätzlich Kiosk-Links."),

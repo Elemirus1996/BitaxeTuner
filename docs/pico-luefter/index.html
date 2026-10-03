@@ -466,6 +466,8 @@
         <h3>E-Paper 7,5" (rot/schwarz/weiß)</h3>
         <p>Das Modul ist eigentlich zum Aufstecken des Pico gebaut. Hier bleibt der Pico auf dem Steckbrett, und nur acht Leitungen gehen per Male-Male-Brücke in die Buchsenleiste des Moduls – jeweils in das Loch, an dem das Modul das Signal erwartet (Spalte „Ziel“, Pin 1 ist am Modul markiert). <strong>Den Pico nicht direkt auf das Modul stecken:</strong> Das Modul erwartet das Display auf GP8–GP13, dort liegen hier aber die Lüfter (GP8, GP10) – BitaxeTuner nutzt für das Display GP11–GP15 und GP22. Das Flachbandkabel des Displays steckt in der Klappbuchse des Moduls, Kontakte nach unten.</p>
         <p>Die Anzeige erneuert sich höchstens alle 3 Minuten (Standard 5, nachts auf Wunsch gar nicht) und braucht dafür etwa 16 Sekunden. Das schont das Panel. Bei einem Alarm (Miner offline, Gehäuse zu warm) aktualisiert sie sofort.</p>
+        <p>Seiten (einzeln schaltbar, Vorschau im Browser unter <b>Lüfter &amp; Anzeige</b>): Übersicht, Tagesbilanz, Verlauf, Kurs BTC, BCH oder beide, Monats- und Tagesbilanz mit wählbarem Graphen, Gruppen, Strompreis-Ampel, Temperaturfühler und QR-Code zur Oberfläche. Farben lassen sich umkehren (weiße Schrift auf schwarz). Das Blockfund-Vollbild endet wahlweise nach einstellbaren Stunden oder – wie die Warnungen – erst mit Taste 1.</p>
+        <p><b>Programm-Updates:</b> Bringt eine neue BitaxeTuner-Version ein neues Lüfterprogramm mit, spielt der Server es beim nächsten Verbinden selbst auf – per USB oder über WLAN – und der Pico startet neu. Nur MicroPython selbst wird von Hand aktualisiert (UF2-Datei, wie bei der Ersteinrichtung).</p>
       </div>
       <div class="panel">
         <h3>Taster</h3>

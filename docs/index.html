@@ -148,9 +148,13 @@
       <div class="card"><div class="icon">💾</div><h3>Sicherung</h3><p>Täglich und vor jedem Update eine geprüfte Sicherung auf USB-Stick, Netzlaufwerk oder deinen PC – mit einem Klick wieder eingespielt, der vorherige Stand bleibt erhalten. Passwörter werden nie mitgesichert.</p></div>
       <div class="card"><div class="icon">📋</div><h3>Protokoll</h3><p>Wer hat wann welche Frequenz und Spannung gesetzt? Benchmarks, Dauertests, Automatik, Lüfterregelung und Verbindungen – mindestens 30 Tage gespeichert, filterbar, als CSV.</p></div>
       <div class="card"><div class="icon">📊</div><h3>Vergleich &amp; Bericht</h3><p>Alle Miner nebeneinander mit Filtern und Bestwerten; als druckbarer Bericht mit frei wählbaren Werten und Diagrammen – mit Vorauswahl „Kühlung“, ideal für eine Frage in der Community.</p></div>
-      <div class="card"><div class="icon">🌀</div><h3>Lüfter im Griff</h3><p>Lüfter des Miners auf Automatik mit Zieltemperatur oder festen Wert stellen – innerhalb der Grenzen des Modells und mit Bestätigung.</p></div>
+      <div class="card"><div class="icon">🌀</div><h3>Lüfter im Griff</h3><p>Lüfter des Miners auf Automatik mit Zieltemperatur und Mindestdrehzahl (wie in AxeOS) oder festen Wert stellen – innerhalb der Grenzen des Modells und mit Bestätigung.</p></div>
       <div class="card"><div class="icon">🔄</div><h3>Updates mit einem Klick</h3><p>Server und Windows-App gemeinsam aktualisieren: erst Sicherung, dann Server, dann App – schlägt ein Schritt fehl, bleibt alles, wie es war.</p></div>
-      <div class="card"><div class="icon">🧾</div><h3>Steuer-Übersicht</h3><p>Zuflüsse mit Euro-Kurs, Verkäufe mit Haltefrist (FIFO) und CSV-Export – nach deutschem Steuerrecht (§ 23 EStG).</p></div>
+      <div class="card"><div class="icon">🧾</div><h3>Steuer-Übersicht</h3><p>Zuflüsse mit Euro-Kurs, Verkäufe mit Haltefrist (FIFO) und CSV-Export – nach deutschem Steuerrecht (§ 23 EStG), am PC und im Browser bearbeitbar.</p></div>
+      <div class="card"><div class="icon">🗂️</div><h3>Gruppen &amp; Gruppen-Automatik</h3><p>Miner in Gruppen ordnen (Keller, Büro …), eigene Nur-Ansehen-PIN je Gruppe und ein Zeitplan, der eine ganze Gruppe zwischen Voreinstellungen umschaltet – auf Wunsch per Knopf sofort.</p></div>
+      <div class="card"><div class="icon">🖥️</div><h3>Kiosk &amp; Wand-Tablet</h3><p>Vollbild ohne Menü für ein Tablet an der Wand. Im Kiosk-Designer gestaltest du Farben, Animationen und die Anordnung der Panels selbst – je Kiosk-Link ein eigenes Design.</p></div>
+      <div class="card"><div class="icon">❓</div><h3>Hilfe im Programm</h3><p>Anleitung, Erklärung jedes Protokolleintrags und der Miner-Logs (AxeOS/ESP-Miner) und häufige Fragen – durchsuchbar, am PC und im Browser.</p></div>
+      <div class="card"><div class="icon">🔐</div><h3>Signiert &amp; abgesichert</h3><p>Jedes Update ist signiert und wird vor der Installation geprüft. HTTPS, Login-Sperre, Nur-Heimnetz und getrennt gespeicherte Passwörter sind Standard.</p></div>
       <div class="card"><div class="icon">🌍</div><h3>Deutsch &amp; English</h3><p>Oberfläche, Push-Meldungen, Tagesbericht und E-Paper wahlweise auf Deutsch oder Englisch; Zahlen und Datum im Format deines Systems.</p></div>
     </div>
   </div>
@@ -189,6 +193,8 @@
         <tr><th scope="row" style="font-weight:500">Steuer: Zuflüsse erfassen</th><td class="y">✓<small>solange der PC läuft</small></td><td class="y">✓<small>rund um die Uhr</small></td><td class="y" aria-label="ja">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Steuer: Wallets und Verkäufe bearbeiten</th><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Sicherung</th><td class="y">✓<small>zweiter Ordner, USB, NAS</small></td><td class="y">✓<small>USB-Stick, NAS</small></td><td class="y">✓<small>plus Kopie auf dem PC</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Kiosk / Wand-Tablet mit Designer</th><td><small style="color:inherit">Kiosk-Ansicht (PIN)</small></td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Hilfe mit Erklärung von Protokoll und Miner-Logs</th><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td><td class="y" aria-label="ja">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Handy-Zugriff</th><td><small style="color:inherit">nur ansehen (PIN)</small></td><td class="y">✓<small>Admin oder nur ansehen</small></td><td class="y">✓<small>wie Server</small></td></tr>
         <tr><th scope="row" style="font-weight:500">Raspberry Pi vorbereiten, SSH-Terminal</th><td class="y" aria-label="ja">✓</td><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td></tr>
       </tbody>
@@ -203,7 +209,8 @@
       <p class="sub" style="margin-bottom:12px">Ein Raspberry Pi Pico für ein paar Euro macht aus dem Server eine kleine Mining-Zentrale – aufgebaut ganz ohne Löten.</p>
       <ul class="check">
         <li>Bis zu sechs 4-Pin-PWM-Lüfter: VR-Kühlung je Miner und Gehäuselüfter, automatisch nach Temperatur</li>
-        <li>7,5″-E-Paper mit Übersicht, Tagesbilanz, Verlauf – und Vollbild bei Blockfund</li>
+        <li>Per USB am Server oder über WLAN (Pico 2 WH) – auch als eigener Display-Pico direkt auf dem E-Paper</li>
+        <li>7,5″-E-Paper mit Übersicht, Tages- und Monatsbilanz mit Graph, Kurs BTC/BCH, Gruppen, Strompreis, Fühlern und QR-Code – Farben umkehrbar, Vollbild bei Blockfund (bis zur Taste oder für einige Stunden)</li>
         <li>Vier Taster für Anzeige, Lüfter und Neustart</li>
         <li>Temperaturfühler z. B. am Netzteil und im Miner-Raum</li>
         <li>Fällt etwas aus, laufen die Lüfter automatisch mit voller Drehzahl</li>

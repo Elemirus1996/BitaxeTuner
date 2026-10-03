@@ -111,6 +111,9 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   Dauertests, Automatik/Watchdog, Lüfterregelung (VR und Gehäuse), offline/online, Einstellungen und Server-Ereignisse.
   Filter nach Zeitraum, Miner, Kategorie und Text, CSV-Export; läuft nach Neustarts und Updates weiter. Ein Klick auf
   einen Eintrag erklärt, was er bedeutet und was du tun kannst.
+- **Hilfe** (Browser *Hilfe*, Desktop *Hilfe*): Kurzanleitung der wichtigsten Abläufe, alle Protokolleinträge mit
+  Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner: Aufbau einer Zeile, Pool, ASIC, Temperatur,
+  Spannungsregler, WLAN, Absturz) und häufige Fragen – durchsuchbar, für jede Rolle.
 - **Miner-Logs** je Gerät live (`ws://<host>/api/ws`) und als Puffer (`/api/system/logs`), mit Textfilter, Stufen,
   **Kategorien** (Shares, Pool/Stratum, ASIC/Jobs, Temperatur/Lüfter/Strom, System/WLAN – mit Anzahl je Art) und Speichern;
   Desktop und Browser gleich.
@@ -317,7 +320,7 @@ Pico ohne Befehl für 5 s → 100 %; ohne Pico läuft jeder Lüfter über die Sc
 Das E-Paper zeigt Seiten im Wechsel (Übersicht, Tagesbilanz – wahlweise mit Graph –, Verlauf 24 h, Dauertest,
 Pool & Netzwerk; ab 0.9.7 außerdem je Miner-Gruppe, Monatsbilanz mit Balken je Tag, Kurs BTC/BCH mit Difficulty-Countdown,
 Strompreis-Ampel, Temperaturfühler und QR-Code zur Oberfläche; Farben auf Wunsch umgekehrt) und
-Sonderanzeigen als Vollbild: **Blockfund** (bis Taste 1 oder 24 h), **Warnungen** (bis quittiert, neue Warnung zeigt
+Sonderanzeigen als Vollbild: **Blockfund** (wählbar: bis Taste 1 oder nach einstellbaren Stunden, oder wie die Warnungen nur mit Taste 1), **Warnungen** (bis quittiert, neue Warnung zeigt
 wieder), **Best-Diff-Rekord** (einmal) – alles einzeln schaltbar. Einstellungen und Vorschau jeder Seite:
 Browser → *Lüfter & Anzeige*. Schaltplan, Steckbrett-Aufbau ohne Löten und Einkaufsliste
 stehen in der Bauanleitung
@@ -607,5 +610,5 @@ The full English documentation is in **[README.en.md](README.en.md)**; the progr
 Copyright © 2026 BitaxeTuner contributors. Lizenz: **GNU GPL v3.0** – siehe [LICENSE](LICENSE).
 Den Quelltext zu jeder veröffentlichten Version gibt es in diesem Repository (Tag `vX.Y.Z` bzw. „Source code“ auf der
 Release-Seite). Enthaltene Komponenten anderer Urheber (u. a. .NET, SQLite, ImageSharp, SMBLibrary, MQTTnet,
-DejaVu-Schriften, WebView2-SDK, Inno Setup) und Hinweise zum Raspberry-Pi- und Docker-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+QRCoder, DejaVu-Schriften, Lucide-Symbol, WebView2-SDK, Inno Setup) und Hinweise zum Raspberry-Pi- und Docker-Image: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 `LICENSE` und `THIRD-PARTY-NOTICES.txt` liegen jedem Paket bei.

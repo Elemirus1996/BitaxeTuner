@@ -148,9 +148,13 @@
       <div class="card"><div class="icon">💾</div><h3>Backup</h3><p>Daily and before every update a verified backup to a USB stick, network drive or your PC – restored in one click, the previous state is kept. Passwords are never included.</p></div>
       <div class="card"><div class="icon">📋</div><h3>Log</h3><p>Who set which frequency and voltage when? Benchmarks, soak tests, automation, fan control and connections – kept for at least 30 days, filterable, as CSV.</p></div>
       <div class="card"><div class="icon">📊</div><h3>Compare &amp; report</h3><p>All miners side by side with filters and best values; as a printable report with the values and charts you choose – with a “cooling” preset, ideal for a question in the community.</p></div>
-      <div class="card"><div class="icon">🌀</div><h3>Fans under control</h3><p>Set the miner fan to automatic with a target temperature or to a fixed value – within the model's limits and with confirmation.</p></div>
+      <div class="card"><div class="icon">🌀</div><h3>Fans under control</h3><p>Set the miner fan to automatic with a target temperature and minimum speed (as in AxeOS) or to a fixed value – within the model's limits and with confirmation.</p></div>
       <div class="card"><div class="icon">🔄</div><h3>One-click updates</h3><p>Update server and Windows app together: backup first, then the server, then the app – if a step fails, everything stays as it was.</p></div>
-      <div class="card"><div class="icon">🧾</div><h3>Tax overview</h3><p>Income with EUR rate, sales with holding period (FIFO) and CSV export – according to German tax law (§ 23 EStG).</p></div>
+      <div class="card"><div class="icon">🧾</div><h3>Tax overview</h3><p>Income with EUR rate, sales with holding period (FIFO) and CSV export – according to German tax law (§ 23 EStG), editable on the PC and in the browser.</p></div>
+      <div class="card"><div class="icon">🗂️</div><h3>Groups &amp; group automation</h3><p>Organise miners in groups (basement, office …), a view-only PIN per group and a schedule that switches a whole group between presets – immediately at the push of a button if you like.</p></div>
+      <div class="card"><div class="icon">🖥️</div><h3>Kiosk &amp; wall tablet</h3><p>Full screen without menu for a tablet on the wall. In the kiosk designer you style colours, animations and the arrangement of the panels yourself – each kiosk link with its own design.</p></div>
+      <div class="card"><div class="icon">❓</div><h3>Help built in</h3><p>Guide, explanation of every log entry and of the miner logs (AxeOS/ESP-Miner) and frequently asked questions – searchable, on the PC and in the browser.</p></div>
+      <div class="card"><div class="icon">🔐</div><h3>Signed &amp; secured</h3><p>Every update is signed and checked before installation. HTTPS, login lockout, home-network-only access and separately stored passwords are standard.</p></div>
       <div class="card"><div class="icon">🌍</div><h3>English &amp; German</h3><p>Interface, push messages, daily report and e-paper in English or German; numbers and dates in your system's format.</p></div>
     </div>
   </div>
@@ -189,6 +193,8 @@
         <tr><th scope="row" style="font-weight:500">Tax: record incoming payments</th><td class="y">✓<small>while the PC runs</small></td><td class="y">✓<small>around the clock</small></td><td class="y" aria-label="yes">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Tax: edit wallets and sales</th><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Backup</th><td class="y">✓<small>second folder, USB, NAS</small></td><td class="y">✓<small>USB stick, NAS</small></td><td class="y">✓<small>plus a copy on the PC</small></td></tr>
+        <tr><th scope="row" style="font-weight:500">Kiosk / wall tablet with designer</th><td><small style="color:inherit">kiosk view (PIN)</small></td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        <tr><th scope="row" style="font-weight:500">Help explaining the log and miner logs</th><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
         <tr><th scope="row" style="font-weight:500">Phone access</th><td><small style="color:inherit">view only (PIN)</small></td><td class="y">✓<small>admin or view only</small></td><td class="y">✓<small>as server</small></td></tr>
         <tr><th scope="row" style="font-weight:500">Prepare Raspberry Pi, SSH terminal</th><td class="y" aria-label="yes">✓</td><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td></tr>
       </tbody>
@@ -203,7 +209,8 @@
       <p class="sub" style="margin-bottom:12px">A Raspberry Pi Pico for a few euros turns the server into a small mining control centre – built without any soldering.</p>
       <ul class="check">
         <li>Up to six 4-pin PWM fans: VR cooling per miner and case fans, automatic by temperature</li>
-        <li>7.5″ e-paper with overview, daily summary, history – and full screen when a block is found</li>
+        <li>Via USB on the server or over Wi-Fi (Pico 2 WH) – also as a separate display Pico plugged straight onto the e-paper</li>
+        <li>7.5″ e-paper with overview, daily and monthly summary with chart, BTC/BCH price, groups, electricity price, sensors and QR code – colours invertible, full screen on a block find (until a button press or for a few hours)</li>
         <li>Four buttons for display, fans and restart</li>
         <li>Temperature sensors, e.g. at the power supply and in the miner room</li>
         <li>If anything fails, the fans automatically run at full speed</li>
