@@ -88,6 +88,19 @@ public class PiOsSetupTests
         Assert.Contains("layout: \"us\"", user);
         Assert.Contains("do_wifi_country, \"US\"", user);
         Assert.Contains("regulatory-domain: \"US\"", File.ReadAllText(boot.File("network-config")));
+        // Audit S8: mit Schlüssel keine SSH-Anmeldung per Passwort, sudo nur mit Passwort
+        Assert.Contains("ssh_pwauth: false", user);
+        Assert.Contains("sudo: \"ALL=(ALL) ALL\"", user);
+        Assert.DoesNotContain("NOPASSWD", user);
+    }
+
+    [Fact]
+    public void Without_key_ssh_password_login_stays_and_short_passwords_are_refused()
+    {
+        using var boot = Boot();
+        PiOsSetup.Write(boot.Path, new PiOsOptions("pi", "pi-passwort-1"));
+        Assert.Contains("ssh_pwauth: true", File.ReadAllText(boot.File("user-data")));
+        Assert.Throws<InvalidOperationException>(() => PiOsSetup.Write(boot.Path, new PiOsOptions("pi", "neun12345")));   // 9 Zeichen
     }
 
     [Theory]

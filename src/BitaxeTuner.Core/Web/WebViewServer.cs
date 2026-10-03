@@ -159,8 +159,7 @@ public sealed class WebViewServer : IDisposable
 
         var pin = FormValue(req.Body, "pin") ?? "";
         var expected = _pinHash();
-        var ok = expected.Length > 0 && CryptographicOperations.FixedTimeEquals(
-            Encoding.ASCII.GetBytes(WebViewSettings.HashPin(pin)), Encoding.ASCII.GetBytes(expected));
+        var ok = WebViewSettings.VerifyPin(pin, expected);
         if (!ok)
         {
             var count = f.Until > now || f.Count < MaxFailures ? f.Count + 1 : 1;

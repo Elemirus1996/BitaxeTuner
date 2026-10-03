@@ -36,6 +36,9 @@ public sealed class SettingsDto
     /// <summary>Ist eine PIN für die Rolle „Nur ansehen“ gesetzt? (Die PIN selbst wird nie ausgeliefert.)</summary>
     public bool ViewerPinSet { get; set; }
 
+    /// <summary>PIN noch im alten, ungesalzenen Format – Hinweis „neu setzen“.</summary>
+    public bool ViewerPinLegacy { get; set; }
+
     /// <summary>Neue PIN für „Nur ansehen“ (leer = unverändert, "-" = entfernen).</summary>
     public string? NewViewerPin { get; set; }
 
@@ -64,6 +67,7 @@ public sealed class SettingsDto
         DailyReport = c.DailyReport,
         PriceSource = c.PriceSource,
         ViewerPinSet = c.WebView.PinHash.Length > 0,
+        ViewerPinLegacy = c.WebView.PinIsLegacy,
     };
 
     public void ApplyTo(AppConfig c)
@@ -71,7 +75,7 @@ public sealed class SettingsDto
         if (NewViewerPin is { Length: > 0 } pin)
         {
             if (pin == "-") c.WebView.PinHash = "";
-            else if (pin.Length < 4 || !pin.All(char.IsDigit)) throw new InvalidOperationException(L.N("Die PIN braucht mindestens 4 Ziffern."));
+            else if (WebViewSettings.ValidateNewPin(pin) is { } error) throw new InvalidOperationException(error);
             else c.WebView.PinHash = WebViewSettings.HashPin(pin);
         }
         c.IntervalSeconds = Math.Clamp(IntervalSeconds, 1, 300);

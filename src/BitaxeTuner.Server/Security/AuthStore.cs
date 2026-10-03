@@ -134,9 +134,22 @@ public sealed class AuthStore
     /// Anmeldung: Admin-Passwort, dann die PINs der eigenen Ansicht-Zugänge (vor der allgemeinen PIN – bei gleicher PIN
     /// gilt also die engere Freigabe), dann die allgemeine PIN der Ansicht (alle Miner).
     /// </summary>
+    /// <summary>Höchstzahl eigener Ansicht-Zugänge: jede Anmeldung prüft alle PBKDF2-Hashes (Rechenlast, Audit S7).</summary>
+    public const int MaxViewers = 20;
+
+    // Anmeldungen nacheinander prüfen: viele gleichzeitige Versuche können so nicht alle Kerne des Pi auslasten (Audit S7)
+    private readonly SemaphoreSlim _loginGate = new(1, 1);
+
     public LoginResult LoginAs(string secret)
     {
         if (string.IsNullOrEmpty(secret)) return new LoginResult(Role.None);
+        _loginGate.Wait();
+        try { return LoginCore(secret); }
+        finally { _loginGate.Release(); }
+    }
+
+    private LoginResult LoginCore(string secret)
+    {
         string adminHash;
         List<ViewerAccess> viewers;
         lock (_lock)
@@ -158,7 +171,7 @@ public sealed class AuthStore
             }
         }
         var pinHash = _config().WebView.PinHash;
-        if (pinHash.Length > 0 && FixedEquals(WebViewSettings.HashPin(secret), pinHash)) return new LoginResult(Role.Viewer);
+        if (WebViewSettings.VerifyPin(secret, pinHash)) return new LoginResult(Role.Viewer);
         return new LoginResult(Role.None);
     }
 
@@ -180,13 +193,13 @@ public sealed class AuthStore
         if (name.Length == 0) throw new LocalizedException("Bitte einen Namen angeben.");
         if (name.Length > 60) name = name[..60];
         var pinHash = _config().WebView.PinHash;
-        if (pinHash.Length > 0 && FixedEquals(WebViewSettings.HashPin(pin), pinHash))
+        if (WebViewSettings.VerifyPin(pin, pinHash))
             throw new LocalizedException("Diese PIN ist schon vergeben.");
         lock (_lock)
         {
             if ((_data.AdminHash.Length > 0 && VerifyPassword(pin, _data.AdminHash)) || _data.Viewers.Any(v => VerifyPassword(pin, v.PinHash)))
                 throw new LocalizedException("Diese PIN ist schon vergeben.");
-            if (_data.Viewers.Count >= 50) throw new LocalizedException("Höchstens {0} Ansicht-Zugänge.", 50);
+            if (_data.Viewers.Count >= MaxViewers) throw new LocalizedException("Höchstens {0} Ansicht-Zugänge.", MaxViewers);
             var entry = new ViewerAccess
             {
                 Id = Base64Url(RandomNumberGenerator.GetBytes(6)),

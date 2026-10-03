@@ -412,11 +412,11 @@ public sealed class ServerTests : IDisposable
         var admin = await AdminAsync();
         var settings = await Json(await admin.GetAsync("/api/v1/settings"));
         var body = JsonSerializer.Deserialize<Dictionary<string, object?>>(settings.GetRawText())!;
-        body["newViewerPin"] = "4711";
+        body["newViewerPin"] = "471100";
         await Json(await admin.PutAsJsonAsync("/api/v1/settings", body));
 
         var viewer = _factory.CreateClient();
-        var login = await Json(await viewer.PostAsJsonAsync("/api/v1/login", new { password = "4711" }));
+        var login = await Json(await viewer.PostAsJsonAsync("/api/v1/login", new { password = "471100" }));
         Assert.Equal("Viewer", login.GetProperty("role").GetString());
         viewer.DefaultRequestHeaders.Add(AuthContext.CsrfHeader, login.GetProperty("csrf").GetString());
 
@@ -490,10 +490,10 @@ public sealed class ServerTests : IDisposable
         // Die allgemeine PIN sieht weiterhin alle Miner
         var settings = await Json(await admin.GetAsync("/api/v1/settings"));
         var body = JsonSerializer.Deserialize<Dictionary<string, object?>>(settings.GetRawText())!;
-        body["newViewerPin"] = "4711";
+        body["newViewerPin"] = "471100";
         await Json(await admin.PutAsJsonAsync("/api/v1/settings", body));
         var all = _factory.CreateClient();
-        await Json(await all.PostAsJsonAsync("/api/v1/login", new { password = "4711" }));
+        await Json(await all.PostAsJsonAsync("/api/v1/login", new { password = "471100" }));
         Assert.Equal(2, (await Json(await all.GetAsync("/api/v1/status"))).GetProperty("devices").GetArrayLength());
     }
 

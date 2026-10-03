@@ -45,7 +45,7 @@ public static partial class PiOsSetup
     {
         if (!UserPattern().IsMatch(o.User) || o.User is "root" or "bitaxetuner")
             throw new InvalidOperationException(L.T("Benutzername: Kleinbuchstaben, Ziffern, - oder _ (z. B. „pi“ oder „admin“)."));
-        if (o.Password.Length < 8) throw new InvalidOperationException(L.T("Das Pi-Passwort braucht mindestens 8 Zeichen."));
+        if (o.Password.Length < 10) throw new InvalidOperationException(L.T("Das Pi-Passwort braucht mindestens 10 Zeichen."));
         if (!HostPattern().IsMatch(o.Hostname)) throw new InvalidOperationException(L.T("Hostname: Kleinbuchstaben, Ziffern und -."));
         if (!Regex.IsMatch(o.Country, "^[A-Z]{2}$")) throw new InvalidOperationException(L.T("Land als Kürzel mit 2 Großbuchstaben, z. B. DE."));
         if (!TimezonePattern().IsMatch(o.Timezone)) throw new InvalidOperationException(L.T("Zeitzone im Format Kontinent/Stadt, z. B. Europe/Berlin."));
@@ -79,12 +79,14 @@ public static partial class PiOsSetup
             .Append($"- name: {Q(o.User)}\n")
             .Append("  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo\n")
             .Append("  shell: /bin/bash\n")
-            .Append("  sudo: \"ALL=(ALL) NOPASSWD:ALL\"\n")
+            // sudo nur mit Passwort (Audit S8) – die App braucht kein sudo ohne Rückfrage
+            .Append("  sudo: \"ALL=(ALL) ALL\"\n")
             .Append("  lock_passwd: false\n")
             .Append($"  passwd: {Q(Sha512Crypt(o.Password))}\n")
             .Append(o.SshKeys is { Count: > 0 } keys
                 ? "  ssh_authorized_keys:\n" + string.Concat(keys.Select(k => $"  - {Q(k.Trim())}\n")) : "")
-            .Append($"ssh_pwauth: {(o.Ssh ? "true" : "false")}\n")
+            // Mit hinterlegtem Schlüssel keine Anmeldung per Passwort über SSH (Audit S8)
+            .Append($"ssh_pwauth: {(o.Ssh && o.SshKeys is not { Count: > 0 } ? "true" : "false")}\n")
             // WLAN-Land setzen (hebt die WLAN-Sperre von Raspberry Pi OS auf)
             .Append("runcmd:\n")
             .Append($"- [ raspi-config, nonint, do_wifi_country, {Q(o.Country)} ]\n")

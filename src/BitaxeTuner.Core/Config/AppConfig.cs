@@ -675,11 +675,34 @@ public sealed class WebViewSettings
 {
     public bool Enabled { get; set; }
     public int Port { get; set; } = 8484;
-    /// <summary>PIN als SHA-256 (nie im Klartext gespeichert).</summary>
+    /// <summary>
+    /// PIN als PBKDF2-Hash mit Salz (ab 0.9.5, Audit S6); ältere PINs als SHA-256 bleiben gültig, bis sie neu gesetzt werden.
+    /// Liegt wie die Tokens in secrets.json, nicht in config.json (<see cref="ConfigSecrets"/>).
+    /// </summary>
     public string PinHash { get; set; } = "";
 
-    public static string HashPin(string pin) =>
-        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bitaxetuner|" + pin.Trim())));
+    public const int MinPinLength = 6;
+
+    /// <summary>Neue PIN speichern: PBKDF2 mit Salz (wie Admin-Passwort und Ansicht-Zugänge).</summary>
+    public static string HashPin(string pin) => Transfer.Secrets.HashPassword(pin.Trim());
+
+    /// <summary>PIN prüfen – neues Format (PBKDF2) und das bisherige (SHA-256 mit festem Präfix).</summary>
+    public static bool VerifyPin(string pin, string stored)
+    {
+        if (string.IsNullOrEmpty(stored) || string.IsNullOrEmpty(pin)) return false;
+        if (stored.StartsWith("pbkdf2-", StringComparison.Ordinal)) return Transfer.Secrets.VerifyPassword(pin.Trim(), stored);
+        var legacy = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bitaxetuner|" + pin.Trim())));
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.ASCII.GetBytes(legacy), System.Text.Encoding.ASCII.GetBytes(stored));
+    }
+
+    /// <summary>Gespeichert im alten Format (ungesalzen) – Hinweis „PIN neu setzen“.</summary>
+    public bool PinIsLegacy => PinHash.Length > 0 && !PinHash.StartsWith("pbkdf2-", StringComparison.Ordinal);
+
+    /// <summary>Neue PIN gültig? Ergebnis: Fehlermeldung oder null.</summary>
+    public static string? ValidateNewPin(string pin) =>
+        pin.Length < MinPinLength || pin.Length > 12 || !pin.All(char.IsAsciiDigit)
+            ? I18n.L.T("PIN: {0} bis 12 Ziffern.", MinPinLength) : null;
 
     public WebViewSettings Clone() => (WebViewSettings)MemberwiseClone();
 }

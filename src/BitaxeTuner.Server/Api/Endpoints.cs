@@ -268,10 +268,12 @@ public static class Endpoints
             var client = Client(http);
             var now = DateTime.UtcNow;
             if (lockout.IsLocked(client, now)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
-            var result = auth.LoginAs(req.Password ?? "");
+            if (lockout.GlobalDelay(now) is { } delay && delay > TimeSpan.Zero) await Task.Delay(delay);
+            var result = await Task.Run(() => auth.LoginAs(req.Password ?? ""));
             if (result.Role == Role.None)
             {
                 lockout.Fail(client, now);
+                lockout.FailGlobal(now);
                 return Error(401, L.N("Passwort oder PIN falsch."));
             }
             lockout.Success(client);

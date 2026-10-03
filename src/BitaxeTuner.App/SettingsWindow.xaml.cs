@@ -118,6 +118,8 @@ public partial class SettingsWindow : Window
         WebUrlText.Text = config.WebView.Enabled && config.WebView.PinHash.Length > 0
             ? L.T("Adresse fürs Handy: ") + string.Join("  oder  ", Core.Web.WebViewServer.LocalUrls(config.WebView.Port))
             : config.WebView.PinHash.Length > 0 ? L.T("PIN ist gesetzt.") : L.T("Noch keine PIN gesetzt.");
+        if (config.WebView.PinIsLegacy)
+            WebUrlText.Text += L.T(" Bitte die PIN einmal neu setzen (mind. {0} Ziffern) – sie wird dann sicherer gespeichert.", WebViewSettings.MinPinLength);
         MoveDataDirButton.IsEnabled = moveDataDirectory is not null;
     }
 
@@ -297,9 +299,9 @@ public partial class SettingsWindow : Window
             return;
         }
         var newPin = WebPinBox.Password.Trim();
-        if (newPin.Length > 0 && (newPin.Length < 4 || newPin.Length > 12 || !newPin.All(char.IsDigit)))
+        if (newPin.Length > 0 && WebViewSettings.ValidateNewPin(newPin) is { } pinError)
         {
-            ErrorText.Text = L.T("PIN: 4 bis 12 Ziffern.");
+            ErrorText.Text = pinError;
             return;
         }
         if (WebEnabledBox.IsChecked == true && newPin.Length == 0 && _config.WebView.PinHash.Length == 0)

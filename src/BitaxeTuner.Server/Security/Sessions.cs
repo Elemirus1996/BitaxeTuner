@@ -68,6 +68,24 @@ public sealed class Lockout
         });
 
     public void Success(string client) => _state.TryRemove(client, out _);
+
+    // Zusätzlich global (Audit S6/S7): viele Fehlversuche von verschiedenen Adressen (z. B. wechselnde IPv6-Adressen)
+    // bremsen jede weitere Anmeldung – ohne jemanden ganz auszusperren.
+    private readonly ConcurrentQueue<DateTime> _recent = new();
+
+    public void FailGlobal(DateTime nowUtc)
+    {
+        _recent.Enqueue(nowUtc);
+        while (_recent.TryPeek(out var t) && nowUtc - t > LockTime) _recent.TryDequeue(out _);
+    }
+
+    /// <summary>Wartezeit vor der Prüfung: ab 10 Fehlversuchen in 5 Minuten je weiterem Versuch 0,5 s mehr, höchstens 5 s.</summary>
+    public TimeSpan GlobalDelay(DateTime nowUtc)
+    {
+        while (_recent.TryPeek(out var t) && nowUtc - t > LockTime) _recent.TryDequeue(out _);
+        var n = _recent.Count - 10;
+        return n <= 0 ? TimeSpan.Zero : TimeSpan.FromMilliseconds(Math.Min(5000, n * 500));
+    }
 }
 
 public static class NetworkRules
