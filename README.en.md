@@ -392,7 +392,7 @@ Backup files are named `bitaxetuner-backup-YYYYMMDD-HHMMSS.zip` and can be used 
 | Prometheus / Grafana (`/metrics`) | – | ✓ | ✓ |
 | Pico fans, e-paper, buttons | – | ✓ | ✓ |
 | Tax: record incoming payments | ✓ (while the PC runs) | ✓ around the clock | ✓ |
-| Tax: edit wallets and sales | ✓ | view and CSV only | view and CSV only |
+| Tax: edit wallets and sales | ✓ | ✓ in the browser (from 0.9.6) | ✓ in the browser (from 0.9.6) |
 | Backup | daily, second folder/USB/NAS | daily, USB stick, NAS | plus a daily copy on the PC |
 | Phone access | view only (PIN) | full (admin) or view only (PIN) | as server |
 | Prepare Raspberry Pi, SSH terminal | ✓ | – | ✓ |

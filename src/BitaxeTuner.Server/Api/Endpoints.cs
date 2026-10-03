@@ -724,6 +724,7 @@ public static class Endpoints
         MqttEndpoints.Map(g);
         PlugEndpoints.Map(g);
         ReportEndpoints.Map(g);
+        TaxEndpoints.Map(g);
         g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
         g.MapPut("/settings", async (SettingsDto req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
@@ -1080,23 +1081,6 @@ public static class Endpoints
                 explanations = explanations.ToDictionary(kv => kv.Key, kv => new { title = kv.Value.Title, meaning = kv.Value.Meaning, action = kv.Value.Action }),
                 truncated = entries.Count >= 5000,
             });
-        });
-
-        g.MapGet("/tax/rewards", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
-        {
-            wallets = h.TaxMonitor.Wallets,
-            rewards = h.TaxMonitor.LoadRewards().OrderByDescending(r => r.ReceivedAtUtc).ToList(),
-            status = h.TaxMonitor.LastPollUtc,
-            warning = h.TaxRepository.Warning,
-        })));
-
-        g.MapGet("/tax/rewards.csv", async (HubService hub) =>
-        {
-            var file = Path.Combine(Path.GetTempPath(), $"bitaxetuner-zufluesse-{Guid.NewGuid():N}.csv");
-            await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals()); return true; });
-            var bytes = await File.ReadAllBytesAsync(file);
-            File.Delete(file);
-            return Results.File(bytes, "text/csv; charset=utf-8", $"zufluesse-{DateTime.Now:yyyyMMdd}.csv");
         });
     }
 }

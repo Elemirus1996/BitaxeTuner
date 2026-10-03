@@ -395,7 +395,7 @@ Sicherungsdateien heißen `bitaxetuner-backup-JJJJMMTT-HHMMSS.zip` und sind zwis
 | Prometheus / Grafana (`/metrics`) | – | ✓ | ✓ |
 | Pico-Lüfter, E-Paper, Taster | – | ✓ | ✓ |
 | Steuer: Zuflüsse erfassen | ✓ (solange der PC läuft) | ✓ rund um die Uhr | ✓ |
-| Steuer: Wallets und Verkäufe bearbeiten | ✓ | nur Anzeige und CSV | nur Anzeige und CSV |
+| Steuer: Wallets und Verkäufe bearbeiten | ✓ | ✓ im Browser (ab 0.9.6) | ✓ im Browser (ab 0.9.6) |
 | Sicherung | täglich, zweiter Ordner/USB/NAS | täglich, USB-Stick, NAS | dazu tägliche Kopie auf den PC |
 | Handy-Zugriff | nur ansehen (PIN) | voll (Admin) oder nur ansehen (PIN) | wie Server |
 | Raspberry Pi vorbereiten, SSH-Terminal | ✓ | – | ✓ |

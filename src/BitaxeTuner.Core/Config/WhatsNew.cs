@@ -124,6 +124,10 @@ public static class WhatsNew
             new("0.9.5", tr.T("Robuster im Dauerbetrieb"),
                 tr.T("Weniger Schreibzugriffe auf SD-Karte und SSD; schlägt das Speichern der Einstellungen fehl, gibt es einen deutlichen Hinweis; nicht zugestellte Push-Meldungen werden bis zu 6 Stunden lang erneut versucht."),
                 null),
+            new("0.9.6", tr.T("Steuer im Browser bearbeiten"),
+                server ? tr.T("Unter Steuer lassen sich jetzt Wallets hinzufügen (auch aus den Minern), fehlende Kurse und Notizen nachtragen, Eingänge ohne Mining-Ertrag entfernen und Verkäufe mit Haltefrist-Rechnung erfassen – direkt im Browser, gleiche Daten wie in der Desktop-App.")
+                       : tr.T("Im Server-Betrieb: Wallets, Kurse und Verkäufe lassen sich jetzt auch im Browser bearbeiten – die Steuerdaten müssen dafür nicht mehr zurück auf den PC."),
+                null),
         ];
     }
 

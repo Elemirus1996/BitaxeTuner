@@ -75,6 +75,44 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Tax_sales_and_rewards_can_be_edited_in_the_browser()
+    {
+        // 0.9.6: Steuer im Server-Betrieb bearbeiten – ohne Wallets, damit der Test keine Abfragen ins Netz auslöst
+        var repo = new BitaxeTuner.Core.Tax.Services.TaxLogRepository(_dir.File("tax"));
+        var reward = new BitaxeTuner.Core.Tax.Models.MinedReward
+        {
+            Coin = BitaxeTuner.Core.Tax.Models.CoinType.Bitcoin, Amount = 0.002m, ReceivedAtUtc = DateTime.UtcNow.AddDays(-10), TxId = "t1",
+        };
+        repo.SaveRewards([reward]);
+        var admin = await AdminAsync();
+
+        await Json(await admin.PutAsJsonAsync($"/api/v1/tax/rewards/{reward.Id}", new { price = "50000", note = "Blockfund" }));
+        var today = DateTime.Now.ToString("yyyy-MM-dd");
+        await Json(await admin.PostAsJsonAsync("/api/v1/tax/disposals", new { coin = "Bitcoin", date = today, amount = "0,001", proceeds = "60", note = "" }));
+        var over = await admin.PostAsJsonAsync("/api/v1/tax/disposals", new { coin = "Bitcoin", date = today, amount = "1", proceeds = "60" });
+        Assert.Equal(HttpStatusCode.Conflict, over.StatusCode);                     // mehr verkauft als dokumentiert → erst nachfragen
+
+        var tv = await Json(await admin.GetAsync("/api/v1/tax/rewards"));
+        var r = tv.GetProperty("rewards")[0];
+        Assert.Equal(50000m, r.GetProperty("eurPriceAtReceipt").GetDecimal());
+        Assert.True(r.GetProperty("manualPrice").GetBoolean());
+        Assert.Equal(0.001m, r.GetProperty("remaining").GetDecimal());
+        var sale = tv.GetProperty("disposals")[0];
+        Assert.Equal(10m, sale.GetProperty("taxableGainEur").GetDecimal());
+        Assert.Equal(1, tv.GetProperty("summary").GetProperty("saleCount").GetInt32());
+        (await admin.GetAsync("/api/v1/tax/disposals.csv")).EnsureSuccessStatusCode();
+
+        await Json(await admin.DeleteAsync($"/api/v1/tax/disposals/{sale.GetProperty("id").GetString()}"));
+        Assert.Empty(repo.LoadDisposals());
+        Assert.Contains("Steuer: Verkauf", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+
+        // nur für Admins
+        var anon = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.PostAsJsonAsync("/api/v1/tax/disposals", new { coin = "Bitcoin" })).StatusCode);
+        Assert.Single(repo.LoadRewards());
+    }
+
+    [Fact]
     public void New_installations_start_with_https_existing_ones_keep_http()
     {
         using var fresh = new TempDir();

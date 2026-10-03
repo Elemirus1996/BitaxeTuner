@@ -1734,18 +1734,164 @@ async function renderTax() {
   mount(h('p', { class: 'muted' }, t('Lade …')));
   const tv = await run(() => api('/tax/rewards'));
   if (!tv) return;
+  const sm = tv.summary;
+  const tab = ['rewards', 'sales', 'wallets'].includes(S.taxTab) ? S.taxTab : 'rewards';
+  const tabLink = (k, label) => h('a', { href: '#', class: k === tab ? 'active' : null, onclick: e => { e.preventDefault(); S.taxTab = k; renderTax(); } }, label);
+  const refresh = async () => { if (await run(() => api('/tax/refresh', { method: 'POST' }), t('Wallets geprüft.'))) renderTax(); };
+  const salesText = sm.saleCount
+    ? t('{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze {3} €)', sm.year, sm.saleCount, n(sm.taxableGainEur, 2), n(sm.freeLimitEur, 0))
+      + (sm.saleMissingPrice ? t(' · Kurs fehlt') : '') + (sm.saleUnmatched ? t(' · Menge ohne Zufluss') : '')
+    : t('{0}: keine Verkäufe erfasst', sm.year);
   mount(h('div', { class: 'stack' },
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h2', {}, t('Steuer – dokumentierte Zuflüsse')), h('span', { class: 'spacer' }),
+        h('button', { class: 'btn', onclick: refresh }, t('Jetzt prüfen')),
         h('a', { class: 'btn', href: '/api/v1/tax/rewards.csv', download: '' }, t('CSV exportieren'))),
-      h('p', { class: 'muted small' }, t('Überwachte Wallets: {0} · letzte Prüfung {1}. Wallets und Verkäufe bearbeitest du weiterhin in der Desktop-App (Steuer-Modul); die Erfassung läuft hier rund um die Uhr.', tv.wallets.length, time(tv.status))),
+      h('p', {}, t('{0}: {1} Zuflüsse · {2} €', sm.year, sm.rewardCount, n(sm.rewardEur, 2)) + (sm.rewardsWithoutPrice ? t(' · {0} ohne Kurs', sm.rewardsWithoutPrice) : ''),
+        h('br'), salesText),
+      h('p', { class: 'muted small' }, t('Überwachte Wallets: {0} · letzte Prüfung {1}. Rohrechnung nach deutschem Steuerrecht (§ 23 EStG, FIFO, ein Jahr Haltefrist) für die eigene Übersicht – keine Steuerberatung.', tv.wallets.length, time(tv.status))),
       tv.warning ? h('p', { class: 'danger' }, tv.warning) : null),
-    h('div', { class: 'card table-wrap' }, tv.rewards.length ? h('table', {},
-      h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Wert (EUR)'), t('Wallet'), 'TXID'].map(x => h('th', {}, x)))),
-      h('tbody', {}, tv.rewards.map(r => h('tr', {}, h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.coin), h('td', { class: 'num' }, r.amount),
-        h('td', { class: 'num' }, r.eurValue != null ? n(r.eurValue, 2) : '–'), h('td', {}, r.walletLabel || ''), h('td', { class: 'small muted' }, (r.txId || '').slice(0, 16) + '…')))))
-      : h('p', { class: 'muted' }, t('Noch keine Zuflüsse erfasst.'))),
+    h('div', { class: 'tabs' }, tabLink('rewards', t('Zuflüsse')), tabLink('sales', t('Verkäufe')), tabLink('wallets', t('Wallets ({0})', tv.wallets.length))),
+    tab === 'rewards' ? taxRewardsCard(tv) : tab === 'sales' ? taxSalesCard(tv) : taxWalletsCard(tv),
     taxEnergyCard()));
+}
+
+const COINS = [['Bitcoin', 'BTC'], ['BitcoinCash', 'BCH']];
+const coinSelect = (value, auto) => {
+  const el = h('select', { style: 'width:auto' }, [...(auto ? [['', t('automatisch')]] : []), ...COINS].map(([v, l]) => h('option', { value: v }, l)));
+  el.value = value ?? '';
+  return el;
+};
+const sat8 = v => n(v, 8);
+
+/** Zuflüsse: Kurs/Notiz nachtragen, Eingänge entfernen, die kein Mining-Ertrag sind. */
+function taxRewardsCard(tv) {
+  const edit = async r => {
+    const price = h('input', { value: r.eurPriceAtReceipt ?? '', inputmode: 'decimal', placeholder: t('z. B. 58.250,00') });
+    const note = h('input', { value: r.note || '', maxlength: 500 });
+    const body = h('div', { class: 'stack' },
+      h('p', {}, t('{0} {1} vom {2}', sat8(r.amount), r.symbol, time(r.receivedAtUtc))),
+      h('div', {}, h('label', {}, t('EUR-Kurs je Coin (leer = entfernen)')), price),
+      r.priceSource ? h('p', { class: 'muted small' }, t('Bisher: {0}', r.priceSource)) : null,
+      h('div', {}, h('label', {}, t('Notiz')), note),
+      h('p', { class: 'muted small' }, t('Ein geänderter Kurs gilt als manuell und wird nicht mehr automatisch überschrieben.')));
+    if (!await confirmBox(t('Zufluss bearbeiten'), body, t('Speichern'))) return;
+    const changed = price.value.trim() !== String(r.eurPriceAtReceipt ?? '');
+    if (await run(() => api(`/tax/rewards/${r.id}`, { method: 'PUT', body: { price: changed ? price.value : null, note: note.value } }), t('Gespeichert.'))) renderTax();
+  };
+  const remove = async r => {
+    if (!await confirmBox(t('Eintrag entfernen'), t('Eintrag vom {0} über {1} {2} entfernen? Nur für Eingänge, die kein Mining-Ertrag sind. Die Transaktion wird danach dauerhaft ignoriert.', time(r.receivedAtUtc), sat8(r.amount), r.symbol), t('Entfernen'), true)) return;
+    if (await run(() => api(`/tax/rewards/${r.id}`, { method: 'DELETE' }), t('Eintrag entfernt, Transaktion wird künftig ignoriert.'))) renderTax();
+  };
+  if (!tv.rewards.length) return h('div', { class: 'card muted' }, t('Noch keine Zuflüsse erfasst.'));
+  return h('div', { class: 'card table-wrap' }, h('table', {},
+    h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Kurs (EUR)'), t('Wert (EUR)'), t('Rest'), t('Haltefrist'), t('Wallet'), t('Notiz'), ''].map(x => h('th', {}, x)))),
+    h('tbody', {}, tv.rewards.map(r => h('tr', {},
+      h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.symbol), h('td', { class: 'num' }, sat8(r.amount)),
+      h('td', { class: 'num', title: r.priceSource || '' }, r.eurPriceAtReceipt != null ? n(r.eurPriceAtReceipt, 2) + (r.manualPrice ? ' ✎' : '') : h('span', { class: 'warn' }, t('fehlt'))),
+      h('td', { class: 'num' }, r.eurValue != null ? n(r.eurValue, 2) : '–'),
+      h('td', { class: 'num' }, r.remaining > 0 ? sat8(r.remaining) : '–'),
+      h('td', { class: 'small' }, r.remaining > 0 ? r.holdingStatus : t('verkauft')),
+      h('td', {}, r.walletLabel || ''), h('td', { class: 'small' }, r.note || ''),
+      h('td', { class: 'row', style: 'flex-wrap:nowrap' },
+        h('button', { class: 'btn small', onclick: () => edit(r) }, t('Bearbeiten')),
+        h('button', { class: 'btn small', title: t('Kein Mining-Ertrag – entfernen'), onclick: () => remove(r) }, '✕')))))));
+}
+
+/** Verkäufe: erfassen (FIFO, Haltefrist), löschen, als CSV exportieren. */
+function taxSalesCard(tv) {
+  const coin = coinSelect('Bitcoin');
+  const date = h('input', { type: 'date', value: new Date().toLocaleDateString('sv'), max: new Date().toLocaleDateString('sv'), style: 'width:auto' });
+  const amount = h('input', { inputmode: 'decimal', placeholder: t('Menge, z. B. 0,0025'), style: 'width:auto;flex:1 1 130px' });
+  const proceeds = h('input', { inputmode: 'decimal', placeholder: t('Erlös in EUR'), style: 'width:auto;flex:1 1 110px' });
+  const note = h('input', { placeholder: t('Notiz (optional)'), maxlength: 200, style: 'width:auto;flex:2 1 160px' });
+  const stock = h('p', { class: 'muted small' });
+  const showStock = () => { const sym = COINS.find(c => c[0] === coin.value)[1]; stock.textContent = t('Dokumentierter Bestand: {0} {1}', sat8(tv.available[sym] ?? 0), sym); };
+  coin.addEventListener('change', showStock);
+  showStock();
+  const add = async () => {
+    const body = { coin: coin.value, date: date.value, amount: amount.value, proceeds: proceeds.value, note: note.value, allowOversell: false };
+    try {
+      await api('/tax/disposals', { method: 'POST', body });
+    } catch (e) {
+      if (e.status !== 409) { if (e.status !== 401) toast(e.message, 'error'); return; }
+      if (!await confirmBox(t('Verkauf erfassen'), e.message, t('Trotzdem erfassen'), true)) return;
+      if (!await run(() => api('/tax/disposals', { method: 'POST', body: { ...body, allowOversell: true } }))) return;
+    }
+    toast(t('Verkauf erfasst.'), 'ok');
+    renderTax();
+  };
+  const remove = async d => {
+    if (!await confirmBox(t('Verkauf löschen'), t('Verkauf vom {0} über {1} {2} löschen?', new Date(d.soldAtUtc).toLocaleDateString(LOCALE), sat8(d.amount), d.symbol), t('Löschen'), true)) return;
+    if (await run(() => api(`/tax/disposals/${d.id}`, { method: 'DELETE' }), t('Verkauf gelöscht.'))) renderTax();
+  };
+  const hint = d => [d.missingPrice ? t('Kurs fehlt bei einem Zufluss') : null,
+    d.unmatchedAmount > 0 ? t('{0} ohne dokumentierten Zufluss', sat8(d.unmatchedAmount)) : null].filter(Boolean).join(' · ');
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('h3', {}, t('Verkauf oder Tausch erfassen')),
+      h('div', { class: 'row' }, coin, date, amount, proceeds, note, h('button', { class: 'btn primary', onclick: add }, t('Erfassen'))),
+      stock,
+      h('p', { class: 'muted small' }, t('Zuordnung nach FIFO zu den dokumentierten Zuflüssen; Anteile, die länger als ein Jahr gehalten wurden, sind steuerfrei. Bei Tausch den Marktwert der Gegenleistung als Erlös eintragen.'))),
+    h('div', { class: 'card stack' },
+      h('div', { class: 'titlebar' }, h('h3', {}, t('Erfasste Verkäufe')), h('span', { class: 'spacer' }),
+        tv.disposals.length ? h('a', { class: 'btn small', href: '/api/v1/tax/disposals.csv', download: '' }, t('CSV exportieren')) : null),
+      tv.disposals.length ? h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Menge'), t('Erlös'), t('Anschaffung'), t('Gewinn (steuerpflichtig)'), t('haltefristfrei'), t('Hinweis'), t('Notiz'), ''].map(x => h('th', {}, x)))),
+        h('tbody', {}, tv.disposals.map(d => h('tr', {},
+          h('td', {}, new Date(d.soldAtUtc).toLocaleDateString(LOCALE)), h('td', {}, d.symbol), h('td', { class: 'num' }, sat8(d.amount)),
+          h('td', { class: 'num' }, n(d.proceedsEur, 2)), h('td', { class: 'num' }, n(d.costBasisEur, 2)), h('td', { class: 'num' }, n(d.taxableGainEur, 2)),
+          h('td', { class: 'num' }, d.taxFreeAmount > 0 ? sat8(d.taxFreeAmount) : '–'), h('td', { class: 'small warn' }, hint(d)), h('td', { class: 'small' }, d.note || ''),
+          h('td', {}, h('button', { class: 'btn small', title: t('Löschen'), onclick: () => remove(d) }, '✕')))))))
+        : h('p', { class: 'muted' }, t('Noch keine Verkäufe erfasst.'))));
+}
+
+/** Wallets: hinzufügen, aus den Minern übernehmen, umbenennen/Coin ändern, aus der Überwachung nehmen. */
+function taxWalletsCard(tv) {
+  const address = h('input', { placeholder: t('Wallet-Adresse'), autocomplete: 'off', spellcheck: false, style: 'width:auto;flex:3 1 260px' });
+  const coin = coinSelect('', true);
+  const label = h('input', { placeholder: t('Bezeichnung (optional)'), maxlength: 60, style: 'width:auto;flex:1 1 150px' });
+  const add = async () => {
+    if (await run(() => api('/tax/wallets', { method: 'POST', body: { address: address.value, coin: coin.value || null, label: label.value } }), t('Wallet hinzugefügt.'))) renderTax();
+  };
+  const importMiners = async () => {
+    const r = await run(() => api('/tax/wallets/import', { method: 'POST' }));
+    if (!r) return;
+    let text = r.added || r.skipped ? t('{0} Adresse(n) übernommen, {1} bereits vorhanden.', r.added, r.skipped)
+      : t('Keine Adresse gefunden. Miner müssen online sein oder eine Wallet-Adresse in den Einstellungen haben.');
+    if (r.ambiguous.length) text += t(' Coin bei {0} bitte prüfen (Legacy-Adresse, BCH angenommen).', r.ambiguous.join(', '));
+    toast(text, r.added ? 'ok' : 'info', 10000);
+    renderTax();
+  };
+  const edit = async w => {
+    const name = h('input', { value: w.label, maxlength: 60 });
+    const c = coinSelect(w.coin);
+    const body = h('div', { class: 'stack' }, h('p', { class: 'small', style: 'font-family:monospace;word-break:break-all' }, w.address),
+      h('div', {}, h('label', {}, t('Bezeichnung')), name), h('div', {}, h('label', {}, 'Coin'), c),
+      h('p', { class: 'muted small' }, t('Den Coin nur ändern, wenn er falsch erkannt wurde (Legacy-Adressen 1…/3… gibt es bei BTC und BCH).')));
+    if (!await confirmBox(t('Wallet bearbeiten'), body, t('Speichern'))) return;
+    if (await run(() => api(`/tax/wallets/${w.id}`, { method: 'PUT', body: { label: name.value, coin: c.value } }), t('Gespeichert.'))) renderTax();
+  };
+  const remove = async w => {
+    if (!await confirmBox(t('Wallet entfernen'), t('„{0}“ aus der Überwachung entfernen? Bereits dokumentierte Zuflüsse bleiben erhalten.', w.label), t('Entfernen'), true)) return;
+    if (await run(() => api(`/tax/wallets/${w.id}`, { method: 'DELETE' }), t('Wallet entfernt.'))) renderTax();
+  };
+  const short = a => a.length > 24 ? a.slice(0, 12) + '…' + a.slice(-8) : a;
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('h3', {}, t('Wallet hinzufügen')),
+      h('div', { class: 'row' }, address, coin, label, h('button', { class: 'btn primary', onclick: add }, t('Hinzufügen')),
+        h('button', { class: 'btn', onclick: importMiners }, t('Aus Minern übernehmen'))),
+      h('p', { class: 'muted small' }, t('Eingänge auf diesen Adressen werden mit EUR-Kurs zum Zuflusszeitpunkt dokumentiert. Dafür fragt BitaxeTuner die Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) ab.'))),
+    h('div', { class: 'card table-wrap' }, tv.wallets.length ? h('table', {},
+      h('thead', {}, h('tr', {}, [t('Bezeichnung'), 'Coin', t('Adresse'), t('Hinzugefügt'), ''].map(x => h('th', {}, x)))),
+      h('tbody', {}, tv.wallets.map(w => h('tr', {},
+        h('td', {}, w.label), h('td', {}, COINS.find(c => c[0] === w.coin)?.[1] || w.coin), h('td', { class: 'small', style: 'font-family:monospace;word-break:break-all', title: w.address }, short(w.address)),
+        h('td', { class: 'small' }, time(w.addedAtUtc)),
+        h('td', { class: 'row', style: 'flex-wrap:nowrap' },
+          h('button', { class: 'btn small', onclick: () => edit(w) }, t('Bearbeiten')),
+          h('button', { class: 'btn small', title: t('Entfernen'), onclick: () => remove(w) }, '✕'))))))
+      : h('p', { class: 'muted' }, t('Noch keine Wallets eingetragen.'))));
 }
 
 /** Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen (aus den Monatsberichten). */

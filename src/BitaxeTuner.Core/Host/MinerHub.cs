@@ -117,6 +117,7 @@ public sealed partial class MinerHub : IDisposable
         Odds = new SoloOddsService(Blockchair);
         TaxRepository = new TaxLogRepository(explicitDir is null ? null : Path.Combine(explicitDir, "tax"));
         TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository);
+        TaxEditor = new TaxEditor(TaxMonitor, TaxRepository);
 
         Snapshots = new SettingsSnapshots(Path.Combine(DataDirectory, "snapshots"));
         PoolWatch = new PoolWatch();
@@ -152,6 +153,14 @@ public sealed partial class MinerHub : IDisposable
     public SoloOddsService Odds { get; }
     public TaxLogRepository TaxRepository { get; }
     public WalletMonitorService TaxMonitor { get; }
+
+    /// <summary>Steuer-Bereich bearbeiten (Browser im Server-Betrieb).</summary>
+    public TaxEditor TaxEditor { get; }
+
+    /// <summary>Wallet-Adressen der Miner (Einstellung oder Stratum-User) für die Übernahme ins Steuer-Modul.</summary>
+    public IEnumerable<(string Name, string Host, string Address)> MinerWalletCandidates() =>
+        States.Where(s => !string.IsNullOrWhiteSpace(s.WalletAddress) && !SimulatedMinerClient.IsSimAddress(s.Config.Host))
+              .Select(s => (s.Config.Name, s.Config.Host, s.WalletAddress!)).ToList();
 
     public SettingsSnapshots Snapshots { get; }
     public PoolWatch PoolWatch { get; }

@@ -48,7 +48,8 @@ public class MinedReward : INotifyPropertyChanged
 
     /// <summary>Kurs wurde von Hand eingetragen und wird nicht automatisch überschrieben.</summary>
     [JsonIgnore]
-    public bool IsManualPrice => PriceSource.StartsWith("manuell", StringComparison.OrdinalIgnoreCase);
+    public bool IsManualPrice => PriceSource.StartsWith("manuell", StringComparison.OrdinalIgnoreCase)
+                                 || PriceSource.StartsWith("manual", StringComparison.OrdinalIgnoreCase);   // englische Oberfläche
 
     private string _note = string.Empty;
     public string Note
