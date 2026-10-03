@@ -371,7 +371,14 @@ function route() {
     return renderPlug();
   }
   S.route = { view };
-  if (view === 'kiosk') return renderKiosk();
+  if (view === 'kiosk') {
+    S.route.design = new URLSearchParams(location.hash.split('?')[1] || '').get('design') || '';
+    return renderKiosk();
+  }
+  if (view === 'kiosk-designer' && isAdmin() && parts[1]) {
+    S.route = { view, id: decodeURIComponent(parts[1]) };
+    return renderKioskDesigner();
+  }
   if (view === 'compare') return renderCompare();
   if (view === 'fans') return renderFans();
   if (view === 'tax' && isAdmin()) return renderTax();
@@ -1660,40 +1667,241 @@ async function kioskLogin() {
 
 const isKiosk = () => location.hash.startsWith('#/kiosk');
 
-/** Vollbild-Anzeige ohne Menü: Summen, Warnungen, je Miner eine Kachel. Nur Ansehen. */
+/** Panel-Arten des Kiosk-Designers (Anzeigename). */
+const KIOSK_PANELS = () => ({
+  title: t('Titel'), clock: t('Uhr'), hashrate: t('Hashrate'), power: t('Leistung'), efficiency: t('Effizienz'), online: t('Online'),
+  cost: t('Kosten pro Tag'), price: t('Strompreis'), maxtemp: t('Höchste Temperatur'), alerts: t('Warnungen'), miners: t('Miner'),
+  chart: t('Verlauf 24 h'), fans: t('Zusatzlüfter'), sensors: t('Temperaturfühler'), text: t('Eigener Text'),
+});
+
+async function loadKioskDesign() {
+  const q = S.route?.design ? `?id=${encodeURIComponent(S.route.design)}` : '';
+  const d = await api('/kiosk/design' + q);
+  S.kioskDesign = d.design; S.kioskTitle = d.title; S.kioskDesignAt = Date.now();
+}
+
+/** Vollbild-Anzeige ohne Menü nach dem gewählten Design. Nur Ansehen. */
 function renderKiosk() {
+  if (!S.kioskDesign || S.kioskDesignFor !== (S.route?.design || '')) {
+    S.kioskDesignFor = S.route?.design || '';
+    S.kioskDesign = null;
+    mount(h('p', { class: 'muted center' }, t('Lade …')));
+    loadKioskDesign().then(renderKiosk).catch(e => mount(h('p', { class: 'danger center' }, e.message)));
+    return;
+  }
   const s = S.status;
-  if (!s) { api('/status').then(x => { S.status = x; renderKiosk(); }).catch(() => {}); mount(h('p', { class: 'muted center' }, t('Lade …'))); return; }
-  const tv = s.totals;
-  const power = tv.wallPower ?? tv.power;
-  const eff = tv.wallEfficiency ?? tv.efficiency;
+  if (!s) { api('/status').then(x => { S.status = x; renderKiosk(); }).catch(() => {}); return; }
+  const first = !S.kioskShown;
+  S.kioskShown = true;
+  const view = kioskView(S.kioskDesign, s, { first });
+  mount(view.el);
+  view.start();
+  keepAwake();
+}
+
+/** Zahl sanft zum neuen Wert laufen lassen (Animation „Werte zählen hoch“). */
+function countTo(el, from, to, fmt) {
+  if (from == null || to == null || from === to || !isFinite(from) || !isFinite(to)) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(), dur = 700;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(from + (to - from) * e);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** 24-h-Verlauf als SVG (Hashrate aus dem Live-Verlauf des Servers). */
+function kioskChart(history) {
+  const pts = (history || []).filter(p => p[1] > 0);
+  if (pts.length < 2) return h('div', { class: 'kmuted' }, t('Noch zu wenige Messwerte.'));
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys) * 0.97, y1 = Math.max(...ys) * 1.02;
+  const X = x => ((x - x0) / Math.max(1, x1 - x0) * 100).toFixed(2), Y = y => (38 - (y - y0) / Math.max(1e-9, y1 - y0) * 36).toFixed(2);
+  const line = pts.map(p => `${X(p[0])},${Y(p[1])}`).join(' ');
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 40'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('class', 'kchart');
+  const area = document.createElementNS(ns, 'polygon');
+  area.setAttribute('points', `0,40 ${line} 100,40`); area.setAttribute('class', 'kchart-area');
+  const pl = document.createElementNS(ns, 'polyline');
+  pl.setAttribute('points', line); pl.setAttribute('class', 'kchart-line'); pl.setAttribute('vector-effect', 'non-scaling-stroke');
+  svg.append(area, pl);
+  return h('div', { class: 'kchart-wrap' }, svg,
+    h('div', { class: 'kmuted ksmall' }, t('min {0} · max {1}', hash(Math.min(...ys)), hash(Math.max(...ys)))));
+}
+
+/**
+ * Kiosk nach Design zeichnen. opt.editor: Panels verschiebbar (Ziehen), Breite/Höhe ändern, entfernen – Änderungen
+ * über opt.onChange. Liefert das Element und start() für die Zähl-Animationen.
+ */
+function kioskView(dz, s, opt = {}) {
+  const tv = s.totals, a = dz.animations || {}, c = dz.colors;
+  const names = KIOSK_PANELS();
+  const counters = [];
+  const prev = S.kioskPrev || (S.kioskPrev = {});
+  const num = (key, label, value, fmt, cls) => {
+    const el = h('div', { class: 'kval' }, value == null ? '–' : fmt(value));
+    if (value != null) counters.push({ el, key, to: value, fmt });
+    return [h('div', { class: 'klabel' }, label), el, cls];
+  };
   const alerts = [];
   s.devices.filter(d => !d.online && !d.maintenance).forEach(d => alerts.push(t('{0} offline', d.name)));
-  (s.fans?.channels || []).filter(c => c.stalled).forEach(c => alerts.push(t('Lüfter K{0} steht', c.channel)));
+  (s.fans?.channels || []).filter(x => x.stalled).forEach(x => alerts.push(t('Lüfter K{0} steht', x.channel)));
   (s.fans?.sensors || []).filter(x => x.hot).forEach(x => alerts.push(`${x.name} ${n(x.temp, 1)} °C`));
-  const clock = h('span', { class: 'kiosk-clock' }, new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }));
-  const tile = (label, value, cls) => h('div', { class: `kiosk-tile ${cls || ''}` }, h('div', { class: 'label' }, label), h('div', { class: 'value' }, value));
-  const minerCls = d => !d.online ? (d.maintenance ? 'gray' : 'bad') : d.temp >= 65 || d.vrTemp >= 85 ? 'hot' : 'good';
-  mount(h('div', { class: 'kiosk' },
-    h('div', { class: 'kiosk-head' }, h('b', {}, 'BitaxeTuner'), S.viewGroups?.length ? h('span', { class: 'muted' }, S.viewGroups.join(', ')) : null,
-      h('span', { class: 'spacer' }), clock,
-      h('button', { class: 'btn small ghost', title: t('Vollbild'), onclick: () => document.documentElement.requestFullscreen?.().catch(() => {}) }, '⛶')),
-    alerts.length ? h('div', { class: 'kiosk-alerts' }, alerts.slice(0, 4).join(' · ') + (alerts.length > 4 ? ' · ' + t('+ {0} weitere', alerts.length - 4) : '')) : null,
-    h('div', { class: 'kiosk-tiles' },
-      tile(t('Hashrate'), hash(tv.hashrate)),
-      tile(t('Leistung'), t('{0} W', n(power, 0))),
-      tile(t('Effizienz'), eff != null ? t('{0} J/TH', n(eff, 1)) : '–'),
-      tile(t('Online'), `${tv.online}/${tv.count}`, tv.online < tv.count ? 'warn' : ''),
-      tv.costPerDay != null ? tile(t('Kosten pro Tag'), `${n(tv.costPerDay, 2)} ${tv.currency}`) : null,
-      s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 1))) : null),
-    h('div', { class: 'kiosk-miners' }, s.devices.map(d => h('div', { class: `kiosk-miner ${minerCls(d)}` },
-      h('div', { class: 'name' }, d.name),
-      d.online
-        ? [h('div', { class: 'big' }, hash(d.hashrate)),
-           h('div', { class: 'small' }, [d.temp != null ? `${n(d.temp, 0)} °C` : null, d.vrTemp ? `VR ${n(d.vrTemp, 0)} °C` : null, d.power != null ? t('{0} W', n(d.power, 1)) : null].filter(Boolean).join(' · '))]
-        : h('div', { class: 'big' }, d.maintenance ? t('Wartung') : 'offline')))),
-    h('div', { class: 'kiosk-foot muted small' }, t('Stand {0}', new Date(s.time).toLocaleTimeString(LOCALE)))));
-  keepAwake();
+  const minerCls = d => !d.online ? (d.maintenance ? 'kgray' : 'kbad') : d.temp >= 65 || d.vrTemp >= 85 ? 'kwarn' : 'kgood';
+
+  const content = p => {
+    const label = p.title || names[p.type];
+    switch (p.type) {
+      case 'title': return [h('div', { class: 'ktitle' }, p.title || S.kioskTitle || 'BitaxeTuner'),
+        S.viewGroups?.length ? h('div', { class: 'kmuted' }, S.viewGroups.join(', ')) : null];
+      case 'clock': return [h('div', { class: 'kclock' }, new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })),
+        h('div', { class: 'kmuted' }, new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' }))];
+      case 'hashrate': return num('hash', label, tv.hashrate, hash);
+      case 'power': return num('power', label, tv.wallPower ?? tv.power, v => t('{0} W', n(v, 0)));
+      case 'efficiency': return num('eff', label, tv.wallEfficiency ?? tv.efficiency, v => t('{0} J/TH', n(v, 1)));
+      case 'online': return [h('div', { class: 'klabel' }, label), h('div', { class: `kval ${tv.online < tv.count ? 'kwarn-text' : ''}` }, `${tv.online}/${tv.count}`)];
+      case 'cost': return num('cost', label, tv.costPerDay, v => `${n(v, 2)} ${tv.currency}`);
+      case 'price': return num('price', label, s.price?.ct, v => t('{0} ct/kWh', n(v, 1)));
+      case 'maxtemp': return num('maxtemp', label, tv.maxTemp, v => `${n(v, 1)} °C`);
+      case 'alerts': return alerts.length
+        ? [h('div', { class: 'klabel' }, label), h('div', { class: 'kalert-list' }, alerts.slice(0, 6).map(x => h('div', {}, '⚠ ' + x)))]
+        : [h('div', { class: 'kok' }, '✓ ' + t('Alles in Ordnung'))];
+      case 'miners': return [h('div', { class: 'klabel' }, label), h('div', { class: 'kminers' }, s.devices.map(d => h('div', { class: `kminer ${minerCls(d)}` },
+        h('div', { class: 'kname' }, d.name),
+        h('div', { class: 'khash' }, d.online ? hash(d.hashrate) : d.maintenance ? t('Wartung') : 'offline'),
+        d.online ? h('div', { class: 'kmuted ksmall' }, [d.temp != null ? `${n(d.temp, 0)} °C` : null, d.vrTemp ? `VR ${n(d.vrTemp, 0)} °C` : null, d.power != null ? t('{0} W', n(d.power, 1)) : null].filter(Boolean).join(' · ')) : null)))];
+      case 'chart': return [h('div', { class: 'klabel' }, label), kioskChart(s.history)];
+      case 'fans': return [h('div', { class: 'klabel' }, label), (s.fans?.channels || []).length
+        ? h('div', { class: 'klist' }, s.fans.channels.map(x => h('div', {}, h('span', {}, x.name), h('b', { class: x.stalled ? 'kbad-text' : '' }, x.stalled ? t('steht!') : `${x.percent} %${x.rpm != null ? ' · ' + x.rpm + ' rpm' : ''}`))))
+        : h('div', { class: 'kmuted' }, t('Keine Zusatzlüfter.'))];
+      case 'sensors': return [h('div', { class: 'klabel' }, label), (s.fans?.sensors || []).length
+        ? h('div', { class: 'klist' }, s.fans.sensors.map(x => h('div', {}, h('span', {}, x.name), h('b', { class: x.hot || x.temp == null ? 'kbad-text' : '' }, x.temp != null ? `${n(x.temp, 1)} °C` : t('fehlt')))))
+        : h('div', { class: 'kmuted' }, t('Kein Temperaturfühler eingetragen.'))];
+      case 'text': return [p.title ? h('div', { class: 'klabel' }, p.title) : null, h('div', { class: 'ktext' }, p.text || t('Eigener Text'))];
+      default: return [];
+    }
+  };
+
+  let dragFrom = null;
+  const panels = dz.panels.map((p, i) => {
+    const small = p.colSpan <= 4 && p.rowSpan === 1;
+    const tile = ['hashrate', 'power', 'efficiency', 'online', 'cost', 'price', 'maxtemp'].includes(p.type);
+    const parts = content(p);
+    const el = h('div', {
+      class: `kpanel kp-${p.type}${small ? ' k-small' : ''}${tile ? ' k-tile' : ''}${p.type === 'alerts' && alerts.length ? ' has' : ''}`,
+      style: `grid-column: span ${p.colSpan}; grid-row: span ${p.rowSpan}; --i: ${i}`,
+    }, parts);
+    if (opt.editor) {
+      el.draggable = true;
+      el.addEventListener('dragstart', e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; el.classList.add('dragging'); });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drop'); });
+      el.addEventListener('dragleave', () => el.classList.remove('drop'));
+      el.addEventListener('drop', e => {
+        e.preventDefault(); el.classList.remove('drop');
+        if (dragFrom == null || dragFrom === i) return;
+        const list = dz.panels.slice(); const [moved] = list.splice(dragFrom, 1); list.splice(i, 0, moved);
+        opt.onChange({ ...dz, panels: list });
+      });
+      const change = (fn) => { const list = dz.panels.map(x => ({ ...x })); fn(list[i], list); opt.onChange({ ...dz, panels: list }); };
+      const btn = (label, title, fn) => h('button', { type: 'button', title, onclick: e => { e.stopPropagation(); change(fn); } }, label);
+      el.append(h('div', { class: 'ktools' },
+        h('span', { class: 'ktools-name' }, names[p.type]),
+        btn('◀', t('nach vorne'), (x, l) => { if (i > 0) { l.splice(i, 1); l.splice(i - 1, 0, x); } }),
+        btn('▶', t('nach hinten'), (x, l) => { if (i < l.length - 1) { l.splice(i, 1); l.splice(i + 1, 0, x); } }),
+        btn('⇠', t('schmaler'), x => { x.colSpan = Math.max(1, x.colSpan - 1); }),
+        btn('⇢', t('breiter'), x => { x.colSpan = Math.min(12, x.colSpan + 1); }),
+        btn('⇡', t('niedriger'), x => { x.rowSpan = Math.max(1, x.rowSpan - 1); }),
+        btn('⇣', t('höher'), x => { x.rowSpan = Math.min(4, x.rowSpan + 1); }),
+        btn('✎', t('Überschrift/Text'), x => {
+          const title = prompt(t('Überschrift (leer = Standard)'), x.title || '');
+          if (title !== null) x.title = title.trim();
+          if (x.type === 'text') { const text = prompt(t('Text'), x.text || ''); if (text !== null) x.text = text; }
+        }),
+        btn('✕', t('Entfernen'), (x, l) => { l.splice(i, 1); })));
+    }
+    return el;
+  });
+
+  const classes = ['kiosk2', opt.editor ? 'kedit' : '', a.fadeIn && opt.first ? 'kanim-fade' : '', a.pulseAlerts ? 'kanim-pulse' : '',
+    a.movingBackground ? 'kanim-bg' : '', a.glow ? 'kanim-glow' : ''].filter(Boolean).join(' ');
+  const style = `--kbg:${c.background};--kcard:${c.card};--ktext:${c.text};--kmuted:${c.muted};--kaccent:${c.accent};--kgood:${c.good};--kwarn:${c.warn};--kbad:${c.bad};--kscale:${dz.fontScale || 1}`;
+  const el = h('div', { class: classes, style },
+    h('div', { class: 'kgrid' }, panels),
+    opt.editor ? null : h('div', { class: 'kfoot' },
+      h('span', {}, t('Stand {0}', new Date(s.time).toLocaleTimeString(LOCALE))),
+      h('button', { class: 'kfull', title: t('Vollbild'), onclick: () => document.documentElement.requestFullscreen?.().catch(() => {}) }, '⛶')));
+  return {
+    el,
+    start: () => counters.forEach(x => {
+      const from = prev[x.key];
+      prev[x.key] = x.to;
+      if (a.countUp) countTo(x.el, from ?? (opt.first ? 0 : x.to), x.to, x.fmt); else x.el.textContent = x.fmt(x.to);
+    }),
+  };
+}
+
+/** Designer: Farben, Schrift, Animationen, Panels – mit Live-Vorschau (echte Daten). */
+async function renderKioskDesigner() {
+  mount(h('p', { class: 'muted' }, t('Lade …')));
+  const [data, status] = await Promise.all([api('/kiosk-designs'), S.status ? Promise.resolve(S.status) : api('/status')]).catch(e => { toast(e.message, 'error'); return []; });
+  if (!data) return;
+  S.status = status;
+  const orig = data.designs.find(d => d.id === S.route.id);
+  if (!orig) { mount(h('div', { class: 'card' }, t('Design nicht gefunden.'), ' ', h('a', { href: '#/settings' }, t('Zu den Einstellungen')))); return; }
+  let dz = structuredClone(orig);
+  const names = KIOSK_PANELS();
+  const preview = h('div', { class: 'kpreview' });
+  const draw = () => {
+    const v = kioskView(dz, S.status, { editor: true, onChange: next => { dz = next; draw(); } });
+    fill(preview, v.el);
+    v.start();
+  };
+  const colorKeys = [['background', t('Hintergrund')], ['card', t('Kacheln')], ['text', t('Text')], ['muted', t('Nebentext')], ['accent', t('Akzent')],
+    ['good', t('Gut')], ['warn', t('Warnung')], ['bad', t('Fehler')]];
+  const colorBox = h('div', { class: 'kcolors' });
+  const drawColors = () => fill(colorBox, colorKeys.map(([k, l]) => h('label', { class: 'kcolor' },
+    h('input', { type: 'color', value: dz.colors[k], oninput: e => { dz.colors[k] = e.target.value; dz.preset = 'custom'; draw(); } }), ' ', l)));
+  drawColors();
+  const presets = h('div', { class: 'row' }, Object.entries(data.presets).map(([key, col]) => h('button', {
+    class: 'kswatch', title: key, style: `background:${col.background};color:${col.text};border-color:${col.accent}`,
+    onclick: () => { dz.colors = { ...col }; dz.preset = key; drawColors(); draw(); },
+  }, h('span', { style: `background:${col.accent}` }), h('span', { style: `background:${col.good}` }), h('span', { style: `background:${col.bad}` }))));
+  const anim = (key, label) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!dz.animations[key], onchange: e => { dz.animations[key] = e.target.checked; S.kioskShown = false; draw(); } }), ' ', label);
+  const addType = h('select', { style: 'width:auto' }, data.panelTypes.map(p => h('option', { value: p }, names[p] || p)));
+  const name = h('input', { value: dz.name, maxlength: 40, oninput: e => { dz.name = e.target.value; } });
+  const scale = h('input', { type: 'range', min: 0.8, max: 1.6, step: 0.05, value: dz.fontScale || 1, oninput: e => { dz.fontScale = +e.target.value; draw(); } });
+  const save = async () => {
+    const r = await run(() => api(`/kiosk-designs/${encodeURIComponent(dz.id)}`, { method: 'PUT', body: dz }), t('Design gespeichert.'));
+    if (r) { dz = r; S.kioskDesign = null; }
+  };
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('div', { class: 'titlebar' }, h('h2', {}, t('Kiosk-Designer')), h('span', { class: 'spacer' }),
+        h('a', { class: 'btn', href: '#/settings' }, t('Zurück')),
+        h('a', { class: 'btn', href: `#/kiosk?design=${encodeURIComponent(dz.id)}`, title: t('Gespeicherten Stand im Vollbild ansehen') }, t('Vollbild-Vorschau')),
+        h('button', { class: 'btn primary', onclick: save }, t('Speichern'))),
+      h('p', { class: 'muted small' }, t('Panels in der Vorschau mit der Maus verschieben (ziehen und ablegen) oder mit ◀ ▶; ⇠ ⇢ ändert die Breite (12 Spalten), ⇡ ⇣ die Höhe. Auf dem Handy stehen die Panels untereinander.')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name),
+        h('div', {}, h('label', {}, t('Schriftgröße')), scale),
+        h('div', {}, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: dz.isDefault, onchange: e => { dz.isDefault = e.target.checked; } }), ' ', t('Standard-Design (PIN-Anmeldung, Links ohne eigenes Design)')))),
+      h('h3', {}, t('Farben')), h('p', { class: 'muted small' }, t('Vorlage wählen und bei Bedarf einzelne Farben anpassen.')), presets, colorBox,
+      h('h3', {}, t('Animationen')),
+      h('div', { class: 'row' }, anim('countUp', t('Werte zählen hoch')), anim('pulseAlerts', t('Warnungen pulsieren')), anim('fadeIn', t('Panels blenden ein')),
+        anim('movingBackground', t('Bewegter Hintergrund')), anim('glow', t('Leuchtende Werte'))),
+      h('p', { class: 'muted small' }, t('Geräte mit der Einstellung „Bewegung reduzieren“ zeigen keine Animationen.')),
+      h('h3', {}, t('Panel hinzufügen')),
+      h('div', { class: 'row' }, addType, h('button', { class: 'btn', onclick: () => {
+        const type = addType.value;
+        const tile = ['hashrate', 'power', 'efficiency', 'online', 'cost', 'price', 'maxtemp', 'clock'].includes(type);
+        dz = { ...dz, panels: [...dz.panels, { type, colSpan: tile ? 3 : type === 'title' ? 9 : 6, rowSpan: ['miners', 'chart'].includes(type) ? 2 : 1, title: '', text: '' }] };
+        draw();
+      } }, t('Hinzufügen')),
+        h('button', { class: 'btn ghost', onclick: () => { if (confirm(t('Alle Änderungen seit dem letzten Speichern verwerfen?'))) { dz = structuredClone(orig); name.value = dz.name; drawColors(); draw(); } } }, t('Verwerfen')))),
+    h('div', { class: 'card' }, preview)));
+  draw();
 }
 
 /** Bildschirm wach halten (Wake Lock, nur über HTTPS); nach dem Wechsel in den Vordergrund erneut anfordern. */
@@ -1709,8 +1917,9 @@ document.addEventListener('visibilitychange', () => { if (isKiosk()) keepAwake()
 // Kiosk: Uhr aktualisieren und Verbindung nach Server-Neustart selbst wiederherstellen (minütlich)
 setInterval(async () => {
   if (!isKiosk()) return;
-  const c = document.querySelector('.kiosk-clock');
+  const c = document.querySelector('.kclock');
   if (c) c.textContent = new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  if (S.kioskDesign && Date.now() - (S.kioskDesignAt || 0) > 5 * 60 * 1000) loadKioskDesign().then(renderKiosk).catch(() => {});
   if (!S.es || S.es.readyState === EventSource.CLOSED || !$('#live').classList.contains('on')) {
     if (S.role === 'None' || !(await fetch('/api/v1/session', { credentials: 'same-origin' }).then(r => r.json()).then(x => x.role !== 'None').catch(() => false))) {
       if (!(await kioskLogin())) return;
@@ -1720,13 +1929,14 @@ setInterval(async () => {
   }
 }, 60000);
 
-/** Einstellungen: Kiosk-Links anlegen/widerrufen, Erklärung der Anmeldung per PIN. */
+/** Einstellungen: Kiosk-Designs und Kiosk-Links (je Link ein Design), Erklärung der Anmeldung per PIN. */
 function kioskCard(groups) {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const base = `${location.origin}/#/kiosk`;
   const load = async () => {
-    const list = await api('/kiosks').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    const [list, dd] = await Promise.all([api('/kiosks'), api('/kiosk-designs')]).catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return []; });
     if (!list) return;
+    const designs = dd.designs;
     const name = h('input', { placeholder: t('z. B. Tablet Flur') });
     const picks = groups.map(g => ({ g, box: h('input', { type: 'checkbox' }) }));
     const add = async () => {
@@ -1745,12 +1955,38 @@ function kioskCard(groups) {
       if (!await confirmBox(t('Kiosk-Link widerrufen'), t('Kiosk-Link „{0}“ widerrufen? Das Tablet wird sofort abgemeldet.', k.name), t('Widerrufen'), true)) return;
       if (await run(() => api(`/kiosks/${encodeURIComponent(k.id)}`, { method: 'DELETE' }), t('Kiosk-Link widerrufen.'))) load();
     };
+    const designSelect = k => {
+      const sel = h('select', { style: 'width:auto', onchange: () => run(() => api(`/kiosks/${encodeURIComponent(k.id)}/design`, { method: 'PUT', body: { designId: sel.value || null } }), t('Design zugeordnet – das Tablet übernimmt es innerhalb von 5 Minuten.')) },
+        h('option', { value: '' }, t('Standard')), designs.map(d => h('option', { value: d.id }, d.name)));
+      sel.value = k.designId || '';
+      return sel;
+    };
+    const preset = h('select', { style: 'width:auto' }, Object.keys(dd.presets).map(p => h('option', { value: p }, p)));
+    const newDesign = async (copyOf) => {
+      const r = await run(() => api('/kiosk-designs', { method: 'POST', body: { preset: preset.value, copyOf } }));
+      if (r) location.hash = `#/kiosk-designer/${encodeURIComponent(r.id)}`;
+    };
+    const removeDesign = async d => {
+      if (!await confirmBox(t('Design löschen'), t('Design „{0}“ löschen? Kiosk-Links damit nutzen danach das Standard-Design.', d.name), t('Löschen'), true)) return;
+      if (await run(() => api(`/kiosk-designs/${encodeURIComponent(d.id)}`, { method: 'DELETE' }), t('Design gelöscht.'))) load();
+    };
     fill(body,
+      h('h3', {}, t('Designs')),
+      designs.length ? h('div', { class: 'table-wrap' }, h('table', {}, h('tbody', {}, designs.map(d => h('tr', {},
+        h('td', {}, h('span', { class: 'kdot', style: `background:${d.colors.background};border-color:${d.colors.accent}` }), ' ', d.name, d.isDefault ? h('span', { class: 'pill' }, t('Standard')) : null),
+        h('td', { class: 'small muted' }, t('{0} Panels', d.panels.length)),
+        h('td', { class: 'row', style: 'flex-wrap:nowrap' },
+          h('a', { class: 'btn small', href: `#/kiosk-designer/${encodeURIComponent(d.id)}` }, t('Bearbeiten')),
+          h('button', { class: 'btn small', onclick: () => newDesign(d.id) }, t('Kopieren')),
+          h('button', { class: 'btn small danger', onclick: () => removeDesign(d) }, '✕'))))))) : h('p', { class: 'muted small' }, t('Noch kein eigenes Design – angezeigt wird die Vorlage „bitcoin“.')),
+      h('div', { class: 'row' }, preset, h('button', { class: 'btn', onclick: () => newDesign(null) }, t('Neues Design …'))),
+      h('h3', {}, t('Kiosk-Links')),
       list.length ? h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, [t('Name'), t('sieht'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
+        h('thead', {}, h('tr', {}, [t('Name'), t('sieht'), t('Design'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
         h('tbody', {}, list.map(k => h('tr', {},
           h('td', {}, k.name), h('td', {}, k.groups.length ? k.groups.join(', ') : t('alle Miner')),
-          h('td', { class: 'nowrap' }, time(k.createdUtc)), h('td', { class: 'nowrap' }, k.lastUsedUtc ? time(k.lastUsedUtc) : t('noch nie')),
+          h('td', {}, designSelect(k)),
+          h('td', { class: 'nowrap' }, k.lastUsedUtc ? time(k.lastUsedUtc) : t('noch nie')),
           h('td', {}, h('button', { class: 'btn small danger', onclick: () => revoke(k) }, t('Widerrufen')))))))) : h('p', { class: 'muted small' }, t('Noch keine Kiosk-Links.')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name)),
       groups.length ? h('div', { class: 'stack' }, h('label', {}, t('Nur diese Gruppen (keine = alle Miner)')),

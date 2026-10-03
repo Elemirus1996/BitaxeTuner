@@ -133,7 +133,7 @@ public static class WhatsNew
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
             new("0.9.8", tr.T("Kiosk / Wand-Tablet"),
-                server ? tr.T("Vollbild-Anzeige ohne Menü für ein Tablet an der Wand: Summen, Warnungen, je Miner eine Kachel. Anmeldung per Kiosk-Link (meldet sich selbst wieder an, widerrufbar) oder Ansicht-PIN – unter Einstellungen → Kiosk / Wand-Tablet.")
+                server ? tr.T("Vollbild-Anzeige ohne Menü für ein Tablet an der Wand – frei gestaltbar im Kiosk-Designer: Farben, Animationen, Panels per Ziehen anordnen, je Kiosk-Link ein eigenes Design. Anmeldung per Kiosk-Link (meldet sich selbst wieder an, widerrufbar) oder Ansicht-PIN – unter Einstellungen → Kiosk / Wand-Tablet.")
                        : tr.T("Handy-Ansicht mit „?kiosk=1“ öffnen: große Anzeige für ein Tablet an der Wand. Im Server-Betrieb gibt es zusätzlich Kiosk-Links."),
                 null),
             new("0.9.8", tr.T("Sicherer und robuster"),

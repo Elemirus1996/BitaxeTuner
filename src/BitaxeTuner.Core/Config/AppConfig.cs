@@ -18,6 +18,9 @@ public sealed class AppConfig
     /// <summary>0.9.8: Zeitzone für Haltefrist und Datumsangaben im Steuer-Bereich (Audit F5). Additiv.</summary>
     public string TaxTimeZone { get; set; } = Tax.TaxTime.DefaultZone;
 
+    /// <summary>0.9.8: Designs der Kiosk-Anzeige (Farben, Panels, Animationen). Additiv.</summary>
+    public List<KioskDesign> KioskDesigns { get; set; } = [];
+
     public int IntervalSeconds { get; set; } = 5;
     public int HistoryMinutes { get; set; } = 60;
     public int WalletPollMinutes { get; set; } = 10;

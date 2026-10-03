@@ -54,6 +54,8 @@ public sealed class KioskAccess
     public List<string> Groups { get; set; } = [];
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastUsedUtc { get; set; }
+    /// <summary>Kiosk-Design (config.json); null = Standard-Design.</summary>
+    public string? DesignId { get; set; }
 }
 
 /// <summary>Ergebnis der Anmeldung; <see cref="Access"/> ist gesetzt, wenn mit der PIN eines eigenen Ansicht-Zugangs angemeldet.</summary>
@@ -255,7 +257,26 @@ public sealed class AuthStore
 
     public IReadOnlyList<KioskAccess> Kiosks
     {
-        get { lock (_lock) return _data.Kiosks.Select(k => new KioskAccess { Id = k.Id, Name = k.Name, Hash = k.Hash, Groups = k.Groups.ToList(), CreatedUtc = k.CreatedUtc, LastUsedUtc = k.LastUsedUtc }).ToList(); }
+        get { lock (_lock) return _data.Kiosks.Select(k => new KioskAccess { Id = k.Id, Name = k.Name, Hash = k.Hash, Groups = k.Groups.ToList(), CreatedUtc = k.CreatedUtc, LastUsedUtc = k.LastUsedUtc, DesignId = k.DesignId }).ToList(); }
+    }
+
+    /// <summary>Design eines Kiosk-Links festlegen (null = Standard); false, wenn es den Link nicht gibt.</summary>
+    public bool SetKioskDesign(string id, string? designId)
+    {
+        lock (_lock)
+        {
+            if (_data.Kiosks.FirstOrDefault(k => k.Id == id) is not { } k) return false;
+            k.DesignId = string.IsNullOrWhiteSpace(designId) ? null : designId;
+            Save();
+            return true;
+        }
+    }
+
+    /// <summary>Design-Kennung eines Kiosk-Links (für die Sitzung), null = Standard oder kein Kiosk.</summary>
+    public string? KioskDesignOf(string? kioskId)
+    {
+        if (kioskId is null) return null;
+        lock (_lock) return _data.Kiosks.FirstOrDefault(k => k.Id == kioskId)?.DesignId;
     }
 
     /// <summary>Neuer Kiosk-Link – der Schlüssel wird nur hier einmal zurückgegeben.</summary>

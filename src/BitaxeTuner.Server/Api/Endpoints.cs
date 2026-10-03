@@ -58,6 +58,7 @@ public static class Endpoints
 
         var viewer = api.MapGroup("").AddEndpointFilter(Require(Role.Viewer));
         MapViewer(viewer);
+        KioskEndpoints.MapViewer(viewer);
 
         var admin = api.MapGroup("").AddEndpointFilter(Require(Role.Admin));
         MapDevices(admin);
@@ -766,6 +767,7 @@ public static class Endpoints
         PlugEndpoints.Map(g);
         ReportEndpoints.Map(g);
         TaxEndpoints.Map(g);
+        KioskEndpoints.Map(g);
         GroupEndpoints.Map(g);
         g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
@@ -907,7 +909,7 @@ public static class Endpoints
 
         // Kiosk-Links (Wand-Tablet): der Schlüssel wird nur beim Anlegen einmal zurückgegeben
         g.MapGet("/kiosks", (AuthStore auth) =>
-            Results.Json(auth.Kiosks.Select(k => new { k.Id, k.Name, k.Groups, k.CreatedUtc, k.LastUsedUtc })));
+            Results.Json(auth.Kiosks.Select(k => new { k.Id, k.Name, k.Groups, k.CreatedUtc, k.LastUsedUtc, k.DesignId })));
 
         g.MapPost("/kiosks", async (ViewerRequest req, AuthStore auth, HubService hub) =>
         {

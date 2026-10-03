@@ -237,26 +237,70 @@ table.journal tr.explain td { background: var(--alt); white-space: normal; paddi
 /* Bestwerte der Benchmark-Ergebnisse: Frequenz/Spannung und zwei Knöpfe brauchen mehr Platz */
 .tiles.wide { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 
-/* Kiosk / Wand-Tablet: ohne Kopf und Fuß, große Schrift */
+/* Kiosk / Wand-Tablet: ohne Kopf und Fuß, Gestaltung nach Design (Farben als Variablen) */
 body.kiosk-mode header.top, body.kiosk-mode footer.status { display: none; }
-body.kiosk-mode #app { max-width: none; padding: 12px; }
-.kiosk { display: flex; flex-direction: column; gap: 14px; min-height: calc(100vh - 24px); }
-.kiosk-head { display: flex; align-items: center; gap: 12px; font-size: 20px; }
-.kiosk-clock { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.kiosk-alerts { background: var(--danger); color: #fff; border-radius: var(--radius); padding: 10px 14px; font-size: 20px; font-weight: 600; }
-.kiosk-tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.kiosk-tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
-.kiosk-tile .label { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.kiosk-tile .value { font-size: clamp(22px, 3.2vw, 40px); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kiosk-head .spacer { flex: 1; }
-.kiosk-tile { min-width: 0; }
-.kiosk-tile.warn .value { color: var(--warn); }
-.kiosk-miners { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
-.kiosk-miner { background: var(--card); border: 1px solid var(--border); border-left: 6px solid var(--ok); border-radius: var(--radius); padding: 10px 14px; }
-.kiosk-miner.hot { border-left-color: var(--warn); }
-.kiosk-miner.bad { border-left-color: var(--danger); }
-.kiosk-miner.gray { border-left-color: var(--muted); }
-.kiosk-miner .name { font-weight: 600; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kiosk-miner .big { font-size: clamp(22px, 3vw, 32px); font-weight: 700; font-variant-numeric: tabular-nums; }
-.kiosk-miner.bad .big { color: var(--danger); }
-.kiosk-foot { margin-top: auto; text-align: right; }
+body.kiosk-mode #app { max-width: none; padding: 0; }
+.kiosk2 { background: var(--kbg); color: var(--ktext); min-height: 100vh; padding: 14px; font-size: calc(16px * var(--kscale)); display: flex; flex-direction: column; gap: 12px; }
+.kedit { min-height: 0; border-radius: 12px; }
+.kgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(calc(104px * var(--kscale)), auto); gap: 12px; grid-auto-flow: dense; }
+.kpanel { position: relative; background: var(--kcard); border-radius: 18px; padding: 14px 18px; overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--ktext) 8%, transparent); box-shadow: 0 8px 28px rgba(0, 0, 0, .22); }
+.kpanel.k-tile::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--kaccent), transparent); }
+.klabel { font-size: calc(12px * var(--kscale)); letter-spacing: .09em; text-transform: uppercase; color: var(--kmuted); }
+.kval { font-size: calc(clamp(24px, 3.2vw, 46px) * var(--kscale)); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kmuted { color: var(--kmuted); } .ksmall { font-size: calc(12px * var(--kscale)); }
+.kwarn-text { color: var(--kwarn); } .kbad-text { color: var(--kbad); }
+.ktitle { font-size: calc(clamp(26px, 3.4vw, 48px) * var(--kscale)); font-weight: 800; color: var(--kaccent); line-height: 1.1; }
+.kclock { font-size: calc(clamp(30px, 4vw, 56px) * var(--kscale)); font-weight: 800; font-variant-numeric: tabular-nums; }
+.kp-clock { text-align: right; align-items: flex-end; }
+.ktext { font-size: calc(20px * var(--kscale)); white-space: pre-wrap; }
+.kp-alerts { background: color-mix(in srgb, var(--kgood) 14%, var(--kcard)); }
+.kp-alerts.has { background: var(--kbad); color: #fff; }
+.kp-alerts.has .klabel { color: rgba(255, 255, 255, .85); }
+.kalert-list { display: flex; flex-wrap: wrap; gap: 6px 22px; font-weight: 700; font-size: calc(19px * var(--kscale)); }
+.kok { color: var(--kgood); font-weight: 700; font-size: calc(18px * var(--kscale)); }
+.kminers { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(calc(180px * var(--kscale)), 1fr)); margin-top: 6px; }
+.kminer { border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--ktext) 5%, var(--kcard)); border-left: 5px solid var(--kgood); min-width: 0; }
+.kminer.kwarn { border-left-color: var(--kwarn); } .kminer.kbad { border-left-color: var(--kbad); } .kminer.kgray { border-left-color: var(--kmuted); }
+.kminer.kbad .khash { color: var(--kbad); }
+.kname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.khash { font-size: calc(clamp(20px, 2.4vw, 30px) * var(--kscale)); font-weight: 800; font-variant-numeric: tabular-nums; }
+.klist { display: grid; gap: 4px; margin-top: 4px; }
+.klist > div { display: flex; justify-content: space-between; gap: 12px; }
+.kchart-wrap { flex: 1; display: flex; flex-direction: column; min-height: 80px; }
+.kchart { width: 100%; flex: 1; min-height: 70px; }
+.kchart-line { fill: none; stroke: var(--kaccent); stroke-width: 2.5; }
+.kchart-area { fill: color-mix(in srgb, var(--kaccent) 18%, transparent); }
+.kfoot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: var(--kmuted); font-size: 12px; margin-top: auto; }
+.kfull { background: transparent; border: 1px solid color-mix(in srgb, var(--ktext) 20%, transparent); color: var(--kmuted); border-radius: 8px; padding: 2px 8px; cursor: pointer; }
+/* Animationen */
+.kanim-fade .kpanel { animation: kfade .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes kfade { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.kanim-pulse .kp-alerts.has { animation: kpulse 1.8s ease-in-out infinite; }
+@keyframes kpulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--kbad) 55%, transparent); } 50% { box-shadow: 0 0 0 12px transparent; } }
+.kanim-bg { background: linear-gradient(130deg, var(--kbg), color-mix(in srgb, var(--kaccent) 16%, var(--kbg)), var(--kbg), color-mix(in srgb, var(--kgood) 10%, var(--kbg))); background-size: 300% 300%; animation: kbg 45s ease infinite; }
+@keyframes kbg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.kanim-glow .kval, .kanim-glow .ktitle, .kanim-glow .kclock { text-shadow: 0 0 22px color-mix(in srgb, var(--kaccent) 55%, transparent); }
+.kanim-glow .kval { overflow: visible; }
+@media (prefers-reduced-motion: reduce) { .kiosk2, .kiosk2 * { animation: none !important; } }
+/* Handy: Panels untereinander, kleine Kennzahlen zu zweit */
+@media (max-width: 700px) {
+  .kgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpanel { grid-column: span 4 !important; }
+  .kpanel.k-small { grid-column: span 2 !important; }
+}
+/* Designer */
+.kpreview { border-radius: 14px; overflow: hidden; }
+.kedit .kpanel { cursor: grab; outline: 2px dashed color-mix(in srgb, var(--kaccent) 45%, transparent); outline-offset: -2px; padding-top: 34px; }
+.kedit .kpanel.dragging { opacity: .4; }
+.kedit .kpanel.drop { outline: 3px solid var(--kaccent); }
+.ktools { position: absolute; top: 4px; left: 6px; right: 6px; display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+.ktools-name { font-size: 11px; color: var(--kmuted); margin-right: auto; text-transform: uppercase; letter-spacing: .06em; }
+.ktools button { background: color-mix(in srgb, var(--ktext) 10%, var(--kcard)); color: var(--ktext); border: 0; border-radius: 6px; padding: 1px 7px; font-size: 13px; cursor: pointer; }
+.kcolors { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.kcolor { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.kcolor input[type=color] { width: 38px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; }
+.kswatch { display: inline-flex; gap: 4px; align-items: center; padding: 8px 12px; border-radius: 10px; border: 2px solid; cursor: pointer; }
+.kswatch span { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.kdot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 3px solid; vertical-align: -2px; }

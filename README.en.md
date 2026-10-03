@@ -425,6 +425,9 @@ You can switch in both directions at any time with all your data (see *Switching
   one tile per miner, keeps the screen on (HTTPS). Sign-in as the admin prefers: a **kiosk link** (open once on the
   tablet, signs in by itself even after server restarts, can be limited to groups, revocable) or a **view PIN** and then
   open `…/#/kiosk`. Without server: the desktop app's phone view with `?kiosk=1`.
+  **Kiosk designer:** several designs with colour templates or own colours, font size, animations (values count up,
+  warnings pulse, fade-in, moving background, glow) and freely arranged panels (title, clock, key figures, warnings,
+  miners, history, fans, sensors, custom text) via drag and drop – each kiosk link can have its own design.
 - **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
   (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
   interface and polls **no** miners itself. The token can be revoked at any time.

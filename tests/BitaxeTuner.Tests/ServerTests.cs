@@ -150,6 +150,45 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Kiosk_designs_are_validated_and_each_link_shows_its_design()
+    {
+        var admin = await AdminAsync();
+        var std = await Json(await admin.PostAsJsonAsync("/api/v1/kiosk-designs", new { name = "Hell", preset = "light" }));
+        Assert.True(std.GetProperty("isDefault").GetBoolean());                                   // erstes Design = Standard
+        var garage = await Json(await admin.PostAsJsonAsync("/api/v1/kiosk-designs", new { name = "Garage", preset = "matrix" }));
+        var id = garage.GetProperty("id").GetString()!;
+
+        // Panels umstellen und Farben ändern
+        var design = System.Text.Json.Nodes.JsonNode.Parse(garage.GetRawText())!;
+        design["colors"]!["accent"] = "#123456";
+        design["panels"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"type":"clock","colSpan":20,"rowSpan":9},{"type":"miners","colSpan":12,"rowSpan":2}]""");
+        var saved = await Json(await admin.PutAsJsonAsync($"/api/v1/kiosk-designs/{id}", design));
+        Assert.Equal(12, saved.GetProperty("panels")[0].GetProperty("colSpan").GetInt32());        // auf 12 Spalten begrenzt
+        Assert.Equal(4, saved.GetProperty("panels")[0].GetProperty("rowSpan").GetInt32());
+        design["colors"]!["accent"] = "rot";
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/kiosk-designs/{id}", design)).StatusCode);
+        design["colors"]!["accent"] = "#123456";
+        design["panels"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"type":"script"}]""");
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/kiosk-designs/{id}", design)).StatusCode);
+
+        // Kiosk-Link mit Design „Garage“
+        var kiosk = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Garage", groups = Array.Empty<string>() }));
+        await Json(await admin.PutAsJsonAsync($"/api/v1/kiosks/{kiosk.GetProperty("id").GetString()}/design", new { designId = id }));
+        var tablet = _factory.CreateClient();
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
+        var shown = await Json(await tablet.GetAsync("/api/v1/kiosk/design"));
+        Assert.Equal("Garage", shown.GetProperty("design").GetProperty("name").GetString());
+        Assert.Equal("#123456", shown.GetProperty("design").GetProperty("colors").GetProperty("accent").GetString());
+        // ?id= gilt nur für den Admin (Vorschau) – das Tablet bekommt weiter sein eigenes Design
+        Assert.Equal("Garage", (await Json(await tablet.GetAsync($"/api/v1/kiosk/design?id={std.GetProperty("id").GetString()}"))).GetProperty("design").GetProperty("name").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, (await tablet.GetAsync("/api/v1/kiosk-designs")).StatusCode);   // Designer nur für Admin
+
+        // Design löschen → Link nutzt wieder das Standard-Design
+        await Json(await admin.DeleteAsync($"/api/v1/kiosk-designs/{id}"));
+        Assert.Equal("Hell", (await Json(await tablet.GetAsync("/api/v1/kiosk/design"))).GetProperty("design").GetProperty("name").GetString());
+    }
+
+    [Fact]
     public void New_installations_start_with_https_existing_ones_keep_http()
     {
         using var fresh = new TempDir();

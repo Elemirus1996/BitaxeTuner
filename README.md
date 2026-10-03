@@ -428,6 +428,9 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
   je Miner eine Kachel, hält den Bildschirm wach (HTTPS). Anmeldung nach Wahl des Admins: **Kiosk-Link** (einmal auf dem
   Tablet öffnen, meldet sich danach auch nach Server-Neustarts selbst an, auf Gruppen beschränkbar, widerrufbar) oder
   mit einer **Ansicht-PIN** und dann `…/#/kiosk` öffnen. Ohne Server: Handy-Ansicht der Desktop-App mit `?kiosk=1`.
+  **Kiosk-Designer:** mehrere Designs mit Farbvorlagen oder eigenen Farben, Schriftgröße, Animationen (Werte zählen hoch,
+  Warnungen pulsieren, Einblenden, bewegter Hintergrund, Leuchten) und frei angeordneten Panels (Titel, Uhr, Kennzahlen,
+  Warnungen, Miner, Verlauf, Lüfter, Fühler, eigener Text) per Ziehen und Ablegen – je Kiosk-Link ein eigenes Design.
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
   (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
   die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.
