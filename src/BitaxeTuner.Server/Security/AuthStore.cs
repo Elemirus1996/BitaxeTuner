@@ -166,6 +166,21 @@ public sealed class AuthStore
         finally { _loginGate.Release(); }
     }
 
+    /// <summary>
+    /// Wie <see cref="LoginAs"/>, aber ohne einen Thread zu blockieren, solange andere Anmeldungen geprüft werden (Audit S7:
+    /// viele Fehlversuche banden sonst Threads des Thread-Pools).
+    /// </summary>
+    public async Task<LoginResult> LoginAsAsync(string secret)
+    {
+        if (string.IsNullOrEmpty(secret)) return new LoginResult(Role.None);
+        await _loginGate.WaitAsync();
+        try { return await Task.Run(() => LoginCore(secret)); }
+        finally { _loginGate.Release(); }
+    }
+
+    /// <summary>Audit S6: Anmeldung mit einer PIN im alten Format – der Server übernimmt sie ins PBKDF2-Format.</summary>
+    public Action<string>? UpgradeLegacyPin { get; set; }
+
     private LoginResult LoginCore(string secret)
     {
         string adminHash;
@@ -189,7 +204,11 @@ public sealed class AuthStore
             }
         }
         var pinHash = _config().WebView.PinHash;
-        if (WebViewSettings.VerifyPin(secret, pinHash)) return new LoginResult(Role.Viewer);
+        if (WebViewSettings.VerifyPin(secret, pinHash))
+        {
+            if (!pinHash.StartsWith("pbkdf2-", StringComparison.Ordinal)) UpgradeLegacyPin?.Invoke(pin);
+            return new LoginResult(Role.Viewer);
+        }
         return new LoginResult(Role.None);
     }
 

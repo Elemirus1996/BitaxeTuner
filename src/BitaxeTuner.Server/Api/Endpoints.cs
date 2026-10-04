@@ -292,7 +292,7 @@ public static class Endpoints
             var now = DateTime.UtcNow;
             if (lockout.IsLocked(client, now)) return Error(429, L.N("Zu viele Fehlversuche – bitte 5 Minuten warten."));
             if (lockout.GlobalDelay(now) is { } delay && delay > TimeSpan.Zero) await Task.Delay(delay);
-            var result = await Task.Run(() => auth.LoginAs(req.Password ?? ""));
+            var result = await auth.LoginAsAsync(req.Password ?? "");
             if (result.Role == Role.None)
             {
                 lockout.Fail(client, now);
@@ -1091,7 +1091,8 @@ public static class Endpoints
 
         g.MapGet("/admin/export", async (HubService hub) =>
         {
-            var file = Path.Combine(Path.GetTempPath(), $"bitaxetuner-export-{Guid.NewGuid():N}.zip");
+            // Audit N-Sec5: im geschützten Datenordner statt im allgemeinen Temp-Ordner (Archiv enthält aufgelöste Tokens)
+            var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.zip");
             await hub.RunAsync(h =>
             {
                 using var fs = File.Create(file);

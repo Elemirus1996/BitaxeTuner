@@ -58,7 +58,10 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<HubService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<HubService>());
 builder.Services.AddSingleton(sp => new AuthStore(sp.GetRequiredService<ServerSettings>().DataDirectory,
-    () => sp.GetRequiredService<HubService>().Hub.Config));
+    () => sp.GetRequiredService<HubService>().Hub.Config)
+{
+    UpgradeLegacyPin = pin => sp.GetRequiredService<HubService>().Hub.UpgradeLegacyPin(pin),
+});
 builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<Lockout>();
 builder.Services.AddSingleton<EventStream>();
@@ -148,7 +151,16 @@ app.Lifetime.ApplicationStarted.Register(() =>
     if (auth.SetupCode is { } code)
         log.LogWarning("Noch nicht eingerichtet. Einrichtungs-Code: {Code} – im Browser eingeben und ein Admin-Passwort festlegen.", code);
     if (aclNote is not null)
+    {
         log.LogWarning("Zugriffsrechte des Datenordners konnten nicht beschränkt werden: {Error}", aclNote);
+        // Audit S3: auch im Protokoll der Oberfläche – das Server-Log liest kaum jemand
+        _ = app.Services.GetRequiredService<HubService>().RunAsync(h =>
+        {
+            h.LogEvent(null, BitaxeTuner.Core.Monitoring.EventCategories.System,
+                BitaxeTuner.Core.I18n.L.T("Sicherheit: Zugriffsrechte des Datenordners konnten nicht beschränkt werden ({0}). Andere Benutzer dieses Rechners könnten Daten lesen.", aclNote));
+            return true;
+        });
+    }
     if (settings.AllowPublic)
         log.LogWarning("Zugriff auch von außerhalb des Heimnetzes erlaubt (--allow-public). Empfohlen ist ein VPN (z. B. Tailscale/WireGuard).");
 });

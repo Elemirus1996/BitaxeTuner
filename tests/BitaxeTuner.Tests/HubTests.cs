@@ -243,6 +243,23 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Legacy_pin_is_upgraded_after_a_successful_login()
+    {
+        // Audit S6: ungesalzene SHA-256-PIN aus Versionen vor 0.9.5 → nach der nächsten Anmeldung PBKDF2
+        using var rig = new Rig("10.0.0.81");
+        var legacy = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bitaxetuner|246810")));
+        rig.Hub.Config.WebView.PinHash = legacy;
+        Assert.True(rig.Hub.Config.WebView.PinIsLegacy);
+        rig.Hub.UpgradeLegacyPin("999999");                                       // falsche PIN: nichts ändern
+        await Task.Delay(50);
+        Assert.Equal(legacy, rig.Hub.Config.WebView.PinHash);
+        rig.Hub.UpgradeLegacyPin("246810");
+        await Task.Delay(50);
+        Assert.False(rig.Hub.Config.WebView.PinIsLegacy);
+        Assert.True(WebViewSettings.VerifyPin("246810", rig.Hub.Config.WebView.PinHash));
+    }
+
+    [Fact]
     public async Task Failed_daily_report_counts_as_sent_and_is_not_rebuilt_every_poll()
     {
         // Audit N-E1: nach einem Push-Fehler wurde der Bericht alle 5 s neu gebaut und nach einem Neustart doppelt gesendet

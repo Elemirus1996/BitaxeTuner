@@ -42,7 +42,7 @@ public static class TaxEndpoints
 
         g.MapGet("/tax/rewards.csv", async (HubService hub) =>
         {
-            var file = Path.Combine(Path.GetTempPath(), $"bitaxetuner-zufluesse-{Guid.NewGuid():N}.csv");
+            var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.csv");   // Audit N-Sec5
             await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals()); return true; });
             var bytes = await File.ReadAllBytesAsync(file);
             File.Delete(file);
@@ -51,7 +51,7 @@ public static class TaxEndpoints
 
         g.MapGet("/tax/disposals.csv", async (HubService hub) =>
         {
-            var file = Path.Combine(Path.GetTempPath(), $"bitaxetuner-verkaeufe-{Guid.NewGuid():N}.csv");
+            var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.csv");   // Audit N-Sec5
             await hub.RunAsync(h =>
             {
                 var results = HoldingCalculator.Apply(h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals());

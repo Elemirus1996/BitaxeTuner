@@ -25,6 +25,7 @@ public sealed class WebViewServer : IDisposable
     private static readonly TimeSpan SessionTime = TimeSpan.FromDays(7);
 
     private readonly Func<string> _pinHash;
+    private readonly Action<string>? _upgradePin;
     private readonly Func<string> _statusJson;
     private readonly ConcurrentDictionary<string, DateTime> _sessions = new();
     private readonly ConcurrentDictionary<string, (int Count, DateTime Until)> _failures = new();
@@ -33,9 +34,10 @@ public sealed class WebViewServer : IDisposable
 
     /// <param name="pinHash">Liefert den gespeicherten PIN-Hash (<see cref="WebViewSettings.HashPin"/>).</param>
     /// <param name="statusJson">Liefert die aktuellen Werte als JSON (ohne Wallet-Adressen).</param>
-    public WebViewServer(Func<string> pinHash, Func<string> statusJson)
+    public WebViewServer(Func<string> pinHash, Func<string> statusJson, Action<string>? upgradePin = null)
     {
         _pinHash = pinHash;
+        _upgradePin = upgradePin;
         _statusJson = statusJson;
     }
 
@@ -168,6 +170,7 @@ public sealed class WebViewServer : IDisposable
         }
 
         _failures.TryRemove(client, out _);
+        if (!expected.StartsWith("pbkdf2-", StringComparison.Ordinal)) _upgradePin?.Invoke(pin.Trim());   // Audit S6
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         _sessions[token] = now + SessionTime;
         return Redirect("/", $"bt_session={token}; Max-Age={(int)SessionTime.TotalSeconds}; Path=/; HttpOnly; SameSite=Strict");

@@ -25,6 +25,8 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.31" />
     <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <!-- Audit L1: ImageSharp fest auf eine Version ohne bekannte Sicherheitslücken (GHSA-rxmq-m78w-7wmc u. a., behoben in 3.1.11) -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
     <PackageReference Include="SMBLibrary" Version="1.5.8.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />

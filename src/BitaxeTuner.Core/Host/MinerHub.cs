@@ -136,7 +136,7 @@ public sealed partial class MinerHub : IDisposable
         _priceHttp.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner");
         Prices = new PriceService(() => Config.PriceSource, _priceHttp);
         Automation = new AutomationEngine(Prices);
-        WebView = new WebViewServer(() => Config.WebView.PinHash, () => WebStatusJson);
+        WebView = new WebViewServer(() => Config.WebView.PinHash, () => WebStatusJson, UpgradeLegacyPin);
         Updates = new UpdateService(_updateHttp, options.UpdateRepository);
         Benchmarks = new BenchmarkManager(this);
 
@@ -430,6 +430,19 @@ public sealed partial class MinerHub : IDisposable
             catch (Exception ex) { RaiseStatus(false, L.T("Interner Fehler: ") + ex.Message); }
         }
     }
+
+    /// <summary>
+    /// Audit S6: Nach erfolgreicher Anmeldung mit einer PIN im alten Format (SHA-256 ohne Salz) dieselbe PIN als PBKDF2
+    /// speichern – im Hub-Kontext, weil Anmeldungen auf anderen Threads laufen.
+    /// </summary>
+    public void UpgradeLegacyPin(string pin) => _ = InvokeAsync(() =>
+    {
+        if (!Config.WebView.PinIsLegacy || !WebViewSettings.VerifyPin(pin, Config.WebView.PinHash)) return false;
+        Config.WebView.PinHash = WebViewSettings.HashPin(pin);
+        Config.Save();
+        LogEvent(null, EventCategories.Settings, L.T("PIN der Ansicht ins sichere Format (PBKDF2) übernommen."));
+        return true;
+    });
 
     /// <summary>Aufruf von außen (Server-API, anderer Thread) im Hub-Kontext ausführen.</summary>
     public Task<T> InvokeAsync<T>(Func<Task<T>> action)

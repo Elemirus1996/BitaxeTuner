@@ -58,12 +58,14 @@ public static class DataArchive
     public static ArchiveManifest Create(string dataDirectory, HistoryStore? openHistory, Stream output, string source, string appVersion)
     {
         var manifest = new ArchiveManifest { Source = source, AppVersion = appVersion };
-        var temp = Path.Combine(Path.GetTempPath(), "bt-export-" + Guid.NewGuid().ToString("N"));
+        // Audit N-Sec5: config.json mit aufgelösten Tokens nur im (geschützten) Datenordner zwischenlagern, nicht in %TEMP%
+        // bzw. C:\Windows\Temp beim Windows-Dienst. Der Ordner selbst wird nicht mit ins Archiv gepackt (IsTransferable).
+        var temp = Path.Combine(dataDirectory, ".export-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
         try
         {
             using var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
-            foreach (var file in Directory.EnumerateFiles(dataDirectory, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(dataDirectory, "*", SearchOption.AllDirectories).ToList())
             {
                 var relative = Path.GetRelativePath(dataDirectory, file).Replace('\\', '/');
                 if (!IsTransferable(relative)) continue;

@@ -23,8 +23,10 @@ aktualisieren (Desktop: *Nach Updates suchen*, Server: *Einstellungen → Server
 - Den Server **nicht** per Portfreigabe ins Internet stellen; für den Zugriff von unterwegs ein VPN verwenden
   (z. B. Tailscale oder WireGuard). Der Server nimmt nur Anfragen aus privaten Netzen an.
 - API-Tokens nur an vertrauenswürdige Geräte geben; nicht mehr benötigte Tokens widerrufen.
-- Passwörter für Netzlaufwerk, MQTT und Smart Plugs liegen getrennt in `secrets.json` (Windows: verschlüsselt,
-  Linux: nur für den Dienst lesbar) und gehen nie in Sicherungen, Übertragungen oder die API-Antworten.
+- Passwörter für Netzlaufwerk, MQTT und Smart Plugs liegen getrennt in `secrets.json` (Windows: mit DPAPI verschlüsselt;
+  Linux/Docker: **nicht verschlüsselt**, nur Base64-kodiert – geschützt allein durch die Dateirechte 600, nur der Dienst
+  darf lesen) und gehen nie in Sicherungen oder API-Antworten. Ausnahme bewusst: Datenübertragung Desktop ↔ Server und
+  `/admin/export` enthalten die Zugangsdaten, damit sie mitkommen – solche Archive wie ein Passwort behandeln.
 - Smart Plugs und Push-Webhooks: BitaxeTuner fragt nur Adressen im Heimnetz ab bzw. sendet nur an die eingetragene
   Adresse; Plugs werden nie geschaltet. Shelly Gen1 überträgt ein Plug-Passwort unverschlüsselt (Basic-Auth) – für
   geschützte Plugs Shelly Plus/Gen2+ (Digest) verwenden.
