@@ -586,6 +586,9 @@ installer/               Inno Setup scripts (desktop, server service)
 - Release signature (from 0.9.4): `SHA256SUMS.txt` is signed with ECDSA P-256 (`SHA256SUMS.txt.sig`, Base64). The
   public keys are in [`src/BitaxeTuner.Core/Update/ReleaseSignature.cs`](src/BitaxeTuner.Core/Update/ReleaseSignature.cs);
   the built-in updates verify the signature before every installation. All GitHub Actions are pinned to fixed commits.
+  From 0.9.10 a separate step signs in the protected GitHub environment “release”, only after approval by the project
+  owner; the file name in the signed list must match the announced version (an old package cannot be passed off as a new
+  version).
 
 ## Contributing, bug reports, security
 

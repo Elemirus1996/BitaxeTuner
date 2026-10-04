@@ -507,6 +507,7 @@ function renderOverview() {
     S.viewGroups?.length ? null : h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.whatsNew ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
+    httpsHintCard(),
     groupChips(s.groups, s.devices, renderOverview),
     groupCard,
     s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
@@ -683,6 +684,17 @@ function onboardingCard(steps) {
       h('div', { style: 'flex:1' }, h('b', {}, t(x.title)), h('div', { class: 'small muted' }, t(x.text))),
       x.section ? h('a', { class: `btn small ${x.done ? '' : 'primary'}`, href: '#/settings', onclick: () => { S.settingsSection = t(x.section); } }, x.done ? t('Ansehen') : t('Einrichten')) : null))),
     h('p', { class: 'muted small' }, t('Fragen? Unter „Hilfe“ stehen eine Kurzanleitung, Erklärungen zu jedem Protokolleintrag und zu den Miner-Logs.'), ' ', h('a', { href: '#/help' }, t('Hilfe öffnen'))));
+}
+
+/** Audit S4: Bestandsinstallation läuft noch mit HTTP – einmal (ausblendbar) auf die Umstellung hinweisen. */
+function httpsHintCard() {
+  if (!isAdmin() || location.protocol !== 'http:' || localStorageGet('httpsHintHidden')) return null;
+  const card = h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Verbindung unverschlüsselt')), h('span', { class: 'spacer' }),
+      h('button', { class: 'btn small', onclick: () => { localStorageSet('httpsHintHidden', '1'); card.remove(); } }, t('Ausblenden'))),
+    h('p', { class: 'muted small' }, t('Dieser Server läuft noch mit HTTP – Passwort und Daten gehen unverschlüsselt durchs Heimnetz. Neue Installationen starten seit 0.9.4 mit HTTPS; bestehende lassen sich mit einem Klick umstellen.')),
+    h('div', { class: 'row' }, h('a', { class: 'btn small primary', href: '#/settings', onclick: () => { S.settingsSection = t('Verbindung'); } }, t('Zu Einstellungen → Verbindung'))));
+  return card;
 }
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
@@ -3261,7 +3273,6 @@ function connectionCard() {
     body);
 }
 
-/** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */
 /** Geräteprofile (0.9.9): eigene Profile anlegen, eingebaute anpassen oder zurücksetzen – wie am Desktop. */
 function profilesCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
@@ -3361,6 +3372,7 @@ function profilesCard() {
     body, editor);
 }
 
+/** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */
 function metricsCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const load = async () => {
@@ -3373,7 +3385,7 @@ function metricsCard() {
       `    scheme: ${location.protocol.replace(':', '')}`,
       '    metrics_path: /metrics',
       '    bearer_token: "btm_…"',
-      ...(location.protocol === 'https:' ? ['    tls_config:', '      insecure_skip_verify: true   # selbst signiertes Zertifikat'] : []),
+      ...(location.protocol === 'https:' ? ['    tls_config:', '      ca_file: /etc/prometheus/bitaxetuner-server.crt   # ' + t('Zertifikat unten herunterladen')] : []),
       '    static_configs:',
       `      - targets: ["${location.host}"]`,
     ].join('\n');
@@ -3394,7 +3406,9 @@ function metricsCard() {
       h('p', { class: 'small' }, t('Adresse: '), h('code', {}, url), ' · ',
         m.tokenSet ? t('Token erzeugt am {0}', time(m.tokenCreatedUtc)) : h('span', { class: 'warn' }, t('noch kein Token – ohne Token liefert /metrics nichts'))),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: newToken }, m.tokenSet ? t('Neues Token erzeugen …') : t('Token erzeugen'))),
-      h('details', {}, h('summary', {}, t('Beispiel für prometheus.yml')), h('pre', { class: 'small' }, example)));
+      h('details', {}, h('summary', {}, t('Beispiel für prometheus.yml')), h('pre', { class: 'small' }, example),
+        location.protocol === 'https:' ? h('p', { class: 'small' }, h('a', { class: 'btn small', href: '/api/v1/admin/https/certificate', download: 'bitaxetuner-server.crt' }, t('Zertifikat herunterladen')),
+          ' ', t('und auf dem Prometheus-Rechner als ca_file ablegen – so prüft Prometheus, dass es wirklich mit diesem Server spricht.')) : null));
   };
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Prometheus / Grafana')),

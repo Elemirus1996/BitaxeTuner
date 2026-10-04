@@ -5,9 +5,12 @@ namespace BitaxeTuner.Core.Update;
 
 /// <summary>
 /// Signatur der Releases (Audit S2): Der Release-Workflow signiert SHA256SUMS.txt mit einem privaten ECDSA-P-256-Schlüssel
-/// (GitHub-Secret RELEASE_SIGNING_KEY) und legt SHA256SUMS.txt.sig (Base64, IEEE-P1363) daneben. Updates werden nur
-/// installiert, wenn die Signatur zu einem der hier eingebauten öffentlichen Schlüssel passt und die Datei zur signierten
-/// Prüfsumme. Ein kompromittiertes GitHub-Konto allein reicht damit nicht mehr, um ein Update unterzuschieben.
+/// und legt SHA256SUMS.txt.sig (Base64, IEEE-P1363) daneben. Updates werden nur installiert, wenn die Signatur zu einem der
+/// hier eingebauten öffentlichen Schlüssel passt, die Datei zur signierten Prüfsumme und ihr Dateiname zur Version (Audit
+/// N-Sec1, kein Downgrade). Schutzwirkung: Geänderte oder untergeschobene Dateien im Release (z. B. per gestohlenem Token mit
+/// Schreibrecht auf Releases) werden erkannt. Der Schlüssel liegt als Secret der geschützten GitHub-Umgebung „release“;
+/// signiert wird erst nach Freigabe durch den Projektinhaber. Wer dessen Konto selbst übernimmt, kann weiterhin ein
+/// signiertes Release auslösen – dagegen schützt nur der offline verwahrte Reserveschlüssel (Schlüsseltausch).
 /// </summary>
 public static class ReleaseSignature
 {

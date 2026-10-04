@@ -257,6 +257,18 @@ public sealed class ServerTests : IDisposable
         var cert = Certificates.LoadOrCreate(notYet);
         Assert.True(File.Exists(Path.Combine(notYet, "server-cert.pfx")));
         Assert.Equal(Certificates.Fingerprint(cert), Certificates.Fingerprint(Certificates.LoadOrCreate(notYet)));   // bleibt gleich
+        // Audit N-Sec4: öffentliches Zertifikat als PEM (für Prometheus ca_file) – ohne privaten Schlüssel
+        var pem = cert.ExportCertificatePem();
+        Assert.StartsWith("-----BEGIN CERTIFICATE-----", pem);
+        Assert.DoesNotContain("PRIVATE", pem);
+    }
+
+    [Fact]
+    public async Task Certificate_download_needs_https_and_admin()
+    {
+        var admin = await AdminAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/v1/admin/https/certificate")).StatusCode);   // Testserver: HTTP
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/admin/https/certificate")).StatusCode);
     }
 
     public void Dispose()

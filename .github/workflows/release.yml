@@ -5,11 +5,14 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  # 1. Bauen und testen – ohne Zugriff auf den Signaturschlüssel
+  build:
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
@@ -23,10 +26,46 @@ jobs:
         shell: pwsh
         run: ./build.ps1 -Version "${{ github.ref_name }}"
 
-      # Signatur der Prüfsummenliste (Audit S2): ohne gültigen Schlüssel kein Release. Das Werkzeug prüft die Signatur
-      # sofort mit den in der App eingebauten öffentlichen Schlüsseln – passt das Secret nicht, bricht der Release hier ab.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-files
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            artifacts/BitaxeTuner-Setup-*.exe
+            artifacts/BitaxeTuner-*-portable-win-x64.zip
+            artifacts/BitaxeTuner-Server-Setup-*.exe
+            artifacts/BitaxeTuner-Server-*-linux-*.tar.gz
+            artifacts/update-BitaxeTuner-*
+            artifacts/SHA256SUMS.txt
+
+  # 2. Signieren und veröffentlichen (Audit S2): nur in der geschützten Umgebung „release“. Der Schlüssel liegt dort als
+  #    Umgebungs-Secret, und jeder Lauf wartet auf die Freigabe des Projektinhabers – ein Tag oder ein kompromittiertes
+  #    Token allein erzeugt so kein gültig signiertes Release.
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-files
+          path: artifacts
+
+      # Prüfsummen gegen die übergebenen Dateien – signiert wird nur, was wirklich gebaut wurde
+      - name: Check SHA256SUMS.txt
+        working-directory: artifacts
+        run: tr -d '\r' < SHA256SUMS.txt | sha256sum --check --strict -
+
+      # Das Werkzeug prüft die Signatur sofort mit den in der App eingebauten öffentlichen Schlüsseln – passt das Secret
+      # nicht, bricht der Release hier ab.
       - name: Sign SHA256SUMS.txt
-        shell: pwsh
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: dotnet run --project tools/sign-release -c Release -- artifacts/SHA256SUMS.txt artifacts/SHA256SUMS.txt.sig
@@ -48,7 +87,7 @@ jobs:
   # Docker-Image für NAS/Home-Server/Raspberry Pi: ghcr.io/<owner>/bitaxetuner-server:<version> und :latest
   docker:
     runs-on: ubuntu-latest
-    needs: release
+    needs: publish
     permissions:
       contents: read
       packages: write
@@ -80,7 +119,9 @@ jobs:
   # Fertiges SD-Karten-Image: Raspberry Pi OS Lite 64-bit + BitaxeTuner-Server (Pi 3/4/5, Zero 2 W)
   pi-image:
     runs-on: ubuntu-latest
-    needs: release
+    needs: publish
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Werkzeuge

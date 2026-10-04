@@ -111,6 +111,9 @@ public static class Provisioning
     /// Auf dem Pi beim ersten Start (als root, vor dem Dienst): Paket übernehmen, wenn der Datenordner noch leer ist.
     /// Löscht Passwort-Hash und Datenarchiv anschließend von der Boot-Partition. Liefert Protokollzeilen.
     /// </summary>
+    /// <summary>Gespeicherte HTTP/HTTPS-Wahl des Servers (gleicher Name wie ServerSettings.StoredFile im Server-Projekt).</summary>
+    public const string ServerSettingsFile = "server-settings.json";
+
     public static List<string> Apply(string packageFolder, string dataDirectory)
     {
         var log = new List<string>();
@@ -121,6 +124,9 @@ public static class Provisioning
             return log;
         }
         Directory.CreateDirectory(dataDirectory);
+        // Neuinstallation (Audit S4): vor dem Einspielen merken – danach liegen server-auth.json und config.json schon da,
+        // und der Server würde sonst als Bestandsinstallation mit HTTP starten
+        var newInstall = !File.Exists(Path.Combine(dataDirectory, "server-auth.json")) && !File.Exists(Path.Combine(dataDirectory, "config.json"));
         var access = JsonSerializer.Deserialize<Access>(File.ReadAllText(accessFile)) ?? throw new InvalidDataException(L.T("zugang.json ist leer."));
 
         var authFile = Path.Combine(dataDirectory, "server-auth.json");
@@ -169,6 +175,14 @@ public static class Provisioning
         {
             File.WriteAllText(Path.Combine(dataDirectory, "server-state.json"), "{\"paused\":true}");
             log.Add(L.T("Server startet pausiert (in der Desktop-App „Betriebsart → Nur umschalten“ setzt ihn fort)."));
+        }
+
+        // HTTPS wie bei jeder Neuinstallation (die Desktop-App trägt nach dem Vorbereiten schon https:// ein)
+        var settingsFile = Path.Combine(dataDirectory, ServerSettingsFile);
+        if (newInstall && !File.Exists(settingsFile))
+        {
+            File.WriteAllText(settingsFile, "{\"Https\":true}");
+            log.Add(L.T("Server startet mit HTTPS (selbst ausgestelltes Zertifikat)."));
         }
 
         // Geheimnisse nicht auf der Boot-Partition liegen lassen

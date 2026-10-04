@@ -36,6 +36,10 @@ aktualisieren (Desktop: *Nach Updates suchen*, Server: *Einstellungen → Server
   `/opt/bitaxetuner/versions` beschreiben (für das Ein-Klick-Update, jedes Update ist signiert geprüft). Bewusster
   Kompromiss: Wer Code im Dienst ausführen kann, kann dort eine Version ablegen. `sudo sh …/install.sh --system` nur nach
   einem geprüften Update ausführen.
+- **Updates:** Desktop-App und Server installieren nur Pakete, deren Prüfsumme in der signierten `SHA256SUMS.txt` steht
+  und deren Dateiname zur angekündigten Version passt. Signiert wird im Release-Workflow in der geschützten Umgebung
+  „release“ erst nach Freigabe durch den Projektinhaber. Grenze: Wer dessen GitHub-Konto selbst übernimmt, kann ein
+  Release freigeben – dann hilft nur der Tausch auf den offline verwahrten Reserveschlüssel.
 - **Kiosk-Links** sind lange gültige Schlüssel für die Ansicht (nur Ansehen): nur auf Geräten im eigenen Haushalt
   öffnen und nicht mehr benötigte Links widerrufen.
 

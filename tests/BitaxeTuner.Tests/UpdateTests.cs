@@ -51,6 +51,25 @@ public class UpdateTests
     private static HttpResponseMessage Ok(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
 
     [Fact]
+    public async Task Old_signed_package_cannot_be_republished_as_a_newer_version()
+    {
+        // Audit N-Sec1: altes, gültig signiertes Paket (0.3.0) unter einem neuen Tag v0.4.0 veröffentlicht
+        Func<HttpRequestMessage, HttpResponseMessage> downgrade = req =>
+        {
+            var url = req.RequestUri!.AbsoluteUri;
+            if (url.EndsWith("/sig")) return Ok(SignatureOf(Sums("v0.3.0")));
+            if (url.EndsWith("/sums")) return Ok(Sums("v0.3.0"));
+            if (url.Contains("setup")) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(SetupBytes) };
+            return Ok(Release("v0.3.0").Replace("\"tag_name\": \"v0.3.0\"", "\"tag_name\": \"v0.4.0\""));
+        };
+        var u = (await Service(downgrade).CheckAsync(new Version(0, 3, 5))).Update!;
+        Assert.Equal(new Version(0, 4, 0), u.Version);
+        Assert.False(u.Signed);
+        Assert.Null(u.Sha256);
+        Assert.True((await Service(Signed("v0.4.0")).CheckAsync(new Version(0, 3, 5))).Update!.Signed);   // echtes 0.4.0
+    }
+
+    [Fact]
     public async Task Detects_newer_release_and_ignores_same_or_older()
     {
         var s = Service(_ => Ok(Release("v0.3.0")));

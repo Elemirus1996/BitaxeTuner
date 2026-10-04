@@ -138,8 +138,8 @@ public sealed class ServerClient : IDisposable
     }
 
     /// <summary>
-    /// Server auf HTTPS umstellen. Liefert den Fingerabdruck seines Zertifikats – über die angemeldete Verbindung, daher
-    /// ohne Rückfrage festzuhalten. Der Server startet danach neu (etwa 10–20 s).
+    /// Server auf HTTPS umstellen. Liefert den Fingerabdruck seines Zertifikats – über die bisherige (ggf. unverschlüsselte)
+    /// Verbindung, daher vor dem Festhalten vom Nutzer abgleichen lassen (Audit N-Sec3). Der Server startet danach neu (10–20 s).
     /// </summary>
     public async Task<string?> EnableHttpsAsync(CancellationToken ct = default)
     {

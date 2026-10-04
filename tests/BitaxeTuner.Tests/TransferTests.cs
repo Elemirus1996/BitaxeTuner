@@ -223,6 +223,9 @@ public class TransferTests
         Assert.False(File.Exists(Path.Combine(package, Provisioning.DataFile)));
         Assert.True(File.Exists(Path.Combine(package, "UEBERNOMMEN.txt")));
         Assert.Empty(AppConfig.Load(serverDir.File("config.json")).Server.Token);
+        // Audit S4: vorbereiteter Pi startet wie jede Neuinstallation mit HTTPS (die Desktop-App erwartet https://)
+        Assert.True(BitaxeTuner.Server.ServerSettings.ReadStoredHttps(serverDir.Path));
+        Assert.True(BitaxeTuner.Server.ServerSettings.ResolveHttps(serverDir.Path, null));
 
         using var f = Server(serverDir.Path);
         var auth = f.Services.GetRequiredService<AuthStore>();

@@ -134,6 +134,13 @@ public sealed partial class UpdateService(HttpClient http, string repository, Fu
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
             { /* ohne Prüfsumme/Signatur – der Download wird dann abgelehnt */ }
         }
+        // Audit N-Sec1: Die signierte Liste bindet Dateiname → Prüfsumme, der Dateiname enthält die Version. Passt sie nicht
+        // zum (unsignierten) Tag, könnte ein altes, gültig signiertes Paket als neuere Version erscheinen – nicht installieren.
+        if (!System.Text.RegularExpressions.Regex.IsMatch(setupName, $@"-{System.Text.RegularExpressions.Regex.Escape(version.ToString(3))}[.-]"))
+        {
+            signed = false;
+            sha = null;
+        }
 
         return new UpdateInfo(version, tag,
             r.TryGetProperty("name", out var n) ? n.GetString() ?? tag : tag,

@@ -600,6 +600,9 @@ The full English documentation is in **[README.en.md](README.en.md)**; the progr
 - Release-Signatur (ab 0.9.4): `SHA256SUMS.txt` ist mit ECDSA P-256 signiert (`SHA256SUMS.txt.sig`, Base64). Die
   öffentlichen Schlüssel stehen in [`src/BitaxeTuner.Core/Update/ReleaseSignature.cs`](src/BitaxeTuner.Core/Update/ReleaseSignature.cs);
   die eingebauten Updates prüfen die Signatur vor jeder Installation. Alle GitHub Actions sind auf feste Commits gepinnt.
+  Ab 0.9.10 signiert ein eigener Schritt in der geschützten GitHub-Umgebung „release“, erst nach Freigabe durch den
+  Projektinhaber; der Dateiname in der signierten Liste muss zur angekündigten Version passen (kein Unterschieben eines
+  alten Pakets als neue Version).
 
 ## Mitmachen, Fehler melden, Sicherheit
 

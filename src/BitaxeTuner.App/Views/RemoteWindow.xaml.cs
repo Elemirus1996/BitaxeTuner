@@ -222,6 +222,12 @@ public partial class RemoteWindow : Window
         {
             using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
             var fingerprint = await client.EnableHttpsAsync();
+            // Audit N-Sec3: Der Fingerabdruck kam über die bisherige, unverschlüsselte Verbindung – erst nach Abgleich festhalten.
+            // Ohne Bestätigung fragt die App beim ersten HTTPS-Verbinden mit dem tatsächlichen Zertifikat nach.
+            if (fingerprint is not null && MessageBox.Show(this,
+                    L.T("Fingerabdruck des neuen Zertifikats:\n\n{0}\n\nStimmt er mit dem im Browser (Einstellungen → Verbindung) bzw. im Server-Log überein? Nur dann „Ja“ – bei „Nein“ fragt die App beim nächsten Verbinden noch einmal.", fingerprint),
+                    L.T("Auf HTTPS umstellen"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                fingerprint = null;
             _config.Server.Url = ServerClient.ToHttps(client.BaseUri).ToString();
             _config.Server.CertificateFingerprint = fingerprint;
             _config.Save();

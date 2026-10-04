@@ -833,6 +833,14 @@ public static class Endpoints
             port = settings.Port,
         }));
 
+        // Öffentliches Zertifikat (PEM, ohne Schlüssel) – z. B. als ca_file für Prometheus statt insecure_skip_verify (Audit N-Sec4)
+        g.MapGet("/admin/https/certificate", (ServerSettings settings) =>
+        {
+            if (!settings.Https) return Error(404, L.N("HTTPS ist nicht eingeschaltet."));
+            using var cert = Certificates.LoadOrCreate(settings.DataDirectory);
+            return Results.File(System.Text.Encoding.ASCII.GetBytes(cert.ExportCertificatePem() + "\n"), "application/x-pem-file", "bitaxetuner-server.crt");
+        });
+
         g.MapPost("/admin/https", async (HttpsRequest req, ServerSettings settings, ServerRestart restart, HubService hub) =>
         {
             if (settings.HttpsFixed)
