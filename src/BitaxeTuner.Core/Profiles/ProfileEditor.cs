@@ -17,7 +17,7 @@ public sealed record ProfileCheck(IReadOnlyList<string> Errors, IReadOnlyList<st
 /// </summary>
 public static class ProfileEditor
 {
-        private static readonly Regex IdPattern = new("^[a-z0-9][a-z0-9-]{1,39}$");
+    private static readonly Regex IdPattern = new("^[a-z0-9][a-z0-9-]{1,39}$");
 
     /// <summary>Alle Profile (eingebaute zuerst, dann eigene) mit Herkunft.</summary>
     public static List<ProfileEntry> List(string dataDirectory)
@@ -31,14 +31,53 @@ public static class ProfileEditor
         }).OrderBy(e => e.IsBuiltIn ? 0 : 1).ToList();
     }
 
+    /// <summary>
+    /// Vergleichsprofil für die Bestätigung: das eingebaute Profil gleicher Kennung, sonst das Quellprofil einer Kopie
+    /// (<see cref="DeviceProfile.BasedOn"/>), sonst das stärkste eingebaute Profil desselben ASIC-Chips, sonst „generic“.
+    /// </summary>
+    public static DeviceProfile Reference(DeviceProfile p, IReadOnlyList<DeviceProfile> builtIns)
+    {
+        if (builtIns.FirstOrDefault(x => Same(x.Id, p.Id)) is { } same) return same;
+        if (p.BasedOn is { } src && builtIns.FirstOrDefault(x => Same(x.Id, src)) is { } based) return based;
+        var family = Family(p, builtIns);
+        if (family.Count == 0) return builtIns.First(x => x.Id == "generic");
+        var strongest = family.OrderByDescending(x => x.MaxFrequencyMhz).First().Clone();
+        strongest.Name = L.T("stärkstes eingebautes {0}-Profil", p.AsicModel);
+        strongest.MaxFrequencyMhz = family.Max(x => x.MaxFrequencyMhz);
+        strongest.MaxVoltageMv = family.Max(x => x.MaxVoltageMv);
+        strongest.MaxChipTempC = family.Max(x => x.MaxChipTempC);
+        strongest.MaxVrTempC = family.Max(x => x.MaxVrTempC);
+        strongest.MaxPowerW = Math.Round(family.Max(x => x.MaxPowerW / Math.Max(1, x.AsicCount)) * Math.Max(1, p.AsicCount), 1);
+        return strongest;
+    }
+
+    /// <summary>
+    /// Feste Obergrenzen je ASIC-Chip (Audit N-S2), auch mit Bestätigung nicht überschreitbar: höchste eingebaute Frequenz
+    /// + 25 %, höchste eingebaute Spannung + 100 mV, Chip 80 °C, VR 105 °C (wie die absoluten Benchmark-Grenzen),
+    /// Leistung das 1,5-Fache des stärksten eingebauten Profils je ASIC. Unbekannter Chip: vom allgemeinen Profil aus.
+    /// </summary>
+    public static (int FrequencyMhz, int VoltageMv, double ChipC, double VrC, double PowerW) Ceiling(DeviceProfile p, IReadOnlyList<DeviceProfile> builtIns)
+    {
+        var family = Family(p, builtIns);
+        if (family.Count == 0) family = [builtIns.First(x => x.Id == "generic")];
+        var perAsic = family.Max(x => x.MaxPowerW / Math.Max(1, x.AsicCount));
+        return ((int)Math.Round(family.Max(x => x.MaxFrequencyMhz) * 1.25), family.Max(x => x.MaxVoltageMv) + 100, 80, 105,
+            Math.Round(perAsic * Math.Max(1, p.AsicCount) * 1.5, 1));
+    }
+
+    private static List<DeviceProfile> Family(DeviceProfile p, IReadOnlyList<DeviceProfile> builtIns) =>
+        builtIns.Where(x => x.Id != "generic" && x.AsicModel.Length > 0 && Same(x.AsicModel, p.AsicModel ?? "")).ToList();
+
     /// <summary>Prüft ein Profil. <paramref name="previous"/> ist der bisherige Stand (für die Liste der Änderungen).</summary>
-    public static ProfileCheck Check(DeviceProfile p, DeviceProfile? previous, DeviceProfile? builtIn)
+    /// <param name="valuesOnly">Beim Laden von profiles.json: nur Grenzwerte prüfen, nicht die Schreibweise von Kennung, Name
+    /// und Erkennung (ältere, von Hand angelegte Profile sollen nicht deswegen wegfallen).</param>
+    public static ProfileCheck Check(DeviceProfile p, DeviceProfile? previous, IReadOnlyList<DeviceProfile> builtIns, bool valuesOnly = false)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
-        if (!IdPattern.IsMatch(p.Id ?? ""))
+        if (!valuesOnly && !IdPattern.IsMatch(p.Id ?? ""))
             errors.Add(L.T("Kennung: 2–40 Zeichen, nur Kleinbuchstaben, Ziffern und Bindestrich."));
-        if (string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 60)
+        if (!valuesOnly && (string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 60))
             errors.Add(L.T("Name: 1–60 Zeichen."));
         if (p.Id == "generic" && previous is null)
             errors.Add(L.T("Die Kennung „generic“ ist für das allgemeine Profil reserviert."));
@@ -54,26 +93,47 @@ public static class ProfileEditor
         if (p.MaxInputVoltageMv is { } hi) Between(errors, L.T("Max. Eingangsspannung"), hi, 3000, 15000, "mV");
         if (p.MinInputVoltageMv is { } a && p.MaxInputVoltageMv is { } b && a >= b)
             errors.Add(L.T("Eingangsspannung: Minimum muss unter dem Maximum liegen."));
-        if (p.DeviceModelMatches.Count > 20 || p.DeviceModelMatches.Any(x => x.Length is 0 or > 40))
+        if (!valuesOnly && (p.DeviceModelMatches.Count > 20 || p.DeviceModelMatches.Any(x => x.Length is 0 or > 40)))
             errors.Add(L.T("Erkennung: höchstens 20 Einträge mit je 1–40 Zeichen."));
-        if (p.BoardVersions.Count > 20 || p.BoardVersions.Any(x => x.Length is 0 or > 10))
+        if (!valuesOnly && (p.BoardVersions.Count > 20 || p.BoardVersions.Any(x => x.Length is 0 or > 10)))
             errors.Add(L.T("Board-Versionen: höchstens 20 Einträge mit je 1–10 Zeichen."));
-        if (p.Notes is { Length: > 500 })
+        if (!valuesOnly && p.Notes is { Length: > 500 })
             errors.Add(L.T("Notiz: höchstens 500 Zeichen."));
 
-        // Grenzen über dem eingebauten Profil: erlaubt, aber nur mit ausdrücklicher Bestätigung
-        if (builtIn is not null)
+        // Feste Obergrenzen je ASIC-Chip: auch mit Bestätigung nicht
+        var cap = Ceiling(p, builtIns);
+        void Cap(string label, double now, double limit, string unit)
         {
-            void Over(string label, double now, double limit, string unit)
-            {
-                if (now > limit) warnings.Add(L.T("{0} {1} {2} liegt über dem eingebauten Profil ({3} {2}).", label, now, unit, limit));
-            }
-            Over(L.T("Max. Frequenz"), p.MaxFrequencyMhz, builtIn.MaxFrequencyMhz, "MHz");
-            Over(L.T("Max. Spannung"), p.MaxVoltageMv, builtIn.MaxVoltageMv, "mV");
-            Over(L.T("Max. Chiptemperatur"), p.MaxChipTempC, builtIn.MaxChipTempC, "°C");
-            Over(L.T("Max. VR-Temperatur"), p.MaxVrTempC, builtIn.MaxVrTempC, "°C");
-            Over(L.T("Max. Leistung"), p.MaxPowerW, builtIn.MaxPowerW, "W");
+            if (now > limit) errors.Add(L.T("{0} {1} {2} liegt über der festen Obergrenze für {3} ({4} {2}).", label, now, unit,
+                string.IsNullOrEmpty(p.AsicModel) ? L.T("unbekannte Chips") : p.AsicModel, limit));
         }
+        Cap(L.T("Max. Frequenz"), p.MaxFrequencyMhz, cap.FrequencyMhz, "MHz");
+        Cap(L.T("Max. Spannung"), p.MaxVoltageMv, cap.VoltageMv, "mV");
+        Cap(L.T("Max. Chiptemperatur"), p.MaxChipTempC, cap.ChipC, "°C");
+        Cap(L.T("Max. VR-Temperatur"), p.MaxVrTempC, cap.VrC, "°C");
+        Cap(L.T("Max. Leistung"), p.MaxPowerW, cap.PowerW, "W");
+
+        // Grenzen über dem Vergleichsprofil: erlaubt, aber nur mit ausdrücklicher Bestätigung – auch für Kopien (Audit N-S2)
+        var reference = Reference(p, builtIns);
+        void Over(string label, double now, double limit, string unit)
+        {
+            if (now > limit) warnings.Add(L.T("{0} {1} {2} liegt über dem Profil „{3}“ ({4} {2}).", label, now, unit, reference.Name, limit));
+        }
+        Over(L.T("Max. Frequenz"), p.MaxFrequencyMhz, reference.MaxFrequencyMhz, "MHz");
+        Over(L.T("Max. Spannung"), p.MaxVoltageMv, reference.MaxVoltageMv, "mV");
+        Over(L.T("Max. Chiptemperatur"), p.MaxChipTempC, reference.MaxChipTempC, "°C");
+        Over(L.T("Max. VR-Temperatur"), p.MaxVrTempC, reference.MaxVrTempC, "°C");
+        Over(L.T("Max. Leistung"), p.MaxPowerW, reference.MaxPowerW, "W");
+
+        // Automatische Erkennung: ein eigenes oder geändertes Erkennungsmuster übernimmt Miner ohne Rückfrage – bestätigen lassen
+        var builtInSame = builtIns.FirstOrDefault(x => Same(x.Id, p.Id));
+        bool SameList(List<string> a, List<string> b) => a.Count == b.Count && a.Zip(b).All(t => string.Equals(t.First, t.Second, StringComparison.OrdinalIgnoreCase));
+        var detectionBefore = previous ?? builtInSame;
+        if ((p.DeviceModelMatches.Count > 0 || p.BoardVersions.Count > 0) && (detectionBefore is null
+                || !SameList(p.DeviceModelMatches, detectionBefore.DeviceModelMatches) || !SameList(p.BoardVersions, detectionBefore.BoardVersions)))
+            warnings.Add(L.T("Erkennung: Miner mit Gerätemodell „{0}“{1} bekommen dieses Profil automatisch – auch die bereits eingetragenen.",
+                p.DeviceModelMatches.Count > 0 ? string.Join("“, „", p.DeviceModelMatches) : "–",
+                p.BoardVersions.Count > 0 ? L.T(" und Board „{0}“", string.Join("“, „", p.BoardVersions)) : ""));
         return new ProfileCheck(errors, warnings, Changes(previous, p));
     }
 
@@ -90,8 +150,10 @@ public static class ProfileEditor
         if (originalId is null && entries.Any(e => Same(e.Profile.Id, profile.Id)))
             throw new InvalidOperationException(L.T("Ein Profil mit der Kennung „{0}“ gibt es schon.", profile.Id));
 
-        var builtIn = ProfileRegistry.LoadBuiltIn().FirstOrDefault(x => Same(x.Id, profile.Id));
-        var check = Check(profile, previous, builtIn);
+        var builtIns = ProfileRegistry.LoadBuiltIn();
+        var builtIn = builtIns.FirstOrDefault(x => Same(x.Id, profile.Id));
+        if (builtIn is not null) profile.BasedOn = null;   // eingebautes Profil angepasst: Bezug ist es selbst
+        var check = Check(profile, previous, builtIns);
         if (check.Errors.Count > 0)
             throw new ArgumentException(string.Join(" ", check.Errors));
         if (check.Warnings.Count > 0 && !confirmed)
@@ -126,6 +188,7 @@ public static class ProfileEditor
         copy.Id = baseId;
         for (var i = 2; taken.Contains(copy.Id); i++) copy.Id = $"{baseId}{i}";
         copy.Name = L.T("{0} (eigen)", source.Name);
+        copy.BasedOn = source.BasedOn ?? source.Id;
         // Eine Kopie soll Geräte nicht automatisch übernehmen – Erkennung leer, Auswahl von Hand
         copy.DeviceModelMatches = [];
         copy.BoardVersions = [];

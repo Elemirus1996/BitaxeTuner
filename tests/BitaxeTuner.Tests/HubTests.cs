@@ -243,6 +243,27 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Failed_daily_report_counts_as_sent_and_is_not_rebuilt_every_poll()
+    {
+        // Audit N-E1: nach einem Push-Fehler wurde der Bericht alle 5 s neu gebaut und nach einem Neustart doppelt gesendet
+        using var rig = new Rig("10.0.0.71");
+        var n = rig.Hub.Config.Notifications;
+        n.Targets = [new PushTarget { Id = "rep00001", Name = "Bericht", NtfyTopic = "r", Categories = ["DailyReport"] }];
+        var built = 0;
+        rig.Hub.Notify.Sending += (_, _, _, _) => built++;
+        rig.Hub.Notify.TransportOverride = (_, _, _) => throw new HttpRequestException("weg", null, System.Net.HttpStatusCode.ServiceUnavailable);
+        Assert.True(await rig.Hub.PollNowAsync());
+        var now = DateTime.Now;
+
+        var result = await rig.Hub.SendDailyReportAsync(now, markSent: true);
+        Assert.Contains("später erneut", result);
+        Assert.Equal(now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), rig.Hub.Config.DailyReport.LastSent);
+        Assert.Single(rig.Hub.Notify.Pending);
+        Assert.Null(await rig.Hub.SendDailyReportAsync(now.AddSeconds(5), markSent: true));   // Sperre: nicht erneut gebaut
+        Assert.Equal(1, built);
+    }
+
+    [Fact]
     public async Task Push_target_for_a_group_gets_only_that_groups_miners_and_new_members()
     {
         using var rig = new Rig("10.0.0.61", "10.0.0.62", "10.0.0.63");

@@ -90,14 +90,20 @@ public sealed partial class MinerHub
                 return string.Join("\n", lines);
             }
             var key = markSent ? $"monthly:{period}" : $"monthly-test:{now:O}";
-            await Notify.SendAsync(key, ReportRenderer.Title(r), TextFor, NotifyPriority.Low, TimeSpan.FromDays(20), NotifyCategory.MonthlyReport);
-            if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
+            var outcome = await Notify.SendAsync(key, ReportRenderer.Title(r), TextFor, NotifyPriority.Low, TimeSpan.FromDays(20), NotifyCategory.MonthlyReport);
+            // Audit N-E1: jeder Ausgang gilt als erledigt (siehe Tagesbericht)
             if (markSent)
             {
                 Config.DailyReport.LastMonthlySent = period;
                 Config.Save();
             }
-            return null;
+            return outcome switch
+            {
+                NotificationService.SendOutcome.Queued => L.T("Senden fehlgeschlagen, wird später erneut versucht: ") + Notify.LastError,
+                NotificationService.SendOutcome.Failed => L.T("Senden fehlgeschlagen: ") + Notify.LastError,
+                NotificationService.SendOutcome.NoTarget => L.T("Kein Push-Dienst will den Monatsbericht (Einstellungen → Push-Benachrichtigungen)."),
+                _ => null,
+            };
         }
         catch (InvalidOperationException ex) { return ex.Message; }
         finally { _monthlyBusy = false; }

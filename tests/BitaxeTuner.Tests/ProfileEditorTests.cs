@@ -77,6 +77,64 @@ public class ProfileEditorTests : IDisposable
     }
 
     [Fact]
+    public void Copies_are_checked_against_their_source_and_hard_ceilings()
+    {
+        // Audit N-S2: früher erlaubte eine Kopie ohne Rückfrage bis 1500 MHz / 1800 mV / 90 °C
+        var copy = ProfileEditor.CopyOf(Gamma(), ProfileEditor.List(_dir).Select(e => e.Profile.Id));
+        Assert.Equal("bitaxe-gamma", copy.BasedOn);
+        copy.MaxVoltageMv += 50;
+        var check = ProfileEditor.Save(_dir, copy, null, confirmed: false);
+        Assert.Contains(check.Warnings, w => w.Contains("Bitaxe Gamma"));
+        Assert.DoesNotContain(ProfileEditor.List(_dir), e => e.Profile.Id == copy.Id);     // nicht ohne Bestätigung
+
+        // feste Obergrenze je Chip: auch bestätigt nicht
+        var wild = ProfileEditor.CopyOf(Gamma(), ProfileEditor.List(_dir).Select(e => e.Profile.Id));
+        wild.MaxFrequencyMhz = 1400;                                                        // BM1370: höchstens 1000 × 1,25
+        Assert.Throws<ArgumentException>(() => ProfileEditor.Save(_dir, wild, null, confirmed: true));
+        wild.MaxFrequencyMhz = 1000;
+        wild.MaxChipTempC = 85;                                                             // höchstens 80 °C
+        Assert.Throws<ArgumentException>(() => ProfileEditor.Save(_dir, wild, null, confirmed: true));
+
+        // Erkennung in einer Kopie übernimmt Miner automatisch → Rückfrage
+        var detect = ProfileEditor.CopyOf(Gamma(), ProfileEditor.List(_dir).Select(e => e.Profile.Id));
+        detect.DeviceModelMatches = ["Gamma"];
+        Assert.Contains(ProfileEditor.Save(_dir, detect, null, confirmed: false).Warnings, w => w.Contains("Gamma"));
+    }
+
+    [Fact]
+    public void Hand_edited_profiles_are_checked_when_loading()
+    {
+        // Audit N-S3: profiles.json von Hand oder per Import – gleiche Grenzen wie im Editor
+        Directory.CreateDirectory(_dir);
+        var wild = Gamma();
+        wild.Id = "umbau";
+        wild.Name = "Umbau";
+        wild.MaxVoltageMv = 1800;                                                           // über der festen Obergrenze
+        var old = Gamma();
+        old.MaxFrequencyMhz = 1100;                                                         // über eingebaut, unter Obergrenze
+        var odd = Gamma();
+        odd.Id = "Mein_Altes";                                                              // alte Schreibweise: bleibt erhalten
+        odd.Name = "Mein Altes";
+        File.WriteAllText(Path.Combine(_dir, "profiles.json"), System.Text.Json.JsonSerializer.Serialize(new[] { wild, old, odd }));
+
+        var reg = ProfileRegistry.Load(_dir);
+        Assert.DoesNotContain(reg.Profiles, p => p.Id == "umbau");
+        Assert.Contains(reg.Problems, p => p.Contains("Umbau") && p.Contains("nicht übernommen"));
+        Assert.Equal(1100, reg.Profiles.Single(p => p.Id == "bitaxe-gamma").MaxFrequencyMhz);
+        Assert.Contains(reg.Problems, p => p.Contains("höhere Grenzen"));
+        Assert.Contains(reg.Profiles, p => p.Id == "Mein_Altes");
+        Assert.True(File.Exists(Path.Combine(_dir, "profiles.json")));                     // Datei bleibt unangetastet
+    }
+
+    [Fact]
+    public void Every_built_in_profile_passes_the_editor_check()
+    {
+        var builtIns = ProfileRegistry.LoadBuiltIn();
+        Assert.All(builtIns, b => Assert.Empty(ProfileEditor.Check(b, b, builtIns).Errors));
+        Assert.All(builtIns, b => Assert.Empty(ProfileEditor.Check(b, b, builtIns).Warnings));
+    }
+
+    [Fact]
     public void Existing_user_entries_are_kept_when_another_profile_is_saved()
     {
         Directory.CreateDirectory(_dir);

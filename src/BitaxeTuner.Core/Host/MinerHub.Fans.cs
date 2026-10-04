@@ -131,10 +131,11 @@ public sealed partial class MinerHub
             {
                 try
                 {
-                    // Ohne Lüftersteuerung nur Lebenszeichen/Tasten abfragen – der Pico lässt die Lüfter dann auf 100 %
-                    _fanRpm = settings.Enabled
-                        ? await _fanDevice.ExchangeAsync(targets.Select(t => t.Percent).ToList())
-                        : await _fanDevice.PollAsync();
+                    // Ohne Lüftersteuerung ausdrücklich 100 % senden (Audit N-S1): ein bloßes GET hielte den Pico in seinem
+                    // letzten Zustand – nach einem früheren SET also z. B. auf 0 % oder dem Nachtwert.
+                    _fanRpm = await _fanDevice.ExchangeAsync(settings.Enabled
+                        ? targets.Select(t => t.Percent).ToList()
+                        : Enumerable.Repeat(100, FanSettings.ChannelCount).ToList());
                     RecordSensors(_fanDevice.Temperatures, now);
                     await HandlePicoEventsAsync(_fanDevice.DrainEvents());
                 }

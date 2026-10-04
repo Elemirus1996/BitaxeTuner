@@ -63,32 +63,45 @@ public sealed class NotificationService : IDisposable
     /// Sendet an alle aktiven Ziele, die den Bereich (und bei Miner-Meldungen den Miner) wollen – sofern nicht
     /// innerhalb der Sperrzeit schon gesendet. Fehler eines Ziels halten die anderen nicht auf.
     /// </summary>
-    public Task SendAsync(string key, string title, string message,
+    public Task<SendOutcome> SendAsync(string key, string title, string message,
                           NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
                           NotifyCategory category = NotifyCategory.Other, string? host = null) =>
         SendAsync(key, title, _ => message, priority, cooldown, category, host);
 
     /// <summary>
+    /// Ergebnis eines Sendeversuchs (Audit N-E1): zugestellt, (teilweise) in der Warteschlange für später, wegen der
+    /// Sperrzeit übersprungen, kein Ziel will die Meldung, oder dauerhaft fehlgeschlagen (Konfigurationsfehler, 4xx).
+    /// </summary>
+    public enum SendOutcome { Delivered, Queued, Suppressed, NoTarget, Failed }
+
+    /// <summary>
     /// Wie oben, aber mit eigenem Text je Ziel (Tages-/Monatsbericht je Push-Dienst angepasst). Liefert
     /// <paramref name="messageFor"/> null, bekommt dieses Ziel nichts.
     /// </summary>
-    public async Task SendAsync(string key, string title, Func<PushTarget, string?> messageFor,
+    public async Task<SendOutcome> SendAsync(string key, string title, Func<PushTarget, string?> messageFor,
                                 NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
                                 NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
-        var targets = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host, GroupsOf))
-            .Select(t => (Target: t, Message: messageFor(t))).Where(x => x.Message is not null).ToList();
-        if (targets.Count == 0) return;
+        var accepting = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host, GroupsOf)).ToList();
+        if (accepting.Count == 0) return SendOutcome.NoTarget;
 
+        // Sperre zuerst prüfen (Audit N-E1): Texte (z. B. der Tagesbericht mit Datenbankabfragen) erst danach bauen
         var wait = cooldown ?? TimeSpan.FromMinutes(30);
         lock (_lastSent)
         {
-            if (_lastSent.TryGetValue(key, out var last) && DateTime.UtcNow - last < wait) return;
+            if (_lastSent.TryGetValue(key, out var last) && DateTime.UtcNow - last < wait) return SendOutcome.Suppressed;
             _lastSent[key] = DateTime.UtcNow;
+        }
+        var targets = accepting.Select(t => (Target: t, Message: messageFor(t))).Where(x => x.Message is not null).ToList();
+        if (targets.Count == 0)
+        {
+            lock (_lastSent) _lastSent.Remove(key);
+            return SendOutcome.NoTarget;
         }
 
         Sending?.Invoke(key, title, targets[0].Message!, priority);
         var errors = new List<string>();
+        var queued = 0;
         foreach (var (target, message) in targets)
         {
             try
@@ -100,12 +113,28 @@ public sealed class NotificationService : IDisposable
             catch (Exception ex)
             {
                 errors.Add(targets.Count > 1 ? $"{target.Title}: {ex.Message}" : ex.Message);
-                // Audit I1: später erneut versuchen statt verwerfen – die Sperrzeit bleibt, sonst käme die Meldung doppelt
-                Enqueue(target.Id, title, message!, priority, DateTime.UtcNow);
+                // Audit I1: später erneut versuchen statt verwerfen – die Sperrzeit bleibt, sonst käme die Meldung doppelt.
+                // Dauerhafte Fehler (fehlende Angaben, 4xx außer 408/429) würden 6 h lang vergeblich wiederholt: nicht einreihen.
+                if (!IsPermanent(ex))
+                {
+                    Enqueue(target.Id, title, message!, priority, DateTime.UtcNow);
+                    queued++;
+                }
             }
         }
         LastError = errors.Count > 0 ? string.Join("; ", errors) : null;
+        return errors.Count == 0 ? SendOutcome.Delivered
+            : errors.Count > queued ? SendOutcome.Failed
+            : SendOutcome.Queued;
     }
+
+    /// <summary>Fehler, bei dem ein späterer Versuch nichts ändert: fehlende/ungültige Angaben oder 4xx (außer 408, 425, 429).</summary>
+    internal static bool IsPermanent(Exception ex) => ex switch
+    {
+        InvalidOperationException => true,
+        HttpRequestException { StatusCode: { } code } => (int)code is >= 400 and < 500 and not 408 and not 425 and not 429,
+        _ => false,
+    };
 
     private Task DeliverAsync(PushTarget target, string title, string message, NotifyPriority priority) =>
         TransportOverride is { } transport ? transport(title, message, priority) : SendRawAsync(target, title, message, priority);

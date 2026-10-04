@@ -28,12 +28,20 @@ public sealed class ProfileRegistry
 
     public List<DeviceProfile> Profiles { get; }
 
+    /// <summary>
+    /// Beim Laden aufgefallene eigene Profile (Audit N-S3): verworfen (ungültig oder über der festen Obergrenze) oder
+    /// übernommen, aber über dem eingebauten Profil. Der Hub schreibt sie ins Protokoll.
+    /// </summary>
+    public List<string> Problems { get; } = [];
+
     public DeviceProfile Generic => Profiles.First(p => p.Id == "generic");
 
     /// <summary>Lädt die eingebetteten Profile und überschreibt/ergänzt sie mit <c>profiles.json</c> aus dem Datenordner.</summary>
     public static ProfileRegistry Load(string? dataDirectory)
     {
         var profiles = LoadBuiltIn();
+        var builtIns = LoadBuiltIn();
+        var problems = new List<string>();
         if (dataDirectory is not null)
         {
             var userFile = Path.Combine(dataDirectory, UserFileName);
@@ -46,12 +54,26 @@ public sealed class ProfileRegistry
                     // Unveränderte Kopie eines früher eingebauten Profils (z. B. aus "Profile bearbeiten" in v0.1.0):
                     // nicht übernehmen, sonst würden korrigierte eingebaute Werte wieder überdeckt.
                     if (legacy.Any(l => SameContent(l, up))) continue;
+                    // Gleiche Prüfung wie im Editor (Audit N-S3): Handbearbeitung oder Datenimport umgehen sie sonst
+                    // (previous = das Profil selbst: die Erkennung gilt hier als unverändert, nur Grenzen zählen)
+                    up.DeviceModelMatches ??= [];
+                    up.BoardVersions ??= [];
+                    var check = ProfileEditor.Check(up, up, builtIns, valuesOnly: true);
+                    if (check.Errors.Count > 0)
+                    {
+                        problems.Add(L.T("Geräteprofil „{0}“ aus profiles.json nicht übernommen: {1}", up.Name ?? up.Id ?? "?", string.Join(" ", check.Errors)));
+                        continue;
+                    }
+                    if (check.Warnings.Count > 0)
+                        problems.Add(L.T("Geräteprofil „{0}“ aus profiles.json hat höhere Grenzen als vorgesehen: {1}", up.Name, string.Join(" ", check.Warnings)));
                     var idx = profiles.FindIndex(p => string.Equals(p.Id, up.Id, StringComparison.OrdinalIgnoreCase));
                     if (idx >= 0) profiles[idx] = up; else profiles.Add(up);
                 }
             }
         }
-        return new ProfileRegistry(profiles);
+        var registry = new ProfileRegistry(profiles);
+        registry.Problems.AddRange(problems);
+        return registry;
     }
 
     // Frühere Stände der eingebauten Profile (0.1.0; 0.2.0 bis 0.9.2). Eine unveränderte Kopie davon in profiles.json

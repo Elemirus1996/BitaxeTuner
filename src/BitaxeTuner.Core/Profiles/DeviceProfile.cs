@@ -33,6 +33,12 @@ public sealed class DeviceProfile
     public List<string> BoardVersions { get; set; } = [];
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Eigene Kopie (0.9.10, Audit N-S2): Kennung des eingebauten Profils, aus dem sie entstand. Grenzen darüber brauchen eine
+    /// Bestätigung. Additiv – ältere Dateien ohne den Eintrag nutzen das stärkste eingebaute Profil desselben ASIC-Chips.
+    /// </summary>
+    public string? BasedOn { get; set; }
+
     /// <summary>Ersatzprofil mit vorsichtigen Grenzen (kein Profil passte genau) – nur zur Laufzeit, nicht gespeichert.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsFallback { get; set; }

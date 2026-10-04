@@ -333,14 +333,21 @@ public sealed partial class MinerHub
             }
             // Eigener Schlüssel je Tag; "Jetzt senden" umgeht die Sperre über einen eindeutigen Schlüssel
             var key = markSent ? $"report:{now:yyyy-MM-dd}" : $"report-test:{now:O}";
-            await Notify.SendAsync(key, title, TextFor, NotifyPriority.Low, TimeSpan.FromHours(20), NotifyCategory.DailyReport);
-            if (Notify.LastError is { } error) return L.T("Senden fehlgeschlagen: ") + error;
+            var outcome = await Notify.SendAsync(key, title, TextFor, NotifyPriority.Low, TimeSpan.FromHours(20), NotifyCategory.DailyReport);
+            // Audit N-E1: jeder Ausgang gilt als erledigt (zugestellt, in der Warteschlange, schon gesendet, dauerhafter Fehler,
+            // kein Ziel) – sonst würde der Bericht bei jedem Abfragetakt neu gebaut, bis irgendeine andere Meldung zugestellt ist
             if (markSent)
             {
                 Config.DailyReport.LastSent = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 Config.Save();
             }
-            return null;
+            return outcome switch
+            {
+                NotificationService.SendOutcome.Queued => L.T("Senden fehlgeschlagen, wird später erneut versucht: ") + Notify.LastError,
+                NotificationService.SendOutcome.Failed => L.T("Senden fehlgeschlagen: ") + Notify.LastError,
+                NotificationService.SendOutcome.NoTarget => L.T("Kein Push-Dienst will den Tagesbericht (Einstellungen → Push-Benachrichtigungen)."),
+                _ => null,
+            };
         }
         finally
         {

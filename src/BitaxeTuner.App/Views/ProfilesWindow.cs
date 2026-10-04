@@ -172,10 +172,10 @@ public sealed class ProfilesWindow : Window
             var check = _hub.SaveProfile(_draft, original, confirmed: false);
             if (check.Warnings.Count > 0)
             {
-                var text = L.T("Diese Werte liegen über den Grenzen, die BitaxeTuner für dieses Modell vorsieht. Höhere Grenzen können den Miner beschädigen – nur übernehmen, wenn du dir sicher bist.")
+                var text = L.T("Diese Änderung braucht deine Bestätigung: Höhere Grenzen als vorgesehen können den Miner beschädigen, und eine Erkennung übernimmt passende Miner automatisch. Nur übernehmen, wenn du dir sicher bist.")
                            + "\n\n• " + string.Join("\n• ", check.Warnings)
                            + (check.Changes.Count > 0 ? "\n\n" + string.Join("\n", check.Changes) : "");
-                if (MessageBox.Show(this, text, L.T("Grenzen über dem eingebauten Profil"), MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+                if (MessageBox.Show(this, text, L.T("Bitte bestätigen"), MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                     return;
                 _hub.SaveProfile(_draft, original, confirmed: true);
             }

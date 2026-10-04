@@ -769,9 +769,10 @@ public sealed class HistoryStore : IDisposable
         }
     }
 
-    public void Prune(int keepDays)
+    /// <param name="now">Nur für Tests: Bezugszeitpunkt statt der echten Uhr.</param>
+    public void Prune(int keepDays, DateTimeOffset? now = null)
     {
-        var cutoff = DateTimeOffset.Now.AddDays(-Math.Max(1, keepDays)).ToUnixTimeSeconds();
+        var cutoff = (now ?? DateTimeOffset.Now).AddDays(-Math.Max(1, keepDays)).ToUnixTimeSeconds();
         lock (_lock)
         {
             FlushPlugSamples();

@@ -58,14 +58,14 @@ public class ReportTests
         PeriodReports.Build(h, config, [("Gamma", "a")], [], "2026-09", now);
         Assert.Contains("2026-09", h.StoredPeriods());
 
-        h.Prune(1);                                             // Minutenwerte weg
+        h.Prune(1, now: Sep.AddMonths(1));                      // Minutenwerte des Septembers weg (feste Uhr statt echter)
         var sep = PeriodReports.Build(h, config, [("Gamma", "a")], [], "2026-09", now);
         Assert.Equal(2.4, sep.Energy.Kwh, 6);                   // aus dem gespeicherten Bericht
 
         var year = PeriodReports.Build(h, config, [("Gamma", "a")], [Reward(Sep, 0.001m, 50000m)], "2026", now);
         Assert.True(year.Partial);
-        // September aus dem gespeicherten Bericht (2,4 kWh), Oktober live (1,2 kWh – Prune rechnet mit der echten Uhr,
-        // die Oktober-Testdaten liegen danach und bleiben)
+        // September aus dem gespeicherten Bericht (2,4 kWh), Oktober live (1,2 kWh – die Oktober-Testdaten liegen nach dem
+        // Bezugszeitpunkt von Prune und bleiben; früher mit der echten Uhr, ab dem 04.10.2026 wurde der Test deshalb rot)
         Assert.Equal(3.6, year.Energy.Kwh, 6);
         Assert.Equal(50m, year.IncomeEur);
         Assert.Equal(2160, Assert.Single(year.Miners).OnlineMinutes);

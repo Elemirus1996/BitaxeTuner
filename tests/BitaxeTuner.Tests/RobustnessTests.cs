@@ -63,11 +63,12 @@ public class RobustnessTests
     private sealed class FlakyHandler : HttpMessageHandler
     {
         public bool Down { get; set; } = true;
+        public System.Net.HttpStatusCode DownStatus { get; set; } = System.Net.HttpStatusCode.ServiceUnavailable;
         public List<string> Bodies { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            if (Down) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            if (Down) return new HttpResponseMessage(DownStatus);
             Bodies.Add(request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct));
             return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
         }
@@ -104,6 +105,21 @@ public class RobustnessTests
         Assert.Contains("Miner A antwortet nicht", net.Bodies.Single());
         Assert.Empty(second.Pending);
         Assert.False(File.Exists(queue));
+    }
+
+    [Fact]
+    public async Task Permanent_errors_are_not_retried_for_hours()
+    {
+        // Audit I1: 4xx (z. B. gelöschtes Topic/Webhook) ändert sich durch Wiederholen nicht
+        var settings = Settings();
+        var net = new FlakyHandler { DownStatus = System.Net.HttpStatusCode.NotFound };
+        using var service = new NotificationService(() => settings, net);
+        Assert.Equal(NotificationService.SendOutcome.Failed, await service.SendAsync("k1", "T", "M", category: NotifyCategory.Offline, host: "a"));
+        Assert.Empty(service.Pending);
+        net.DownStatus = System.Net.HttpStatusCode.TooManyRequests;                 // 429: vorübergehend
+        Assert.Equal(NotificationService.SendOutcome.Queued, await service.SendAsync("k2", "T", "M", category: NotifyCategory.Offline, host: "a"));
+        Assert.Single(service.Pending);
+        Assert.Equal(NotificationService.SendOutcome.Suppressed, await service.SendAsync("k2", "T", "M", category: NotifyCategory.Offline, host: "a"));
     }
 
     [Fact]

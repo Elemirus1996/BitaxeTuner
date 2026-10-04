@@ -3279,8 +3279,8 @@ function profilesCard() {
       const r = await run(() => api(isNew ? '/profiles' : `/profiles/${encodeURIComponent(entry.profile.id)}`, { method: isNew ? 'POST' : 'PUT', body: { profile: p, confirmed } }));
       if (!r) return;
       if (r.needsConfirmation) {
-        const ok = await confirmBox(t('Grenzen über dem eingebauten Profil'), h('div', { class: 'stack' },
-          h('p', {}, t('Diese Werte liegen über den Grenzen, die BitaxeTuner für dieses Modell vorsieht. Höhere Grenzen können den Miner beschädigen – nur übernehmen, wenn du dir sicher bist.')),
+        const ok = await confirmBox(t('Bitte bestätigen'), h('div', { class: 'stack' },
+          h('p', {}, t('Diese Änderung braucht deine Bestätigung: Höhere Grenzen als vorgesehen können den Miner beschädigen, und eine Erkennung übernimmt passende Miner automatisch. Nur übernehmen, wenn du dir sicher bist.')),
           h('ul', {}, r.warnings.map(w => h('li', {}, w))),
           r.changes.length ? h('p', { class: 'small' }, r.changes.join(' · ')) : null), t('Trotzdem speichern'), true);
         if (ok) await save(true);

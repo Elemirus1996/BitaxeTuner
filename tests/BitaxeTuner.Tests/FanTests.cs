@@ -262,6 +262,38 @@ public class PicoProtocolTests
 public class FanHubTests
 {
     [Fact]
+    public async Task Switching_fan_control_off_sends_full_speed_instead_of_keeping_the_last_value()
+    {
+        // Audit N-S1: ein bloßes GET hielte den Pico auf dem letzten Wert (z. B. 0 % nachts)
+        using var dir = new TempDir();
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var sim = new SimulatedFanDevice();
+        var config = new AppConfig();
+        config.Devices.Add(new DeviceConfig { Name = "A", Host = "10.0.9.1" });
+        config.Fans.Enabled = true;
+        config.Fans.Channel(1).Role = "miner";
+        config.Fans.Channel(1).MinerHost = "10.0.9.1";
+        config.Fans.Channel(1).Mode = "manual";
+        config.Fans.Channel(1).ManualPercent = 20;
+        config.Fans.Channel(1).Curve.FullTemp = 95;
+        config.Display.Enabled = true;                  // Anzeige am Lüfter-Pico: Pico bleibt verbunden
+        using var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new SimulatedMinerClient(gamma, 1, h),
+            FanDeviceFactory = _ => sim,
+        });
+        await hub.PollNowAsync();
+        await hub.FanTickAsync();
+        Assert.Equal(20, sim.LastPercent[0]);
+
+        config.Fans.Enabled = false;
+        await hub.FanTickAsync();
+        Assert.All(sim.LastPercent, p => Assert.Equal(100, p));
+    }
+
+    [Fact]
     public async Task Hub_sends_targets_to_pico_and_reports_stalled_fan()
     {
         using var dir = new TempDir();

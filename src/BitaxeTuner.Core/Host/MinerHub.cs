@@ -295,8 +295,14 @@ public sealed partial class MinerHub : IDisposable
             .Where(s => !IsSimulated(s.Config.Host))
             .Select(s => (s.Config, Polling.Connection(s.Config.Host)!)));
 
-    /// <summary>Profile nach Bearbeiten der profiles.json neu laden.</summary>
-    public void ReloadProfiles() => Profiles = ProfileRegistry.Load(_tuningDirectory);
+    /// <summary>Profile nach Bearbeiten der profiles.json neu laden; neue Auffälligkeiten (Audit N-S3) ins Protokoll.</summary>
+    public void ReloadProfiles()
+    {
+        var known = Profiles.Problems.ToHashSet();
+        Profiles = ProfileRegistry.Load(_tuningDirectory);
+        foreach (var problem in Profiles.Problems.Where(p => !known.Contains(p)))
+            LogEvent(null, EventCategories.Settings, problem);
+    }
 
     /// <summary>Auswahl für ein Gerät: das erkannte (angepasste) Profil ersetzt seinen Registry-Eintrag.</summary>
     public IReadOnlyList<DeviceProfile> ProfilesFor(HubDevice device) =>
@@ -354,6 +360,7 @@ public sealed partial class MinerHub : IDisposable
         // Home Assistant bekommt auch im Pausenzustand Werte (Lüfter, Fühler, „pausiert“)
         if (Config.Mqtt.Enabled) _ = ApplyMqttSettingsAsync();
         LogEvent(null, EventCategories.System, L.T("Überwachung gestartet ({0} Miner)", Devices.Count));
+        foreach (var problem in Profiles.Problems) LogEvent(null, EventCategories.Settings, problem);
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();
         await PollNowAsync();
