@@ -685,8 +685,8 @@ public sealed class PresetScheduleRule : AutomationRule
 /// <summary>
 /// 0.9.7: Zeitplan oder Strompreis-Regel für eine ganze Miner-Gruppe. Jeder Miner nutzt seine eigene Voreinstellung
 /// gleichen Namens (gegen sein Profil geprüft); fehlt sie oder liegt sie außerhalb der Grenzen, wird er übersprungen.
-/// Eine eigene Regel eines Miners hat Vorrang. Die Freigabe umfasst die Mitglieder – kommt ein Miner dazu oder fällt
-/// einer weg, ist eine neue Freigabe nötig.
+/// Eine eigene Regel eines Miners hat Vorrang. Die Freigabe umfasst die Mitglieder, die Werte ihrer Voreinstellungen und
+/// ihre Profilgrenzen (Audit N-S4) – ändert sich davon etwas, ist eine neue Freigabe nötig.
 /// </summary>
 public sealed class GroupScheduleRule
 {

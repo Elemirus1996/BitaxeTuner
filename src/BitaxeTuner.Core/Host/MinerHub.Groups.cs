@@ -23,10 +23,31 @@ public sealed partial class MinerHub
     /// <summary>Gespeicherte Regel der Gruppe oder null.</summary>
     public GroupScheduleRule? GroupRule(string group) => Config.GroupSchedules.FirstOrDefault(r => SameGroup(r.Group, group));
 
-    private string GroupApprovalKey(string group) => GroupScheduleRule.ApprovalKey(group, GroupMembers(group).Select(d => d.Host));
+    /// <summary>
+    /// Freigabe-Schlüssel: Gruppe, Mitglieder und – Audit N-S4 – je Mitglied die Werte der verwendeten Voreinstellungen
+    /// und die Profilgrenzen. Ändert sich eine Voreinstellung (z. B. höhere Spannung) oder werden Grenzen angehoben, ist
+    /// eine neue Freigabe nötig; vorher übersprungene Voreinstellungen werden so nicht stillschweigend gesetzt.
+    /// </summary>
+    private string GroupApprovalKey(GroupScheduleRule rule)
+    {
+        var names = PresetNames(rule.Schedule);
+        var members = GroupMembers(rule.Group);
+        var detail = string.Join(";", members.OrderBy(d => d.Host.Trim().ToLowerInvariant(), StringComparer.Ordinal).Select(d =>
+            d.Host.Trim().ToLowerInvariant() + "=" + string.Join(",", names.Select(n =>
+                d.Config.Presets.FirstOrDefault(x => string.Equals(x.Name, n, StringComparison.OrdinalIgnoreCase)) is { } p
+                    ? $"{n.ToLowerInvariant()}:{p.FrequencyMhz}/{p.CoreVoltageMv}" : $"{n.ToLowerInvariant()}:-"))
+            + $"@{d.Profile.MaxFrequencyMhz}/{d.Profile.MaxVoltageMv}"));
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(detail)))[..16];
+        return GroupScheduleRule.ApprovalKey(rule.Group, members.Select(d => d.Host)) + "|v2:" + hash;
+    }
 
-    /// <summary>Freigegeben und seit der Freigabe weder Regel noch Mitglieder geändert?</summary>
-    public bool IsGroupScheduleApproved(GroupScheduleRule rule) => rule.Schedule.IsApproved(GroupApprovalKey(rule.Group));
+    /// <summary>Namen der Voreinstellungen, die eine Regel verwendet.</summary>
+    private static string[] PresetNames(PresetScheduleRule s) =>
+        (s.Mode == "price" ? new[] { s.CheapPreset, s.ExpensivePreset } : s.Entries.Select(e => e.Preset).Append(s.DefaultPreset).ToArray())
+            .Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    /// <summary>Freigegeben und seit der Freigabe weder Regel, Mitglieder, Voreinstellungen noch Grenzen geändert?</summary>
+    public bool IsGroupScheduleApproved(GroupScheduleRule rule) => rule.Schedule.IsApproved(GroupApprovalKey(rule));
 
     /// <summary>Für die Automatik: erste freigegebene Gruppenregel eines Miners ohne eigene Regel.</summary>
     private (PresetScheduleRule Rule, string Group)? GroupScheduleFor(HubDevice device)
@@ -81,10 +102,7 @@ public sealed partial class MinerHub
     {
         var rule = GroupRule(group) ?? throw new LocalizedException("Für „{0}“ ist noch keine Regel gespeichert.", group);
         var s = rule.Schedule;
-        var names = s.Mode == "price"
-            ? new[] { s.CheapPreset, s.ExpensivePreset }
-            : s.Entries.Select(e => e.Preset).Append(s.DefaultPreset).ToArray();
-        names = names.Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var names = PresetNames(s);
         var body = s.Mode == "price"
             ? L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → „{2}“, sonst → „{3}“", Prices.SourceName, s.ThresholdCt, s.CheapPreset, s.ExpensivePreset)
             : string.Join("\n", s.Entries.Select(e => L.T("{0} {1:00}–{2:00} Uhr → „{3}“", e.DaysText, e.FromHour, e.ToHour, e.Preset))) +
@@ -102,15 +120,25 @@ public sealed partial class MinerHub
         });
         return L.T("Gruppen-Automatik für „{0}“ freigeben?\n\n{1}\n\n", rule.Group, body) +
                L.T("Jeder Miner nutzt seine eigene Voreinstellung gleichen Namens:\n") + string.Join("\n", lines) + "\n\n" +
-               L.T("Zwischen zwei automatischen Änderungen liegen mindestens {0:0} min. Der Temperaturschutz je Miner bleibt aktiv. ", AutomationEngine.MinGap.TotalMinutes) +
-               L.T("Kommt ein Miner in die Gruppe oder fällt einer weg, ist eine neue Freigabe nötig. Jede Änderung wird protokolliert.");
+               L.T("Zwischen zwei automatischen Änderungen liegen mindestens {0:0} min. ", AutomationEngine.MinGap.TotalMinutes) +
+               GuardText(GroupMembers(group)) +
+               L.T("Kommt ein Miner in die Gruppe oder fällt einer weg, ändert sich eine Voreinstellung oder eine Profilgrenze, ist eine neue Freigabe nötig. Jede Änderung wird protokolliert.");
+    }
+
+    /// <summary>Audit N-S4: „Temperaturschutz bleibt aktiv“ nur, wenn er bei allen Mitgliedern eingeschaltet und freigegeben ist.</summary>
+    private static string GuardText(IReadOnlyList<HubDevice> members)
+    {
+        var without = members.Where(d => !(d.Config.ThermalGuard.Enabled && d.Config.ThermalGuard.IsApproved(d.Host))).Select(d => d.Title).ToList();
+        return without.Count == 0
+            ? L.T("Der Temperaturschutz je Miner bleibt aktiv. ")
+            : L.T("Ohne freigegebenen Temperaturschutz: {0}. ", string.Join(", ", without));
     }
 
     public void ApproveGroupSchedule(string group)
     {
         var rule = GroupRule(group) ?? throw new LocalizedException("Für „{0}“ ist noch keine Regel gespeichert.", group);
         if (!rule.Schedule.Enabled) throw new LocalizedException("Gruppen-Automatik „{0}“ ist nicht eingeschaltet.", rule.Group);
-        rule.Schedule.Approve(GroupApprovalKey(rule.Group));
+        rule.Schedule.Approve(GroupApprovalKey(rule));
         Config.Save();
         LogEvent(null, EventCategories.Automation, L.T("Gruppen-Automatik „{0}“ freigegeben ({1} Miner).", rule.Group, GroupMembers(rule.Group).Count));
         foreach (var d in GroupMembers(rule.Group)) d.AddLog(L.T("Gruppen-Automatik „{0}“ freigegeben.", rule.Group), EventCategories.Automation);

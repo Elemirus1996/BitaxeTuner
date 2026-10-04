@@ -374,7 +374,8 @@ public sealed partial class MinerHub
                 double value = kind switch
                 {
                     "hashrate" => History.Average(HistoryStore.AggregateHost, day, end)?.HashRateGh ?? 0,
-                    "income" => (double)rewards.Where(r => r.ReceivedAtUtc.ToLocalTime().Date == day).Sum(r => r.EurValue ?? 0),
+                    // Audit N-F4: Zuflüsse je Tag in Steuerzeit – wie die Monatssumme (Steuer-Zeitzone)
+                    "income" => (double)rewards.Where(r => r.ReceivedAtLocal.Date == day).Sum(r => r.EurValue ?? 0),
                     "cost" => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Cost,
                     _ => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Kwh,
                 };

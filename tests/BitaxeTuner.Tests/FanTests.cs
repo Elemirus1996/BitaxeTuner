@@ -74,6 +74,34 @@ public class FanControllerTests
     }
 
     [Fact]
+    public void Manual_case_fans_go_full_when_an_assigned_miner_is_too_hot()
+    {
+        // Audit H3: bisher griff die Sicherheit im manuellen Modus nur mit Gehäusefühler, nicht mit VR/ASIC der Miner
+        var c = new FanController();
+        var s = Settings(x => { x.Channel(1).Role = "case"; x.Case.Mode = "manual"; x.Case.ManualPercent = 10; x.Case.Sensor = "vr"; });
+        Assert.Equal(10, c.Compute(s, [M("10.0.0.1", 60)], Now)[0].Percent);
+        var hot = c.Compute(s, [M("10.0.0.1", 75)], Now)[0];
+        Assert.Equal(100, hot.Percent);
+        Assert.True(hot.SafetyOverride);
+    }
+
+    [Fact]
+    public void Full_speed_threshold_never_exceeds_the_profile_vr_limit()
+    {
+        // Audit H3: Kurve bis 105 °C eingestellt, Profil erlaubt VR 86 °C → ab 86 °C trotzdem 100 %
+        var c = new FanController();
+        var s = Settings(x => { x.Channel(1).Curve.StartTemp = 60; x.Channel(1).Curve.FullTemp = 105; });
+        MinerTemps Hot(double vr) => new("10.0.0.1", "A", true, vr, 55, Now.AddSeconds(-3), VrLimit: 86);
+        Assert.True(c.Compute(s, [Hot(80)], Now)[0].Percent < 100);
+        var limit = c.Compute(s, [Hot(87)], Now)[0];
+        Assert.Equal(100, limit.Percent);
+        Assert.True(limit.SafetyOverride);
+        s.Channel(1).Mode = "manual";
+        s.Channel(1).ManualPercent = 20;
+        Assert.Equal(100, c.Compute(s, [Hot(87)], Now)[0].Percent);
+    }
+
+    [Fact]
     public void Manual_case_fans_go_full_when_the_case_sensor_is_too_hot()
     {
         var c = new FanController();

@@ -92,6 +92,16 @@ public sealed class GroupAutomationTests : IDisposable
         config.Devices[2].Groups.Remove("Keller");
         Assert.True(hub.IsGroupScheduleApproved(rule));
 
+        // Audit N-S4: geänderte Werte einer verwendeten Voreinstellung → neue Freigabe nötig
+        var preset = config.Devices[0].Presets.First(p => p.Name == "Nacht");
+        var old = preset.CoreVoltageMv;
+        config.Devices[0].Presets[config.Devices[0].Presets.IndexOf(preset)] = preset with { CoreVoltageMv = old + 50 };
+        Assert.False(hub.IsGroupScheduleApproved(rule));
+        config.Devices[0].Presets[config.Devices[0].Presets.FindIndex(p => p.Name == "Nacht")] = preset;
+        Assert.True(hub.IsGroupScheduleApproved(rule));
+        Assert.Contains("Temperaturschutz", hub.GroupScheduleApprovalText("Keller"));
+        Assert.DoesNotContain("bleibt aktiv", hub.GroupScheduleApprovalText("Keller"));   // hier nirgends freigegeben
+
         hub.SaveGroupSchedule("Keller", Always("Tag"));                             // geänderte Regel → neue Freigabe nötig
         Assert.False(hub.IsGroupScheduleApproved(hub.GroupRule("Keller")!));
         Assert.Equal(["Nacht"], hub.GroupPresetNames("Keller"));

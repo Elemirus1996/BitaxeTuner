@@ -132,6 +132,12 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.10", tr.T("Sicherheits-Update nach dem zweiten Audit"),
+                tr.T("Lüfter gehen auf 100 %, wenn die Lüftersteuerung ausgeschaltet wird; Lüfter-Sicherheit auch im manuellen Modus aller Fühler und höchstens bis zur VR-Grenze des Profils. Profil-Kopien und von Hand bearbeitete Profile werden gegen feste Obergrenzen je Chip geprüft. Updates sind an ihre Version gebunden; Releases werden erst nach Freigabe signiert. Steuer: „65.000“ wird als 65 000 € gelesen, Zuflüsse am Verkaufstag zählen mit."),
+                null),
+            new("0.9.10", tr.T("Gruppen-Automatik einmal neu freigeben"),
+                tr.T("Die Freigabe einer Gruppen-Automatik gilt jetzt nur für genau die freigegebenen Werte der Voreinstellungen und die Profilgrenzen. Bestehende Gruppen-Automatiken bitte einmal neu freigeben (Übersicht → Gruppe → Gruppen-Automatik)."),
+                null),
             new("0.9.9", tr.T("Hilfe im Programm"),
                 server ? tr.T("Neuer Menüpunkt „Hilfe“: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche.")
                        : tr.T("Neuer Knopf „Hilfe“ oben: Kurzanleitung, jede Art von Protokolleintrag mit Bedeutung und „Was tun“, die Miner-Logs (AxeOS/ESP-Miner) erklärt und häufige Fragen – mit Suche."),

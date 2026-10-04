@@ -121,7 +121,8 @@ public sealed partial class MinerHub
             }
 
             var miners = Devices.Select(d => new MinerTemps(d.Host, d.Title, d.State.Online,
-                d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk)).ToList();
+                d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk,
+                d.ProfileKnown ? d.Profile.MaxVrTempC : null)).ToList();
             _fanController.Override = FanOverride;
             var sensors = SensorStatus(settings, now);
             _fanController.CaseTemperature = CaseTemperature(sensors);

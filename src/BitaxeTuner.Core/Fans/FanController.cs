@@ -5,7 +5,8 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Fans;
 
 /// <summary>Was die Regelung über einen Miner wissen muss (aus der normalen Abfrage).</summary>
-public sealed record MinerTemps(string Host, string Name, bool Online, double? VrTemp, double? AsicTemp, DateTime? LastOk);
+/// <param name="VrLimit">Höchste VR-Temperatur laut Geräteprofil – darüber immer 100 %, auch wenn die Kurve höher eingestellt ist (Audit H3).</param>
+public sealed record MinerTemps(string Host, string Name, bool Online, double? VrTemp, double? AsicTemp, DateTime? LastOk, double? VrLimit = null);
 
 /// <summary>Sollwert eines Kanals mit Begründung für die Oberfläche.</summary>
 public sealed record FanTarget(int Channel, int Percent, string Reason, bool SafetyOverride = false);
@@ -79,23 +80,39 @@ public sealed class FanController
         if (Override == FanOverride.Off)
         {
             var t = m.VrTemp is { } v and > 0 ? v : m.AsicTemp ?? 0;
-            return t >= c.Curve.FullTemp
+            var offFull = m.VrTemp is > 0 && m.VrLimit is { } lim and > 0 ? Math.Min(c.Curve.FullTemp, lim) : c.Curve.FullTemp;
+            return t >= offFull
                 ? Remember(c.Channel, 100, L.T("Sicherheit: {0} °C trotz „Aus“ → 100 %", t.ToString("0.0", De))) with { SafetyOverride = true }
                 : Remember(c.Channel, 0, L.T("aus (Taste)"));
         }
         var (temp, label) = m.VrTemp is { } vr and > 0 ? (vr, L.T("VR")) : m.AsicTemp is { } a and > 0 ? (a, L.T("ASIC")) : (double.NaN, "");
+        // Audit H3: Sicherheitsschwelle höchstens die VR-Grenze des Geräteprofils (die Kurve erlaubt bis 110 °C)
+        var full = m.VrTemp is > 0 && m.VrLimit is { } limit and > 0 ? Math.Min(c.Curve.FullTemp, limit) : c.Curve.FullTemp;
         if (c.Mode == "manual")
         {
             // Auch manuell: ab der 100-%-Temperatur der Kurve volle Drehzahl (sonst ginge z. B. 0 % bei heißem Miner – Audit H3)
             var manual = Clamp(c.ManualPercent);
-            return !double.IsNaN(temp) && temp >= c.Curve.FullTemp && manual < 100
+            return !double.IsNaN(temp) && temp >= full && manual < 100
                 ? Remember(c.Channel, 100, L.T("Sicherheit: {0} {1} °C trotz „manuell {2} %“ → 100 %", label, temp.ToString("0.0", De), manual)) with { SafetyOverride = true }
                 : Remember(c.Channel, manual, L.T("manuell {0} %", manual));
         }
 
         if (double.IsNaN(temp)) return Remember(c.Channel, 100, L.T("keine Temperatur → 100 %"));
+        if (temp >= full && full < c.Curve.FullTemp)
+            return Remember(c.Channel, 100, L.T("Sicherheit: {0} {1} °C an der Grenze des Geräteprofils → 100 %", label, temp.ToString("0.0", De))) with { SafetyOverride = true };
         var pct = WithHysteresis(c.Channel, c.Curve, temp);
         return Remember(c.Channel, pct, L.T("Automatik: {0} {1} °C → {2} %", label, temp.ToString("0.0", De), pct));
+    }
+
+    /// <summary>Höchste aktuelle Temperatur (VR bzw. ASIC je nach Einstellung) der zugeordneten Miner; null ohne Daten.</summary>
+    private static double? HottestMiner(CaseFanSettings s, IReadOnlyList<MinerTemps> miners, DateTime now)
+    {
+        var temps = miners
+            .Where(m => s.Miners.Count == 0 || s.Miners.Any(h => string.Equals(h.Trim(), m.Host.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .Where(m => m.Online && m.LastOk is { } ok && now - ok <= StaleAfter)
+            .Select(m => s.Sensor == "asic" ? m.AsicTemp ?? m.VrTemp : m.VrTemp ?? m.AsicTemp)
+            .Where(t => t is > 0).Select(t => t!.Value).ToList();
+        return temps.Count > 0 ? temps.Max() : null;
     }
 
     private FanTarget CaseGroup(CaseFanSettings s, IReadOnlyList<MinerTemps> miners, DateTime now, int channel)
@@ -104,10 +121,14 @@ public sealed class FanController
         if (Override == FanOverride.Full) return new FanTarget(channel, 100, L.T("100 % (Taste)"));
         if (s.Mode == "manual" && Override == FanOverride.None)
         {
-            // Auch manuell: ist der Gehäusefühler über der 100-%-Temperatur, volle Drehzahl (Audit H3)
+            // Auch manuell: über der 100-%-Temperatur volle Drehzahl (Audit H3) – mit Gehäusefühler wie auch mit den
+            // VR-/ASIC-Temperaturen der zugeordneten Miner (bisher nur beim Gehäusefühler)
             var manual = Clamp(s.ManualPercent);
-            return s.Sensor == "case" && CaseTemperature is { } hot && hot >= s.Curve.FullTemp && manual < 100
-                ? new FanTarget(channel, 100, L.T("Sicherheit: Gehäuse {0} °C trotz „manuell {1} %“ → 100 %", hot.ToString("0.0", De), manual), true)
+            double? hot = s.Sensor == "case" ? CaseTemperature : HottestMiner(s, miners, now);
+            return hot is { } h && h >= s.Curve.FullTemp && manual < 100
+                ? new FanTarget(channel, 100, s.Sensor == "case"
+                    ? L.T("Sicherheit: Gehäuse {0} °C trotz „manuell {1} %“ → 100 %", h.ToString("0.0", De), manual)
+                    : L.T("Sicherheit: {0} °C trotz „manuell {1} %“ → 100 %", h.ToString("0.0", De), manual), true)
                 : new FanTarget(channel, manual, L.T("Gehäuse manuell {0} %", manual));
         }
 

@@ -158,7 +158,11 @@ public static partial class StatusRenderer
         Tile(ctx, 16, 76, w, L.T("Ertrag"), $"{N(mo.IncomeEur, "0.00")} €");
         Tile(ctx, 16 + w, 76, w, L.T("Strom"), $"{N(mo.Kwh, "0.0")} kWh");
         Tile(ctx, 16 + 2 * w, 76, w, L.T("Stromkosten"), $"{N(mo.Cost, "0.00")} {mo.Currency}");
-        Tile(ctx, 16 + 3 * w, 76, w, L.T("Differenz"), Signed(diff, "0.00"), red: diff < 0);
+        // Audit N-F4: Ertrag ist immer in €, Stromkosten in der eingestellten Währung – nur gleiche Währungen verrechnen
+        if (mo.Currency is "€" or "EUR" or "Euro")
+            Tile(ctx, 16 + 3 * w, 76, w, L.T("Differenz"), Signed(diff, "0.00"), red: diff < 0);
+        else
+            Tile(ctx, 16 + 3 * w, 76, w, L.T("Differenz"), L.T("andere Währung"));
         var note = (mo.AvgGh is { } gh ? L.T("Ø Hashrate {0}", FormatHash(gh)) : "") +
                    (mo.IncomeMissing > 0 ? L.T(" · {0} Zuflüsse ohne Kurs", mo.IncomeMissing) : "");
         if (note.Length > 0) Text(ctx, Fit(note.TrimStart(' ', '·'), Regular.Value.CreateFont(19), Width - 32), Regular.Value.CreateFont(19), 16, 142, Ink);
