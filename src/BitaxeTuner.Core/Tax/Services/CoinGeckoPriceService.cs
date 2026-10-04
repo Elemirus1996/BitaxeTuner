@@ -30,9 +30,14 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DateTime _lastRequest = DateTime.MinValue;
 
-    public CoinGeckoPriceService(string? demoApiKey = null)
+    public CoinGeckoPriceService(string? demoApiKey = null) : this(null, demoApiKey) { }
+
+    /// <summary>Für Tests: eigene HTTP-Behandlung.</summary>
+    internal CoinGeckoPriceService(HttpMessageHandler? handler, string? demoApiKey = null)
     {
-        _http = new HttpClient { BaseAddress = new Uri("https://api.coingecko.com/"), Timeout = TimeSpan.FromSeconds(15) };
+        _http = handler is null ? new HttpClient() : new HttpClient(handler);
+        _http.BaseAddress = new Uri("https://api.coingecko.com/");
+        _http.Timeout = TimeSpan.FromSeconds(15);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeMonitor/1.0");
         if (!string.IsNullOrWhiteSpace(demoApiKey))
             _http.DefaultRequestHeaders.Add("x-cg-demo-api-key", demoApiKey.Trim());
@@ -48,7 +53,12 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
 
         try
         {
-            var quote = await FromRangeAsync(coin, atUtc, ct) ?? await FromHistoryAsync(coin, atUtc, ct);
+            // Audit F6: Der ungenauere Tageswert (00:00 UTC) nur, wenn die Zeitreihe geantwortet hat, aber keinen Punkt kennt –
+            // bei einem vorübergehenden Fehler (Netz, 429) später erneut die genaue Zeitreihe versuchen
+            var (quote, answered) = await FromRangeAsync(coin, atUtc, ct);
+            if (quote is null && !answered)
+                return (null, L.T("CoinGecko-Zeitreihe gerade nicht erreichbar – wird erneut versucht."));
+            quote ??= await FromHistoryAsync(coin, atUtc, ct);
             if (quote is null)
                 return (null, L.T("CoinGecko lieferte keinen Kurs – wird beim nächsten Durchlauf erneut versucht."));
             return (quote, null);
@@ -79,7 +89,7 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     }
 
     /// <summary>Kurspunkt aus der Zeitreihe, der dem Zeitpunkt am nächsten liegt.</summary>
-    private async Task<PriceQuote?> FromRangeAsync(CoinType coin, DateTime atUtc, CancellationToken ct)
+    private async Task<(PriceQuote? Quote, bool Answered)> FromRangeAsync(CoinType coin, DateTime atUtc, CancellationToken ct)
     {
         var from = new DateTimeOffset(atUtc - Window).ToUnixTimeSeconds();
         var toTime = atUtc + Window;
@@ -88,10 +98,10 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
 
         var url = $"api/v3/coins/{coin.CoinGeckoId()}/market_chart/range?vs_currency=eur&from={from}&to={to}";
         using var doc = await GetJsonAsync(url, ct);
-        if (doc is null) return null;
+        if (doc is null) return (null, false);
 
         if (!doc.RootElement.TryGetProperty("prices", out var prices) || prices.ValueKind != JsonValueKind.Array)
-            return null;
+            return (null, true);
 
         var targetMs = new DateTimeOffset(atUtc).ToUnixTimeMilliseconds();
         long bestMs = 0;
@@ -113,12 +123,12 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
             }
         }
 
-        if (bestPrice is null) return null;
+        if (bestPrice is null) return (null, true);
 
         var pointTime = DateTimeOffset.FromUnixTimeMilliseconds(bestMs).UtcDateTime;
         var minutes = (int)Math.Round(TimeSpan.FromMilliseconds(bestDistance).TotalMinutes);
-        return new PriceQuote(bestPrice.Value, pointTime,
-            L.T("CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)", pointTime, minutes));
+        return (new PriceQuote(bestPrice.Value, pointTime,
+            L.T("CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)", pointTime, minutes)), true);
     }
 
     /// <summary>Rückfall: Schnappschuss um 00:00 UTC des Tages.</summary>

@@ -370,12 +370,12 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
     private void AddDisposal()
     {
-        if (!TryParseDecimal(NewSaleAmount, out var amount) || amount <= 0)
+        if (!Core.Tax.Services.TaxEditor.TryParseDecimal(NewSaleAmount, out var amount) || amount <= 0)
         {
             StatusText = L.T("Menge ungültig.");
             return;
         }
-        if (!TryParseDecimal(NewSaleProceeds, out var proceeds) || proceeds < 0)
+        if (!Core.Tax.Services.TaxEditor.TryParseEur(NewSaleProceeds, out var proceeds) || proceeds < 0)
         {
             StatusText = L.T("Erlös ungültig.");
             return;
@@ -432,15 +432,6 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
         _repository.ExportDisposalsCsv(dialog.FileName, _results);
         StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
-    }
-
-    /// <summary>Mit Komma deutsch, ohne Komma mit Punkt als Dezimaltrenner.</summary>
-    private static bool TryParseDecimal(string text, out decimal value)
-    {
-        text = text.Trim().Replace(" ", "").Replace("€", "");
-        return text.Contains(',')
-            ? decimal.TryParse(text, NumberStyles.Number, De, out value)
-            : decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
     }
 
     // ---------- intern ----------

@@ -101,7 +101,11 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             decimal? value = null;
             if (price.Trim().Length > 0)
             {
-                if (!TryParseDecimal(price, out var v) || v <= 0 || v > 100_000_000m) throw new LocalizedException("Kurs ungültig.");
+                if (!TryParseEur(price, out var v) || v <= 0 || v > 100_000_000m) throw new LocalizedException("Kurs ungültig.");
+                // Audit N-F1: BTC und BCH lagen nie unter 100 € je Coin, seit es Mining-Erträge zu dokumentieren gibt
+                if (v < MinPlausiblePriceEur)
+                    throw new LocalizedException("Kurs {0} € je Coin ist unplausibel niedrig – Tausender bitte mit Punkt und Dezimalstellen mit Komma (z. B. 65.000,00).",
+                        v.ToString("0.##", L.Culture));
                 value = v;
             }
             if (value != reward.EurPriceAtReceipt)
@@ -137,7 +141,7 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             || day > DateOnly.FromDateTime(DateTime.Now) || day.Year < 2009)
             throw new LocalizedException("Datum ungültig.");
         if (!TryParseDecimal(amount ?? "", out var a) || a <= 0 || a > 21_000_000m) throw new LocalizedException("Menge ungültig.");
-        if (!TryParseDecimal(proceeds ?? "", out var p) || p < 0 || p > 1_000_000_000m) throw new LocalizedException("Erlös ungültig.");
+        if (!TryParseEur(proceeds ?? "", out var p) || p < 0 || p > 1_000_000_000m) throw new LocalizedException("Erlös ungültig.");
 
         var rewards = monitor.LoadRewards();
         var disposals = repository.LoadDisposals();
@@ -188,6 +192,21 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             r.UnmatchedAmount, r.MissingPrice, r.Disposal.Note)).ToList();
         var available = Enum.GetValues<CoinType>().ToDictionary(c => c.Symbol(), c => rewards.Where(r => r.Coin == c).Sum(r => r.Remaining));
         return (rewards.OrderByDescending(r => r.ReceivedAtUtc).ToList(), views, summary, available);
+    }
+
+    /// <summary>Untergrenze für einen von Hand eingetragenen Kurs (€ je Coin).</summary>
+    public const decimal MinPlausiblePriceEur = 100m;
+
+    /// <summary>
+    /// Euro-Betrag (Kurs, Erlös), Audit N-F1: wie <see cref="TryParseDecimal"/>, aber Punkte vor genau drei Ziffern sind
+    /// Tausendertrenner – „65.000“ ist 65 000 €, nicht 65 €; „1.234.567“ ist 1 234 567 €. „12.50“ bleibt 12,50 €.
+    /// </summary>
+    public static bool TryParseEur(string text, out decimal value)
+    {
+        var t = text.Trim().Replace(" ", "").Replace("€", "");
+        if (!t.Contains(',') && System.Text.RegularExpressions.Regex.IsMatch(t, @"^\d{1,3}(\.\d{3})+$"))
+            t = t.Replace(".", "");
+        return TryParseDecimal(t, out value);
     }
 
     /// <summary>Mit Komma deutsch, ohne Komma mit Punkt als Dezimaltrenner (wie in der Desktop-App); € und Leerzeichen erlaubt.</summary>

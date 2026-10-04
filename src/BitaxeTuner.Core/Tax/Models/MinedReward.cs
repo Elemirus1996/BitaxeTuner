@@ -86,7 +86,7 @@ public class MinedReward : INotifyPropertyChanged
         get
         {
             if (Remaining <= 0) return "verkauft";
-            var days = (TaxFreeFrom - DateTime.Now.Date).Days;
+            var days = (TaxFreeFrom - TaxTime.ToTax(DateTime.UtcNow).Date).Days;   // Audit F5: Steuerzeit, nicht Rechnerzeit
             if (days <= 0) return Remaining < Amount ? L.T("Rest haltefristfrei") : L.T("haltefristfrei");
             return L.T("noch {0} Tage", days);
         }

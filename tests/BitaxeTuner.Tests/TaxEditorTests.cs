@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.I18n;
+using BitaxeTuner.Core.Tax;
 using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.Tax.Services;
 
@@ -28,6 +29,89 @@ public class TaxEditorTests
         var repo = new TaxLogRepository(dir.Path);
         var monitor = new WalletMonitorService(new NoChain(), new NoPrices(), repo);
         return (new TaxEditor(monitor, repo), monitor, repo);
+    }
+
+    [Theory]
+    [InlineData("65.000", 65000)]
+    [InlineData("65.000,50", 65000.5)]
+    [InlineData("1.234.567", 1234567)]
+    [InlineData("65000", 65000)]
+    [InlineData("12.50", 12.5)]
+    [InlineData("12,5 €", 12.5)]
+    public void Euro_amounts_understand_thousands_dots(string text, double expected)
+    {
+        // Audit N-F1: „65.000“ war 65 €
+        Assert.True(TaxEditor.TryParseEur(text, out var v));
+        Assert.Equal((decimal)expected, v);
+        Assert.True(TaxEditor.TryParseDecimal("0.001", out var btc));                  // Coin-Mengen bleiben Dezimalpunkt
+        Assert.Equal(0.001m, btc);
+    }
+
+    [Fact]
+    public void Implausibly_low_manual_price_is_rejected()
+    {
+        using var dir = new TempDir();
+        var (editor, monitor, _) = Create(dir);
+        var reward = new MinedReward { Coin = CoinType.Bitcoin, Amount = 0.001m, ReceivedAtUtc = DateTime.UtcNow.AddDays(-3), TxId = "p" };
+        monitor.SaveReward(reward);
+        Assert.Throws<LocalizedException>(() => editor.UpdateReward(reward.Id, "65", null));
+        Assert.Equal(65000m, editor.UpdateReward(reward.Id, "65.000", null).EurPriceAtReceipt);
+    }
+
+    [Fact]
+    public void Sale_includes_inflows_of_the_same_afternoon()
+    {
+        // Audit N-F2: Verkauf ist auf 12:00 gelegt – ein Zufluss um 15:00 desselben Tages blieb unberücksichtigt
+        using var dir = new TempDir();
+        var (editor, monitor, _) = Create(dir);
+        var day = TaxTime.ToTax(DateTime.UtcNow).Date.AddDays(-2);
+        monitor.SaveReward(new MinedReward { Coin = CoinType.Bitcoin, Amount = 0.001m, ReceivedAtUtc = TaxTime.FromTax(day.AddHours(15)), TxId = "nachmittag", EurPriceAtReceipt = 60000m });
+        editor.AddDisposal(CoinType.Bitcoin, day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), "0,001", "61", null, false);
+        var (_, sales, _, _) = editor.Overview(DateTime.Now);
+        Assert.Equal(0m, Assert.Single(sales).UnmatchedAmount);
+    }
+
+    [Fact]
+    public void Csv_text_fields_cannot_become_formulas()
+    {
+        // Audit N-F3
+        Assert.Equal("'=HYPERLINK(1)", TaxLogRepository.Escape("=HYPERLINK(1)"));
+        Assert.Equal("'+1", TaxLogRepository.Escape("+1"));
+        Assert.Equal("\"'@a;b\"", TaxLogRepository.Escape("@a;b"));
+        Assert.Equal("Börse", TaxLogRepository.Escape("Börse"));
+    }
+
+    private sealed class FlakyGecko(bool rangeDown) : HttpMessageHandler
+    {
+        public List<string> Urls { get; } = [];
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var url = request.RequestUri!.AbsoluteUri;
+            Urls.Add(url);
+            if (url.Contains("/range") && rangeDown) return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.TooManyRequests));
+            var body = url.Contains("/range") ? """{"prices":[]}""" : """{"market_data":{"current_price":{"eur":61000}}}""";
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
+    [Fact]
+    public async Task Day_snapshot_only_when_the_time_series_really_has_no_point()
+    {
+        // Audit F6: bei vorübergehendem Fehler nicht sofort den ungenaueren 00:00-Wert speichern
+        var down = new FlakyGecko(rangeDown: true);
+        using (var gecko = new CoinGeckoPriceService(down))
+        {
+            var (quote, reason) = await gecko.GetEurPriceAsync(CoinType.Bitcoin, DateTime.UtcNow.AddDays(-2));
+            Assert.Null(quote);
+            Assert.NotNull(reason);
+            Assert.DoesNotContain(down.Urls, u => u.Contains("/history"));
+        }
+        var empty = new FlakyGecko(rangeDown: false);
+        using (var gecko = new CoinGeckoPriceService(empty))
+        {
+            var (quote, _) = await gecko.GetEurPriceAsync(CoinType.Bitcoin, DateTime.UtcNow.AddDays(-2));
+            Assert.Equal(61000m, quote!.Eur);
+        }
     }
 
     [Fact]

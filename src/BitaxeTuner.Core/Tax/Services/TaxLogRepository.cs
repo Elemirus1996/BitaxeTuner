@@ -167,10 +167,17 @@ public sealed class TaxLogRepository
         File.WriteAllText(filePath, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
     }
 
-    private static string Escape(string value)
-        => value.Contains(';') || value.Contains('"') || value.Contains('\n')
+    /// <summary>
+    /// Textfeld für CSV: Trennzeichen/Anführungszeichen maskieren; Audit N-F3: führendes =, +, -, @ (oder Tab/CR) würde Excel
+    /// als Formel ausführen – mit vorangestelltem Hochkomma als Text kennzeichnen.
+    /// </summary>
+    internal static string Escape(string value)
+    {
+        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r') value = "'" + value;
+        return value.Contains(';') || value.Contains('"') || value.Contains('\n')
             ? $"\"{value.Replace("\"", "\"\"")}\""
             : value;
+    }
 
     // ---------- Migration ----------
 

@@ -43,7 +43,9 @@ public static class HoldingCalculator
         foreach (var d in disposals.OrderBy(d => d.SoldAtUtc))
         {
             var lots = rewards
-                .Where(r => r.Coin == d.Coin && r.Remaining > 0 && r.ReceivedAtUtc <= d.SoldAtUtc)
+                // Audit N-F2: Verkäufe tragen nur ein Datum (gespeichert 12:00) – Zuflüsse desselben Tages gehören dazu,
+                // auch wenn sie am Nachmittag kamen (in Steuerzeit verglichen)
+                .Where(r => r.Coin == d.Coin && r.Remaining > 0 && r.ReceivedAtLocal.Date <= d.SoldAtLocal.Date)
                 .OrderBy(r => r.ReceivedAtUtc)
                 .ToList();
 
