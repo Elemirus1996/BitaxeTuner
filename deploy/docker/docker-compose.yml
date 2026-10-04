@@ -15,6 +15,14 @@ services:
     # Obergrenzen, damit ein Fehler nicht den ganzen Rechner ausbremst (ein Pi 4 hat genug Luft)
     mem_limit: 512m
     cpus: 1.0
+    # Beim Stoppen: Zeit für laufende Benchmarks, die Miner-Einstellungen wiederherzustellen (Docker-Standard sind 10 s)
+    stop_grace_period: 90s
+    # Log begrenzen – sonst wächst es auf der SD-Karte unbegrenzt
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8484:8484"
     volumes:

@@ -105,6 +105,10 @@ public class TaxEditorTests
             Assert.Null(quote);
             Assert.NotNull(reason);
             Assert.DoesNotContain(down.Urls, u => u.Contains("/history"));
+            // Audit N-I2: nach 429 bis zum Ende der Sperre keine weitere Anfrage
+            var before = down.Urls.Count;
+            await gecko.GetEurPriceAsync(CoinType.Bitcoin, DateTime.UtcNow.AddDays(-1));
+            Assert.Equal(before, down.Urls.Count);
         }
         var empty = new FlakyGecko(rangeDown: false);
         using (var gecko = new CoinGeckoPriceService(empty))

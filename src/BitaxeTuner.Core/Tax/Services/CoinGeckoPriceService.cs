@@ -29,6 +29,7 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DateTime _lastRequest = DateTime.MinValue;
+    private DateTime _blockedUntil = DateTime.MinValue;
 
     public CoinGeckoPriceService(string? demoApiKey = null) : this(null, demoApiKey) { }
 
@@ -157,11 +158,21 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         await _gate.WaitAsync(ct);
         try
         {
+            // Audit N-I2: nach 429 bis zum Ende der Sperre keine weiteren Anfragen (Steuer-Monitor und E-Paper-Kursseite)
+            if (DateTime.UtcNow < _blockedUntil) return null;
             var wait = _lastRequest + MinGap - DateTime.UtcNow;
             if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
             _lastRequest = DateTime.UtcNow;
 
             using var resp = await _http.GetAsync(url, ct);
+            if ((int)resp.StatusCode == 429)
+            {
+                var retry = resp.Headers.RetryAfter?.Delta
+                            ?? (resp.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : (TimeSpan?)null)
+                            ?? TimeSpan.FromMinutes(1);
+                _blockedUntil = DateTime.UtcNow + TimeSpan.FromSeconds(Math.Clamp(retry.TotalSeconds, 10, 3600));
+                return null;
+            }
             if (!resp.IsSuccessStatusCode) return null;
             return JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
         }

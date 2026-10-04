@@ -59,13 +59,24 @@ public sealed class HubService : IHostedService, IDisposable
             Clock = _options?.Clock,
         });
         if (hub.HistoryError is { } error) _log.LogError("Verlaufsdatenbank nicht verfügbar: {Error}", error);
+        // Audit N-E2: gleiche Warnung (z. B. „0/3 online“ nachts) nur bei Änderung loggen – nicht bei jedem Abfragetakt
+        // (~17 000 Zeilen am Tag auf der SD-Karte). Die Uhrzeit am Ende zählt dabei nicht als Änderung.
+        string? lastWarning = null;
         hub.StatusMessage += (ok, text) =>
         {
-            if (!ok) _log.LogWarning("{Text}", text);
+            if (ok) { lastWarning = null; return; }
+            var key = WarningKey(text);
+            if (key == lastWarning) return;
+            lastWarning = key;
+            _log.LogWarning("{Text}", text);
         };
         if (LoadPaused()) hub.SetPaused(true);
         return hub;
     }
+
+    /// <summary>Statusmeldung ohne angehängte Uhrzeit („… – 22:38:08“) – zum Erkennen gleicher Warnungen.</summary>
+    internal static string WarningKey(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, @"\s*[–-]\s*\d{1,2}:\d{2}(:\d{2})?\s*$", "");
 
     /// <summary>
     /// Rechner-Neustart nur bei der Installation per install.sh/Pi-Image: Der Dienst (ohne Root-Rechte) legt

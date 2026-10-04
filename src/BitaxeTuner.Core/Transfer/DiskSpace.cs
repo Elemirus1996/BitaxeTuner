@@ -39,6 +39,27 @@ public static class DiskSpace
         return zip.Entries.Sum(e => e.Length);
     }
 
+    /// <summary>
+    /// Kopieren mit laufender Platzprüfung (Audit E4): für Uploads ohne Content-Length – alle 32 MB wird geprüft, dass die
+    /// Reserve frei bleibt; sonst Abbruch mit verständlicher Meldung (die halbe Datei löscht der Aufrufer).
+    /// </summary>
+    public static async Task CopyWithSpaceCheckAsync(Stream source, Stream target, string directory, CancellationToken ct)
+    {
+        var buffer = new byte[81920];
+        long sinceCheck = 0;
+        int read;
+        while ((read = await source.ReadAsync(buffer, ct)) > 0)
+        {
+            await target.WriteAsync(buffer.AsMemory(0, read), ct);
+            sinceCheck += read;
+            if (sinceCheck >= 32L * 1024 * 1024)
+            {
+                sinceCheck = 0;
+                Require(directory, 0);
+            }
+        }
+    }
+
     /// <summary>Wirft eine verständliche Meldung, wenn weniger als <paramref name="needed"/> + Reserve frei ist.</summary>
     public static void Require(string directory, long needed)
     {

@@ -237,7 +237,14 @@ public sealed class AppConfig
             try { ConfigSecrets.Externalize(root, new SecretStore(dir), UnresolvedSecrets); }
             catch { root = JsonSerializer.SerializeToNode(this, WriteOptions)!; }
             var tmp = filePath + ".tmp";
-            File.WriteAllText(tmp, root.ToJsonString(WriteOptions));
+            // Audit E2: erst vollständig auf den Datenträger schreiben (fsync), dann umbenennen – bei Stromausfall auf
+            // SD-Karten sonst womöglich eine leere oder halbe config.json
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(root.ToJsonString(WriteOptions));
+                fs.Write(bytes);
+                fs.Flush(flushToDisk: true);
+            }
             File.Move(tmp, filePath, overwrite: true);
             LastSaveError = null;
         }

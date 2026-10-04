@@ -45,6 +45,7 @@ public sealed class WalletMonitorService : IDisposable
     /// <summary>Startet das zyklische Polling; erster Durchlauf nach 5 Sekunden.</summary>
     public void Start(TimeSpan interval)
     {
+        RunningInterval = interval;
         _timer?.Dispose();
         var period = interval < TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : interval;
         _timer = new Timer(async _ => await PollOnceAsync(), null, TimeSpan.FromSeconds(5), period);
@@ -55,7 +56,11 @@ public sealed class WalletMonitorService : IDisposable
     {
         _timer?.Dispose();
         _timer = null;
+        RunningInterval = null;
     }
+
+    /// <summary>Abstand des laufenden Pollings (null = angehalten).</summary>
+    public TimeSpan? RunningInterval { get; private set; }
 
     // ---------- Wallets ----------
 

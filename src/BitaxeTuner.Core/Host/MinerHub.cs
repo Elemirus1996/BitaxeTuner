@@ -412,7 +412,10 @@ public sealed partial class MinerHub : IDisposable
         _ = RunLoopAsync(() => TimeSpan.FromSeconds(Math.Clamp(Config.IntervalSeconds, 1, 300)), PollNowAsync, ct);
         _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.WalletPollMinutes, 1, 1440)), PollWalletsAsync, ct);
         _ = RunLoopAsync(() => PlugInterval, PlugTickAsync, ct);
-        TaxMonitor.Start(TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440)));
+        // Audit I3: Steuer-Wallets nicht bei jedem „Einstellungen speichern“ neu abfragen (Blockchair/CoinGecko) –
+        // nur beim ersten Start, nach einer Pause oder wenn sich der Abstand geändert hat
+        var taxInterval = TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440));
+        if (TaxMonitor.RunningInterval != taxInterval) TaxMonitor.Start(taxInterval);
     }
 
     private async Task RunLoopAsync(Func<TimeSpan> interval, Func<Task> body, CancellationToken ct)

@@ -14,6 +14,28 @@ namespace BitaxeTuner.Tests;
 /// <summary>Kleinpunkte aus dem Audit vom 02.10.2026 (S5, S9, L1, F4–F6, I2, E3, E4).</summary>
 public class AuditSmallTests
 {
+    [Theory]
+    [InlineData("0/3 online – 22:38:08", "0/3 online")]
+    [InlineData("alle 0 Miner online – 22:38:13", "alle 0 Miner online")]
+    [InlineData("Verlauf konnte nicht gespeichert werden: Platte voll", "Verlauf konnte nicht gespeichert werden: Platte voll")]
+    public void Repeated_status_warnings_are_logged_once(string text, string key)
+    {
+        // Audit N-E2: Uhrzeit am Ende zählt nicht als neue Warnung
+        Assert.Equal(key, HubService.WarningKey(text));
+    }
+
+    [Fact]
+    public async Task Upload_without_length_is_copied_completely()
+    {
+        // Audit E4: Kopieren mit laufender Platzprüfung verliert nichts
+        using var dir = new TempDir();
+        var data = new byte[5 * 1024 * 1024 + 17];
+        new Random(4).NextBytes(data);
+        using var target = new MemoryStream();
+        await DiskSpace.CopyWithSpaceCheckAsync(new MemoryStream(data), target, dir.Path, default);
+        Assert.Equal(data, target.ToArray());
+    }
+
     private static string RepoFile(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

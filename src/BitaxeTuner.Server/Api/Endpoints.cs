@@ -1117,7 +1117,7 @@ public static class Endpoints
             var staging = Path.Combine(dir, $"transfer-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..40]);
             try
             {
-                await using (var fs = File.Create(upload)) await http.Request.Body.CopyToAsync(fs, http.RequestAborted);
+                await using (var fs = File.Create(upload)) await DiskSpace.CopyWithSpaceCheckAsync(http.Request.Body, fs, dir, http.RequestAborted);
                 ArchiveManifest manifest;
                 try { DiskSpace.Require(dir, DiskSpace.UncompressedSize(upload) + DiskSpace.FolderSize(dir) - new FileInfo(upload).Length); }
                 catch (InvalidDataException ex) { return Error(400, L.N("Archiv abgelehnt: {0}"), ex.Message); }

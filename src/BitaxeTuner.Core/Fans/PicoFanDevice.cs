@@ -318,12 +318,18 @@ public sealed class PicoFanDevice : IFanDevice
         return sb.Append('\'').ToString();
     }
 
+    /// <summary>
+    /// Antwortzeit je Befehl: per USB 1,5 s; über WLAN 4 s (Audit N-I1) – kurze Funkaussetzer sollen nicht gleich zur
+    /// Trennung, zum Neuverbinden und (beim Display-Pico) zu einem E-Paper-Refresh führen.
+    /// </summary>
+    private TimeSpan ReplyTimeout => _io is NetworkLineTransport ? TimeSpan.FromSeconds(4) : TimeSpan.FromSeconds(1.5);
+
     public Task<int[]> ExchangeAsync(IReadOnlyList<int> percent, CancellationToken ct = default) => Task.Run(() =>
     {
         lock (_lock)
         {
             _io.Write("SET " + string.Join(' ', percent.Select(p => Math.Clamp(p, 0, 100))) + "\r\n");
-            return ParseRpm(Expect("RPM", TimeSpan.FromSeconds(1.5)));
+            return ParseRpm(Expect("RPM", ReplyTimeout));
         }
     }, ct);
 
@@ -332,7 +338,7 @@ public sealed class PicoFanDevice : IFanDevice
         lock (_lock)
         {
             _io.Write("GET\r\n");
-            return ParseRpm(Expect("RPM", TimeSpan.FromSeconds(1.5)));
+            return ParseRpm(Expect("RPM", ReplyTimeout));
         }
     }, ct);
 
@@ -342,7 +348,7 @@ public sealed class PicoFanDevice : IFanDevice
         lock (_lock)
         {
             _io.Write($"IMG {planes.Length}\r\n");
-            Expect("OK IMG", TimeSpan.FromSeconds(2));
+            Expect("OK IMG", ReplyTimeout + TimeSpan.FromSeconds(0.5));
             // 192 Byte je Zeile (256 Zeichen Base64); jede Zeile setzt auch den Watchdog im Pico zurück
             var sb = new StringBuilder();
             for (var i = 0; i < planes.Length; i += 192)
