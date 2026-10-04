@@ -46,12 +46,12 @@ E-Paper GP11–15 und GP22. Das Skript `skripte/verify.py` prüft die Platine au
    - Elko C1: das **+** muss zum Pad mit dem „+“ im Druck zeigen.
    - Dioden D1, D2, D3: der Kathodenstrich zur markierten Seite.
    - Transistoren Q1–Q9 (SOT-23): ein Bein auf der einen, zwei auf der anderen Seite – wie im Druck.
-   - USB-C J3: Öffnung zum linken Platinenrand. **Bekannt: Die Position von J3 in `CPL_JLCPCB.csv` stimmt noch nicht
-     ganz** – in der Vorschau muss J3 verschoben werden, bis die Kontakte genau auf den Pads und die Laschen in den
-     Löchern sitzen (Drehung −90° stimmt). Den korrigierten Wert bitte als Issue melden, dann kommt er in die Datei.
+   - USB-C J3: Öffnung zum linken Platinenrand, Kontakte genau auf den Pads, Laschen in den Löchern.
+   - Lüfterstecker J11–J16: Pin 1 des Steckers auf dem eckigen Pad.
    Liegt ein Teil verdreht, im Vorschau-Editor drehen – nicht bestellen, solange etwas falsch aussieht.
-   Die übrigen Drehungen und Positionen (SOT-23 +180°, Stecker auf Bauteilmitte, Leisten +90°) sind bereits in der
-   Vorschau geprüft und in der Datei korrigiert.
+   Drehungen und Positionen (SOT-23 +180°, Lüfterstecker +180°, Stecker auf Bauteilmitte, Leisten +90°, USB-C
+   1,231 mm versetzt) sind in der Datei bereits korrigiert – zuletzt nach der Freigabe der Bestückung durch einen
+   JLCPCB-Ingenieur am 04.10.2026. Normalerweise muss in der Vorschau nichts mehr verschoben werden.
 6. Kosten (Schätzung vom 03.10.2026): etwa 60–75 € (Economic) bzw. 90–110 € (Standard) für 5 Platinen, davon 2 bestückt,
    inkl. Versand und Einfuhrumsatzsteuer.
 

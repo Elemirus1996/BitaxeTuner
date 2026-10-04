@@ -3,7 +3,8 @@
 #
 # CPL: JLCPCB erwartet die Bauteilmitte, nicht den Bezugspunkt der KiCad-Bauform (bei Steckern = Pin 1). Die Mitte wird
 # daher aus den nummerierten Pads berechnet (ohne Befestigungs-/Führungslöcher). Dazu Drehkorrekturen je Bauform, weil
-# JLCPCB bei manchen Gehäusen den Nullpunkt anders festlegt – geprüft in der JLCPCB-Bestückungsvorschau am 03.10.2026.
+# JLCPCB bei manchen Gehäusen den Nullpunkt anders festlegt – geprüft in der JLCPCB-Bestückungsvorschau am 03.10.2026,
+# Lüfterstecker und USB-C nach der Freigabe durch den JLCPCB-Ingenieur (Auftrag SMT026100360073) am 04.10.2026.
 import csv
 import sys
 from collections import OrderedDict
@@ -35,11 +36,12 @@ ROTATION_FIX = {
     "SOT-23": 180.0,                              # Q1–Q9
     "PinSocket_1x20_P2.54mm_Vertical": 90.0,      # J1, J2
     "PinHeader_1x08_P2.54mm_Vertical": 90.0,      # J4, J5
+    "FanPinHeader_1x04_P2.54mm_Vertical": 180.0,  # J11–J16 (Molex 47053, laut JLCPCB-Freigabe 04.10.2026)
 }
 # Feste Werte aus der JLCPCB-Vorschau, wo eine Formel nicht reicht (Ref → (Drehung, dx, dy in mm))
-# Offen: J3 (USB-C) – Drehung −90° stimmt, die Position muss in der JLCPCB-Vorschau noch verschoben werden;
-# korrigierten Wert hier eintragen, z. B. MANUAL = {"J3": (-90.0, dx, dy)} (dx/dy in mm, KiCad-Richtung, y nach unten).
-MANUAL = {}
+# J3 (USB-C GCT USB4125): Drehung −90°, Bauteilmitte bei JLCPCB 1,231 mm weiter rechts als der KiCad-Bezugspunkt
+# (Wert aus der Freigabe durch den JLCPCB-Ingenieur, 04.10.2026; dx/dy in mm, KiCad-Richtung, y nach unten).
+MANUAL = {"J3": (-90.0, 1.231, 0.0)}
 
 
 def norm(angle):
