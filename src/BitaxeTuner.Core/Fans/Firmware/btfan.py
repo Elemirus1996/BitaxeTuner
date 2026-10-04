@@ -14,8 +14,9 @@
 # Both roles: buttons GP1,3,5,7 to GND (internal pull-up), onboard LED blinks on every press;
 #   DS18B20 on GP26 (1-Wire, one 4.7k pull-up to 3V3), several sensors in parallel, each reported with its ROM id.
 #
-# Protocol (one command per line). Fan watchdog: only SET/GET/HELLO count as a sign of life of the fan control;
-# other lines (e.g. image data) keep only the "server lost" display timer alive.
+# Protocol (one command per line). Fan watchdog: only SET counts as a sign of life of the fan control (audit N-S1:
+# a server that only polls with GET has no fan control - the fans then go to 100 %); all lines keep the
+# "server lost" display timer alive.
 # Hardware watchdog (machine.WDT, 8 s): if this program hangs, the Pico restarts; without PWM signal the fans run at 100 %.
 #   HELLO                -> OK BTFAN <version> <channels> <role>
 #   SET p1 .. p6         -> RPM r1 .. r6 [T id=t id=t ..]   (fan percent 0..100; T = DS18B20 ROM id (hex) = deg C)
@@ -29,7 +30,7 @@
 #   NET                  -> OK NET <1|0> <ip|->   (WLAN connected and IP address)
 #   RESET                -> OK RESET, then the Pico restarts
 # Unsolicited: BTN <n> (short press 1-3), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s), EPD DONE (refresh finished).
-# Button 4 has no short press. Without any command for WATCHDOG_MS all fans go to 100 %.
+# Button 4 has no short press. Without SET for WATCHDOG_MS all fans go to 100 %.
 # Button 3 (short) sets 100 % locally even without server.
 #
 # WLAN (TCP port 8490, one server at a time): on connect the Pico sends "BTFAN <version> <role> <nonce_p>".
@@ -463,7 +464,7 @@ def handle(line):
         return
     cmd = parts[0].upper()
     last_cmd = time.ticks_ms()
-    if cmd in ("SET", "GET", "HELLO"):
+    if cmd == "SET":
         last_fan = last_cmd
     if cmd == "D":
         if img is not None and len(parts) > 1:
