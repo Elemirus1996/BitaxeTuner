@@ -23,10 +23,13 @@ public static class ReleaseSignature
     /// </summary>
     public static readonly IReadOnlyList<string> TrustedKeys =
     [
-        // Hauptschlüssel (erstellt 03.10.2026)
+        // Erster Hauptschlüssel (erstellt 03.10.2026) – der private Teil ist nicht mehr vorhanden (05.10.2026); bleibt, damit
+        // ältere Releases weiter geprüft werden können
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhL5p9hf8FLp1PxhXQtPBWkvr4aDixpt4Hi02B/Rj4y7TWR/GEvqyQzAX0RllP3InWYlAbpbuZ0nL8+0aTxu9ig==",
-        // Reserveschlüssel (erstellt 03.10.2026, offline)
+        // Bisheriger Reserveschlüssel (erstellt 03.10.2026) – seit 0.9.10 der aktive Signaturschlüssel (GitHub-Umgebung „release“)
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBiULYz/NY5MJlWqaG0772s43Idzu0eMIioU+g2RVcuZsfnV2FC1rb0hGlOxuzEXaka9+jJN3tl8g0oYFcfeHPQ==",
+        // Neuer Reserveschlüssel (erstellt 05.10.2026, offline beim Projektinhaber)
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDeSE2Mml1wdfa8BxmvEwCXZlw3w6Ytkysf6u4viUAl0aFHzOBJyEVCkq1uFSgaCZRmmJVaQTLuudEebB3K5rIg==",
     ];
 
     /// <summary>true, wenn <paramref name="signatureText"/> (Base64) eine gültige Signatur über <paramref name="sums"/> ist.</summary>

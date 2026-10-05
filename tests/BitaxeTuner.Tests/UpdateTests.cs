@@ -161,7 +161,7 @@ public class UpdateTests
     [Fact]
     public void Built_in_keys_are_valid_p256_public_keys()
     {
-        Assert.Equal(2, ReleaseSignature.TrustedKeys.Count);
+        Assert.Equal(3, ReleaseSignature.TrustedKeys.Count);                 // erster Hauptschlüssel, aktiver, neuer Reserveschlüssel
         foreach (var k in ReleaseSignature.TrustedKeys)
         {
             using var e = ECDsa.Create();

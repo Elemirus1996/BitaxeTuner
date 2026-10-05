@@ -186,7 +186,7 @@ public partial class MainWindow : Window
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
             () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false), host, section) { Owner = owner ?? this };
         if (dialog.ShowDialog() != true) return;
-        if (dialog.ShowOnboardingRequested) Dispatcher.BeginInvoke(ShowOnboarding);
+        if (dialog.ShowOnboardingRequested) _ = Dispatcher.BeginInvoke(ShowOnboarding);
         await host.Hub.ApplyPlugSettingsAsync();
 
         ThemeManager.Apply(host.Config.Theme);

@@ -460,10 +460,14 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     private void SyncFanFromInfo(MinerInfo? info)
     {
         if (_fanEdited || info is null) return;
+        // Felder bewusst direkt setzen: die Änderungs-Hooks würden sonst „vom Benutzer geändert“ (_fanEdited) melden;
+        // die Oberfläche wird unten per OnPropertyChanged aktualisiert
+#pragma warning disable MVVMTK0034
         _fanAuto = info.AutoFan != false;
         _fanTarget = (info.FanTargetTempC ?? 60).ToString();
         _fanManualPercent = Math.Max(MinerHub.MinManualFanPercent, info.FanPercent ?? 100).ToString();
         _fanMinPercent = info.FanMinPercent?.ToString() ?? "";
+#pragma warning restore MVVMTK0034
         OnPropertyChanged(nameof(FanMinPercent));
         OnPropertyChanged(nameof(FanMinSupported));
         OnPropertyChanged(nameof(FanAuto));

@@ -126,7 +126,7 @@ public static class ProfileEditor
         Over(L.T("Max. Leistung"), p.MaxPowerW, reference.MaxPowerW, "W");
 
         // Automatische Erkennung: ein eigenes oder geändertes Erkennungsmuster übernimmt Miner ohne Rückfrage – bestätigen lassen
-        var builtInSame = builtIns.FirstOrDefault(x => Same(x.Id, p.Id));
+        var builtInSame = builtIns.FirstOrDefault(x => Same(x.Id, p.Id ?? ""));
         bool SameList(List<string> a, List<string> b) => a.Count == b.Count && a.Zip(b).All(t => string.Equals(t.First, t.Second, StringComparison.OrdinalIgnoreCase));
         var detectionBefore = previous ?? builtInSame;
         if ((p.DeviceModelMatches.Count > 0 || p.BoardVersions.Count > 0) && (detectionBefore is null
