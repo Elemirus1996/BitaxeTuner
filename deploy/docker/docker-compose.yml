@@ -9,7 +9,7 @@
 services:
   bitaxetuner:
     # Feste Version (Audit E3): bei einem Update hier die neue Nummer eintragen; „:latest“ nur bewusst verwenden
-    image: ghcr.io/elemirus1996/bitaxetuner-server:0.9.9
+    image: ghcr.io/elemirus1996/bitaxetuner-server:0.9.10
     container_name: bitaxetuner
     restart: unless-stopped
     # Obergrenzen, damit ein Fehler nicht den ganzen Rechner ausbremst (ein Pi 4 hat genug Luft)
