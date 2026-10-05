@@ -42,6 +42,34 @@ public class MinerLogTests
     }
 
     [Fact]
+    public void Stored_logs_are_written_in_batches_filtered_and_pruned()
+    {
+        // 0.9.11: Miner-Logs speichern
+        using var dir = new TempDir();
+        using var db = new HistoryStore(Path.Combine(dir.Path, "history.db"));
+        using var archive = new MinerLogArchive(() => db);
+        var now = DateTime.Now;
+        archive.Add("a", new LogLine(now.AddMinutes(-50), LogLevel.Info, 1000, "stratum_task", "job received"));
+        archive.Add("a", new LogLine(now.AddMinutes(-40), LogLevel.Warning, 2000, "power", "vcore low"));
+        archive.Add("a", new LogLine(now.AddMinutes(-30), LogLevel.Error, 3000, "asic_result", "nonce error"));
+        archive.Add("a", new LogLine(now.AddMinutes(-20), LogLevel.App, null, "", "Einstellung geändert"));   // eigene Zeile: nicht
+        archive.Add("b", new LogLine(now.AddMinutes(-10), LogLevel.Info, 4000, "wifi", "connected"));
+        archive.Add("a", new LogLine(now.AddHours(-60), LogLevel.Info, 10, "boot", "alt"));
+        Assert.Equal(5, archive.Flush());
+        Assert.Equal(0, archive.Flush());                                                           // nichts doppelt
+
+        var all = db.QueryMinerLog("a", now.AddHours(-1), now);
+        Assert.Equal(["job received", "vcore low", "nonce error"], all.Select(l => l.Message));      // älteste zuerst
+        Assert.Equal(["vcore low", "nonce error"], db.QueryMinerLog("a", now.AddHours(-1), now, levels: "EW").Select(l => l.Message));
+        Assert.Equal(["nonce error"], db.QueryMinerLog("a", now.AddHours(-1), now, text: "ASIC_RESULT").Select(l => l.Message));
+        Assert.Equal(["nonce error"], db.QueryMinerLog("a", now.AddHours(-1), now, limit: 1).Select(l => l.Message));   // die neueste
+        Assert.Equal(4, db.CountMinerLog("a"));
+
+        Assert.Equal(1, db.PruneMinerLog(now.AddHours(-48)));
+        Assert.Equal(3, db.CountMinerLog("a"));
+    }
+
+    [Fact]
     public void Buffer_keeps_only_the_last_lines()
     {
         var buffer = string.Join('\n', Enumerable.Range(0, 100).Select(i => $"\u001b[0;32mI ({i}) t: m{i}\u001b[0m")) + "\n\n";

@@ -210,6 +210,28 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Stored_miner_logs_can_be_switched_on_and_read_by_the_admin_only()
+    {
+        // 0.9.11: Miner-Logs 48 h speichern
+        var admin = await AdminAsync();
+        var dev = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0];
+        var id = dev.GetProperty("id").GetString();
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{id}", new { logArchive = true }));
+        Assert.True((await Json(await admin.GetAsync($"/api/v1/devices/{id}"))).GetProperty("config").GetProperty("logArchive").GetBoolean());
+        var stored = await Json(await admin.GetAsync($"/api/v1/devices/{id}/minerlog/stored?hours=48"));
+        Assert.True(stored.GetProperty("enabled").GetBoolean());
+        Assert.Equal(48, stored.GetProperty("keepHours").GetInt32());
+        var txt = await admin.GetAsync($"/api/v1/devices/{id}/minerlog/stored.txt");
+        Assert.Equal(HttpStatusCode.OK, txt.StatusCode);
+        Assert.StartsWith("text/plain", txt.Content.Headers.ContentType!.ToString());
+
+        var kiosk = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Logtest", groups = Array.Empty<string>() }));
+        var tablet = _factory.CreateClient();
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
+        Assert.Equal(HttpStatusCode.Forbidden, (await tablet.GetAsync($"/api/v1/devices/{id}/minerlog/stored")).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

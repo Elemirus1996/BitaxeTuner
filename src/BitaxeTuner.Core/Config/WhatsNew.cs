@@ -132,6 +132,13 @@ public static class WhatsNew
                 server ? tr.T("Lüftersteuerung und E-Paper brauchen kein USB-Kabel zum Server mehr: Pico 2 WH einmal unter Lüfter & Anzeige „für WLAN einrichten“, dann an ein eigenes Netzteil. Jede Zeile ist signiert, der Ausfallschutz bleibt, Updates kommen über WLAN.")
                        : tr.T("Im Server-Betrieb: Lüftersteuerung und E-Paper können über WLAN angebunden werden (Pico 2 WH) – kein USB-Kabel zum Server mehr nötig."),
                 null),
+            new("0.9.11", tr.T("Temperatur jedes Chips"),
+                tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
+                null),
+            new("0.9.11", tr.T("Miner-Logs speichern"),
+                server ? tr.T("Je Miner einschaltbar (Einstellungen → Geräte → Details): Die Logs werden 48 Stunden gespeichert (einstellbar) und lassen sich unter Gerät → Protokolle filtern und herunterladen.")
+                       : tr.T("Je Miner einschaltbar (Einstellungen → Geräte): Die Logs werden 48 Stunden gespeichert (einstellbar) – ansehen und exportieren über „Gespeicherte Logs …“ im Tab Miner-Logs."),
+                null),
             new("0.9.10", tr.T("Sicherheits-Update nach dem zweiten Audit"),
                 tr.T("Lüfter gehen auf 100 %, wenn die Lüftersteuerung ausgeschaltet wird; Lüfter-Sicherheit auch im manuellen Modus aller Fühler und höchstens bis zur VR-Grenze des Profils. Profil-Kopien und von Hand bearbeitete Profile werden gegen feste Obergrenzen je Chip geprüft. Updates sind an ihre Version gebunden; Releases werden erst nach Freigabe signiert. Steuer: „65.000“ wird als 65 000 € gelesen, Zuflüsse am Verkaufstag zählen mit."),
                 null),

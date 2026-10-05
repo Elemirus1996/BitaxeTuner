@@ -637,6 +637,8 @@
                                 </Button>
                                 <Button Content="{l:T 'Bisherigen Puffer laden'}" Command="{Binding LoadBufferCommand}"
                                         ToolTip="{l:T 'Log seit dem letzten Neustart des Miners (GET /api/system/logs, einige 100 KB)'}" />
+                                <Button Content="{l:T 'Gespeicherte Logs …'}" Click="OnStoredLogsClick"
+                                        ToolTip="{l:T 'Gespeicherte Miner-Logs der letzten Stunden ansehen und exportieren (je Miner unter Einstellungen → Geräte einschalten)'}" />
                                 <TextBox Width="180" Margin="0,0,8,0" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="{l:T 'Filter nach Text oder Modul (z. B. asic_result, stratum, fan)'}" />
                                 <CheckBox Content="{l:T 'Fehler'}" IsChecked="{Binding ShowErrors}" VerticalAlignment="Center" Margin="0,0,10,0" />

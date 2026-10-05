@@ -61,6 +61,7 @@ public partial class SettingsWindow : Window
 
         TempWarnBox.Text = config.TempWarn.ToString("0.#", CultureInfo.CurrentCulture);
         HistoryDaysBox.Text = config.HistoryDays.ToString();
+        MinerLogHoursBox.Text = config.MinerLogKeepHours.ToString();
         TrayBox.IsChecked = config.MinimizeToTray;
         WatchdogBox.IsChecked = config.Watchdog.Enabled;
         WatchdogMinutesBox.Text = config.Watchdog.ZeroHashMinutes.ToString();
@@ -138,10 +139,11 @@ public partial class SettingsWindow : Window
         RepoBox.Text = _current?.FirmwareRepo ?? "";
         GroupsBox.Text = _current is null ? "" : string.Join(", ", _current.Groups);
         DeviceLogAlertsBox.IsChecked = _current?.LogAlerts == true;
+        DeviceLogArchiveBox.IsChecked = _current?.LogArchive == true;
 
         var enabled = _current is not null;
         NameBox.IsEnabled = HostBox.IsEnabled = WalletBox.IsEnabled = enabled;
-        CoinBox.IsEnabled = RepoBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = GroupsBox.IsEnabled = enabled;
+        CoinBox.IsEnabled = RepoBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = GroupsBox.IsEnabled = enabled;
     }
 
     /// <summary>Eingaben in das aktuell gewählte Gerät zurückschreiben.</summary>
@@ -157,6 +159,7 @@ public partial class SettingsWindow : Window
         _current.FirmwareRepo = RepoBox.Text.Trim();
         _current.Groups = MinerGroups.Normalize(GroupsBox.Text.Split(','));
         _current.LogAlerts = DeviceLogAlertsBox.IsChecked == true;
+        _current.LogArchive = DeviceLogArchiveBox.IsChecked == true;
 
         DeviceList.Items.Refresh();
     }
@@ -245,6 +248,11 @@ public partial class SettingsWindow : Window
         if (!int.TryParse(HistoryDaysBox.Text, out var historyDays) || historyDays < 1 || historyDays > 3650)
         {
             ErrorText.Text = L.T("Verlauf aufbewahren: 1 bis 3650 Tage.");
+            return;
+        }
+        if (!int.TryParse(MinerLogHoursBox.Text, out var minerLogHours) || minerLogHours < 1 || minerLogHours > 168)
+        {
+            ErrorText.Text = L.T("Miner-Logs aufbewahren: 1 bis 168 Stunden.");
             return;
         }
         if (!int.TryParse(WatchdogMinutesBox.Text, out var watchdogMinutes) || watchdogMinutes < 3 || watchdogMinutes > 240)
@@ -351,6 +359,7 @@ public partial class SettingsWindow : Window
         _config.BlockchairApiKey = BlockchairKeyBox.Text.Trim();
         _config.TempWarn = tempWarn;
         _config.HistoryDays = historyDays;
+        _config.MinerLogKeepHours = minerLogHours;
         _config.MinimizeToTray = TrayBox.IsChecked == true;
         _config.Watchdog = new WatchdogSettings
         {

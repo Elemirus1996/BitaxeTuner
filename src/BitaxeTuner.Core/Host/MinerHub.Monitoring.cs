@@ -139,6 +139,7 @@ public sealed partial class MinerHub
         }
 
         RecordHistory(now);
+        TickMinerLogs(now);
         CheckHealth();
         CheckPools(now);
         CheckDailyReport(now);

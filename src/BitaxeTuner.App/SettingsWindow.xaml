@@ -91,6 +91,9 @@
                         <CheckBox x:Name="DeviceLogAlertsBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'}"/>
                         </CheckBox>
+                        <CheckBox x:Name="DeviceLogArchiveBox" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Text="{l:T 'Miner-Logs speichern (Dauer unter Anzeige und Automatik; nutzt dieselbe Verbindung wie die Log-Alarme)'}"/>
+                        </CheckBox>
 
                         <TextBlock x:Name="DeviceHint" Text="" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap"/>
                     </StackPanel>
@@ -183,6 +186,8 @@
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
                         <TextBlock Text="{l:T 'VERLAUF AUFBEWAHREN (TAGE)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="HistoryDaysBox"/>
+                        <TextBlock Text="{l:T 'MINER-LOGS AUFBEWAHREN (STUNDEN)'}" Style="{StaticResource Label}" Margin="0,8,0,0"/>
+                        <TextBox x:Name="MinerLogHoursBox"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,16">
                         <CheckBox x:Name="TrayBox" Content="{l:T 'In Infobereich minimieren'}"/>

@@ -236,7 +236,7 @@ public static class Dto
             session = session is null ? null : Session(session),
             config = admin ? new
             {
-                c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.ProfileId,
+                c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.LogArchive, c.ProfileId,
                 presets = Copy(c.Presets),
                 thermalGuard = Copy(c.ThermalGuard),
                 thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host),

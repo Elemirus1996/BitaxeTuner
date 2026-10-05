@@ -50,6 +50,9 @@ public sealed class AppConfig
     /// <summary>Aufbewahrung der Verlaufsdaten in der Datenbank.</summary>
     public int HistoryDays { get; set; } = 90;
 
+    /// <summary>0.9.11: Aufbewahrung gespeicherter Miner-Logs in Stunden (1–168, Standard 48).</summary>
+    public int MinerLogKeepHours { get; set; } = 48;
+
     /// <summary>Warnschwelle ASIC-Temperatur für Benachrichtigungen.</summary>
     public double TempWarn { get; set; } = 70;
 
@@ -282,6 +285,12 @@ public sealed class DeviceConfig
     /// WebSocket-Plätze des Miners, daher standardmäßig aus.
     /// </summary>
     public bool LogAlerts { get; set; }
+
+    /// <summary>
+    /// 0.9.11: Miner-Logs speichern (<see cref="AppConfig.MinerLogKeepHours"/>, Standard 48 h). Liest über dieselbe
+    /// Verbindung wie die Log-Alarme mit. Additiv, standardmäßig aus.
+    /// </summary>
+    public bool LogArchive { get; set; }
 
     /// <summary>Benannte Einstellungen (z. B. "Hashrate", "Effizienz") für Zeitplan und Strompreis-Regel.</summary>
     public List<TuningPreset> Presets { get; set; } = [];

@@ -163,6 +163,17 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (plug, ts)
             );
             """);
+        // 0.9.11: gespeicherte Miner-Logs (je Miner einschaltbar, standardmäßig 48 h) – rein additiv
+        Execute("""
+            CREATE TABLE IF NOT EXISTS miner_log (
+                host    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                level   TEXT    NOT NULL,
+                tag     TEXT    NOT NULL,
+                msg     TEXT    NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_miner_log_host_ts ON miner_log (host, ts);
+            """);
         // 0.9.11: Temperatur jedes Chips bei Mehrchip-Boards, Minutenwerte (rein additiv)
         Execute("""
             CREATE TABLE IF NOT EXISTS chip_temps (
@@ -699,6 +710,97 @@ public sealed class HistoryStore : IDisposable
             cmd.Parameters.AddWithValue("$p", power);
             cmd.Parameters.AddWithValue("$o", online ? 1 : 0);
             cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Gespeicherte Miner-Log-Zeile (0.9.11).</summary>
+    public sealed record StoredLogLine(DateTime Time, string Level, string Tag, string Message);
+
+    /// <summary>0.9.11: Miner-Log-Zeilen gebündelt in einer Transaktion speichern.</summary>
+    public void AddMinerLog(IEnumerable<(string Host, LogLine Line)> lines)
+    {
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "INSERT INTO miner_log (host, ts, level, tag, msg) VALUES ($host, $ts, $level, $tag, $msg);";
+            var host = cmd.Parameters.Add("$host", SqliteType.Text);
+            var ts = cmd.Parameters.Add("$ts", SqliteType.Integer);
+            var level = cmd.Parameters.Add("$level", SqliteType.Text);
+            var tag = cmd.Parameters.Add("$tag", SqliteType.Text);
+            var msg = cmd.Parameters.Add("$msg", SqliteType.Text);
+            foreach (var (h, l) in lines)
+            {
+                host.Value = h;
+                ts.Value = new DateTimeOffset(l.Time).ToUnixTimeMilliseconds();
+                level.Value = l.LevelText;
+                tag.Value = l.Tag;
+                msg.Value = l.Message;
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+    }
+
+    /// <summary>
+    /// Gespeicherte Miner-Logs eines Miners im Zeitraum, älteste zuerst; <paramref name="levels"/> z. B. „EW“ (leer = alle),
+    /// <paramref name="text"/> sucht in Modul und Nachricht. Höchstens <paramref name="limit"/> Zeilen (die neuesten).
+    /// </summary>
+    public List<StoredLogLine> QueryMinerLog(string host, DateTime from, DateTime to, string? levels = null, string? text = null, int limit = 5000)
+    {
+        var result = new List<StoredLogLine>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            var where = "host = $host AND ts BETWEEN $from AND $to";
+            if (!string.IsNullOrEmpty(levels))
+            {
+                var list = levels.ToUpperInvariant().Where(c => "EWIDV".Contains(c)).Distinct().Select((c, i) => (c, i)).ToList();
+                if (list.Count > 0)
+                {
+                    where += " AND level IN (" + string.Join(",", list.Select(x => "$l" + x.i)) + ")";
+                    foreach (var (c, i) in list) cmd.Parameters.AddWithValue("$l" + i, c.ToString());
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                where += " AND (instr(lower(msg), $q) > 0 OR instr(lower(tag), $q) > 0)";
+                cmd.Parameters.AddWithValue("$q", text.Trim().ToLowerInvariant());
+            }
+            cmd.CommandText = $"SELECT ts, level, tag, msg FROM (SELECT ts, level, tag, msg, rowid FROM miner_log WHERE {where} ORDER BY ts DESC, rowid DESC LIMIT $limit) ORDER BY ts, rowid;";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeMilliseconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeMilliseconds());
+            cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 50000));
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                result.Add(new StoredLogLine(DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).LocalDateTime, r.GetString(1), r.GetString(2), r.GetString(3)));
+        }
+        return result;
+    }
+
+    /// <summary>Anzahl gespeicherter Log-Zeilen je Miner (für die Anzeige).</summary>
+    public int CountMinerLog(string host)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM miner_log WHERE host = $host;";
+            cmd.Parameters.AddWithValue("$host", host);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+    }
+
+    /// <summary>Gespeicherte Miner-Logs älter als <paramref name="cutoff"/> löschen.</summary>
+    public int PruneMinerLog(DateTime cutoff)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "DELETE FROM miner_log WHERE ts < $cutoff;";
+            cmd.Parameters.AddWithValue("$cutoff", new DateTimeOffset(cutoff).ToUnixTimeMilliseconds());
+            return cmd.ExecuteNonQuery();
         }
     }
 

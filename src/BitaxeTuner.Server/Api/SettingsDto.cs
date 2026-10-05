@@ -12,6 +12,7 @@ public sealed class SettingsDto
     public int IntervalSeconds { get; set; }
     public int HistoryMinutes { get; set; }
     public int HistoryDays { get; set; }
+    public int MinerLogKeepHours { get; set; } = 48;
     public int WalletPollMinutes { get; set; }
     public int TaxPollMinutes { get; set; }
     public double ElectricityCtPerKwh { get; set; }
@@ -47,6 +48,7 @@ public sealed class SettingsDto
         IntervalSeconds = c.IntervalSeconds,
         HistoryMinutes = c.HistoryMinutes,
         HistoryDays = c.HistoryDays,
+        MinerLogKeepHours = c.MinerLogKeepHours,
         WalletPollMinutes = c.WalletPollMinutes,
         TaxPollMinutes = c.TaxPollMinutes,
         ElectricityCtPerKwh = c.ElectricityCtPerKwh,
@@ -81,6 +83,7 @@ public sealed class SettingsDto
         c.IntervalSeconds = Math.Clamp(IntervalSeconds, 1, 300);
         c.HistoryMinutes = Math.Clamp(HistoryMinutes, 5, 24 * 60);
         c.HistoryDays = Math.Clamp(HistoryDays, 1, 3650);
+        c.MinerLogKeepHours = Math.Clamp(MinerLogKeepHours, 1, 168);
         c.WalletPollMinutes = Math.Clamp(WalletPollMinutes, 1, 1440);
         c.TaxPollMinutes = Math.Clamp(TaxPollMinutes, 1, 1440);
         c.ElectricityCtPerKwh = Math.Clamp(ElectricityCtPerKwh, 0, 500);

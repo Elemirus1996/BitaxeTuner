@@ -28,7 +28,7 @@ public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
-public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null);
+public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -513,6 +513,7 @@ public static class Endpoints
             if (req.Coin is "Auto" or "BTC" or "BCH") c.Coin = req.Coin;
             if (req.FirmwareRepo is { } repo) c.FirmwareRepo = repo.Trim();   // leer = keine Firmware-Prüfung (wie am Desktop)
             if (req.LogAlerts is { } la) c.LogAlerts = la;
+            if (req.LogArchive is { } lk) c.LogArchive = lk;
             if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
@@ -749,6 +750,43 @@ public static class Endpoints
             await h.RestoreAsync(d, snap, changes);
             return new { ok = true, restored = changes.Count };
         })));
+
+        // 0.9.11: gespeicherte Miner-Logs (nur Admin – Logs können Pool-Benutzer/Wallet enthalten)
+        g.MapGet("/devices/{id}/minerlog/stored", async (string id, int? hours, string? levels, string? q, int? limit, HubService hub) =>
+            Results.Json(await hub.RunAsync(h =>
+            {
+                var d = Device(h, id);
+                var now = DateTime.Now;
+                var span = Math.Clamp(hours ?? h.Config.MinerLogKeepHours, 1, 168);
+                h.MinerLogs.Flush();   // eben Gesammeltes gleich mit anzeigen
+                var lines = h.History?.QueryMinerLog(d.Host, now.AddHours(-span), now, levels, q, Math.Clamp(limit ?? 5000, 1, 20000)) ?? [];
+                return new
+                {
+                    enabled = d.Config.LogArchive,
+                    keepHours = h.Config.MinerLogKeepHours,
+                    total = h.History?.CountMinerLog(d.Host) ?? 0,
+                    lines = lines.Select(l => new { time = Dto.Unix(l.Time), level = l.Level, tag = l.Tag, message = l.Message,
+                        category = LogCategories.Of(l.Tag, l.Message).ToString() }).ToList(),
+                };
+            })));
+
+        g.MapGet("/devices/{id}/minerlog/stored.txt", async (string id, int? hours, HubService hub) =>
+        {
+            var (name, text) = await hub.RunAsync(h =>
+            {
+                var d = Device(h, id);
+                var now = DateTime.Now;
+                h.MinerLogs.Flush();
+                var lines = h.History?.QueryMinerLog(d.Host, now.AddHours(-Math.Clamp(hours ?? h.Config.MinerLogKeepHours, 1, 168)), now, limit: 50000) ?? [];
+                var sb = new System.Text.StringBuilder();
+                foreach (var l in lines)
+                    sb.Append(l.Time.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)).Append(' ')
+                      .Append(l.Level).Append(' ').Append(l.Tag.Length > 0 ? l.Tag + ": " : "").Append(l.Message).Append('\n');
+                return (d.Title, sb.ToString());
+            });
+            var file = string.Concat(name.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')) + $"-log-{DateTime.Now:yyyyMMdd-HHmm}.txt";
+            return Results.File(System.Text.Encoding.UTF8.GetBytes(text), "text/plain; charset=utf-8", file);
+        });
 
         // Live-Logs des Miners (eine WebSocket-Verbindung je Miner, geteilt mit Log-Alarmen)
         g.MapGet("/devices/{id}/minerlog", async (string id, HttpContext http, HubService hub) =>

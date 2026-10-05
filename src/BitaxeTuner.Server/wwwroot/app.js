@@ -2265,7 +2265,38 @@ function tabLog() {
     h('div', { class: 'card stack' }, h('div', { class: 'titlebar' }, h('h3', {}, t('Miner-Logs live')), h('span', { class: 'spacer' }), state),
       h('div', { class: 'row wrap', role: 'group', 'aria-label': t('Kategorien') }, catChips),
       h('div', { class: 'row wrap' }, levelChips, text),
-      minerLog, h('label', { class: 'check' }, follow, t('automatisch mitscrollen'))));
+      minerLog, h('label', { class: 'check' }, follow, t('automatisch mitscrollen'))),
+    isAdmin() ? storedLogCard(S.route.id) : null);
+}
+
+/** 0.9.11: gespeicherte Miner-Logs (Standard 48 h) mit Filter und Download. */
+function storedLogCard(id) {
+  const box = h('div', { class: 'log', style: 'max-height:420px' });
+  const info = h('span', { class: 'muted small' });
+  const hours = h('select', {}, [[1, t('1 h')], [6, t('6 h')], [24, t('24 h')], [48, t('48 h')], [168, t('7 Tage')]].map(([v, l]) => h('option', { value: v, selected: v === 48 }, l)));
+  const levels = h('select', {}, [['', t('alle Stufen')], ['EW', t('Fehler + Warnungen')], ['E', t('nur Fehler')]].map(([v, l]) => h('option', { value: v }, l)));
+  const q = h('input', { type: 'search', placeholder: t('Text oder Modul'), style: 'max-width:220px' });
+  const load = async () => {
+    fill(box, h('div', { class: 'muted' }, t('Lade …')));
+    const r = await api(`/devices/${id}/minerlog/stored?hours=${hours.value}&levels=${levels.value}&q=${encodeURIComponent(q.value)}`).catch(e => { fill(box, h('div', { class: 'danger' }, e.message)); return null; });
+    if (!r) return;
+    info.textContent = r.enabled
+      ? t('{0} Zeilen angezeigt · {1} gespeichert · Aufbewahrung {2} h', r.lines.length, r.total, r.keepHours)
+      : t('Speichern ist für diesen Miner aus (Einstellungen → Geräte → Details).') + (r.total ? ' ' + t('{0} ältere Zeilen vorhanden.', r.total) : '');
+    fill(box, ...(r.lines.length ? r.lines.map(l => h('div', { class: String(l.level || 'I')[0] }, `${new Date(l.time).toLocaleString(LOCALE)} ${l.tag ? l.tag + ': ' : ''}${l.message}`))
+      : [h('div', { class: 'muted' }, t('Keine gespeicherten Zeilen im Zeitraum.'))]));
+    box.scrollTop = box.scrollHeight;
+  };
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+  hours.addEventListener('change', load);
+  levels.addEventListener('change', load);
+  setTimeout(load, 0);
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Gespeicherte Miner-Logs')), h('span', { class: 'spacer' }), info),
+    h('div', { class: 'row wrap' }, hours, levels, q,
+      h('button', { class: 'btn small', onclick: load }, t('Aktualisieren')),
+      h('a', { class: 'btn small', href: '#', onclick: e => { e.preventDefault(); location.href = `/api/v1/devices/${id}/minerlog/stored.txt?hours=${hours.value}`; } }, t('Als Textdatei herunterladen'))),
+    box);
 }
 
 function fillAppLog() {
@@ -2548,6 +2579,7 @@ async function renderSettings() {
       extra.coin = h('select', {}, [['Auto', t('Auto (aus Adresse)')], ['BTC', 'BTC'], ['BCH', 'BCH']].map(([v, l]) => h('option', { value: v, selected: c.coin === v }, l)));
       extra.repo = h('input', { value: c.firmwareRepo || '', placeholder: t('leer = kein Check') });
       extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
+      extra.logArchive = h('input', { type: 'checkbox', checked: !!c.logArchive });
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       fill(more.firstChild, h('div', { class: 'stack' },
         h('div', { class: 'form' },
@@ -2556,11 +2588,12 @@ async function renderSettings() {
           h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo),
           h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Gruppen (mit Komma getrennt)')), extra.groups)),
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
-        h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)'))));
+        h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
+        h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)'))));
     } }, t('Details'));
     const save = () => {
       const body = { name: name.value };
-      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked,
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked,
         groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean) });
       return run(() => api(`/devices/${d.id}`, { method: 'PUT', body }), t('Gespeichert.'));
     };
@@ -2602,6 +2635,7 @@ async function renderSettings() {
         h('div', {}, h('label', {}, t('Abfrage alle (s)')), text(s, 'intervalSeconds', 'number')),
         h('div', {}, h('label', {}, t('Live-Verlauf (min)')), text(s, 'historyMinutes', 'number')),
         h('div', {}, h('label', {}, t('Verlauf aufbewahren (Tage)')), text(s, 'historyDays', 'number')),
+        h('div', {}, h('label', {}, t('Miner-Logs aufbewahren (Stunden, 1–168)')), text(s, 'minerLogKeepHours', 'number')),
         h('div', {}, h('label', {}, t('Strompreis (ct/kWh)')), text(s, 'electricityCtPerKwh', 'number')),
         h('div', {}, h('label', {}, t('Preis ist')), (() => { const el = h('select', { onchange: e => { s.electricityPriceIsNet = e.target.value === 'net'; } },
           h('option', { value: 'gross' }, t('brutto (inkl. MwSt.)')), h('option', { value: 'net' }, t('netto (zzgl. MwSt.)'))); el.value = s.electricityPriceIsNet ? 'net' : 'gross'; return el; })()),

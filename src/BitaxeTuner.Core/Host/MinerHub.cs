@@ -289,11 +289,36 @@ public sealed partial class MinerHub : IDisposable
                           (last.IsFinished ? ")." : L.T(", nicht abgeschlossen – kann fortgesetzt werden).")), category: null);
     }
 
-    /// <summary>Log-Alarme an Geräteliste und Einstellungen angleichen.</summary>
-    public void SyncLogAlerts() =>
-        LogAlerts.Sync(Polling.States
+    /// <summary>Log-Alarme und gespeicherte Miner-Logs an Geräteliste und Einstellungen angleichen.</summary>
+    public void SyncLogAlerts()
+    {
+        var devices = Polling.States
             .Where(s => !IsSimulated(s.Config.Host))
-            .Select(s => (s.Config, Polling.Connection(s.Config.Host)!)));
+            .Select(s => (s.Config, Polling.Connection(s.Config.Host)!)).ToList();
+        LogAlerts.Sync(devices);
+        MinerLogs.Sync(devices);
+    }
+
+    /// <summary>0.9.11: Miner-Logs speichern (je Miner einschaltbar).</summary>
+    public MinerLogArchive MinerLogs => _minerLogs ??= new MinerLogArchive(() => History);
+    private MinerLogArchive? _minerLogs;
+    private DateTime _lastLogFlush = DateTime.MinValue, _lastLogPrune = DateTime.MinValue;
+
+    /// <summary>Etwa alle 30 s gesammelte Log-Zeilen schreiben, stündlich Altes löschen.</summary>
+    private void TickMinerLogs(DateTime now)
+    {
+        if (_minerLogs is null || History is null) return;
+        if ((now - _lastLogFlush).TotalSeconds >= 30)
+        {
+            _lastLogFlush = now;
+            _minerLogs.Flush();
+        }
+        if ((now - _lastLogPrune).TotalMinutes >= 60)
+        {
+            _lastLogPrune = now;
+            try { History.PruneMinerLog(now.AddHours(-Math.Clamp(Config.MinerLogKeepHours, 1, 168))); } catch { /* nicht kritisch */ }
+        }
+    }
 
     /// <summary>Profile nach Bearbeiten der profiles.json neu laden; neue Auffälligkeiten (Audit N-S3) ins Protokoll.</summary>
     public void ReloadProfiles()
@@ -380,6 +405,7 @@ public sealed partial class MinerHub : IDisposable
         {
             _loops?.Cancel();
             LogAlerts.Sync([]);
+            _minerLogs?.Sync([]);
             TaxMonitor.Stop();
         }
         else
@@ -505,6 +531,7 @@ public sealed partial class MinerHub : IDisposable
         _updateHttp.Dispose();
         TaxMonitor.Dispose();
         LogAlerts.Dispose();
+        _minerLogs?.Dispose();   // schreibt die letzten gesammelten Zeilen
         Polling.Dispose();
         History?.Dispose();
         Notify.Dispose();
