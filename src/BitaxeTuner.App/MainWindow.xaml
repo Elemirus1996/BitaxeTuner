@@ -171,6 +171,8 @@
                                         <TextBlock Text="{l:T 'Chip / VR-Temperatur'}" Style="{StaticResource Muted}" />
                                         <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.MaxChipTempC, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" °C" FontSize="13" /></TextBlock>
                                         <TextBlock Style="{StaticResource Muted}"><Run Text="VR " /><Run Text="{Binding Info.VrTempC, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" °C" /></TextBlock>
+                                        <TextBlock Style="{StaticResource Muted}" Text="{Binding ChipTempsText}" TextWrapping="Wrap"
+                                                   Visibility="{Binding HasChipTemps, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}" Margin="0,0,0,10"><StackPanel>
                                         <TextBlock Text="{l:T 'Frequenz / Kernspannung'}" Style="{StaticResource Muted}" />

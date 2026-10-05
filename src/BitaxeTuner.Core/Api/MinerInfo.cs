@@ -38,6 +38,12 @@ public sealed record MinerInfo
 
     public double? ChipTempC { get; init; }
     public double? ChipTemp2C { get; init; }
+
+    /// <summary>
+    /// 0.9.11: Temperatur jedes Chips bei Mehrchip-Boards (NerdQAxe-Firmware „asicTemps“, AxeOS „temp“/„temp2“); null bei
+    /// nur einem Wert. Reihenfolge wie von der Firmware geliefert (Chip 1, 2, …).
+    /// </summary>
+    public IReadOnlyList<double>? ChipTempsC { get; init; }
     public double? VrTempC { get; init; }
 
     public int FrequencyMhz { get; init; }
@@ -73,7 +79,15 @@ public sealed record MinerInfo
     public SystemInfo? Details { get; init; }
 
     /// <summary>Höchste Chiptemperatur (bei Mehrchip-Geräten).</summary>
-    public double? MaxChipTempC => ChipTemp2C is { } t2 && (ChipTempC is null || t2 > ChipTempC) ? t2 : ChipTempC;
+    public double? MaxChipTempC
+    {
+        get
+        {
+            var max = ChipTemp2C is { } t2 && (ChipTempC is null || t2 > ChipTempC) ? t2 : ChipTempC;
+            if (ChipTempsC is { Count: > 0 } all && (max is null || all.Max() > max)) max = all.Max();
+            return max;
+        }
+    }
 
     /// <summary>Effizienz in J/TH.</summary>
     public double? EfficiencyJth => HashRateGh > 0 && PowerW > 0 ? PowerW / (HashRateGh / 1000.0) : null;

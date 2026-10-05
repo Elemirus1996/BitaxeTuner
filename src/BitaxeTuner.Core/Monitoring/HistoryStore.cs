@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Config;
@@ -160,6 +161,15 @@ public sealed class HistoryStore : IDisposable
                 power   REAL    NOT NULL,
                 energy  REAL,
                 PRIMARY KEY (plug, ts)
+            );
+            """);
+        // 0.9.11: Temperatur jedes Chips bei Mehrchip-Boards, Minutenwerte (rein additiv)
+        Execute("""
+            CREATE TABLE IF NOT EXISTS chip_temps (
+                host    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                temps   TEXT    NOT NULL,
+                PRIMARY KEY (host, ts)
             );
             """);
         // 0.9.0: dauerhaftes Protokoll (Tuning, Benchmark, Lüfter, Verbindung …) – rein additiv
@@ -692,6 +702,55 @@ public sealed class HistoryStore : IDisposable
         }
     }
 
+    /// <summary>0.9.11: Temperaturen der einzelnen Chips eines Mehrchip-Boards als Minutenwert.</summary>
+    public void AddChipTemps(string host, DateTime time, IReadOnlyList<double> temps)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO chip_temps (host, ts, temps) VALUES ($host, $ts, $t);";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$t", string.Join(";", temps.Select(t => t.ToString("0.0", CultureInfo.InvariantCulture))));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Verlauf je Chip im Zeitraum, auf höchstens <paramref name="maxPoints"/> Punkte gemittelt (je Chip).</summary>
+    public List<(DateTime Time, double[] Temps)> QueryChipTemps(string host, DateTime from, DateTime to, int maxPoints = 400)
+    {
+        var fromTs = new DateTimeOffset(from).ToUnixTimeSeconds();
+        var toTs = new DateTimeOffset(to).ToUnixTimeSeconds();
+        var bucket = Math.Max(60, (toTs - fromTs) / Math.Max(1, maxPoints));
+        var rows = new List<(long Ts, double[] Temps)>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT ts, temps FROM chip_temps WHERE host = $host AND ts BETWEEN $from AND $to ORDER BY ts;";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$from", fromTs);
+            cmd.Parameters.AddWithValue("$to", toTs);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var parts = r.GetString(1).Split(';', StringSplitOptions.RemoveEmptyEntries);
+                var temps = parts.Select(x => double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : double.NaN).ToArray();
+                rows.Add((r.GetInt64(0), temps));
+            }
+        }
+        return rows.GroupBy(x => x.Ts / bucket * bucket).Select(g =>
+        {
+            var width = g.Max(x => x.Temps.Length);
+            var avg = Enumerable.Range(0, width).Select(c =>
+            {
+                var vals = g.Where(x => c < x.Temps.Length && !double.IsNaN(x.Temps[c])).Select(x => x.Temps[c]).ToList();
+                return vals.Count > 0 ? Math.Round(vals.Average(), 1) : double.NaN;
+            }).ToArray();
+            return (DateTimeOffset.FromUnixTimeSeconds(g.Key).LocalDateTime, avg);
+        }).ToList();
+    }
+
     /// <summary>Viele Minutenwerte in einer Transaktion (Tests, Import).</summary>
     internal void AddSamples(string host, IEnumerable<(DateTime Time, double HashrateGh, double Temp, double Power, bool Online)> samples)
     {
@@ -778,6 +837,7 @@ public sealed class HistoryStore : IDisposable
             FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
+                              " DELETE FROM chip_temps WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist

@@ -88,7 +88,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public ObservableCollection<StepResult> RankedResults { get; } = [];
     public ObservableCollection<string> Log { get; } = [];
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(EfficiencyText))]
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(EfficiencyText), nameof(ChipTempsText), nameof(HasChipTemps))]
     private MinerInfo? _info;
 
     [ObservableProperty] private bool _isOnline;
@@ -138,6 +138,13 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         : $"{Address} · {Info.DeviceModel ?? Info.AsicModel} · {MinerHub.FirmwareName(Info.Firmware)} {Info.FirmwareVersion}";
     public string? ProfileNotes => Profile?.Notes;
     public string EfficiencyText => Info?.EfficiencyJth is { } e ? $"{e:F2}" : "–";
+
+    /// <summary>0.9.11: Mehrchip-Boards – Temperatur jedes Chips, der heißeste mit ▲.</summary>
+    public bool HasChipTemps => Info?.ChipTempsC is { Count: > 1 };
+
+    public string ChipTempsText => Info?.ChipTempsC is { Count: > 1 } t
+        ? L.T("Chips: {0} °C", string.Join(" · ", t.Select(v => (v == t.Max() ? "▲" : "") + v.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture))))
+        : "";
 
     public string BestSummary => BestResult is { } b
         ? L.T("{0} MHz / {1} mV → {2:F1} GH/s · {3:F1} W · {4:F2} J/TH · max. {5:F1} °C", b.FrequencyMhz, b.CoreVoltageMv, b.AvgHashRateGh, b.AvgPowerW, b.EfficiencyJth, b.MaxChipTempC)

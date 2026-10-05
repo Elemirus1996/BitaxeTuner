@@ -97,6 +97,8 @@ public sealed class SimulatedMinerClient : IMinerClient
                 PowerW = power,
                 InputVoltageMv = inputMv - power * 5,
                 ChipTempC = chipTemp,
+                // Mehrchip-Profile: Chips verschieden warm (die mittleren wärmer, wie auf echten Hex-/Octaxe-Boards)
+                ChipTempsC = count > 1 ? Enumerable.Range(0, count).Select(c => Math.Round(chipTemp - 2 + 4 * Math.Sin(Math.PI * (c + 0.5) / count) + 0.7 * c - 0.35 * count + (_random.NextDouble() - 0.5) * 0.6, 1)).ToList() : null,
                 VrTempC = vrTemp,
                 FrequencyMhz = _frequency,
                 CoreVoltageMv = _voltage,

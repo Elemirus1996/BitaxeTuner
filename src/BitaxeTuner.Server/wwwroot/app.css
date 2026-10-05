@@ -309,3 +309,7 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .help-item { border-top: 1px solid var(--border); padding: 8px 0; }
 .help-item summary { cursor: pointer; font-weight: 600; }
 .help-text { margin: 8px 0 0; white-space: pre-line; }
+
+/* 0.9.11: Chip-Temperaturen (Mehrchip-Boards) */
+.tile .chips { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; font-weight: 600; margin: 4px 0; }
+.tile .chips .hot { color: var(--danger); }

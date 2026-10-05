@@ -39,6 +39,15 @@ public static class PrometheusMetrics
         PerMiner("bitaxetuner_miner_efficiency_jth", "gauge", "Effizienz in J/TH", i => i.EfficiencyJth);
         PerMiner("bitaxetuner_miner_asic_temperature_celsius", "gauge", "Höchste Chiptemperatur in °C", i => i.MaxChipTempC);
         PerMiner("bitaxetuner_miner_vr_temperature_celsius", "gauge", "Temperatur des Spannungsreglers in °C", i => i.VrTempC);
+        // 0.9.11: Mehrchip-Boards – jeder Chip mit Label chip="1", "2", …
+        var chipRows = online.Where(d => d.Info!.ChipTempsC is { Count: > 1 }).ToList();
+        if (chipRows.Count > 0)
+        {
+            w.Family("bitaxetuner_miner_chip_temperature_celsius", "gauge", "Temperatur je Chip (Mehrchip-Boards) in °C");
+            foreach (var d in chipRows)
+                for (var c = 0; c < d.Info!.ChipTempsC!.Count; c++)
+                    w.Sample("bitaxetuner_miner_chip_temperature_celsius", [.. minerLabels[d], ("chip", (c + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))], d.Info.ChipTempsC[c]);
+        }
         PerMiner("bitaxetuner_miner_frequency_mhz", "gauge", "Eingestellte Frequenz in MHz", i => i.FrequencyMhz);
         PerMiner("bitaxetuner_miner_core_voltage_mv", "gauge", "Eingestellte Kernspannung in mV", i => i.CoreVoltageMv);
         PerMiner("bitaxetuner_miner_input_voltage_volts", "gauge", "Eingangsspannung in V", i => i.InputVoltageMv / 1000.0);

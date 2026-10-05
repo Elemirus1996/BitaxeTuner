@@ -155,6 +155,7 @@ public static class Dto
             hashrate = i?.hashRate,
             expectedHashrate = n?.ExpectedHashRateGh,
             temp = i?.temp,
+            chipTemps = n?.ChipTempsC,   // 0.9.11: Mehrchip-Boards (temp = heißester Chip)
             vrTemp = i?.vrTemp,
             power = i?.power,
             wallPower = i is not null && hub.Config.Plugs.Items.Count > 0 ? R(hub.CurrentEnergy().WallPowerOf(d.Host)) : null,
@@ -278,11 +279,22 @@ public static class Dto
             samples = hub.Device(host)?.State.History ?? (IEnumerable<Sample>)[];
         var events = host == HistoryStore.AggregateHost || hub.History is null
             ? [] : hub.History.QueryTuningEvents(host, now - span, now);
+        // 0.9.11: Verlauf je Chip (Mehrchip-Boards): [Zeit, Chip 1, Chip 2, …]
+        List<double?[]>? chips = null;
+        if (host != HistoryStore.AggregateHost)
+        {
+            var rows = range is "24h" or "7d" or "30d" && hub.History is { } cdb
+                ? cdb.QueryChipTemps(host, now - span, now).Select(x => (x.Time, Temps: x.Temps)).ToList()
+                : samples.Where(x => x.Chips is { Length: > 1 }).Select(x => (x.Time, Temps: x.Chips!)).ToList();
+            if (rows.Count > 0)
+                chips = rows.Select(x => new double?[] { Unix(x.Time) }.Concat(x.Temps.Select(t => double.IsNaN(t) ? (double?)null : Math.Round(t, 1))).ToArray()).ToList();
+        }
         return new
         {
             range,
             samples = samples.Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }).ToList(),
             tuning = events.Select(e => new { time = Unix(e.Time), source = e.SourceText, change = e.ChangeText, e.Note }).ToList(),
+            chips,
         };
     }
 

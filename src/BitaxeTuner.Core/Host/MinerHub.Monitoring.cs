@@ -189,7 +189,12 @@ public sealed partial class MinerHub
             if (_lastHistoryWrite.TryGetValue(host, out var last) && (now - last).TotalSeconds < 60) continue;
             _lastHistoryWrite[host] = now;
 
-            if (s.Online && s.Info is { } i) history.AddSample(host, now, i.hashRate, i.temp, i.power, true);
+            if (s.Online && s.Info is { } i)
+            {
+                // heißester Chip (AxeOS „temp“ ist bei Mehrchip-Boards nur einer) und jeder Chip einzeln
+                history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
+                if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
+            }
             else history.AddSample(host, now, 0, 0, 0, false);
         }
 

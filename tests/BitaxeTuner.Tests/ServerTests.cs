@@ -187,6 +187,29 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Multi_chip_board_reports_every_chip_and_the_hottest_as_temperature()
+    {
+        // 0.9.11: simulierte NerdQAxe++ (4 Chips) direkt am Hub – der Testserver simuliert nur Ein-Chip-Geräte
+        using var dir = new TempDir();
+        var quad = BitaxeTuner.Core.Profiles.ProfileRegistry.LoadBuiltIn().First(p => p.Id == "nerdqaxe-plusplus");
+        var config = new BitaxeTuner.Core.Config.AppConfig();
+        config.Devices.Add(new BitaxeTuner.Core.Config.DeviceConfig { Name = "Quad", Host = "10.0.7.4" });
+        using var hub = new BitaxeTuner.Core.Host.MinerHub(config, new BitaxeTuner.Core.Host.MinerHubOptions
+        {
+            DataDirectory = dir.Path, OnlineChecks = false, ClientFactory = h => new SimulatedMinerClient(quad, 1, h),
+        });
+        await hub.PollNowAsync();
+        await hub.PollNowAsync();
+        var d = hub.Devices[0];
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(BitaxeTuner.Server.Api.Dto.Summary(hub, d, Role.Admin), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var chips = json.GetProperty("chipTemps").EnumerateArray().Select(x => x.GetDouble()).ToList();
+        Assert.Equal(4, chips.Count);
+        Assert.Equal(chips.Max(), json.GetProperty("temp").GetDouble(), 1);              // „temp“ = heißester Chip
+        var hist = System.Text.Json.JsonSerializer.SerializeToElement(BitaxeTuner.Server.Api.Dto.History(hub, d.Host, "1h", DateTime.Now), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(5, hist.GetProperty("chips")[0].GetArrayLength());                 // Zeit + 4 Chips
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

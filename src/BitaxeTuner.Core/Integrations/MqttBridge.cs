@@ -13,7 +13,8 @@ namespace BitaxeTuner.Core.Integrations;
 
 /// <summary>Messwerte eines Miners für MQTT.</summary>
 public sealed record MqttMiner(string Key, string Name, string Model, bool Online, double? HashrateGh, double? PowerW, double? EfficiencyJth,
-    double? Temp, double? VrTemp, int? FrequencyMhz, int? CoreVoltageMv, string? BestDiff, int? FanPercent, string Soak);
+    double? Temp, double? VrTemp, int? FrequencyMhz, int? CoreVoltageMv, string? BestDiff, int? FanPercent, string Soak,
+    IReadOnlyList<double>? Chips = null);
 
 /// <summary>Zusatzlüfter und Temperaturfühler für MQTT.</summary>
 public sealed record MqttFan(int Channel, string Name, int Percent, int? Rpm);
@@ -206,6 +207,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
                     best_diff = m.BestDiff,
                     fan_percent = m.FanPercent,
                     soak = m.Soak,
+                    chip_temps = m.Chips?.Select(t => Math.Round(t, 1)).ToArray(),   // 0.9.11: Mehrchip-Boards
                 }), retain: true, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -331,6 +333,9 @@ public sealed partial class MqttBridge : IAsyncDisposable
             Add("sensor", $"{id}_best_diff", "Best Diff", mt, "{{ value_json.best_diff }}", device);
             Add("sensor", $"{id}_fan", L.T("VR-Lüfter"), mt, "{{ value_json.fan_percent }}", device, o => Unit(o, "%"));
             Add("sensor", $"{id}_soak", "Dauertest", mt, "{{ value_json.soak }}", device);
+            // 0.9.11: Mehrchip-Boards – jeder Chip als eigener Sensor
+            for (var c = 0; c < (m.Chips?.Count ?? 0); c++)
+                Add("sensor", $"{id}_chip{c + 1}_temp", L.T("Chip {0} Temperatur", c + 1), mt, $"{{{{ value_json.chip_temps[{c}] }}}}", device, o => Unit(o, "°C", "temperature"));
         }
         return list;
     }

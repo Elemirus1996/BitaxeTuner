@@ -25,6 +25,24 @@ public class AuditSmallTests
     }
 
     [Fact]
+    public void Chip_temperatures_are_stored_per_minute_and_pruned_with_the_history()
+    {
+        // 0.9.11: Verlauf je Chip bei Mehrchip-Boards
+        using var dir = new TempDir();
+        using var h = new BitaxeTuner.Core.Monitoring.HistoryStore(Path.Combine(dir.Path, "history.db"));
+        var now = DateTime.Now;
+        h.AddChipTemps("a", now.AddMinutes(-2), [55.0, 61.5, 58.2]);
+        h.AddChipTemps("a", now.AddMinutes(-1), [56.0, 62.5, 59.2]);
+        h.AddChipTemps("a", now.AddDays(-10), [50.0, 50.0, 50.0]);
+        var rows = h.QueryChipTemps("a", now.AddHours(-1), now);
+        Assert.Equal(2, rows.Count);
+        Assert.Equal([56.0, 62.5, 59.2], rows[1].Temps);
+        h.Prune(7);
+        Assert.Empty(h.QueryChipTemps("a", now.AddDays(-11), now.AddDays(-9)));
+        Assert.Equal(2, h.QueryChipTemps("a", now.AddHours(-1), now).Count);
+    }
+
+    [Fact]
     public async Task Upload_without_length_is_copied_completely()
     {
         // Audit E4: Kopieren mit laufender Platzprüfung verliert nichts

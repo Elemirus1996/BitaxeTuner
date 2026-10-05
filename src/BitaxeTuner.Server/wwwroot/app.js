@@ -480,7 +480,7 @@ function renderOverview() {
     d.online
       ? h('div', { class: 'kv num' },
           h('div', {}, h('span', {}, t('Hashrate')), hash(d.hashrate)),
-          h('div', {}, h('span', {}, t('ASIC / VR')), t('{0} / {1} °C', n(d.temp, 1), n(d.vrTemp, 0))),
+          h('div', {}, h('span', {}, d.chipTemps?.length > 1 ? t('ASIC max. / VR') : t('ASIC / VR')), t('{0} / {1} °C', n(d.temp, 1), n(d.vrTemp, 0))),
           h('div', {}, h('span', {}, t('Leistung')), t('{0} W', n(d.power, 1))),
           d.wallPower != null ? h('div', {}, h('span', {}, t('Steckdose')), t('{0} W', n(d.wallPower, 1))) : null,
           h('div', {}, h('span', {}, t('Effizienz')), d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–'),
@@ -796,21 +796,24 @@ function drawChart(canvas, series, markers, opts = {}) {
     const x0 = Math.min(...all.map(p => p[0])), x1 = Math.max(...all.map(p => p[0]));
     const pad = { l: 6, r: 64, t: 8, b: 16 };
     const X = tv => pad.l + (tv - x0) / Math.max(1, x1 - x0) * (w - pad.l - pad.r);
+    // opts.shared: eine gemeinsame Skala für alle Linien (z. B. Chips eines Boards) statt je Linie eine eigene
+    const allVals = all.map(p => p[1]).filter(v => v != null);
     series.forEach((s, idx) => {
       const vals = s.points.map(p => p[1]).filter(v => v != null);
       if (!vals.length) return;
-      let lo = Math.min(...vals), hi = Math.max(...vals);
+      let lo = Math.min(...(opts.shared ? allVals : vals)), hi = Math.max(...(opts.shared ? allVals : vals));
       if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
       const Y = v => pad.t + (1 - (v - lo) / (hi - lo)) * (hgt - pad.t - pad.b);
       c.strokeStyle = s.color; c.lineWidth = 1.6; c.beginPath();
       s.points.forEach((p, i) => { const x = X(p[0]), y = Y(p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
       c.stroke();
-      if (idx === 0) {
+      if (idx === 0 && !opts.shared) {
         c.lineTo(X(s.points.at(-1)[0]), hgt - pad.b); c.lineTo(X(s.points[0][0]), hgt - pad.b); c.closePath();
         c.globalAlpha = 0.15; c.fillStyle = s.color; c.fill(); c.globalAlpha = 1;
       }
       const fmt = s.format || (v => n(v, 1));
-      c.fillStyle = s.color;
+      if (opts.shared && idx > 0) return;   // gemeinsame Skala: nur einmal beschriften
+      c.fillStyle = opts.shared ? cssVar('--muted') : s.color;
       c.fillText(fmt(hi), w - pad.r + 6, pad.t + 10 + idx * 26);
       c.fillText(fmt(lo), w - pad.r + 6, hgt - pad.b - idx * 26);
     });
@@ -1222,6 +1225,12 @@ function suggestionBanner(d) {
 }
 
 /** Frequenz/Spannung: Server liefert den Bestätigungstext (alt → neu, Grenzen), erst danach ausführen. */
+/** Gut unterscheidbare Farben für die Chip-Linien (von Orange bis Violett). */
+function chipColor(i, count) {
+  const hue = 20 + Math.round(280 * i / Math.max(1, count - 1));
+  return `hsl(${hue} 75% 55%)`;
+}
+
 async function applyChange(frequency, voltage) {
   const id = S.route.id;
   const preview = await run(() => api(`/devices/${id}/change/preview`, { method: 'POST', body: { frequency, voltage } }));
@@ -1234,6 +1243,7 @@ function tabLive() {
   const d = summaryOf(S.route.id);
   const p = S.detail.profile;
   const chartHash = h('canvas'), chartTemp = h('canvas'), chartPower = h('canvas');
+  const chipLegend = h('div', { class: 'small row', style: 'gap:10px;flex-wrap:wrap' });
   const markers = h('div', { class: 'small muted' });
   const ranges = ['1h', '24h', '7d', '30d'];
   const rangeBar = h('span', { class: 'range' }, ranges.map(r => h('a', { href: '#', class: r === S.chartRange ? 'active' : null, onclick: e => { e.preventDefault(); S.chartRange = r; refreshDeviceTab(); } }, r === '1h' ? t('1 h') : r === '24h' ? t('24 h') : r === '7d' ? t('7 Tage') : t('30 Tage'))));
@@ -1241,7 +1251,11 @@ function tabLive() {
   api(`/devices/${S.route.id}/history?range=${S.chartRange}`).then(hist => {
     const tm = hist.tuning.map(tv => tv.time);
     drawChart(chartHash, [{ points: hist.samples.map(s => [s[0], s[1]]), color: cssVar('--ok'), format: hash }], tm);
-    drawChart(chartTemp, [{ points: hist.samples.map(s => [s[0], s[2]]), color: cssVar('--warn'), format: v => `${n(v, 1)} °C` }], tm);
+    const chipCount = hist.chips?.length ? Math.max(...hist.chips.map(c => c.length - 1)) : 0;
+    drawChart(chartTemp, chipCount > 1
+      ? Array.from({ length: chipCount }, (_, c) => ({ points: hist.chips.filter(r => r[c + 1] != null).map(r => [r[0], r[c + 1]]), color: chipColor(c, chipCount), format: v => `${n(v, 1)} °C` }))
+      : [{ points: hist.samples.map(s => [s[0], s[2]]), color: cssVar('--warn'), format: v => `${n(v, 1)} °C` }], tm, { shared: chipCount > 1 });
+    if (chipCount > 1) fill(chipLegend, ...Array.from({ length: chipCount }, (_, c) => h('span', { style: `color:${chipColor(c, chipCount)}` }, '━ ' + t('Chip {0}', c + 1))));
     drawChart(chartPower, [{ points: hist.samples.map(s => [s[0], s[3]]), color: cssVar('--info'), format: v => `${n(v, 1)} W` }], tm);
     fill(markers, ...hist.tuning.slice(-8).reverse().map(tv => h('div', {}, `┊ ${time(tv.time)} ${tv.source}: ${tv.change}${tv.note ? ' – ' + tv.note : ''}`)));
   }).catch(e => toast(e.message, 'error'));
@@ -1259,7 +1273,7 @@ function tabLive() {
     h('div', { class: 'tiles', id: 'live-tiles' }, liveTiles(d)),
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate')), rangeBar), h('div', { class: 'chart' }, chartHash), markers),
     h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(300px,1fr))' },
-      h('div', { class: 'card' }, h('h3', {}, t('ASIC-Temperatur')), h('div', { class: 'chart' }, chartTemp)),
+      h('div', { class: 'card' }, h('h3', {}, t('ASIC-Temperatur')), h('div', { class: 'chart' }, chartTemp), chipLegend),
       h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower))),
     isAdmin() ? h('div', { class: 'card stack' },
       h('h3', {}, t('Manuell einstellen')),
@@ -1322,7 +1336,8 @@ function diffText(v) {
 function liveTiles(d) {
   return [
     tile(t('Hashrate'), hash(d.hashrate), d.expectedHashrate ? t('Soll {0}', hash(d.expectedHashrate)) : '', d.online ? 'ok' : 'danger'),
-    tile(t('ASIC / VR'), d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–', d.vrTemp != null ? t('VR {0} °C', n(d.vrTemp, 0)) : ''),
+    tile(d.chipTemps?.length > 1 ? t('ASIC max. / VR') : t('ASIC / VR'), d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–', d.vrTemp != null ? t('VR {0} °C', n(d.vrTemp, 0)) : ''),
+    d.chipTemps?.length > 1 ? chipTile(d.chipTemps) : null,
     tile(t('Leistung'), d.power != null ? t('{0} W', n(d.power, 1)) : '–', d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : ''),
     tile(t('Frequenz'), d.frequency != null ? t('{0} MHz', d.frequency) : '–', d.voltage != null ? t('{0} mV', d.voltage) : ''),
     tile(t('Lüfter'), d.fanRpm != null ? t('{0} rpm', d.fanRpm) : '–', d.fanPercent != null ? `${d.fanPercent} %` : ''),
@@ -1332,6 +1347,14 @@ function liveTiles(d) {
     tile(t('Status'), d.online ? 'online' : d.maintenance ? t('Neustart …') : 'offline', d.pool || d.error || '', d.online ? 'ok' : 'warn'),
     d.fan ? tile(t('VR-Lüfter K{0}', d.fan.channel), `${d.fan.percent} %`, d.fan.stalled ? t('Lüfter steht!') : d.fan.rpm != null ? t('{0} U/min', d.fan.rpm) : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,
   ].filter(Boolean);
+}
+
+/** 0.9.11: Mehrchip-Boards – Temperatur jedes Chips, der heißeste fett. */
+function chipTile(temps) {
+  const max = Math.max(...temps);
+  return h('div', { class: 'tile' }, h('div', { class: 'label' }, t('Chips ({0})', temps.length)),
+    h('div', { class: 'chips' }, temps.map((v, i) => h('span', { class: v === max ? 'hot' : '', title: t('Chip {0}', i + 1) }, `${n(v, 1)}`))),
+    h('div', { class: 'sub' }, t('°C · Chip {0} am wärmsten', temps.indexOf(max) + 1)));
 }
 
 function updateDeviceLive() {
@@ -1785,7 +1808,7 @@ function kioskView(dz, s, opt = {}) {
       case 'miners': return [h('div', { class: 'klabel' }, label), h('div', { class: 'kminers' }, s.devices.map(d => h('div', { class: `kminer ${minerCls(d)}` },
         h('div', { class: 'kname' }, d.name),
         h('div', { class: 'khash' }, d.online ? hash(d.hashrate) : d.maintenance ? t('Wartung') : 'offline'),
-        d.online ? h('div', { class: 'kmuted ksmall' }, [d.temp != null ? `${n(d.temp, 0)} °C` : null, d.vrTemp ? `VR ${n(d.vrTemp, 0)} °C` : null, d.power != null ? t('{0} W', n(d.power, 1)) : null].filter(Boolean).join(' · ')) : null)))];
+        d.online ? h('div', { class: 'kmuted ksmall' }, [d.temp != null ? (d.chipTemps?.length > 1 ? t('max. {0} °C', n(d.temp, 0)) : `${n(d.temp, 0)} °C`) : null, d.vrTemp ? `VR ${n(d.vrTemp, 0)} °C` : null, d.power != null ? t('{0} W', n(d.power, 1)) : null].filter(Boolean).join(' · ')) : null)))];
       case 'chart': return [h('div', { class: 'klabel' }, label), kioskChart(s.history)];
       case 'fans': return [h('div', { class: 'klabel' }, label), (s.fans?.channels || []).length
         ? h('div', { class: 'klist' }, s.fans.channels.map(x => h('div', {}, h('span', {}, x.name), h('b', { class: x.stalled ? 'kbad-text' : '' }, x.stalled ? t('steht!') : `${x.percent} %${x.rpm != null ? ' · ' + x.rpm + ' rpm' : ''}`))))

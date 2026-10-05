@@ -106,9 +106,14 @@ public sealed class MinerPollingService : IDisposable
                 {
                     state.Normalized = info;
                     state.Info = info.Details ?? SystemInfo.FromMinerInfo(info);
+                    // AxeOS „temp“ ist bei Mehrchip-Boards nur ein Chip: überall (Lüfter, Überhitzung, Anzeigen) den heißesten
+                    // verwenden – jeder Chip einzeln steht in Normalized.ChipTempsC
+                    if (info.MaxChipTempC is { } hottest && hottest > state.Info.temp) state.Info.temp = hottest;
                     state.Error = null;
                     state.LastOk = now;
-                    state.History.Add(new Sample(now, state.Info.hashRate, state.Info.temp, state.Info.power));
+                    // Heißester Chip (AxeOS „temp“ ist bei Mehrchip-Boards nur ein Chip) und jeder Chip einzeln
+                    state.History.Add(new Sample(now, state.Info.hashRate, info.MaxChipTempC ?? state.Info.temp, state.Info.power,
+                        info.ChipTempsC is { Count: > 1 } chips ? chips.ToArray() : null));
                 }
                 else
                 {

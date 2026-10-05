@@ -4,7 +4,9 @@ using BitaxeTuner.Core.Config;
 
 namespace BitaxeTuner.Core.Monitoring;
 
-public readonly record struct Sample(DateTime Time, double HashRateGh, double Temp, double Power);
+/// <param name="Temp">Heißester Chip.</param>
+/// <param name="Chips">0.9.11: Temperatur jedes Chips (Mehrchip-Boards), sonst null.</param>
+public readonly record struct Sample(DateTime Time, double HashRateGh, double Temp, double Power, double[]? Chips = null);
 
 /// <summary>Laufzeitzustand eines Miners (aus BitaxeMonitor, ergänzt um die normalisierte Tuning-Sicht).</summary>
 public sealed class MinerState

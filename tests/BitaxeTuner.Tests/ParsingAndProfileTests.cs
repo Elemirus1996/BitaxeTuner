@@ -48,12 +48,22 @@ public class ParsingAndProfileTests
     }
 
     [Fact]
+    public void AxeOS_with_two_temperature_sensors_reports_both_chips()
+    {
+        var i = Parse("""{"ASICModel":"BM1370","asicCount":2,"temp":60.5,"temp2":64.2,"vrTemp":70}""");
+        Assert.Equal([60.5, 64.2], i.ChipTempsC!);
+        Assert.Equal(64.2, i.MaxChipTempC);
+        Assert.Null(Parse(AxeOsGamma).ChipTempsC);                                 // ein Chip: keine Liste
+    }
+
+    [Fact]
     public void Parses_NerdQAxe_info_and_uses_hottest_asic()
     {
         var i = Parse(NerdQAxe);
         Assert.Equal(FirmwareKind.NerdQAxe, i.Firmware);
         Assert.Equal(4, i.AsicCount);
         Assert.Equal(58.9, i.MaxChipTempC);
+        Assert.Equal([55.1, 58.9, 56.2, 57.0], i.ChipTempsC!);                 // 0.9.11: jeder Chip einzeln
         Assert.Equal(12050, i.InputVoltageMv);
         Assert.Equal(2, i.AutoFanMode);
     }

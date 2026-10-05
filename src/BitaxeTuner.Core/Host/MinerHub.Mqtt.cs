@@ -80,8 +80,8 @@ public sealed partial class MinerHub
             var best = BestDiffs.Where(r => r.Host == d.Host).OrderByDescending(r => r.Value).FirstOrDefault()?.Raw;
             return new MqttMiner(MqttBridge.Key(d.Host), d.Title, d.Profile.Name, i is not null,
                 i?.HashRateGh, i?.PowerW, i is { HashRateGh: > 1 } x ? x.PowerW / (x.HashRateGh / 1000) : null,
-                i?.ChipTempC, i?.VrTempC, i?.FrequencyMhz, i?.CoreVoltageMv, best, fan?.Percent,
-                d.Config.Soak is not null ? d.SoakStatus : "–");
+                i?.MaxChipTempC, i?.VrTempC, i?.FrequencyMhz, i?.CoreVoltageMv, best, fan?.Percent,
+                d.Config.Soak is not null ? d.SoakStatus : "–", i?.ChipTempsC);
         }).ToList();
         var online = miners.Where(m => m.Online).ToList();
         var mode = MqttBridge.FanModeText(FanOverride);

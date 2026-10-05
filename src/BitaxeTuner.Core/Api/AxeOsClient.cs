@@ -218,14 +218,18 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
 
         double? chipTemp = Dbl(r, "temp");
         double? chipTemp2 = Dbl(r, "temp2");
+        List<double>? chipTemps = null;
         if (r.TryGetProperty("asicTemps", out var asicTemps) && asicTemps.ValueKind == JsonValueKind.Array)
         {
             var temps = asicTemps.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.Number)
                 .Select(e => e.GetDouble()).Where(t => t > 0).ToList();
             if (temps.Count > 0)
                 chipTemp2 = temps.Max();
+            if (temps.Count > 1) chipTemps = temps;
         }
         if (chipTemp2 is <= 0) chipTemp2 = null;
+        // AxeOS mit zwei Temperaturfühlern (z. B. Duo-Boards): beide als Chips 1 und 2
+        if (chipTemps is null && chipTemp is > 0 && chipTemp2 is > 0) chipTemps = [chipTemp.Value, chipTemp2.Value];
 
         var inputVoltage = Dbl(r, "voltage");
         if (inputVoltage is > 0 and < 100) inputVoltage *= 1000; // Volt → mV
@@ -249,6 +253,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             CurrentMa = Dbl(r, "current"),
             ChipTempC = chipTemp is > 0 ? chipTemp : null,
             ChipTemp2C = chipTemp2,
+            ChipTempsC = chipTemps,
             VrTempC = Dbl(r, "vrTemp") is > 0 and var vr ? vr : null,
             FrequencyMhz = (int)Math.Round(Dbl(r, "frequency") ?? 0),
             ActualFrequencyMhz = Dbl(r, "actualFrequency"),
