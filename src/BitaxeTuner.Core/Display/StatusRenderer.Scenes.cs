@@ -16,8 +16,12 @@ public sealed record DisplayDaily(double Gh, double W, double Kwh, double Cost, 
     IReadOnlyList<DisplayDailyRow> Rows);
 public sealed record DisplayPoint(DateTime Time, double Gh, double Temp);
 public sealed record DisplaySoak(string Name, string Status, DateTime Started, DateTime Until, int FrequencyMhz, int CoreVoltageMv);
-public sealed record DisplayPool(string Name, bool Online, string Pool, bool Fallback, double Accepted, double Rejected, string? BestDiff);
-public sealed record DisplayNetwork(IReadOnlyList<DisplayPool> Pools, long? Height, string? LastBlockPool, DateTime? LastBlockTime);
+/// <param name="PoolDifficulty">0.9.11: vom Pool verlangte Share-Difficulty.</param>
+public sealed record DisplayPool(string Name, bool Online, string Pool, bool Fallback, double Accepted, double Rejected, string? BestDiff,
+    double? PoolDifficulty = null);
+/// <param name="BchHeight">0.9.11: letzter Block im Bitcoin-Cash-Netzwerk (Blockchair), sonst null.</param>
+public sealed record DisplayNetwork(IReadOnlyList<DisplayPool> Pools, long? Height, string? LastBlockPool, DateTime? LastBlockTime,
+    long? BchHeight = null, string? BchPool = null, DateTime? BchTime = null, bool ShowBch = false);
 
 public static partial class StatusRenderer
 {
@@ -93,7 +97,21 @@ public static partial class StatusRenderer
     private static void DrawChart(IImageProcessingContext ctx, DisplayModel m)
     {
         var pts = m.Chart!.Where(p => p.Gh > 0).OrderBy(p => p.Time).ToList();
-        PageHeader(ctx, m, L.T("Hashrate · letzte 24 h"));
+        var kind = m.ChartKind;
+        PageHeader(ctx, m, kind switch
+        {
+            "temp" => L.T("ASIC-Temperatur · letzte 24 h"),
+            "power" => L.T("Leistung · letzte 24 h"),
+            "efficiency" => L.T("Effizienz · letzte 24 h"),
+            _ => L.T("Hashrate · letzte 24 h"),
+        });
+        string Value(double v) => kind switch
+        {
+            "temp" => $"{N(v, "0.0")} °C",
+            "power" => $"{N(v, "0.0")} W",
+            "efficiency" => $"{N(v, "0.0")} J/TH",
+            _ => FormatHash(v),
+        };
         const float x0 = 96, x1 = Width - 20, y0 = 104, y1 = 400;
         var small = Regular.Value.CreateFont(17);
         if (pts.Count < 2)
@@ -115,10 +133,10 @@ public static partial class StatusRenderer
         {
             var v = min + (max - min) * k / 4;
             var y = Y(v);
-            TextRight(ctx, max >= 1000 ? N(v / 1000, "0.00") : N(v, "0"), small, x0 - 8, y - 10, Ink);
+            TextRight(ctx, kind != "hashrate" ? N(v, "0.0") : max >= 1000 ? N(v / 1000, "0.00") : N(v, "0"), small, x0 - 8, y - 10, Ink);
             if (k > 0) for (var x = x0 + 4; x < x1; x += 12) ctx.Fill(Crisp, Ink, new RectangleF(x, y, 4, 1));
         }
-        Text(ctx, max >= 1000 ? "TH/s" : "GH/s", small, 16, y0 - 26, Ink);
+        Text(ctx, kind switch { "temp" => "°C", "power" => "W", "efficiency" => "J/TH", _ => max >= 1000 ? "TH/s" : "GH/s" }, small, 16, y0 - 26, Ink);
         for (var hAgo = 24; hAgo >= 0; hAgo -= 6)
         {
             var t = m.Time.AddHours(-hAgo);
@@ -129,7 +147,7 @@ public static partial class StatusRenderer
         var segment = new List<PointF>();
         void Flush()
         {
-            if (segment.Count > 1) ctx.DrawLine(Crisp, Ink, 3, segment.ToArray());
+            if (segment.Count > 1) ctx.DrawLine(Crisp, Red, 3, segment.ToArray());   // 0.9.11: Graph in Rot
             segment.Clear();
         }
         DateTime? last = null;
@@ -141,7 +159,7 @@ public static partial class StatusRenderer
         }
         Flush();
         var avg = pts.Where(p => p.Time >= t0).Average(p => p.Gh);
-        TextRight(ctx, L.T("Ø {0} · min {1} · max {2}", FormatHash(avg), FormatHash(pts.Min(p => p.Gh)), FormatHash(pts.Max(p => p.Gh))),
+        TextRight(ctx, L.T("Ø {0} · min {1} · max {2}", Value(avg), Value(pts.Min(p => p.Gh)), Value(pts.Max(p => p.Gh))),
             Regular.Value.CreateFont(19), x1, 72, Ink);
         DrawFooter(ctx, m);
     }
@@ -169,11 +187,21 @@ public static partial class StatusRenderer
             var done = total > 0 ? Math.Clamp((m.Time - s.Started).TotalSeconds / total, 0, 1) : 0;
             var barY = y + (rowH >= 70 ? 36 : 30);
             ctx.DrawPolygon(Crisp, Ink, 2, new PointF(16, barY), new PointF(Width - 16, barY), new PointF(Width - 16, barY + 16), new PointF(16, barY + 16));
-            ctx.Fill(Crisp, Ink, new RectangleF(16, barY, (float)((Width - 32) * done), 16));
+            ctx.Fill(Crisp, Red, new RectangleF(16, barY, (float)((Width - 32) * done), 16));   // 0.9.11: Fortschritt in Rot
             if (rowH >= 70) Text(ctx, Fit(s.Status, font, Width - 32), font, 16, barY + 20, s.Status.Contains("fehl", StringComparison.OrdinalIgnoreCase) ? Red : Ink);
         }
         DrawFooter(ctx, m);
     }
+
+    /// <summary>Difficulty kurz: 512, 1,02k, 4,1M, 2,3G, 1,1T.</summary>
+    private static string ShortDiff(double d) => d switch
+    {
+        >= 1e12 => N(d / 1e12, "0.##") + "T",
+        >= 1e9 => N(d / 1e9, "0.##") + "G",
+        >= 1e6 => N(d / 1e6, "0.##") + "M",
+        >= 1e3 => N(d / 1e3, "0.##") + "k",
+        _ => N(d, "0"),
+    };
 
     private static void DrawNetwork(IImageProcessingContext ctx, DisplayModel m)
     {
@@ -193,6 +221,9 @@ public static partial class StatusRenderer
             var y = 94 + i * rowH;
             Text(ctx, Fit(r.Name, bold, 330), bold, 16, y, r.Online ? Ink : Red);
             if (r.Online) Text(ctx, Fit(r.Fallback ? L.T("FALLBACK: ") + r.Pool : r.Pool, font, 420), font, 16, y + (rowH >= 50 ? 28 : 22), r.Fallback ? Red : Ink);
+            // 0.9.11: vom Pool verlangte Share-Difficulty
+            if (r.Online && r.PoolDifficulty is { } pd and > 0 && rowH >= 40)
+                TextRight(ctx, L.T("Pool-Diff {0}", ShortDiff(pd)), font, Width - 16, y + (rowH >= 50 ? 28 : 22), Ink);
             if (!r.Online)
             {
                 TextRight(ctx, "offline", bold, Width - 16, y, Red);
@@ -204,12 +235,22 @@ public static partial class StatusRenderer
             TextRight(ctx, sum > 0 ? $"{N(rejectPct, "0.0")} %" : "–", bold, 672, y, rejectPct >= 5 ? Red : Ink);
             TextRight(ctx, r.BestDiff ?? "–", bold, Width - 16, y, Ink);
         }
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 400, Width - 32, 1));
+        var bchLine = n.ShowBch;
+        var lineY = bchLine ? 388 : 400;
+        ctx.Fill(Crisp, Ink, new RectangleF(16, lineY, Width - 32, 1));
         var net = n.Height is { } h
             ? L.T("Bitcoin-Netzwerk: Block {0}", N(h, "N0")) + (n.LastBlockPool is { } p ? L.T(" · zuletzt von {0}", p) : "") +
               (n.LastBlockTime is { } lt ? L.T(" · vor {0} min", N(Math.Max(0, (m.Time - lt).TotalMinutes), "0")) : "")
             : L.T("Bitcoin-Netzwerk: keine Daten (mempool.space nicht erreichbar)");
-        Text(ctx, Fit(net, Regular.Value.CreateFont(20), Width - 32), Regular.Value.CreateFont(20), 16, 410, Ink);
+        Text(ctx, Fit(net, Regular.Value.CreateFont(bchLine ? 18 : 20), Width - 32), Regular.Value.CreateFont(bchLine ? 18 : 20), 16, lineY + 8, Ink);
+        if (bchLine)
+        {
+            var bch = n.BchHeight is { } bh
+                ? L.T("Bitcoin-Cash-Netzwerk: Block {0}", N(bh, "N0")) + (n.BchPool is { } bp ? L.T(" · zuletzt von {0}", bp) : "") +
+                  (n.BchTime is { } bt ? L.T(" · vor {0} min", N(Math.Max(0, (m.Time - bt).TotalMinutes), "0")) : "")
+                : L.T("Bitcoin-Cash-Netzwerk: keine Daten (Blockchair nicht erreichbar)");
+            Text(ctx, Fit(bch, Regular.Value.CreateFont(18), Width - 32), Regular.Value.CreateFont(18), 16, lineY + 32, Ink);
+        }
         DrawFooter(ctx, m);
     }
 

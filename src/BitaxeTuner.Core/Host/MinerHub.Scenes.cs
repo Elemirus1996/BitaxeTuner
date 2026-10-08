@@ -17,6 +17,11 @@ public sealed class DisplaySceneState
     public bool BestDiffShown { get; set; }
     /// <summary>Quittierte Warnungen (Art, ohne Messwerte); eine neue Warnung zeigt wieder das Vollbild.</summary>
     public string AlarmAcknowledged { get; set; } = "";
+    /// <summary>0.9.11: seit wann die aktuellen Warnungen (Schlüssel) als Vollbild stehen – für „alle nach Stunden“.</summary>
+    public string AlarmSinceKey { get; set; } = "";
+    public DateTime? AlarmSince { get; set; }
+    /// <summary>0.9.11: wann der Best-Diff-Rekord zuerst gezeigt wurde.</summary>
+    public DateTime? BestDiffSince { get; set; }
     public int PageIndex { get; set; }
 }
 
@@ -30,6 +35,7 @@ public sealed partial class MinerHub
     private DisplayScene _lastScene = DisplayScene.Overview;
     private (DateTime At, DisplayDaily Daily)? _dailyCache;
     private (long Height, string Pool, DateTime Time, DateTime Fetched)? _network;
+    private (long Height, string? Pool, DateTime Time)? _bchNetwork;
     private bool _networkBusy;
 
     private string SceneFile => Path.Combine(DataDirectory, "display-state.json");
@@ -76,6 +82,7 @@ public sealed partial class MinerHub
     {
         SceneState.BestDiff = new DisplayBestDiff(miner, coin, previous, current, now);
         SceneState.BestDiffShown = false;
+        SceneState.BestDiffSince = null;
         SaveSceneState();
     }
 
@@ -135,13 +142,30 @@ public sealed partial class MinerHub
         var st = SceneState;
         var model = BuildDisplayModel(now);
 
+        // 0.9.11: wie Sonderanzeigen enden – je Anzeige („each“) oder für alle gleich („hours“ / „button“)
+        var hold = TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours));
+        var blockUntil = s.SpecialUntil is "hours" or "button" ? s.SpecialUntil : s.BlockFoundUntil;
         if (s.BlockFoundScreen && st.BlockFound is { } bf && !st.BlockFoundAcknowledged
-            && (s.BlockFoundUntil == "button" || now - bf.Time < TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours))))
+            && (blockUntil == "button" || now - bf.Time < hold))
             return model with { Scene = DisplayScene.BlockFound, BlockFound = bf };
-        if (s.AlarmFullscreen && model.Alerts.Count > 0 && AlarmKey(model.Alerts) != st.AlarmAcknowledged)
-            return model with { Scene = DisplayScene.Alarm };
-        if (s.BestDiffNotice && st.BestDiff is { } bd && !st.BestDiffShown && now - bd.Time < TimeSpan.FromDays(1))
-            return model with { Scene = DisplayScene.BestDiff, BestDiff = bd };
+        if (s.AlarmFullscreen && model.Alerts.Count > 0 && AlarmKey(model.Alerts) is var alarmKey && alarmKey != st.AlarmAcknowledged)
+        {
+            if (st.AlarmSinceKey != alarmKey)
+            {
+                st.AlarmSinceKey = alarmKey;
+                st.AlarmSince = now;
+                SaveSceneState();
+            }
+            // „alle nach Stunden“: danach nur noch als rote Zeile, wie quittiert
+            if (s.SpecialUntil != "hours" || st.AlarmSince is not { } since || now - since < hold)
+                return model with { Scene = DisplayScene.Alarm };
+        }
+        if (s.BestDiffNotice && st.BestDiff is { } bd && !st.BestDiffShown && now - bd.Time < TimeSpan.FromDays(s.SpecialUntil == "button" ? 30 : 1))
+        {
+            // „each“: einmal; „hours“: bis Taste 1 oder Haltezeit; „button“: bis Taste 1
+            if (s.SpecialUntil != "hours" || now - (st.BestDiffSince ??= now) < hold)
+                return model with { Scene = DisplayScene.BestDiff, BestDiff = bd };
+        }
 
         var pages = EnabledPages();
         if (nextPage && s.RotatePages) st.PageIndex++;
@@ -150,10 +174,11 @@ public sealed partial class MinerHub
     }
 
     /// <summary>Nach dem Anzeigen: gezeigte Szene merken, einmalige Anzeigen als gesehen markieren.</summary>
-    private void SceneShown(DisplayModel m)
+    internal void SceneShown(DisplayModel m)
     {
         _lastScene = m.Scene;
-        if (m.Scene == DisplayScene.BestDiff)
+        // Best-Diff-Rekord: nur bei „je Anzeige“ nach einmaligem Zeigen erledigt, sonst bis Taste 1 bzw. Haltezeit
+        if (m.Scene == DisplayScene.BestDiff && Config.Display.SpecialUntil is not ("hours" or "button"))
         {
             SceneState.BestDiffShown = true;
             SaveSceneState();
@@ -220,7 +245,20 @@ public sealed partial class MinerHub
                 List<Sample> pts;
                 try { pts = History.Query(HistoryStore.AggregateHost, now.AddHours(-24), now, 300); }
                 catch { pts = []; }
-                return model with { Scene = page, Chart = pts.Select(p => new DisplayPoint(p.Time, p.HashRateGh, p.Temp)).ToList() };
+                // 0.9.11: wählbarer Graph – der Wert steht jeweils im Feld Gh
+                var kind = Config.Display.HistoryChart is "temp" or "power" or "efficiency" ? Config.Display.HistoryChart : "hashrate";
+                return model with
+                {
+                    Scene = page,
+                    ChartKind = kind,
+                    Chart = pts.Select(p => new DisplayPoint(p.Time, kind switch
+                    {
+                        "temp" => p.Temp,
+                        "power" => p.Power,
+                        "efficiency" => p.HashRateGh > 1 ? p.Power / (p.HashRateGh / 1000) : 0,
+                        _ => p.HashRateGh,
+                    }, p.Temp)).ToList(),
+                };
             case DisplayScene.Soak:
                 return model with
                 {
@@ -443,9 +481,11 @@ public sealed partial class MinerHub
             var fallback = i is not null && i.isUsingFallbackStratum != 0;
             var pool = i is null ? "–" : fallback ? $"{i.fallbackStratumURL}:{i.fallbackStratumPort}" : $"{i.stratumURL}:{i.stratumPort}";
             var best = BestDiffs.Where(r => r.Host == d.Host).OrderByDescending(r => r.Value).FirstOrDefault()?.Raw;
-            return new DisplayPool(d.Title, i is not null, pool, fallback, i?.sharesAccepted ?? 0, i?.sharesRejected ?? 0, best);
+            return new DisplayPool(d.Title, i is not null, pool, fallback, i?.sharesAccepted ?? 0, i?.sharesRejected ?? 0, best,
+                d.State.Online ? d.State.Normalized?.PoolDifficulty : null);
         }).ToList();
-        return new DisplayNetwork(pools, _network?.Height, _network?.Pool, _network?.Time);
+        return new DisplayNetwork(pools, _network?.Height, _network?.Pool, _network?.Time,
+            _bchNetwork?.Height, _bchNetwork?.Pool, _bchNetwork?.Time, Config.Display.NetworkBch);
     }
 
     /// <summary>Blockhöhe und letzter Block (mempool.space), höchstens alle 10 Minuten.</summary>
@@ -471,9 +511,17 @@ public sealed partial class MinerHub
             }
         }
         catch { /* ohne Netzwerkdaten weiter */ }
-        finally
+        // 0.9.11: letzter Bitcoin-Cash-Block (Blockchair) – mit dem BTC-Netzwerk alle 10 Minuten
+        if (Config.Display.NetworkBch)
         {
-            _networkBusy = false;
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                if (await Blockchair.GetLatestBlockAsync(Tax.Models.CoinType.BitcoinCash, cts.Token) is { } bch)
+                    _bchNetwork = (bch.Height, bch.Miner, bch.TimeUtc.ToLocalTime());
+            }
+            catch { /* ohne BCH-Daten weiter */ }
         }
+        _networkBusy = false;
     }
 }

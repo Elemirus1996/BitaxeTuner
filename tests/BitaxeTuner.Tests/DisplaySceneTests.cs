@@ -155,6 +155,32 @@ public class DisplaySceneTests
     }
 
     [Fact]
+    public async Task All_special_screens_can_end_the_same_way()
+    {
+        // 0.9.11: „alle erst mit Taste 1“ bzw. „alle nach Stunden“
+        using var rig = new Rig();
+        await rig.Hub.PollNowAsync();
+        var d = rig.Hub.Config.Display;
+        rig.Hub.OnBlockFound("Gamma", 2, rig.Now.AddHours(-30));
+        d.SpecialUntil = "button";                                                  // Blockfund trotz BlockFoundUntil=hours bis Taste
+        Assert.Equal(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        d.SpecialUntil = "hours";
+        Assert.NotEqual(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        rig.Hub.SceneState.BlockFoundAcknowledged = true;
+
+        // Best-Diff-Rekord: „button“ bleibt über mehrere Aktualisierungen, „each“ nur einmal
+        rig.Hub.OnBestDiffRecord("Gamma", "BTC", "845 M", "1,23 G", rig.Now);
+        d.SpecialUntil = "button";
+        var first = rig.Hub.ComposeDisplay(rig.Now);
+        Assert.Equal(DisplayScene.BestDiff, first.Scene);
+        rig.Hub.SceneShown(first);
+        Assert.Equal(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        d.SpecialUntil = "each";
+        rig.Hub.SceneShown(rig.Hub.ComposeDisplay(rig.Now));
+        Assert.NotEqual(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now).Scene);
+    }
+
+    [Fact]
     public void Red_only_for_special_screens_and_warnings()
     {
         var now = new DateTime(2026, 9, 27, 14, 0, 0);
@@ -162,7 +188,9 @@ public class DisplaySceneTests
             [new DisplayMiner("A", true, false, 1000, 55, 65, 50, false, false, false, null)], []);
         static int Red(byte[] p) => p.Skip(48000).Sum(b => System.Numerics.BitOperations.PopCount(b));
         Assert.Equal(0, Red(StatusRenderer.Render(m with { Scene = DisplayScene.Daily, Daily = new DisplayDaily(1000, 20, 0.5, 0.1, "EUR", null, null, [new("A", 1000, 20, 55, 1)]) })));
-        Assert.Equal(0, Red(StatusRenderer.Render(m with { Scene = DisplayScene.Chart, Chart = [new(now.AddHours(-2), 1000, 55), new(now.AddHours(-1), 1010, 55)] })));
+        // 0.9.11: Verlaufsgraph in Rot (Wunsch des Nutzers) – auch als Temperatur, Leistung oder Effizienz
+        foreach (var kind in new[] { "hashrate", "temp", "power", "efficiency" })
+            Assert.True(Red(StatusRenderer.Render(m with { Scene = DisplayScene.Chart, ChartKind = kind, Chart = [new(now.AddMinutes(-120), 1000, 55), new(now.AddMinutes(-110), 1010, 56), new(now.AddMinutes(-100), 990, 57)] })) > 50, kind);
         Assert.True(Red(StatusRenderer.Render(m with { Scene = DisplayScene.BlockFound, BlockFound = new DisplayBlockFound("A", now, 1, null) })) > 5000);
         Assert.True(Red(StatusRenderer.Render(m with { Scene = DisplayScene.Alarm, Alerts = ["A offline"] })) > 5000);
     }

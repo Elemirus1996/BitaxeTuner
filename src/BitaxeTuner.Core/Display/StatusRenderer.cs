@@ -32,6 +32,9 @@ public sealed record DisplayModel(
     public DisplayBestDiff? BestDiff { get; init; }
     public DisplayDaily? Daily { get; init; }
     public IReadOnlyList<DisplayPoint>? Chart { get; init; }
+
+    /// <summary>0.9.11: Art des Verlaufsgraphen ("hashrate", "temp", "power", "efficiency"); der Wert steht in <see cref="DisplayPoint.Gh"/>.</summary>
+    public string ChartKind { get; init; } = "hashrate";
     public IReadOnlyList<DisplaySoak>? Soaks { get; init; }
     public DisplayNetwork? Network { get; init; }
     /// <summary>Schwarz und Weiß tauschen (helle Schrift auf schwarzem Grund); Rot bleibt rot.</summary>

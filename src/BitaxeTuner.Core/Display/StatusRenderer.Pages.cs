@@ -39,7 +39,7 @@ public static partial class StatusRenderer
 
     /// <summary>Liniengraph mit Achsen, 4 Hilfslinien und Zeitachse (Lücken über <paramref name="gap"/> nicht verbunden).</summary>
     private static void LineChart(IImageProcessingContext ctx, IReadOnlyList<DisplayValue> points, RectangleF area, DateTime from, DateTime to,
-        string format, TimeSpan gap, int timeLabels = 4, bool zeroBased = false)
+        string format, TimeSpan gap, int timeLabels = 4, bool zeroBased = false, Color? line = null)
     {
         var small = Regular.Value.CreateFont(17);
         var pts = points.Where(p => p.Time >= from && p.Time <= to).OrderBy(p => p.Time).ToList();
@@ -73,7 +73,7 @@ public static partial class StatusRenderer
         var segment = new List<PointF>();
         void Flush()
         {
-            if (segment.Count > 1) ctx.DrawLine(Crisp, Ink, 3, segment.ToArray());
+            if (segment.Count > 1) ctx.DrawLine(Crisp, line ?? Ink, 3, segment.ToArray());
             segment.Clear();
         }
         DateTime? last = null;
@@ -100,7 +100,7 @@ public static partial class StatusRenderer
             Text(ctx, c.Eur is { } e ? Eur(e) : "–", Bold.Value, 64, 16, 100, Ink);
             if (c.Change24h is { } ch)
                 TextRight(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 32, Width - 16, 122, ch < 0 ? Red : Ink);
-            LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2));
+            LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), line: Red);
         }
         else
         {
@@ -113,7 +113,7 @@ public static partial class StatusRenderer
                 Text(ctx, Fit(c.Eur is { } e ? Eur(e) : "–", Bold.Value.CreateFont(46), colW), Bold.Value.CreateFont(46), x, 102, Ink);
                 if (c.Change24h is { } ch) Text(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 24, x, 160, ch < 0 ? Red : Ink);
                 LineChart(ctx, c.Points, new RectangleF(x + 70, 204, colW - 74, chartBottom - 204 - 24), m.Time.AddHours(-24), m.Time,
-                    c.Eur is >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), timeLabels: 2);
+                    c.Eur is >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), timeLabels: 2, line: Red);
             }
         }
         if (m.Difficulty is { } d)
@@ -123,7 +123,7 @@ public static partial class StatusRenderer
             Text(ctx, Fit(L.T("Difficulty-Anpassung in {0} Blöcken{1} · erwartet {2} %", N(d.RemainingBlocks, "N0"), eta, Signed(d.ExpectedChangePercent, "0.0")),
                 Regular.Value.CreateFont(21), Width - 32), Regular.Value.CreateFont(21), 16, 368, Ink);
             ctx.DrawPolygon(Crisp, Ink, 2, new PointF(16, 404), new PointF(Width - 16, 404), new PointF(Width - 16, 420), new PointF(16, 404 + 16));
-            ctx.Fill(Crisp, Ink, new RectangleF(16, 404, (float)((Width - 32) * Math.Clamp(d.ProgressPercent / 100, 0, 1)), 16));
+            ctx.Fill(Crisp, Red, new RectangleF(16, 404, (float)((Width - 32) * Math.Clamp(d.ProgressPercent / 100, 0, 1)), 16));   // 0.9.11: rot
         }
         DrawFooter(ctx, m);
     }

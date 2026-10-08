@@ -68,6 +68,22 @@ public sealed class BlockchairBlockchainService : IBlockchainService, IDisposabl
         return snapshot;
     }
 
+    /// <summary>0.9.11: Letzter Block einer Chain (Höhe, Zeit in UTC, vermuteter Pool) aus /{chain}/blocks.</summary>
+    public async Task<(long Height, DateTime TimeUtc, string? Miner)?> GetLatestBlockAsync(CoinType coin, CancellationToken ct = default)
+    {
+        var url = $"{coin.BlockchairSlug()}/blocks?limit=1";
+        if (_apiKey is not null) url += $"&key={Uri.EscapeDataString(_apiKey)}";
+        using var doc = await GetJsonAsync(url, ct);
+        if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array || data.GetArrayLength() == 0)
+            return null;
+        var b = data[0];
+        if (!b.TryGetProperty("id", out var id) || !id.TryGetInt64(out var height)) return null;
+        var time = b.TryGetProperty("time", out var t) && DateTime.TryParse(t.GetString(), CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed) ? parsed : DateTime.UtcNow;
+        var miner = b.TryGetProperty("guessed_miner", out var g) && g.ValueKind == JsonValueKind.String ? g.GetString() : null;
+        return (height, time, string.IsNullOrWhiteSpace(miner) || miner == "Unknown" ? null : miner);
+    }
+
     /// <summary>Aktuelle Netzwerk-Difficulty aus /{chain}/stats.</summary>
     public async Task<double?> GetDifficultyAsync(CoinType coin, CancellationToken ct = default)
     {

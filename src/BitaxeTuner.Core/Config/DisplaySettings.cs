@@ -75,6 +75,18 @@ public sealed class DisplaySettings
     /// <summary>0.9.7, Tagesbilanz: "none" (Minerliste wie bisher), "hashrate", "power", "efficiency" oder "temp" als 24-h-Graph.</summary>
     public string DailyChart { get; set; } = "none";
 
+    /// <summary>0.9.11: Graph der Seite „Verlauf“ (24 h): "hashrate", "temp", "power" oder "efficiency". Additiv.</summary>
+    public string HistoryChart { get; set; } = "hashrate";
+
+    /// <summary>
+    /// 0.9.11: Wie alle Sonderanzeigen enden – "each" (je Anzeige wie eingestellt), "hours" (alle nach
+    /// <see cref="BlockFoundHoldHours"/> Stunden oder mit Taste 1) oder "button" (alle erst mit Taste 1). Additiv.
+    /// </summary>
+    public string SpecialUntil { get; set; } = "each";
+
+    /// <summary>0.9.11: Seite „Pool &amp; Netzwerk“ zeigt auch den letzten Block im Bitcoin-Cash-Netzwerk. Additiv.</summary>
+    public bool NetworkBch { get; set; } = true;
+
     /// <summary>0.9.7, Monatsbilanz: Balken je Tag – "kwh", "cost", "income" oder "hashrate".</summary>
     public string MonthlyChart { get; set; } = "kwh";
 
