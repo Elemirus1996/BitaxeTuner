@@ -21,9 +21,14 @@ wdt = WDT(timeout=8000)
 
 def pause(ms):
     t0 = time.ticks_ms()
+    shown = 0
     while time.ticks_diff(time.ticks_ms(), t0) < ms:
         wdt.feed()
         time.sleep_ms(20)
+        s = time.ticks_diff(time.ticks_ms(), t0) // 1000
+        if ms >= 2000 and s >= shown + 2:       # sign of life: shows when the Pico drops out
+            shown = s
+            print("  ... %d s" % s)
 
 W, H = 800, 480
 
@@ -68,6 +73,7 @@ def wait(ms, what):
     return True
 
 
+print("Test script version 3 (watchdog is fed)")
 print("BUSY at start:", busy.value())
 rst.value(1); pause(200)
 rst.value(0); pause(2)
