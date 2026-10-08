@@ -1094,6 +1094,7 @@ public static class Endpoints
 
         ExtraDisplayEndpoints.MapAdmin(g);
         OverviewEndpoints.MapAdmin(g);
+        PublicHttpsEndpoints.Map(g);
 
         g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {

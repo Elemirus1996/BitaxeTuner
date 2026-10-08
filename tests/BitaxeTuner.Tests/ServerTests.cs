@@ -342,6 +342,31 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Public_https_settings_keep_the_token_secret_and_validate_input()
+    {
+        // 0.9.12 HTTPS ohne Warnung (DuckDNS + Let's Encrypt)
+        var admin = await AdminAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/admin/public-https", new { enabled = true, subdomain = "meinminer" })).StatusCode);   // ohne Token
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/admin/public-https", new { enabled = false, subdomain = "Mein Miner!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/admin/public-https", new { enabled = false, subdomain = "x", ip = "fritz.box" })).StatusCode);
+
+        const string token = "0123abcd-4567-89ef-0123-456789abcdef";
+        var saved = await Json(await admin.PutAsJsonAsync("/api/v1/admin/public-https",
+            new { enabled = true, subdomain = "MeinMiner.duckdns.org", ip = "192.168.1.20", staging = true, token }));
+        Assert.True(saved.GetProperty("status").GetProperty("tokenSet").GetBoolean());
+        var get = await admin.GetAsync("/api/v1/admin/public-https");
+        var text = await get.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(token, text);                                          // Token verlässt den Server nie
+        var d = JsonDocument.Parse(text).RootElement;
+        Assert.Equal("meinminer", d.GetProperty("settings").GetProperty("subdomain").GetString());
+        Assert.Equal("meinminer.duckdns.org", d.GetProperty("status").GetProperty("host").GetString());
+
+        await Json(await admin.PutAsJsonAsync("/api/v1/admin/public-https", new { enabled = false, subdomain = "meinminer", token = "-" }));
+        Assert.False((await Json(await admin.GetAsync("/api/v1/admin/public-https"))).GetProperty("status").GetProperty("tokenSet").GetBoolean());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/admin/public-https")).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

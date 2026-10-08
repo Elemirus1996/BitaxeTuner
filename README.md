@@ -484,6 +484,12 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
   in der Desktop-App ein Knopf im Serverfenster); der Server startet dabei neu. Die Desktop-App übernimmt Adresse und
   Fingerabdruck beim Umstellen selbst, sonst lässt sie den Fingerabdruck beim ersten Verbinden bestätigen. Fest vorgeben
   lässt es sich weiter mit `BITAXETUNER_HTTPS=1` bzw. `=0`.
+- **HTTPS ohne Warnung** (ab 0.9.12, *Einstellungen → Verbindung*): Zertifikat von **Let's Encrypt** für einen
+  kostenlosen **DuckDNS**-Namen (z. B. `meinminer.duckdns.org`), bestätigt per DNS-01 – **kein offener Port im Router**,
+  der Server bleibt im Heimnetz. Der DuckDNS-Eintrag zeigt auf die Heimnetz-Adresse, erneuert wird automatisch 30 Tage vor
+  Ablauf, das Token liegt nur in `secrets.json`. Per Name kommt das Let's-Encrypt-Zertifikat, per IP weiter das selbst
+  signierte – die Desktop-App funktioniert mit beidem. Erst mit *Testzertifikat* ausprobieren; bei der FRITZ!Box den Namen
+  im **DNS-Rebind-Schutz** freigeben. Eigener ACME-Client ohne Fremdbibliothek.
 
 ### Updates
 

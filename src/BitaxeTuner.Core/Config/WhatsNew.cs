@@ -135,6 +135,10 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.12", tr.T("HTTPS ohne Warnung"),
+                server ? tr.T("Einstellungen → Verbindung → „HTTPS ohne Warnung“: Zertifikat von Let's Encrypt für einen kostenlosen DuckDNS-Namen – ohne offenen Port im Router, automatisch erneuert. Per Name ohne Browser-Warnung, per IP wie bisher.")
+                       : tr.T("Der Server kann jetzt ein Zertifikat von Let's Encrypt für einen DuckDNS-Namen holen (Browser → Einstellungen → Verbindung). Die App verbindet sich damit ohne Fingerabdruck-Rückfrage, per IP wie bisher."),
+                null),
             new("0.9.12", tr.T("Neustart bei Hashrate-Einbruch"),
                 tr.T("Der Watchdog kann einen Miner jetzt auch neu starten, wenn seine Hashrate eine einstellbare Zeit lang deutlich unter dem Normalwert liegt (Soll-Hashrate laut Firmware, sonst Ø der letzten 24 h) – Einstellungen → Überwachung. Standardmäßig aus; gleiche Sperrzeit wie beim bisherigen Watchdog, nie im Wartungsmodus."),
                 null),

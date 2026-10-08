@@ -3720,7 +3720,52 @@ function connectionCard() {
   }).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
   return h('div', { class: 'card stack' }, h('h2', {}, t('Verbindung')),
     h('p', { class: 'muted small' }, t('Neue Installationen starten verschlüsselt. Den Fingerabdruck kannst du mit der Warnung im Browser bzw. der Rückfrage der Desktop-App vergleichen.')),
-    body);
+    body,
+    publicHttpsSection());
+}
+
+/** 0.9.12 HTTPS ohne Warnung: Let's-Encrypt-Zertifikat für einen DuckDNS-Namen (DNS-01, kein offener Port nötig). */
+function publicHttpsSection() {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const load = () => api('/admin/public-https').then(d => {
+    const s = { ...d.settings, token: '' };
+    const st = d.status;
+    const tokenInput = h('input', { type: 'password', autocomplete: 'off', placeholder: st.tokenSet ? t('gespeichert – leer lassen = unverändert') : t('Token von duckdns.org'), oninput: e => { s.token = e.target.value; } });
+    const statusText = !st.enabled ? t('Ausgeschaltet.')
+      : st.busy ? (st.progress || t('Zertifikat wird geholt …'))
+      : st.notAfter ? t('Zertifikat für {0} gültig bis {1}{2}.', st.host, new Date(st.notAfter).toLocaleDateString(LOCALE), st.staging ? t(' (Testzertifikat – Browser warnen noch)') : '')
+      : t('Noch kein Zertifikat.');
+    const save = async (extra = {}) => {
+      const r = await run(() => api('/admin/public-https', { method: 'PUT', body: { ...s, token: s.token || null, ...extra } }), t('Gespeichert.'));
+      if (r) setTimeout(load, 1500);
+    };
+    fill(box,
+      !d.https ? h('p', { class: 'warn small' }, t('Dafür muss der Server mit HTTPS laufen (oben umstellen).')) : null,
+      h('p', { class: `small ${st.lastError ? 'danger' : st.notAfter && !st.staging ? 'ok' : 'muted'}` }, statusText,
+        st.lastError ? h('br') : null, st.lastError || '',
+        st.dnsIp ? h('span', { class: 'muted' }, ' · ' + t('DuckDNS zeigt auf {0}', st.dnsIp)) : null),
+      d.url && st.notAfter ? h('p', { class: 'small' }, t('Adresse: '), h('a', { href: d.url }, d.url)) : null,
+      checkInput(s, 'enabled', t('HTTPS ohne Warnung einschalten')),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('DuckDNS-Name (vor .duckdns.org)')), h('input', { value: s.subdomain || '', placeholder: 'meinminer', oninput: e => { s.subdomain = e.target.value; } })),
+        h('div', {}, h('label', {}, t('DuckDNS-Token')), tokenInput),
+        h('div', {}, h('label', {}, t('Heimnetz-Adresse (leer = automatisch)')), h('input', { value: s.ip || '', placeholder: d.suggestedIp || '192.168.1.20', oninput: e => { s.ip = e.target.value; } })),
+        h('div', {}, h('label', {}, t('E-Mail für Let\'s Encrypt (optional)')), h('input', { value: s.email || '', type: 'email', oninput: e => { s.email = e.target.value; } }))),
+      checkInput(s, 'staging', t('Erst einmal mit Testzertifikat ausprobieren (Let\'s-Encrypt-Staging, Browser warnen dann noch)')),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: () => save() }, t('Speichern')),
+        st.enabled ? h('button', { class: 'btn', onclick: async () => { if (await run(() => api('/admin/public-https/issue', { method: 'POST', body: {} }), t('Zertifikat wird geholt – das dauert etwa eine Minute.'))) setTimeout(load, 20000); } }, t('Zertifikat jetzt holen')) : null,
+        st.tokenSet ? h('button', { class: 'btn ghost', onclick: () => save({ token: '-', enabled: false }) }, t('Token löschen')) : null),
+      h('details', {}, h('summary', {}, t('So geht’s')),
+        h('ol', { class: 'small' },
+          h('li', {}, t('Auf duckdns.org kostenlos anmelden, einen Namen anlegen (z. B. meinminer) und das Token kopieren.')),
+          h('li', {}, t('Hier Name und Token eintragen, einschalten, speichern. Der Server setzt den DuckDNS-Eintrag auf seine Heimnetz-Adresse und holt das Zertifikat – ohne offenen Port im Router, er bleibt im Heimnetz.')),
+          h('li', {}, t('FRITZ!Box: Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz → „meinminer.duckdns.org“ als Ausnahme eintragen. Andere Router haben eine ähnliche Einstellung.')),
+          h('li', {}, t('Danach die Oberfläche unter https://meinminer.duckdns.org:{0}/ öffnen – ohne Warnung. Per IP-Adresse bleibt das bisherige Zertifikat, die Desktop-App funktioniert mit beidem.', d.port))),
+        h('p', { class: 'muted small' }, t('Erneuert wird automatisch 30 Tage vor Ablauf. Daten gehen nur an DuckDNS (Name, Token, Heimnetz-Adresse) und Let\'s Encrypt (Name). Die Heimnetz-Adresse ist danach öffentlich abfragbar, von außen aber nicht erreichbar. Alternative ohne DuckDNS: Tailscale mit eigenem HTTPS-Zertifikat.'))));
+  }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
+  load();
+  return h('div', { class: 'stack' }, h('h3', {}, t('HTTPS ohne Warnung (Let\'s Encrypt über DuckDNS)')), box);
 }
 
 /** Geräteprofile (0.9.9): eigene Profile anlegen, eingebaute anpassen oder zurücksetzen – wie am Desktop. */

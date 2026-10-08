@@ -479,6 +479,12 @@ You can switch in both directions at any time with all your data (see *Switching
   the server window); the server restarts. The desktop app takes over address and fingerprint itself when switching,
   otherwise it asks you to confirm the fingerprint when connecting for the first time. It can still be fixed with
   `BITAXETUNER_HTTPS=1` or `=0`.
+- **HTTPS without warning** (from 0.9.12, *Settings → Connection*): certificate from **Let's Encrypt** for a free
+  **DuckDNS** name (e.g. `myminer.duckdns.org`), validated via DNS-01 – **no open port on the router**, the server stays
+  in the home network. The DuckDNS entry points to the home network address, renewal is automatic 30 days before expiry,
+  the token is kept only in `secrets.json`. Via the name you get the Let's Encrypt certificate, via IP still the
+  self-signed one – the desktop app works with both. Try the *test certificate* first; on a FRITZ!Box allow the name in
+  the **DNS rebind protection**. Own ACME client without third-party library.
 
 ### Updates
 

@@ -67,6 +67,9 @@ builder.Services.AddSingleton<Lockout>();
 builder.Services.AddSingleton<EventStream>();
 builder.Services.AddSingleton<ServerUpdater>();
 builder.Services.AddSingleton<ServerRestart>();
+// 0.9.12 HTTPS ohne Warnung (DuckDNS + Let's Encrypt)
+builder.Services.AddSingleton<PublicCertificates>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PublicCertificates>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerUpdater>());
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
@@ -78,15 +81,17 @@ builder.WebHost.ConfigureKestrel(k =>
 {
     k.AddServerHeader = false;
     k.Limits.MaxRequestBodySize = 64 * 1024 * 1024; // Datenübertragung (history.db) – Einzelheiten im Import
-    void Listen(IPAddress ip)
+    // Ruft der Browser den DuckDNS-Namen auf, gibt es das Let's-Encrypt-Zertifikat, sonst (IP, localhost) das selbst
+    // ausgestellte – bestehende Verbindungen der Desktop-App per Fingerabdruck bleiben so gültig (0.9.12)
+    void Https(Microsoft.AspNetCore.Server.Kestrel.Core.ListenOptions o)
     {
-        k.Listen(ip, settings.Port, o =>
-        {
-            if (settings.Https) o.UseHttps(Certificates.LoadOrCreate(settings.DataDirectory));
-        });
+        if (!settings.Https) return;
+        var self = Certificates.LoadOrCreate(settings.DataDirectory);
+        o.UseHttps(h => h.ServerCertificateSelector = (_, name) =>
+            k.ApplicationServices.GetService<PublicCertificates>()?.For(name) ?? self);
     }
-    if (settings.Bind is { } bind) Listen(bind);
-    else k.ListenAnyIP(settings.Port, o => { if (settings.Https) o.UseHttps(Certificates.LoadOrCreate(settings.DataDirectory)); });
+    if (settings.Bind is { } bind) k.Listen(bind, settings.Port, Https);
+    else k.ListenAnyIP(settings.Port, Https);
 });
 
 var app = builder.Build();
