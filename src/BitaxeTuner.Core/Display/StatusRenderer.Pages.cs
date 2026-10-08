@@ -287,6 +287,48 @@ public static partial class StatusRenderer
         DrawFooter(ctx, m);
     }
 
+    // ---------- Neuigkeiten (0.9.11) ----------
+
+    private static string NewsKindLabel(string kind) => kind switch
+    {
+        "solo" => L.T("SOLO-FUND"),
+        "firmware" => L.T("FIRMWARE"),
+        "miner" => L.T("NEUER MINER"),
+        "network" => L.T("NETZWERK"),
+        "bitaxetuner" => "BITAXETUNER",
+        _ => kind.ToUpperInvariant(),
+    };
+
+    private static void DrawNews(IImageProcessingContext ctx, DisplayModel m)
+    {
+        PageHeader(ctx, m, L.T("Neuigkeiten"));
+        var list = (m.News ?? []).Take(6).ToList();
+        if (list.Count == 0)
+        {
+            TextCenter(ctx, L.T("Noch keine Neuigkeiten geladen."), Regular.Value.CreateFont(26), Width / 2f, 200, Ink);
+            TextCenter(ctx, L.T("Sie werden alle paar Stunden aus dem Internet geholt."), Regular.Value.CreateFont(20), Width / 2f, 240, Ink);
+            DrawFooter(ctx, m);
+            return;
+        }
+        var rowH = 360f / Math.Max(list.Count, 4);
+        var tag = Bold.Value.CreateFont(15);
+        var title = Bold.Value.CreateFont(rowH >= 80 ? 25 : 22);
+        var text = Regular.Value.CreateFont(rowH >= 80 ? 19 : 17);
+        var date = Regular.Value.CreateFont(17);
+        for (var i = 0; i < list.Count; i++)
+        {
+            var n = list[i];
+            var y = 74 + i * rowH;
+            var red = n.Kind is "solo" or "miner";
+            Text(ctx, n.DateUtc.ToLocalTime().ToString("dd.MM.", De), date, 16, y + 2, Ink);
+            Text(ctx, NewsKindLabel(n.Kind), tag, 16, y + 26, red ? Red : Ink);
+            Text(ctx, Fit(n.Title, title, Width - 150 - 16), title, 150, y, red ? Red : Ink);
+            if (n.Text.Length > 0) Text(ctx, Fit(n.Text, text, Width - 150 - 16), text, 150, y + (rowH >= 80 ? 32 : 28), Ink);
+            if (i < list.Count - 1) ctx.Fill(Crisp, Ink, new RectangleF(16, y + rowH - 8, Width - 32, 1));
+        }
+        DrawFooter(ctx, m);
+    }
+
     // ---------- Temperaturfühler ----------
 
     private static void DrawSensors(IImageProcessingContext ctx, DisplayModel m)

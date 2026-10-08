@@ -50,6 +50,8 @@ public sealed record DisplayModel(
     public string PriceCent { get; init; } = "ct";
     public DisplayQr? Qr { get; init; }
     public IReadOnlyList<DisplaySensor>? Sensors { get; init; }
+    /// <summary>0.9.11: Neuigkeiten (neueste zuerst).</summary>
+    public IReadOnlyList<Network.NewsItem>? News { get; init; }
 }
 
 /// <summary>
@@ -95,6 +97,7 @@ public static partial class StatusRenderer
                 case DisplayScene.Qr when m.Qr is not null: DrawQr(ctx, m); break;
                 case DisplayScene.Group: DrawOverview(ctx, m); break;
                 case DisplayScene.Sensors: DrawSensors(ctx, m); break;
+                case DisplayScene.News: DrawNews(ctx, m); break;
                 case DisplayScene.Chart when m.Chart is not null: DrawChart(ctx, m); break;
                 case DisplayScene.Soak when m.Soaks is not null: DrawSoak(ctx, m); break;
                 case DisplayScene.Network when m.Network is not null: DrawNetwork(ctx, m); break;

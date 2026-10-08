@@ -90,6 +90,12 @@ public sealed class DisplaySettings
     /// <summary>0.9.7, Monatsbilanz: Balken je Tag – "kwh", "cost", "income" oder "hashrate".</summary>
     public string MonthlyChart { get; set; } = "kwh";
 
+    /// <summary>
+    /// 0.9.11, Seite „Neuigkeiten“: welche Arten gezeigt werden ("solo", "firmware", "miner", "network", "bitaxetuner").
+    /// Additiv; leer = alle.
+    /// </summary>
+    public List<string> NewsKinds { get; set; } = ["solo", "firmware", "miner", "network", "bitaxetuner"];
+
     /// <summary>0.9.7, Seite „QR-Code“: eigene Adresse; leer = Adresse dieses Servers im Heimnetz.</summary>
     public string QrUrl { get; set; } = "";
 }
@@ -117,4 +123,6 @@ public sealed class DisplayPages
     public bool Qr { get; set; }
     /// <summary>Alle Temperaturfühler mit Warnschwelle.</summary>
     public bool Sensors { get; set; }
+    /// <summary>0.9.11: Neuigkeiten aus der Solo-Mining-Welt (Firmware, neue Miner, Solo-Blockfunde, Netzwerk, BitaxeTuner).</summary>
+    public bool News { get; set; }
 }

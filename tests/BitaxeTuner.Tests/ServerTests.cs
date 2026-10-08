@@ -279,6 +279,17 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task News_are_available_to_viewers_without_network_access_in_tests()
+    {
+        // 0.9.11: Neuigkeiten – im Test ohne Online-Abfragen leer, aber mit den gewählten Arten
+        var admin = await AdminAsync();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/news")).StatusCode);
+        var news = await Json(await admin.GetAsync("/api/v1/news?lang=en"));
+        Assert.Equal(JsonValueKind.Array, news.GetProperty("items").ValueKind);
+        Assert.Contains("solo", news.GetProperty("kinds").EnumerateArray().Select(k => k.GetString()));
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

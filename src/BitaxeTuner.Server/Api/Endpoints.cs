@@ -430,6 +430,20 @@ public static class Endpoints
             rebootAvailable = h.Options.SystemReboot is not null,
         })));
 
+        // 0.9.11 Neuigkeiten aus der Solo-Mining-Welt (öffentliche news.json, ohne Nutzerdaten) – Sprache des Browsers
+        g.MapGet("/news", async (string? lang, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            _ = h.RefreshNewsAsync(force: false);   // höchstens alle 3 h, Antwort kommt aus dem Zwischenspeicher
+            var language = lang is "de" or "en" ? lang : null;
+            return new
+            {
+                updated = h.News.UpdatedUtc,
+                error = h.News.LastError,
+                kinds = h.Config.Display.NewsKinds,
+                items = h.News.Items(null, 30, language).Select(i => new { i.Id, date = i.DateUtc, i.Kind, i.Coin, i.Title, i.Text, i.Url }),
+            };
+        })));
+
         // Vorschau genau so, wie die Anzeige es zeigt (auch ohne Hardware)
         // Vorschau: ohne scene genau das, was als Nächstes käme; mit scene=Daily|Chart|… eine bestimmte Seite
         g.MapGet("/display/preview.png", async (string? scene, HttpContext http, HubService hub) =>

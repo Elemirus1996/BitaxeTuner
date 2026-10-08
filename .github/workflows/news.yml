@@ -1,0 +1,48 @@
+name: Neuigkeiten (E-Paper)
+
+# Alle 6 Stunden: Neuigkeiten aus der Solo-Mining-Welt sammeln (tools/news-build.py) und als news.json in den Branch
+# „news“ legen. Der Server holt nur diese eine Datei (raw.githubusercontent.com) – ohne Nutzerdaten. Der Branch enthält
+# immer genau einen Commit, damit main nicht mit Daten-Commits gefüllt wird.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news
+  cancel-in-progress: false
+
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Bisherige Neuigkeiten laden
+        run: |
+          mkdir -p out
+          if git fetch --depth=1 origin news 2>/dev/null; then
+            git show FETCH_HEAD:news.json > old.json || echo '{"items":[]}' > old.json
+          else
+            echo '{"items":[]}' > old.json
+          fi
+
+      - name: Neuigkeiten sammeln
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/news-build.py old.json out/news.json
+
+      - name: In den Branch „news“ legen
+        run: |
+          cd out
+          git init -q -b news
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add news.json
+          git commit -q -m "Neuigkeiten $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" news:news

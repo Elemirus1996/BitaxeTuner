@@ -131,6 +131,7 @@ public sealed partial class MinerHub
         if (p.Soak && Devices.Any(d => d.Config.Soak is not null)) list.Add(new(DisplayScene.Soak));
         if (p.Network) list.Add(new(DisplayScene.Network));
         if (p.Qr) list.Add(new(DisplayScene.Qr));
+        if (p.News) list.Add(new(DisplayScene.News));
         if (list.Count == 0) list.Add(new(DisplayScene.Overview));
         return list;
     }
@@ -235,6 +236,9 @@ public sealed partial class MinerHub
                 return model with { Scene = page, Power = BuildPower(now) };
             case DisplayScene.Qr:
                 return model with { Scene = page, Qr = BuildQr() };
+            case DisplayScene.News:
+                _ = RefreshNewsAsync(force: false);
+                return model with { Scene = page, News = News.Items(Config.Display.NewsKinds, 6) };
             case DisplayScene.Sensors:
                 return model with
                 {

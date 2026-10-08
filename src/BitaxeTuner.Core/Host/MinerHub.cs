@@ -526,6 +526,7 @@ public sealed partial class MinerHub : IDisposable
         // außerhalb des Hub-Kontexts trennen (dieser Thread wartet hier)
         if (_mqtt is { } mqtt) try { Task.Run(() => mqtt.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(3)); } catch { /* Broker weg */ }
         CloseFanDevice();
+        _news?.Dispose();
         foreach (var id in _plugClients.Keys.ToList()) ClosePlug(id);
         foreach (var d in _devices.Values) d.Benchmark?.Cts?.Cancel();
         WebView.Dispose();

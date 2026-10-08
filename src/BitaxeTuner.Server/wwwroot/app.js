@@ -2235,6 +2235,7 @@ async function renderHelp() {
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h2', {}, t('Hilfe')), h('span', { class: 'spacer' }), search),
       h('div', { class: 'row' }, d.sections.map(sec => h('a', { class: 'btn small', href: '#/help', onclick: e => { e.preventDefault(); document.getElementById(`help-${sec.id}`)?.scrollIntoView({ behavior: 'smooth' }); } }, sec.title)))),
+    newsCard(),
     body));
   draw();
 }
@@ -2998,13 +2999,48 @@ function quickActions(fans, display) {
       }, t('4 · Neustart'))));
 }
 
+// ---------- Neuigkeiten (0.9.11) ----------
+
+const NEWS_KINDS = () => [['solo', t('Solo-Blockfunde')], ['firmware', t('Firmware-Releases')], ['miner', t('Neue Miner-Modelle')],
+  ['network', t('Netzwerk (Difficulty)')], ['bitaxetuner', t('BitaxeTuner-Versionen')]];
+
+/** Seite „Neuigkeiten“: welche Arten das E-Paper zeigt. */
+function newsKindsInput(s) {
+  s.newsKinds = s.newsKinds?.length ? s.newsKinds : NEWS_KINDS().map(k => k[0]);
+  return h('div', { class: 'stack' },
+    h('label', {}, t('Neuigkeiten zeigen')),
+    h('div', { class: 'row' }, NEWS_KINDS().map(([k, label]) => {
+      const box = h('input', { type: 'checkbox', checked: s.newsKinds.includes(k) });
+      box.addEventListener('change', () => { s.newsKinds = box.checked ? [...new Set([...s.newsKinds, k])] : s.newsKinds.filter(x => x !== k); });
+      return h('label', { class: 'check' }, box, label);
+    })),
+    h('p', { class: 'muted small' }, t('Gesammelt alle 6 Stunden von einer GitHub Action des BitaxeTuner-Projekts (ESP-Miner- und NerdQAxe-Releases, neue Modelle, Solo-Blöcke über mempool.space und Blockchair). Der Server holt nur diese öffentliche Datei – ohne Daten von dir.')));
+}
+
+/** Neuigkeiten als Liste (Hilfe-Seite): neueste zuerst, mit Link zur Quelle. */
+function newsCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  api(`/news?lang=${LANG}`).then(d => {
+    const label = Object.fromEntries(NEWS_KINDS());
+    fill(body, d.items.length
+      ? h('ul', { class: 'news' }, d.items.slice(0, 12).map(i => h('li', {},
+          h('span', { class: `pill ${i.kind === 'solo' || i.kind === 'miner' ? '' : 'gray'}` }, label[i.kind] || i.kind), ' ',
+          h('span', { class: 'muted small' }, new Date(i.date).toLocaleDateString(LOCALE)), ' ',
+          i.url ? h('a', { href: i.url, target: '_blank', rel: 'noopener' }, i.title) : h('b', {}, i.title),
+          i.text ? h('div', { class: 'muted small' }, i.text) : null)))
+      : h('p', { class: 'muted' }, d.error ? t('Neuigkeiten gerade nicht erreichbar ({0}).', d.error) : t('Noch keine Neuigkeiten geladen – sie werden alle paar Stunden geholt.')),
+      d.updated ? h('p', { class: 'muted small' }, t('Stand {0}', time(d.updated))) : null);
+  }).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Neuigkeiten aus der Solo-Mining-Welt')), body);
+}
+
 /** E-Paper: Vorschau genau wie auf dem Display, Status, Einstellungen. */
 function displayCard(d) {
   const st = d.status;
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')
@@ -3052,7 +3088,8 @@ function displayCard(d) {
         checkInput(s.pages, 'prices', t('Kurs')),
         checkInput(s.pages, 'power', t('Strompreis-Ampel')),
         checkInput(s.pages, 'sensors', t('Temperaturfühler')),
-        checkInput(s.pages, 'qr', t('QR-Code'))),
+        checkInput(s.pages, 'qr', t('QR-Code')),
+        checkInput(s.pages, 'news', t('Neuigkeiten'))),
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')]])),
         h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -3064,6 +3101,7 @@ function displayCard(d) {
         h('div', {}, h('label', {}, t('QR-Code-Adresse (leer = dieser Server)')), h('input', { value: s.qrUrl || '', placeholder: 'https://…', oninput: e => { s.qrUrl = e.target.value; } }))),
       h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
       checkInput(s, 'networkBch', t('Pool & Netzwerk: auch den letzten Block im Bitcoin-Cash-Netzwerk zeigen (Blockchair)')),
+      newsKindsInput(s),
       checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
       h('h3', {}, t('Sonderanzeigen')),
       h('div', { class: 'form' },

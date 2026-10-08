@@ -135,6 +135,9 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.11", tr.T("Neuigkeiten aus der Solo-Mining-Welt"),
+                tr.T("Neue E-Paper-Seite „Neuigkeiten“ (Lüfter & Anzeige → Seiten) und eine Liste auf der Hilfe-Seite: Solo-Blockfunde (BTC einzeln, BCH als Tagessumme), neue Firmware für Bitaxe und NerdQAxe, neue Miner-Modelle, Difficulty-Anpassungen und neue BitaxeTuner-Versionen. Gesammelt alle 6 Stunden vom BitaxeTuner-Projekt – der Server holt nur diese eine öffentliche Datei, ohne Daten von dir."),
+                null),
             new("0.9.11", tr.T("Wartungsmodus je Miner"),
                 server ? tr.T("Haken „Wartungsmodus“ oben auf der Geräteseite: Während du am Miner arbeitest, pausiert seine Überwachung – keine Meldungen (außer Blockfunden), kein Watchdog-Neustart, keine Automatik, und die Zeit zählt nicht als Ausfall. Endet auf Wunsch nach 1–24 Stunden von selbst.")
                        : tr.T("Haken „Wartungsmodus“ oben neben dem Profil: Während du am Miner arbeitest, pausiert seine Überwachung – keine Meldungen (außer Blockfunden), kein Watchdog-Neustart, keine Automatik, und die Zeit zählt nicht als Ausfall. Endet auf Wunsch nach 1–24 Stunden von selbst."),
