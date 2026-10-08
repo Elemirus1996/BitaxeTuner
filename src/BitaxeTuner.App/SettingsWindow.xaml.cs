@@ -68,6 +68,9 @@ public partial class SettingsWindow : Window
         WatchdogBox.IsChecked = config.Watchdog.Enabled;
         WatchdogMinutesBox.Text = config.Watchdog.ZeroHashMinutes.ToString();
         WatchdogCooldownBox.Text = config.Watchdog.CooldownMinutes.ToString();
+        WatchdogDropBox.IsChecked = config.Watchdog.DropEnabled;
+        WatchdogDropPercentBox.Text = config.Watchdog.DropPercent.ToString();
+        WatchdogDropMinutesBox.Text = config.Watchdog.DropMinutes.ToString();
         CoinGeckoKeyBox.Text = config.CoinGeckoApiKey;
 
         _notify = config.Notifications.ForEditing();
@@ -267,6 +270,16 @@ public partial class SettingsWindow : Window
             ErrorText.Text = L.T("Watchdog-Sperrzeit: 10 bis 1440 Minuten.");
             return;
         }
+        if (!int.TryParse(WatchdogDropPercentBox.Text, out var dropPercent) || dropPercent < 5 || dropPercent > 90)
+        {
+            ErrorText.Text = L.T("Hashrate-Einbruch: 5 bis 90 %.");
+            return;
+        }
+        if (!int.TryParse(WatchdogDropMinutesBox.Text, out var dropMinutes) || dropMinutes < 5 || dropMinutes > 240)
+        {
+            ErrorText.Text = L.T("Hashrate-Einbruch: 5 bis 240 Minuten.");
+            return;
+        }
 
         if (!int.TryParse(LogCooldownBox.Text, out var logCooldown) || logCooldown < 1 || logCooldown > 1440)
         {
@@ -367,7 +380,10 @@ public partial class SettingsWindow : Window
         {
             Enabled = WatchdogBox.IsChecked == true,
             ZeroHashMinutes = watchdogMinutes,
-            CooldownMinutes = watchdogCooldown
+            CooldownMinutes = watchdogCooldown,
+            DropEnabled = WatchdogDropBox.IsChecked == true,
+            DropPercent = dropPercent,
+            DropMinutes = dropMinutes,
         };
         _config.CoinGeckoApiKey = CoinGeckoKeyBox.Text.Trim();
         if (_plugsPanel?.Validate() is { } plugError)

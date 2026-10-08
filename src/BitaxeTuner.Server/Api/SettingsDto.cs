@@ -108,7 +108,8 @@ public sealed class SettingsDto
         c.CoinGeckoApiKey = CoinGeckoApiKey.Trim();
         Notifications.ApplyTargets(c.Devices.Select(d => d.Host));
         c.Notifications = Notifications;
-        c.Watchdog = Watchdog;
+        c.Watchdog = Watchdog ?? new WatchdogSettings();
+        c.Watchdog.Normalize();
         c.LogAlerts = LogAlerts;
         c.PoolWatch = PoolWatch;
         // Datum des letzten Tagesberichts bleibt (sonst käme er doppelt)

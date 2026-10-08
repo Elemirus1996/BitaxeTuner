@@ -177,6 +177,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
@@ -205,7 +206,20 @@
                         <TextBox x:Name="WatchdogCooldownBox"/>
                     </StackPanel>
 
-                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                    <StackPanel Grid.Row="2" Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,10,16">
+                        <CheckBox x:Name="WatchdogDropBox" Content="{l:T 'Bei Hashrate-Einbruch neu starten'}"
+                                  ToolTip="{l:T 'Normalwert: die Soll-Hashrate, die die Firmware meldet, sonst der Durchschnitt der letzten 24 Stunden. Gleiche Sperrzeit wie oben; nie im Wartungsmodus, während Tuning, Benchmark oder kurz nach einem Neustart.'}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,10,10">
+                        <TextBlock Text="{l:T 'MEHR ALS (% UNTER NORMAL)'}" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="WatchdogDropPercentBox"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
+                        <TextBlock Text="{l:T 'OHNE UNTERBRECHUNG (MIN)'}" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="WatchdogDropMinutesBox"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3">
                         <TextBlock Text="{l:T 'COINGECKO-DEMO-KEY (OPTIONAL)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="CoinGeckoKeyBox"/>
                     </StackPanel>

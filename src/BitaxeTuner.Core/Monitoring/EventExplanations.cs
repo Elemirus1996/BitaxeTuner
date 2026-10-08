@@ -33,10 +33,16 @@ public static class EventExplanations
             L.T("Automatik konnte nicht ausgeführt werden"),
             L.T("Eine freigegebene Regel wollte eine Einstellung ändern, aber der Miner hat nicht oder mit einem Fehler geantwortet. Es wurde nichts geändert."),
             L.T("Erreichbarkeit des Miners prüfen (WLAN, Strom). Die Regel versucht es beim nächsten Durchlauf erneut."))),
-        new("watchdog", EventCategories.Automation, "Watchdog: {0} min ohne Hashrate – {1}", () => E("watchdog",
+        // Einträge vor 0.9.12
+        new("watchdog", EventCategories.Automation, L.N("Watchdog: {0} min ohne Hashrate – {1}"), () => E("watchdog",
             L.T("Watchdog-Neustart"),
             L.T("Der Miner hat die eingestellte Zeit lang keine Hashrate geliefert, obwohl er erreichbar war (z. B. hängender ASIC oder Pool-Problem). Der Watchdog hat ihn deshalb neu gestartet."),
             L.T("Kommt das öfter vor: Pool-Verbindung, Stromversorgung und Kühlung prüfen; eventuell ist die Einstellung zu knapp – ein Dauertest zeigt, ob sie stabil ist."))),
+        // 0.9.12: gemeinsame Vorlage für „ohne Hashrate“ und „Hashrate-Einbruch“ (ältere Einträge passen auf die Zeile darüber)
+        new("watchdog-drop", EventCategories.Automation, "Watchdog: {0} – {1}", () => E("watchdog",
+            L.T("Watchdog-Neustart"),
+            L.T("Der Miner war erreichbar, hat aber die eingestellte Zeit lang keine oder deutlich weniger Hashrate geliefert als normal (Soll-Hashrate laut Firmware, sonst der Durchschnitt der letzten 24 Stunden) – z. B. hängender ASIC, Pool-Problem oder Überhitzungsdrossel. Der Watchdog hat ihn deshalb neu gestartet."),
+            L.T("Kommt das öfter vor: Pool-Verbindung, Stromversorgung und Kühlung prüfen; eventuell ist die Einstellung zu knapp – ein Dauertest zeigt, ob sie stabil ist. Die Schwelle stellst du unter Einstellungen → Überwachung ein."))),
         new("auto-run", EventCategories.Automation, "Automatik: {0}", () => E("auto-run",
             L.T("Automatik hat gehandelt"),
             L.T("Eine von dir freigegebene Regel (Temperaturschutz, Zeitplan oder Strompreis) hat eine Einstellung geändert. Die genaue Änderung steht auch unter „Frequenz/Spannung“."),

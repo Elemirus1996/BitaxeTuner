@@ -424,11 +424,37 @@ public sealed partial class MinerHub
             var hash = online ? s.Info!.hashRate : 0;
             var inMaintenance = Maintenance.IsActive(s.Config.Host);
             if (_watchdog.ShouldReboot(s.Config.Host, online, hash, Config.Watchdog, inMaintenance))
-                _ = RebootByWatchdogAsync(s);
+                _ = RebootByWatchdogAsync(s, L.T("{0} min ohne Hashrate", Config.Watchdog.ZeroHashMinutes));
+            // 0.9.12: deutlich weniger Hashrate als normal
+            else if (Config.Watchdog.DropEnabled && online && NormalHashrate(s) is { } normal
+                     && _watchdog.ShouldRebootForDrop(s.Config.Host, online, hash, normal, Config.Watchdog, inMaintenance, Now().ToUniversalTime()))
+                _ = RebootByWatchdogAsync(s, L.T("{0} min lang mehr als {1} % unter dem Normalwert ({2} statt {3})", Config.Watchdog.DropMinutes,
+                    Config.Watchdog.DropPercent, FormatHash(hash), FormatHash(normal)));
         }
     }
 
-    private async Task RebootByWatchdogAsync(MinerState s)
+    private readonly Dictionary<string, (DateTime At, double? Gh)> _normalHash = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Normalwert für den Hashrate-Watchdog: Soll-Hashrate laut Firmware, sonst Ø der letzten 24 h (je Miner höchstens
+    /// alle 30 min aus der Datenbank gelesen).
+    /// </summary>
+    internal double? NormalHashrate(MinerState s)
+    {
+        if (s.Normalized?.ExpectedHashRateGh is > 1 and var expected) return expected;
+        if (History is null) return null;
+        var now = Now();
+        var host = s.Config.Host;
+        if (_normalHash.TryGetValue(host, out var c) && now - c.At < TimeSpan.FromMinutes(30) && now >= c.At) return c.Gh;
+        double? avg = null;
+        try { avg = History.Average(host, now.AddHours(-24), now)?.HashRateGh; } catch { /* ohne Normalwert keine Prüfung */ }
+        _normalHash[host] = (now, avg is > 1 ? avg : null);
+        return _normalHash[host].Gh;
+    }
+
+    private static string FormatHash(double gh) => gh >= 1000 ? (gh / 1000).ToString("0.00", De) + " TH/s" : gh.ToString("0", De) + " GH/s";
+
+    private async Task RebootByWatchdogAsync(MinerState s, string reason)
     {
         string result;
         var ok = false;
@@ -449,11 +475,11 @@ public sealed partial class MinerHub
 
         // Erfolg über ok – nicht über den (übersetzten) Text
         RaiseStatus(ok, L.T("Watchdog {0}: {1}", s.Config.Name, result));
-        LogEvent(s.Config.Host, EventCategories.Automation, L.T("Watchdog: {0} min ohne Hashrate – {1}", Config.Watchdog.ZeroHashMinutes, result));
+        LogEvent(s.Config.Host, EventCategories.Automation, L.T("Watchdog: {0} – {1}", reason, result));
 
         if (Config.Notifications.Wants(NotifyCategory.Maintenance))
             await Notify.SendAsync($"watchdog:{s.Config.Host}", L.T("Watchdog: {0}", s.Config.Name),
-                L.T("{0} min ohne Hashrate. {1}.", Config.Watchdog.ZeroHashMinutes, result),
+                L.T("{0}. {1}.", reason, result),
                 NotifyPriority.High, TimeSpan.FromMinutes(5), category: NotifyCategory.Maintenance, host: s.Config.Host);
     }
 

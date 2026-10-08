@@ -517,6 +517,27 @@ public sealed class WatchdogSettings
     /// <summary>Mindestabstand zwischen zwei automatischen Neustarts desselben Miners.</summary>
     public int CooldownMinutes { get; set; } = 60;
 
+    /// <summary>
+    /// 0.9.12: Auch neu starten, wenn die Hashrate deutlich unter dem Normalwert liegt (Soll-Hashrate laut Firmware,
+    /// sonst Ø der letzten 24 h). Unabhängig von <see cref="Enabled"/>; standardmäßig aus. Additiv.
+    /// </summary>
+    public bool DropEnabled { get; set; }
+
+    /// <summary>Neustart, wenn die Hashrate mehr als so viele Prozent unter dem Normalwert liegt (5–90).</summary>
+    public int DropPercent { get; set; } = 20;
+
+    /// <summary>… und zwar ohne Unterbrechung so viele Minuten lang (5–240).</summary>
+    public int DropMinutes { get; set; } = 15;
+
+    /// <summary>Werte begrenzen (Eingaben aus Browser und Desktop).</summary>
+    public void Normalize()
+    {
+        ZeroHashMinutes = Math.Clamp(ZeroHashMinutes, 3, 240);
+        CooldownMinutes = Math.Clamp(CooldownMinutes, 10, 1440);
+        DropPercent = Math.Clamp(DropPercent, 5, 90);
+        DropMinutes = Math.Clamp(DropMinutes, 5, 240);
+    }
+
     public WatchdogSettings Clone() => (WatchdogSettings)MemberwiseClone();
 }
 
