@@ -45,6 +45,10 @@ class Pin:
     def irq(self, trigger=None, handler=None):
         pass
 
+    def init(self, mode=None, pull=None, value=None):
+        if value is not None:
+            self._v = value
+
 
 class PWM:
     def __init__(self, pin):
@@ -60,7 +64,10 @@ class PWM:
 
 class SPI:
     def __init__(self, *a, **k):
-        pass
+        # Like MicroPython on the RP2: without an explicit MISO, SPI1 takes GP8 (DC on the Waveshare board,
+        # fan channel 5 on the fan board) - the firmware must pass a free pin.
+        if "miso" not in k:
+            raise RuntimeError("SPI without miso would take GP8")
 
     def write(self, data):
         pass

@@ -141,7 +141,7 @@ public sealed class PicoNetworkTests : IDisposable
     [Fact]
     public void Older_program_is_updated_over_wlan_and_verified()
     {
-        var old = PicoFanDevice.Firmware.Replace("VERSION = \"7\"", "VERSION = \"6x\"");
+        var old = PicoFanDevice.Firmware.Replace("VERSION = \"7.1\"", "VERSION = \"6x\"");
         Assert.NotEqual(PicoFanDevice.Firmware, old);
         if (StartPico(firmware: old) is not var (port, key)) return;
         var io = NetworkLineTransport.Connect("127.0.0.1", port, key);

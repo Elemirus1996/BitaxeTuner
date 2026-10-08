@@ -47,7 +47,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "7"
+VERSION = "7.1"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -287,15 +287,20 @@ def epd_wait(ms):
 def epd_init():
     global epd_spi
     if epd_spi is None:
-        epd_spi = machine.SPI(EPD_SPI, baudrate=4000000, polarity=0, phase=0, sck=Pin(EPD_PINS[1]), mosi=Pin(EPD_PINS[0]))
+        # MISO explicitly on the unused GP28: without it MicroPython takes the default SPI1 RX pin GP8 - that is DC on
+        # the Waveshare Pico-ePaper board (no picture at all) and fan channel 5 on the fan board.
+        epd_spi = machine.SPI(EPD_SPI, baudrate=4000000, polarity=0, phase=0,
+                              sck=Pin(EPD_PINS[1]), mosi=Pin(EPD_PINS[0]), miso=Pin(28))
+        # and take DC / RST back as outputs in case a firmware still claimed them for SPI
+        epd_dc.init(Pin.OUT, value=0)
+        epd_rst.init(Pin.OUT, value=1)
+    # Reset and init sequence as in the Waveshare example for the 7.5" B (UC8179)
     epd_rst.value(1)
-    time.sleep_ms(20)
+    time.sleep_ms(200)
     epd_rst.value(0)
-    time.sleep_ms(4)
+    time.sleep_ms(2)
     epd_rst.value(1)
-    time.sleep_ms(20)
-    epd_cmd(0x01)            # power setting
-    epd_data(b"\x07\x07\x3f\x3f")
+    time.sleep_ms(200)
     epd_cmd(0x06)            # booster soft start
     epd_data(b"\x17\x17\x28\x17")
     epd_cmd(0x04)            # power on
@@ -312,6 +317,8 @@ def epd_init():
     epd_data(b"\x11\x07")
     epd_cmd(0x60)            # TCON
     epd_data(b"\x22")
+    epd_cmd(0x65)            # resolution start 0/0
+    epd_data(b"\x00\x00\x00\x00")
     return True
 
 
