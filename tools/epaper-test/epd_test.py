@@ -11,7 +11,19 @@
 # MicroPython takes GP8 as SPI1 RX, which is the DC line of the display.
 import time
 import framebuf
-from machine import Pin, SPI
+from machine import Pin, SPI, WDT
+
+# BitaxeTuner program 8+ starts the hardware watchdog (8 s). Thonny stops the program, but the watchdog keeps running and
+# cannot be switched off - so feed it here, otherwise the Pico restarts in the middle of the test ("ConnectionError: EOF").
+# After the test the Pico restarts by itself within 8 s and the BitaxeTuner program runs again as usual.
+wdt = WDT(timeout=8000)
+
+
+def pause(ms):
+    t0 = time.ticks_ms()
+    while time.ticks_diff(time.ticks_ms(), t0) < ms:
+        wdt.feed()
+        time.sleep_ms(20)
 
 W, H = 800, 480
 
@@ -38,23 +50,30 @@ def data(d):
     cs.value(1)
 
 
+def is_busy():
+    # as in the Waveshare example: read the status (0x71) first, then BUSY (low = busy)
+    cmd(0x71)
+    return busy.value() == 0
+
+
 def wait(ms, what):
     t0 = time.ticks_ms()
-    while busy.value() == 0:          # BUSY low = busy
+    while is_busy():
         if time.ticks_diff(time.ticks_ms(), t0) > ms:
             print("TIMEOUT waiting for", what, "- BUSY stays low (display not responding)")
             return False
+        wdt.feed()
         time.sleep_ms(20)
     print("ok:", what, time.ticks_diff(time.ticks_ms(), t0), "ms")
     return True
 
 
 print("BUSY at start:", busy.value())
-rst.value(1); time.sleep_ms(200)
-rst.value(0); time.sleep_ms(2)
-rst.value(1); time.sleep_ms(200)
+rst.value(1); pause(200)
+rst.value(0); pause(2)
+rst.value(1); pause(200)
 cmd(0x06); data(b"\x17\x17\x28\x17")      # booster
-cmd(0x04); time.sleep_ms(100)              # power on
+cmd(0x04); pause(100)              # power on
 if wait(5000, "power on"):
     cmd(0x00); data(b"\x0f")
     cmd(0x61); data(b"\x03\x20\x01\xe0")
@@ -78,21 +97,22 @@ if wait(5000, "power on"):
 
     cmd(0x10); data(black)
     cmd(0x13); data(red)
-    cmd(0x12); time.sleep_ms(100)          # refresh (~16-25 s)
+    cmd(0x12); pause(100)          # refresh (~16-25 s)
     # Did BUSY go low ("busy") at all? If not, the BUSY line does not work - then wait a fixed time instead,
     # otherwise switching the panel off right away would cut the refresh short (picture does not change).
     t0 = time.ticks_ms()
     seen = False
     while time.ticks_diff(time.ticks_ms(), t0) < 3000:
-        if busy.value() == 0:
+        if is_busy():
             seen = True
             break
+        wdt.feed()
         time.sleep_ms(10)
     if seen:
         wait(40000, "refresh")
     else:
         print("BUSY never went low - BUSY line (GP13) not working? Waiting 25 s instead ...")
-        time.sleep_ms(25000)
+        pause(25000)
     cmd(0x02); wait(5000, "power off")
     cmd(0x07); data(b"\xa5")               # deep sleep
     print("Done - the picture should be visible now.", "(BUSY ok)" if seen else "(BUSY NOT working)")
