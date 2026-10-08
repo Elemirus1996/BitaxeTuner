@@ -45,6 +45,8 @@
                             ToolTip="{l:T 'Dauertest für mehrere Miner auf einmal starten oder alle abbrechen'}" />
                     <Button Content="{l:T 'Einstellungen übertragen …'}" Click="OnCopySettingsClick"
                             ToolTip="{l:T 'Pool und Lüfter eines Miners auf andere übernehmen (ohne Frequenz/Spannung)'}" />
+                    <Button Content="{l:T 'Pool …'}" Click="OnPoolSwitchClick"
+                            ToolTip="{l:T 'Pool umschalten (je Miner oder Gruppe) und Pool-Automatik: Ersatz-Pool nach Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares'}" />
                     <Button Content="{l:T 'Bericht …'}" Click="OnReportClick"
                             ToolTip="{l:T 'Monats- und Jahresbericht: Energie, Kosten, Verfügbarkeit, Zuflüsse (Drucken/PDF, CSV)'}" />
                     <Button Content="{l:T 'Protokoll …'}" Click="OnJournalClick"

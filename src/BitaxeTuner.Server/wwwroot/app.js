@@ -1676,7 +1676,137 @@ function tabAutomation() {
               if (!tv || !await confirmBox(t('Dauertest'), tv.text, t('Starten'))) return;
               run(() => api(`/devices/${S.route.id}/soak/start`, { method: 'POST', body: { hours } }), t('Dauertest gestartet.')).then(reloadDetailSoon);
             },
-          }, t('Dauertest starten …')))));
+          }, t('Dauertest starten …')))),
+    poolCard(S.route.id));
+}
+
+// ---------- Pool-Umschaltung (0.9.11) ----------
+
+/** Editor für eine Pool-Regel (Miner und Gruppe gleich): Zeitfenster → Ersatz-Pool, zurück zum Haupt-Pool, schlechte Shares. */
+function poolRuleEditor(rule) {
+  rule.entries = rule.entries || [];
+  const entries = h('div', { class: 'stack' });
+  const daysInput = e => {
+    const i = h('input', { value: daysText(e.days ?? 127) });
+    i.addEventListener('change', () => {
+      const m = parseDays(i.value);
+      if (m == null) { i.classList.add('invalid'); return toast(t('Tage nicht erkannt – Beispiele: Mo-Fr, Sa,So, täglich'), 'error'); }
+      i.classList.remove('invalid'); e.days = m; i.value = daysText(m);
+    });
+    return i;
+  };
+  const renderEntries = () => fill(entries, ...rule.entries.map((e, i) => h('div', { class: 'form' },
+    h('div', {}, h('label', {}, t('Tage (z. B. Mo-Fr, Sa,So, täglich)')), daysInput(e)),
+    h('div', {}, h('label', {}, t('von (Uhr)')), numInput(e, 'fromHour')),
+    h('div', {}, h('label', {}, t('bis (Uhr)')), numInput(e, 'toHour')),
+    h('button', { class: 'btn small ghost', onclick: () => { rule.entries.splice(i, 1); renderEntries(); } }, t('Entfernen')))));
+  renderEntries();
+  return h('div', { class: 'stack' },
+    checkInput(rule, 'enabled', t('eingeschaltet')),
+    h('h3', {}, t('Ersatz-Pool nach Zeitplan')),
+    h('p', { class: 'muted small' }, t('In diesen Zeitfenstern arbeitet der Miner auf dem Ersatz-Pool, danach wieder auf dem Haupt-Pool.')),
+    entries,
+    h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { rule.entries.push({ days: 127, fromHour: 0, toHour: 6 }); renderEntries(); } }, t('Zeitfenster hinzufügen'))),
+    h('h3', {}, t('Bei Problemen')),
+    checkInput(rule, 'onBadShares', t('auf den Ersatz-Pool wechseln, wenn die Pool-Überwachung zu viele abgelehnte Shares oder zu lange Antwortzeiten meldet')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('so lange (min)')), numInput(rule, 'badMinutes'))),
+    checkInput(rule, 'returnHome', t('zurück zum Haupt-Pool, sobald er wieder erreichbar ist')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('frühestens nach (min)')), numInput(rule, 'returnAfterMinutes'))));
+}
+
+/** Pools eines Miners: aktiver Pool, umschalten mit Vorschau alt → neu, Pool-Automatik mit Freigabe. */
+function poolCard(id) {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const pill = h('span', { class: 'pill gray' });
+  const load = async () => {
+    const p = await api(`/devices/${id}/pools`).catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!p) return;
+    pill.className = `pill ${p.approved ? '' : 'gray'}`;
+    pill.textContent = p.approved ? t('freigegeben') : t('nicht freigegeben');
+    const rule = structuredClone(p.rule);
+    const makeHome = { v: false };
+    const switchTo = async pool => {
+      const pv = await run(() => api(`/devices/${id}/pools/preview`, { method: 'POST', body: { target: pool.key } }));
+      if (!pv) return;
+      if (pv.skip) return toast(pv.skip, 'error');
+      const box = h('div', { class: 'stack' }, h('p', {}, pv.text),
+        pv.warning ? h('p', { class: 'warn small' }, pv.warning) : null,
+        checkInput(makeHome, 'v', t('künftig als Haupt-Pool merken')),
+        h('p', { class: 'muted small' }, t('Vorher wird eine Sicherung angelegt; danach startet der Miner neu. Frequenz und Spannung bleiben.')));
+      if (!await confirmBox(t('Pool umschalten'), box, t('Umschalten'))) return;
+      if (await run(() => api(`/devices/${id}/pools/switch`, { method: 'POST', body: { target: pool.key, makeHome: makeHome.v } }), t('Pool umgeschaltet – der Miner startet neu.')))
+        setTimeout(load, 3000);
+    };
+    const save = async () => {
+      const r = await run(() => api(`/devices/${id}/pools/rule`, { method: 'PUT', body: { rule } }), t('Pool-Automatik gespeichert.'));
+      if (r && rule.enabled && !r.approved) toast(t('Geänderte Regeln brauchen eine neue Freigabe.'), 'info');
+      return r;
+    };
+    const approve = async () => {
+      if (!await save()) return;
+      const tv = await run(() => api(`/devices/${id}/pools/rule/approval-text`, { method: 'POST', body: {} }));
+      if (!tv || !await confirmBox(t('Regel freigeben'), tv.text, t('Freigeben'))) return;
+      if (await run(() => api(`/devices/${id}/pools/rule/approve`, { method: 'POST', body: {} }), t('Regel freigegeben.'))) load();
+    };
+    fill(body,
+      p.usingFallback ? h('p', { class: 'warn small' }, t('Die Firmware meldet: Haupt-Pool nicht erreichbar, der Miner arbeitet auf dem Ersatz-Pool.')) : null,
+      p.pools.length === 0 ? h('p', { class: 'muted' }, t('Der Miner meldet keine Pools.')) :
+        h('div', { class: 'table-wrap' }, h('table', {},
+          h('thead', {}, h('tr', {}, [t('Pool'), t('Benutzer'), t('Rolle'), ''].map(x => h('th', {}, x)))),
+          h('tbody', {}, p.pools.map(pool => h('tr', {},
+            h('td', {}, pool.text, pool.active ? h('span', { class: 'pill', style: 'margin-left:6px' }, t('aktiv')) : null),
+            h('td', { class: 'small' }, pool.user),
+            h('td', { class: 'small' }, [pool.primary ? t('Haupt-Pool (Miner)') : pool.secondary ? t('Ersatz-Pool (Miner)') : t('weiterer Pool'),
+              pool.home ? t('gemerkt als Haupt-Pool') : null].filter(Boolean).join(' · ')),
+            h('td', {}, pool.active ? null : h('button', { class: 'btn small', onclick: () => switchTo(pool) }, t('Umschalten …')))))))),
+      p.indexed ? null : h('p', { class: 'muted small' }, t('Ältere Firmware: Umschalten tauscht Haupt- und Ersatz-Pool (Adresse und Benutzer); die Passwörter bleiben am Platz.')),
+      p.activeGroupRule ? h('p', { class: 'muted small' }, t('Für diesen Miner gilt die Pool-Automatik der Gruppe „{0}“ (eine eigene Regel hätte Vorrang).', p.activeGroupRule)) : null,
+      poolRuleEditor(rule),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
+  };
+  setTimeout(load, 0);
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Pool-Umschaltung')), h('span', { class: 'spacer' }), pill),
+    body);
+}
+
+/** Pool-Umschaltung für eine Gruppe: alle auf Ersatz-Pool bzw. zurück, dazu die Gruppen-Regel. */
+function groupPoolCard(g) {
+  const rule = structuredClone(g.rule);
+  const switchGroup = async target => {
+    const pv = await run(() => api('/group-pools/preview', { method: 'POST', body: { group: g.name, target } }));
+    if (!pv) return;
+    const changes = pv.items.filter(i => !i.skip);
+    const box = h('div', { class: 'stack' },
+      h('ul', {}, pv.items.map(i => h('li', { class: i.skip ? 'muted' : null }, `${i.name}: `, i.skip ? t('übersprungen: {0}', i.skip) : i.text,
+        i.warning ? h('div', { class: 'warn small' }, i.warning) : null))),
+      h('p', { class: 'muted small' }, t('Vor jeder Änderung wird eine Sicherung angelegt; danach startet jeder Miner neu. Jede Umschaltung wird protokolliert.')));
+    if (!changes.length) { await confirmBox(t('Nichts zu ändern'), box, t('OK')); return; }
+    if (!await confirmBox(target === 'home' ? t('Gruppe zurück zum Haupt-Pool') : t('Gruppe auf Ersatz-Pool'), box, t('{0} Miner umschalten', changes.length))) return;
+    const r = await run(() => api('/group-pools/switch', { method: 'POST', body: { group: g.name, target } }));
+    if (r) toast(r.items.map(x => `${x.name}: ${x.skip ? t('übersprungen: {0}', x.skip) : x.text}`).join(' · '), 'ok', 15000);
+  };
+  const save = async () => {
+    const r = await run(() => api('/group-pools', { method: 'PUT', body: { group: g.name, rule } }), t('Pool-Automatik gespeichert.'));
+    if (r && rule.enabled && !r.approved) toast(t('Geänderte Regeln brauchen eine neue Freigabe.'), 'info');
+    return r;
+  };
+  const approve = async () => {
+    if (!await save()) return;
+    const tv = await run(() => api('/group-pools/approval-text', { method: 'POST', body: { group: g.name } }));
+    if (!tv || !await confirmBox(t('Regel freigeben'), tv.text, t('Freigeben'))) return;
+    if (await run(() => api('/group-pools/approve', { method: 'POST', body: { group: g.name } }), t('Regel freigegeben.'))) renderGroups();
+  };
+  const own = g.members.filter(m => m.ownRule).map(m => m.name);
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' }, h('h3', {}, t('Pool-Umschaltung: {0}', g.name)), h('span', { class: 'spacer' }),
+      h('span', { class: `pill ${g.approved ? '' : 'gray'}` }, g.approved ? t('freigegeben') : t('nicht freigegeben'))),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: () => switchGroup('backup') }, t('Alle auf Ersatz-Pool …')),
+      h('button', { class: 'btn', onclick: () => switchGroup('home') }, t('Alle zurück zum Haupt-Pool …'))),
+    own.length ? h('p', { class: 'muted small' }, t('Eigene Pool-Regel (Vorrang): {0}', own.join(', '))) : null,
+    poolRuleEditor(rule),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
 }
 
 // ---------- Kiosk / Wand-Tablet ----------
@@ -2077,6 +2207,8 @@ async function renderGroups() {
   mount(h('p', { class: 'muted' }, t('Lade …')));
   const data = await run(() => api('/group-automation'));
   if (!data) return;
+  const pools = await api('/group-pools').catch(() => null);
+  const poolOf = name => pools?.groups.find(p => p.name === name);
   const wanted = S.route.group;
   const groups = wanted ? data.groups.filter(g => g.name.toLowerCase() === wanted.toLowerCase()) : data.groups;
   mount(h('div', { class: 'stack' },
@@ -2087,7 +2219,7 @@ async function renderGroups() {
         wanted ? h('a', { class: 'btn small ghost', href: '#/groups' }, t('alle')) : null) : null),
     data.groups.length === 0
       ? h('div', { class: 'card muted' }, t('Noch keine Miner-Gruppen. Gruppen vergibst du unter Einstellungen → Geräte.'))
-      : groups.map(groupAutomationCard)));
+      : groups.flatMap(g => [groupAutomationCard(g), poolOf(g.name) ? groupPoolCard(poolOf(g.name)) : null])));
 }
 
 function groupAutomationCard(g) {

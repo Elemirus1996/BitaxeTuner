@@ -71,6 +71,7 @@ public sealed partial class MinerHub
             if (result.Action is { } a) _ = ExecuteAutomationAsync(device, info, a);
         }
 
+        TickPoolAutomation(now);
         if (WebView.IsRunning) WebStatusJson = BuildStatusJson(list, now);
     }
 

@@ -28,6 +28,10 @@ public sealed class SimulatedMinerClient : IMinerClient
     private int _fanMin = 25;
     private long _shares;
     private DateTime _bootTime = DateTime.Now;
+    // Pools wie ESP-Miner 2.15 (Liste + Haupt-/Ersatz-Index); Passwörter liefert die Firmware nie aus
+    private readonly List<(string Url, int Port, string User)> _pools = [("pool.demo.invalid", 3333, "demo.worker"), ("backup.demo.invalid", 4444, "demo.worker")];
+    private int _primaryPool;
+    private int _secondaryPool = 1;
 
     public SimulatedMinerClient(DeviceProfile profile, int seed = 42, string? address = null)
     {
@@ -49,6 +53,11 @@ public sealed class SimulatedMinerClient : IMinerClient
     public int ApplyCount { get; private set; }
     public int RestartCount { get; private set; }
     public (int Frequency, int Voltage) CurrentSettings { get { lock (_lock) return (_frequency, _voltage); } }
+    /// <summary>Simuliert „Haupt-Pool nicht erreichbar“ (Firmware arbeitet auf dem Ersatz-Pool).</summary>
+    public bool UsingFallbackPool { get; set; }
+    /// <summary>Wie ältere Firmware/NerdQAxe: nur stratum*/fallbackStratum*-Felder, keine Pool-Liste.</summary>
+    public bool LegacyPools { get; set; }
+    public (int Primary, int Secondary) PoolIndexes { get { lock (_lock) return (_primaryPool, _secondaryPool); } }
 
     public static bool IsSimAddress(string address) =>
         address.Equals(AddressPrefix, StringComparison.OrdinalIgnoreCase) ||
@@ -167,6 +176,7 @@ public sealed class SimulatedMinerClient : IMinerClient
         {
             RestartCount++;
             _bootTime = DateTime.Now;
+            UsingFallbackPool = false; // nach dem Neustart verbindet sich der Miner zuerst mit dem Haupt-Pool
         }
         return Task.CompletedTask;
     }
@@ -174,7 +184,24 @@ public sealed class SimulatedMinerClient : IMinerClient
     public async Task<string> GetRawInfoAsync(CancellationToken ct = default)
     {
         var node = System.Text.Json.JsonSerializer.SerializeToNode(SystemInfo.FromMinerInfo(await GetInfoAsync(ct)))!.AsObject();
-        lock (_lock) node["manualFanSpeed"] = _fanPercent; // wie AxeOS: eingestellter Wert, auch bei Automatik
+        lock (_lock)
+        {
+            node["manualFanSpeed"] = _fanPercent; // wie AxeOS: eingestellter Wert, auch bei Automatik
+            var (pu, pp, pus) = _pools[_primaryPool];
+            var (fu, fp, fus) = _pools[_secondaryPool];
+            node["stratumURL"] = pu; node["stratumPort"] = pp; node["stratumUser"] = pus;
+            node["fallbackStratumURL"] = fu; node["fallbackStratumPort"] = fp; node["fallbackStratumUser"] = fus;
+            node["isUsingFallbackStratum"] = UsingFallbackPool ? 1 : 0;
+            if (!LegacyPools)
+            {
+                node["primaryPoolIndex"] = _primaryPool;
+                node["secondaryPoolIndex"] = _secondaryPool;
+                node["pools"] = new System.Text.Json.Nodes.JsonArray(_pools.Select((p, i) => (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
+                {
+                    ["id"] = i, ["stratumURL"] = p.Url, ["stratumPort"] = p.Port, ["stratumUser"] = p.User, ["stratumPassword"] = "*****",
+                }).ToArray());
+            }
+        }
         return node.ToJsonString();
     }
 
@@ -186,6 +213,14 @@ public sealed class SimulatedMinerClient : IMinerClient
             if (values.TryGetValue("coreVoltage", out var v)) _voltage = Convert.ToInt32(v);
             if (values.TryGetValue("autofanspeed", out var a)) _autoFan = Convert.ToInt32(a);
             if (values.TryGetValue("manualFanSpeed", out var m)) _fanPercent = Convert.ToInt32(m);
+            if (values.TryGetValue("primaryPoolIndex", out var pi)) _primaryPool = Convert.ToInt32(pi);
+            if (values.TryGetValue("secondaryPoolIndex", out var si)) _secondaryPool = Convert.ToInt32(si);
+            if (values.TryGetValue("stratumURL", out var su))
+            {
+                // alte Firmware: Felder tauschen – im Simulator heißt das: Indizes tauschen, wenn die Adresse passt
+                var idx = _pools.FindIndex(p => p.Url == (string)su);
+                if (idx >= 0) { _secondaryPool = _primaryPool; _primaryPool = idx; }
+            }
         }
         return Task.CompletedTask;
     }

@@ -232,6 +232,36 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Pools_can_be_listed_previewed_and_switched_by_the_admin()
+    {
+        // 0.9.11: Pool-Umschaltung je Miner mit Vorschau alt → neu
+        var admin = await AdminAsync();
+        var id = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString();
+        var pools = await Json(await admin.GetAsync($"/api/v1/devices/{id}/pools"));
+        Assert.True(pools.GetProperty("indexed").GetBoolean());
+        var other = pools.GetProperty("pools").EnumerateArray().First(p => !p.GetProperty("active").GetBoolean());
+        var key = other.GetProperty("key").GetString();
+        var preview = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/preview", new { target = key }));
+        Assert.Contains("→ " + other.GetProperty("text").GetString(), preview.GetProperty("text").GetString());
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/switch", new { target = key }));
+        var after = await Json(await admin.GetAsync($"/api/v1/devices/{id}/pools"));
+        Assert.True(after.GetProperty("pools").EnumerateArray().First(p => p.GetProperty("key").GetString()!.EndsWith(key!.Split('|')[1])).GetProperty("active").GetBoolean());
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/switch", new { target = "home" }));   // zurück
+
+        var rule = new { enabled = true, returnHome = true, returnAfterMinutes = 30, entries = new[] { new { days = 127, fromHour = 1, toHour = 2 } } };
+        Assert.False((await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{id}/pools/rule", new { rule }))).GetProperty("approved").GetBoolean());
+        Assert.Contains("01–02", (await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/rule/approval-text", new { }))).GetProperty("text").GetString());
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/rule/approve", new { }));
+        Assert.True((await Json(await admin.GetAsync($"/api/v1/devices/{id}/pools"))).GetProperty("approved").GetBoolean());
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{id}/pools/rule", new { rule = new { enabled = false } }));
+
+        var kiosk = await Json(await admin.PostAsJsonAsync("/api/v1/kiosks", new { name = "Pooltest", groups = Array.Empty<string>() }));
+        var tablet = _factory.CreateClient();
+        await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
+        Assert.Equal(HttpStatusCode.Forbidden, (await tablet.GetAsync($"/api/v1/devices/{id}/pools")).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

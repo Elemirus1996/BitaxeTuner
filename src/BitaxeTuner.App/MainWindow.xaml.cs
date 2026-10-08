@@ -249,6 +249,9 @@ public partial class MainWindow : Window
     private void OnCopySettingsClick(object sender, RoutedEventArgs e) =>
         new CopySettingsWindow(Vm.Host) { Owner = this }.ShowDialog();
 
+    private void OnPoolSwitchClick(object sender, RoutedEventArgs e) =>
+        new Views.PoolSwitchWindow(Vm.Host, Vm.SelectedDevice?.Device) { Owner = this }.Show();
+
     private void OnReportClick(object sender, RoutedEventArgs e) =>
         new ReportWindow(Vm.Host) { Owner = this }.ShowDialog();
 

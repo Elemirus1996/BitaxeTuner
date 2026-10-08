@@ -15,6 +15,9 @@ public sealed class AppConfig
     /// <summary>0.9.7: Zeitplan/Strompreis-Regeln für Miner-Gruppen. Additiv.</summary>
     public List<GroupScheduleRule> GroupSchedules { get; set; } = [];
 
+    /// <summary>0.9.11: automatische Pool-Umschaltung für Miner-Gruppen. Additiv.</summary>
+    public List<GroupPoolRule> GroupPoolRules { get; set; } = [];
+
     /// <summary>0.9.8: Zeitzone für Haltefrist und Datumsangaben im Steuer-Bereich (Audit F5). Additiv.</summary>
     public string TaxTimeZone { get; set; } = Tax.TaxTime.DefaultZone;
 
@@ -304,6 +307,15 @@ public sealed class DeviceConfig
     /// <summary>Laufender Dauertest (übersteht einen Neustart der App); null = keiner.</summary>
     public SoakTestState? Soak { get; set; }
 
+    /// <summary>
+    /// 0.9.11: „Heimat-Pool“ (URL:Port) – der Pool, der vor der ersten Umschaltung durch BitaxeTuner Haupt-Pool war.
+    /// „Zurück zum Haupt-Pool“ schaltet hierhin. Leer = der aktuelle Haupt-Pool des Miners gilt.
+    /// </summary>
+    public string? HomePool { get; set; }
+
+    /// <summary>0.9.11: automatische Pool-Umschaltung (Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares).</summary>
+    public PoolSwitchRule PoolAuto { get; set; } = new();
+
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
     {
@@ -312,6 +324,7 @@ public sealed class DeviceConfig
         copy.Presets = Presets.Select(p => p with { }).ToList();
         copy.ThermalGuard = ThermalGuard.Clone();
         copy.Schedule = Schedule.Clone();
+        copy.PoolAuto = PoolAuto.Clone();
         copy.Soak = Soak is null ? null : Soak with { };
         return copy;
     }
@@ -707,6 +720,45 @@ public sealed class GroupScheduleRule
         "group:" + group.Trim().ToLowerInvariant() + "|" + string.Join(",", hosts.Select(h => h.Trim().ToLowerInvariant()).Order(StringComparer.Ordinal));
 
     public GroupScheduleRule Clone() => new() { Group = Group, Schedule = Schedule.Clone() };
+}
+
+/// <summary>
+/// 0.9.11: automatische Pool-Umschaltung zwischen Haupt- und Ersatz-Pool des Miners. Jede Umschaltung schreibt nur die
+/// Pool-Auswahl (bzw. bei alter Firmware die Pool-Felder) und startet den Miner neu; Frequenz/Spannung bleiben unberührt.
+/// </summary>
+public sealed class PoolSwitchRule : AutomationRule
+{
+    /// <summary>Zeitfenster, in denen der Ersatz-Pool genutzt wird (Preset-Feld bleibt leer); außerhalb → Haupt-Pool.</summary>
+    public List<ScheduleEntry> Entries { get; set; } = [];
+    /// <summary>Zurück zum Haupt-Pool, sobald er wieder erreichbar ist (nach <see cref="ReturnAfterMinutes"/>).</summary>
+    public bool ReturnHome { get; set; } = true;
+    public int ReturnAfterMinutes { get; set; } = 30;
+    /// <summary>Auf den Ersatz-Pool wechseln, wenn die Pool-Überwachung so lange zu viele Ablehnungen oder zu lange Antwortzeiten meldet.</summary>
+    public bool OnBadShares { get; set; }
+    public int BadMinutes { get; set; } = 15;
+
+    public override string Describe() => FormattableString.Invariant(
+        $"pool|{ReturnHome}|{ReturnAfterMinutes}|{OnBadShares}|{BadMinutes}|") +
+        string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour}")));
+
+    /// <summary>Soll nach Zeitplan gerade der Ersatz-Pool laufen?</summary>
+    public bool BackupScheduled(DateTime local) => Entries.Any(e => e.Matches(local));
+
+    public PoolSwitchRule Clone()
+    {
+        var copy = (PoolSwitchRule)MemberwiseClone();
+        copy.Entries = Entries.Select(e => e.Clone()).ToList();
+        return copy;
+    }
+}
+
+/// <summary>0.9.11: Pool-Automatik für alle Miner einer Gruppe. Eine eigene Regel eines Miners hat Vorrang.</summary>
+public sealed class GroupPoolRule
+{
+    public string Group { get; set; } = "";
+    public PoolSwitchRule Rule { get; set; } = new();
+
+    public GroupPoolRule Clone() => new() { Group = Group, Rule = Rule.Clone() };
 }
 
 public sealed class PriceSourceSettings
