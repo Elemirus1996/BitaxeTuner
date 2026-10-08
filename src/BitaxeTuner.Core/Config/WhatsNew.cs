@@ -135,6 +135,9 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.11", tr.T("Pico-Programm 8 mit Hardware-Watchdog"),
+                tr.T("Hängt das Programm auf dem Pico, startet er nach 8 Sekunden von selbst neu – die Lüfter laufen dabei mit 100 %. Der Lüfter-Notlauf endet erst wieder mit einem gültigen Befehl vom Server. Der Server spielt das Programm beim nächsten Verbinden automatisch auf (USB und WLAN)."),
+                null),
             new("0.9.11", tr.T("Übersicht selbst gestalten"),
                 server ? tr.T("Einstellungen → „Übersicht gestalten“: Panels wie beim Kiosk anordnen (Kennzahlen, Verlauf, Miner, Smart Plugs, Neuigkeiten, eigener Text …), jedes mit eigener Breite. Dazu die Reihenfolge der Miner – z. B. Gamma 1, 2, 3 –, die dann überall gilt.")
                        : tr.T("Die Reihenfolge der Miner lässt sich im Browser unter Einstellungen → „Übersicht gestalten“ festlegen und gilt dann auch hier in der App."),

@@ -83,6 +83,13 @@ Desktop-App, Browser-Oberfläche, Push-Meldungen, Tagesbericht, E-Paper-Anzeige 
   Strompreis-Regel für die ganze Gruppe; jeder Miner nutzt seine eigene Voreinstellung gleichen Namens (gegen sein Profil
   geprüft, fehlt sie → übersprungen). Eigene Regeln einzelner Miner haben Vorrang, der Temperaturschutz bleibt. Freigabe
   nötig – auch wieder, wenn ein Miner in die Gruppe kommt. Dazu *jetzt umschalten* mit Vorschau alt → neu je Miner.
+- **Pool umschalten** (ab 0.9.11, Gerät → *Automatik* bzw. Gruppen-Seite; Desktop *Pool …*): je Miner oder ganze Gruppe
+  mit Vorschau alt → neu, vorher Sicherung. Dazu die **Pool-Automatik** mit Freigabe: Ersatz-Pool nach Zeitplan, zurück
+  zum Haupt-Pool, sobald er wieder erreichbar ist, und Wechsel bei vielen abgelehnten Shares.
+- **Wartungsmodus je Miner** (ab 0.9.11, Haken oben auf der Geräteseite): Während du am Miner arbeitest, pausiert seine
+  Überwachung – keine Meldungen außer Blockfunden, kein Watchdog-Neustart, keine Automatik, keine Ausfallzeit in der
+  Statistik; endet auf Wunsch nach 1–24 Stunden von selbst.
+- **Reihenfolge der Miner** frei wählbar (ab 0.9.11, Einstellungen → *Übersicht gestalten*) – gilt überall.
 - **Dauertest für mehrere Miner** auf einmal, **Vergleich** aller Miner nebeneinander
   (inkl. aktueller **Pool-Difficulty**, sofern die Firmware sie meldet).
 - **Vergleichsbericht** zum Ausdrucken (Browser *Vergleich → Bericht …*, Desktop *Miner-Vergleich → Bericht …*): 1–6 Miner,
@@ -163,6 +170,9 @@ außerdem Stromkosten, Zuflüsse, Empfehlungen des Ratgebers, Best-Diff-Rekord, 
   eintragen; die MwSt. kommt automatisch dazu. Tibber liefert den Endpreis, Aufschlag 0. Stunden ohne Preis rechnen
   mit dem festen Strompreis.
 - Mit **Smart Plugs** zählt der Verbrauch an der Steckdose statt der AxeOS-Leistung (abschaltbar).
+- **Währung** (ab 0.9.11, Einstellungen → Allgemein): Euro, US-Dollar, Pfund, Franken, Kronen, Złoty … – Kurse,
+  Erträge, Kosten, Berichte, E-Paper und Steuer-Übersicht in dieser Währung, Strompreise in der passenden Untereinheit
+  (ct, ¢, p, Rp.). Euro-Kurse werden für das deutsche Steuerrecht weiter mit erfasst.
 
 ### Smart Plugs (Shelly)
 
@@ -331,6 +341,12 @@ stehen in der Bauanleitung
 Ohne Löten und ohne Steckbrett: die fertig bestückbare **Lüfterplatine** für den Pico 2 H mit Bestelldateien für JLCPCB
 liegt in [`hardware/lueftersteuerung-v1`](hardware/lueftersteuerung-v1/) (Prototyp v1.0, vor dem Dauerbetrieb durchmessen).
 
+**Ab 0.9.11:** Seite **Neuigkeiten** (Solo-Blockfunde, neue Firmware und Miner-Modelle, Difficulty-Anpassungen,
+BitaxeTuner-Versionen – gesammelt alle 6 Stunden von einer GitHub Action, der Server holt nur diese öffentliche Datei)
+und **mehrere Anzeigen**: bis zu acht weitere E-Paper mit eigenem Display-Pico, eigenen Seiten, eigenem Intervall und auf
+Wunsch nur für eine Miner-Gruppe. Das Pico-Programm 8 hat einen **Hardware-Watchdog**: hängt es, startet der Pico neu,
+die Lüfter laufen dabei mit 100 %.
+
 **Ohne Kabel zum Server (ab 0.9.7):** Mit einem Pico 2 WH laufen Lüftersteuerung und Anzeige über WLAN – als
 Lüfter-Pico auf der Platine und/oder als Display-Pico, der einfach auf das Waveshare-E-Paper gesteckt wird. Einmal per
 USB am Server unter *Lüfter & Anzeige → „… für WLAN einrichten“* vorbereiten, danach an ein eigenes Netzteil. Jede
@@ -437,6 +453,8 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
   **Kiosk-Designer:** mehrere Designs mit Farbvorlagen oder eigenen Farben, Schriftgröße, Animationen (Werte zählen hoch,
   Warnungen pulsieren, Einblenden, bewegter Hintergrund, Leuchten) und frei angeordneten Panels (Titel, Uhr, Kennzahlen,
   Warnungen, Miner, Verlauf, Lüfter, Fühler, eigener Text) per Ziehen und Ablegen – je Kiosk-Link ein eigenes Design.
+- **Übersicht gestalten** (ab 0.9.11, Einstellungen → *Übersicht gestalten*): Panels wie beim Kiosk anordnen
+  (Kennzahlen, Verlauf, Miner, Smart Plugs, Neuigkeiten, eigener Text …), jedes mit eigener Breite im 12er-Raster.
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
   (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
   die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.

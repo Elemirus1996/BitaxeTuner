@@ -86,6 +86,13 @@ Corrections to the English texts are welcome: they all live in
   rule for the whole group; each miner uses its own preset of the same name (checked against its profile, missing →
   skipped). A miner's own rule takes precedence, thermal protection stays. Approval required – again whenever a miner
   joins the group. Plus *switch now* with a preview old → new per miner.
+- **Switch pool** (from 0.9.11, device → *Automatic* or the group page; desktop *Pool …*): per miner or whole group
+  with a preview old → new, backup first. Plus **pool automation** with approval: backup pool by schedule, back to the
+  main pool as soon as it is reachable again, and switching on many rejected shares.
+- **Maintenance mode per miner** (from 0.9.11, checkbox at the top of the device page): while you work on the miner, its
+  monitoring pauses – no notifications except block finds, no watchdog restart, no automation, no downtime in the
+  statistics; optionally ends by itself after 1–24 hours.
+- **Order of the miners** freely selectable (from 0.9.11, Settings → *Design overview*) – applies everywhere.
 - **Soak test for several miners** at once, **compare** all miners side by side
   (including the current **pool difficulty** if the firmware reports it).
 - **Comparison report** to print (browser *Compare → Report …*, desktop *Miner comparison → Report …*): 1–6 miners,
@@ -160,6 +167,9 @@ leave out electricity cost, income, advisor recommendations, best diff record, t
 
 - **Electricity price** (ct/kWh) of your contract, either **gross (incl. VAT)** or **net (excl. VAT)** with VAT rate
   (default 19 %). Calculations always use the gross price.
+- **Currency** (from 0.9.11, Settings → General): euro, US dollar, pound, franc, krone, złoty … – prices, income, costs,
+  reports, e-paper and tax overview in that currency, electricity prices in the matching subunit (ct, ¢, p, Rp.). Euro
+  prices are still recorded for German tax law.
 - **Calculate electricity costs with hourly prices** (optional): cost hour by hour from energy × price of that hour.
   aWATTar provides the exchange price **net, without grid fees and taxes** – enter the **surcharge** for that
   (typically 15–25 ct/kWh); VAT is added automatically. Tibber provides the final price, surcharge 0. Hours without a
@@ -336,6 +346,11 @@ board and/or as display Pico simply plugged onto the Waveshare e-paper. Prepare 
 the WLAN password stays on the Pico only, the fail-safe (100 %) remains. Guide:
 [Pico via WLAN](https://elemirus1996.github.io/BitaxeTuner/en/pico-fans/#wlan).
 
+**From 0.9.11:** a **News** page (solo block finds, new firmware and miner models, difficulty adjustments, BitaxeTuner
+versions – collected every 6 hours by a GitHub Action; the server only fetches this public file) and **several displays**:
+up to eight further e-papers with their own display Pico, own pages, own interval and optionally only one miner group.
+Pico program 8 has a **hardware watchdog**: if it hangs, the Pico restarts and the fans run at 100 % meanwhile.
+
 ### Prometheus / Grafana
 
 *Settings → Prometheus / Grafana* (browser): enable the export and create a token (shown only once). The server then
@@ -434,6 +449,8 @@ You can switch in both directions at any time with all your data (see *Switching
   **Kiosk designer:** several designs with colour templates or own colours, font size, animations (values count up,
   warnings pulse, fade-in, moving background, glow) and freely arranged panels (title, clock, key figures, warnings,
   miners, history, fans, sensors, custom text) via drag and drop – each kiosk link can have its own design.
+- **Design overview** (from 0.9.11, Settings → *Design overview*): arrange panels like in the kiosk (key figures,
+  history, miners, smart plugs, news, custom text …), each with its own width in a 12-column grid.
 - **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
   (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
   interface and polls **no** miners itself. The token can be revoked at any time.
