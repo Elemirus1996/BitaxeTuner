@@ -497,31 +497,55 @@ function renderOverview() {
       t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? t(' · {0} U/min', d.fan.rpm) : '', d.fan.stalled ? t(' · steht!') : '')) : null,
     d.suggestion ? h('div', { class: 'small warn', style: 'margin-top:6px' }, t('Vorschlag offen: {0} MHz / {1} mV', d.suggestion.frequencyMhz, d.suggestion.coreVoltageMv)) : null));
 
-  mount(h('div', { class: 'stack' },
-    h('div', { class: 'tiles' },
-      tile(t('Hashrate gesamt'), hash(tv.hashrate), t('{0}/{1} Miner online', tv.online, tv.count), 'ok'),
-      tv.wallPower != null
-        ? tile(t('Leistung (Steckdose)'), t('{0} W', n(tv.wallPower, 1)),
-            t('AxeOS {0} W · Netzteil/Neben {1} W', n(tv.power, 1), n(tv.overhead, 1)) + (tv.costPerDay != null ? ' · ' + t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''))
-        : tile(t('Leistung'), t('{0} W', n(tv.power, 1)), tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''),
-      tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
-      tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
-      s.price ? tile(t('Strompreis'), cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source) : null),
+  // 0.9.11 Übersicht-Designer: Panels aus dem gespeicherten Aufbau (Standard = bisheriger Aufbau)
+  if (S.overviewLayout === undefined) {
+    S.overviewLayout = null;
+    api('/overview-layout').then(d => { S.overviewLayout = d.layout; if (S.route?.view === 'overview') renderOverview(); }).catch(() => {});
+  }
+  const layout = S.overviewLayout || OVERVIEW_DEFAULT;
+  const costText = tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : '';
+  const tiles = {
+    hashrate: () => tile(t('Hashrate gesamt'), hash(tv.hashrate), t('{0}/{1} Miner online', tv.online, tv.count), 'ok'),
+    power: () => tv.wallPower != null
+      ? tile(t('Leistung (Steckdose)'), t('{0} W', n(tv.wallPower, 1)), t('AxeOS {0} W · Netzteil/Neben {1} W', n(tv.power, 1), n(tv.overhead, 1)) + (costText ? ' · ' + costText : ''))
+      : tile(t('Leistung'), t('{0} W', n(tv.power, 1)), costText),
+    efficiency: () => tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
+    maxtemp: () => tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
+    price: () => s.price ? tile(t('Strompreis'), cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source) : null,
+    cost: () => tv.costPerDay != null ? tile(t('Stromkosten'), `${n(tv.costPerDay, 2)} ${tv.currency}`, t('pro Tag beim aktuellen Verbrauch')) : null,
+  };
+  let chartShown = false;
+  const panels = {
+    ...tiles,
+    kpis: () => h('div', { class: 'tiles' }, ['hashrate', 'power', 'efficiency', 'maxtemp', 'price'].map(k => tiles[k]())),
     // Ansicht-Zugang mit Gruppen: kein Gesamtverlauf über alle Miner (der Server liefert ihn dann nicht)
-    S.viewGroups?.length ? null : h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
+    chart: () => { if (S.viewGroups?.length) return null; chartShown = true; return h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)); },
+    miners: () => h('div', { class: 'stack' },
+      groupChips(s.groups, s.devices, renderOverview),
+      groupCard,
+      s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : '')),
+    plugs: () => s.plugs?.length ? plugOverviewCard(s.plugs) : null,
+    soak: () => isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
+    news: () => newsCard(true),
+    text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
+  };
+  const grid = h('div', { class: 'ov-grid' }, layout.panels.map(p => {
+    const content = panels[p.type]?.(p);
+    if (!content) return null;
+    return h('div', { class: 'ov-panel', style: `grid-column: span ${Math.min(12, Math.max(1, p.colSpan || 12))}` },
+      p.title && p.type !== 'news' ? h('h3', { class: 'ov-title' }, p.title) : null, content);
+  }));
+
+  mount(h('div', { class: 'stack' },
+    // Hinweise stehen immer oben – unabhängig vom Aufbau
     s.whatsNew ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
     httpsHintCard(),
-    groupChips(s.groups, s.devices, renderOverview),
-    groupCard,
-    s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : ''),
-    s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     isAdmin() && s.configSaveError ? h('div', { class: 'banner danger' },
       h('b', {}, t('Einstellungen konnten nicht gespeichert werden: {0}', s.configSaveError)),
       h('p', { class: 'small' }, t('Änderungen gehen beim nächsten Neustart verloren. Bitte Speicherplatz und Schreibrechte des Datenordners prüfen.'))) : null,
     isAdmin() && s.walletConsentNeeded ? walletConsentBanner() : null,
     isAdmin() && S.https && !S.https.enabled && S.https.configurable && localStorageGet('httpsHint') !== 'later' ? httpsBanner() : null,
-    isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
       h('a', { class: 'btn primary small', href: '#/settings' }, t('Zum Update'))) : null,
@@ -532,8 +556,81 @@ function renderOverview() {
           if (!await confirmBox(t('Motor fortsetzen'), t('Server-Abfragen wieder starten?\n\nLäuft die Desktop-App noch im Modus „Lokal“, würden die Miner doppelt abgefragt. Stelle sie vorher auf „Server“ um oder beende sie.'), t('Fortsetzen'))) return;
           run(() => api('/admin/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
         },
-      }, t('Fortsetzen …')) : null) : null));
-  if (!S.viewGroups?.length) drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+      }, t('Fortsetzen …')) : null) : null,
+    grid,
+    isAdmin() ? h('div', { class: 'row', style: 'justify-content:flex-end' }, h('a', { class: 'btn small ghost', href: '#/settings', onclick: () => { S.settingsJump = 'overview-design'; } }, t('Übersicht anpassen …'))) : null));
+  if (chartShown) drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+}
+
+/** Standardaufbau der Übersicht (wie OverviewLayouts.Default auf dem Server). */
+const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'miners', 'plugs', 'soak'].map(type => ({ type, colSpan: 12, title: '', text: '' })) };
+
+const OVERVIEW_TYPES = () => [['kpis', t('Kennzahlen-Reihe')], ['hashrate', t('Hashrate gesamt')], ['power', t('Leistung')], ['efficiency', t('Effizienz')],
+  ['maxtemp', t('Max. Temperatur')], ['price', t('Strompreis')], ['cost', t('Stromkosten')], ['chart', t('Verlauf (Hashrate)')], ['miners', t('Miner')],
+  ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')]];
+
+/** 0.9.11 Übersicht-Designer: Panels anordnen (Breite im 12er-Raster), dazu die Reihenfolge der Miner. */
+function overviewDesignCard(devices) {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  let panels = [];
+  const label = Object.fromEntries(OVERVIEW_TYPES());
+  const widths = [[3, '¼'], [4, '⅓'], [6, '½'], [8, '⅔'], [9, '¾'], [12, t('ganze Breite')]];
+  const list = h('div', { class: 'stack' });
+  const move = (arr, i, d, draw) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; draw(); };
+  const drawPanels = () => fill(list, panels.length ? panels.map((p, i) => h('div', { class: 'row', style: 'gap:8px;align-items:center' },
+    h('b', { style: 'min-width:160px' }, label[p.type] || p.type),
+    (() => { const w = h('select', { style: 'width:auto', onchange: e => { p.colSpan = Number(e.target.value); } }, widths.map(([v, l]) => h('option', { value: v }, l))); w.value = String(widths.some(x => x[0] === p.colSpan) ? p.colSpan : 12); return w; })(),
+    p.type === 'text'
+      ? h('input', { value: p.text || '', placeholder: t('Text'), maxlength: 500, style: 'flex:2 1 200px', oninput: e => { p.text = e.target.value; } })
+      : h('input', { value: p.title || '', placeholder: t('Überschrift (optional)'), maxlength: 60, style: 'flex:1 1 160px', oninput: e => { p.title = e.target.value; } }),
+    h('button', { class: 'btn small', title: t('nach oben'), onclick: () => move(panels, i, -1, drawPanels) }, '↑'),
+    h('button', { class: 'btn small', title: t('nach unten'), onclick: () => move(panels, i, 1, drawPanels) }, '↓'),
+    h('button', { class: 'btn small', title: t('Entfernen'), onclick: () => { panels.splice(i, 1); drawPanels(); } }, '✕')))
+    : h('p', { class: 'muted' }, t('Keine Panels – die Übersicht zeigt dann nur Hinweise.')));
+  const addSel = h('select', { style: 'width:auto' }, OVERVIEW_TYPES().map(([v, l]) => h('option', { value: v }, l)));
+  const save = async (reset) => {
+    const r = await run(() => api('/overview-layout', { method: 'PUT', body: reset ? { reset: true } : { panels } }),
+      reset ? t('Übersicht auf den Standardaufbau zurückgesetzt.') : t('Aufbau der Übersicht gespeichert.'));
+    if (!r) return;
+    S.overviewLayout = r.layout;
+    panels = structuredClone(r.layout.panels);
+    drawPanels();
+  };
+
+  // Reihenfolge der Miner
+  const order = devices.map(d => ({ id: d.id, name: d.name }));
+  const orderList = h('div', { class: 'stack' });
+  const drawOrder = () => fill(orderList, order.map((d, i) => h('div', { class: 'row', style: 'gap:8px;align-items:center' },
+    h('span', { class: 'muted', style: 'min-width:24px;text-align:right' }, `${i + 1}.`), h('b', { style: 'min-width:160px' }, d.name),
+    h('button', { class: 'btn small', title: t('nach oben'), onclick: () => move(order, i, -1, drawOrder) }, '↑'),
+    h('button', { class: 'btn small', title: t('nach unten'), onclick: () => move(order, i, 1, drawOrder) }, '↓'))));
+  const sortByName = () => { order.sort((a, b) => a.name.localeCompare(b.name, LOCALE, { numeric: true })); drawOrder(); };
+
+  api('/overview-layout').then(d => {
+    panels = structuredClone(d.layout.panels);
+    drawPanels();
+    drawOrder();
+    fill(box,
+      h('p', { class: 'muted small' }, t('Wie beim Kiosk: Panels in der gewünschten Reihenfolge, jedes mit eigener Breite (12er-Raster; auf dem Handy volle Breite). Hinweise wie Updates oder Fehler stehen immer darüber. Gilt für alle Browser.')),
+      list,
+      h('div', { class: 'row' }, addSel, h('button', { class: 'btn small', onclick: () => {
+        const type = addSel.value;
+        panels.push({ type, colSpan: ['kpis', 'chart', 'miners', 'plugs', 'soak', 'news', 'text'].includes(type) ? 12 : 3, title: '', text: '' });
+        drawPanels();
+      } }, t('Panel hinzufügen'))),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: () => save(false) }, t('Aufbau speichern')),
+        h('button', { class: 'btn', onclick: () => save(true) }, t('Standard wiederherstellen'))),
+      h('h3', {}, t('Reihenfolge der Miner')),
+      h('p', { class: 'muted small' }, t('Gilt überall: Übersicht, E-Paper, Kiosk, Vergleich, Berichte und Desktop-App.')),
+      orderList,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small', onclick: sortByName }, t('Nach Namen sortieren (1, 2, 3 …)')),
+        h('button', { class: 'btn primary', onclick: async () => {
+          if (await run(() => api('/devices/order', { method: 'PUT', body: { ids: order.map(d => d.id) } }), t('Reihenfolge gespeichert.'))) renderSettings();
+        } }, t('Reihenfolge speichern'))));
+  }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
+  return h('div', { class: 'card stack', id: 'overview-design' }, h('h2', {}, t('Übersicht gestalten')), box);
 }
 
 /** Monats- und Jahresberichte: Zusammenfassung, druckbare Seite (PDF über „Drucken“), CSV, Push. */
@@ -2809,6 +2906,7 @@ async function renderSettings() {
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), devName), h('div', {}, h('label', {}, t('Adresse')), devHost),
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
     copyCard,
+    overviewDesignCard(status.devices),
     h('div', { class: 'card stack' }, h('h2', {}, t('Allgemein')),
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: async () => {
         if (await run(() => api('/onboarding', { method: 'POST', body: { show: true } }))) toast(t('„Erste Schritte“ steht wieder in der Übersicht.'), 'ok', 8000);
@@ -2822,7 +2920,7 @@ async function renderSettings() {
         h('div', {}, h('label', {}, t('Preis ist')), (() => { const el = h('select', { onchange: e => { s.electricityPriceIsNet = e.target.value === 'net'; } },
           h('option', { value: 'gross' }, t('brutto (inkl. MwSt.)')), h('option', { value: 'net' }, t('netto (zzgl. MwSt.)'))); el.value = s.electricityPriceIsNet ? 'net' : 'gross'; return el; })()),
         h('div', {}, h('label', {}, t('MwSt. (%)')), text(s, 'vatPercent', 'number')),
-        h('div', {}, h('label', {}, t('Währung (für alles)')), selectInput(s, 'currencyCode', (s.currencyOptions || [{ code: 'EUR', name: 'Euro', symbol: '€' }]).map(c => [c.code, `${c.name} (${c.symbol})`]))),
+        h('div', {}, h('label', {}, t('Währung (für alles)')), selectInput(s, 'currencyCode', (s.currencyOptions || [{ code: 'EUR', name: 'Euro', symbol: '€' }]).map(c => [c.code, `${t(c.name)} (${c.symbol})`]))),
         h('div', {}, h('label', {}, t('Warnung ab ASIC (°C)')), text(s, 'tempWarn', 'number')),
         h('div', {}, h('label', {}, t('Wallets prüfen alle (min)')), text(s, 'walletPollMinutes', 'number')),
         h('div', {}, h('label', {}, t('Steuer-Erfassung alle (min)')), text(s, 'taxPollMinutes', 'number'))),
@@ -2885,6 +2983,7 @@ async function renderSettings() {
       h('b', {}, t('ohne jede Gewähr')), t('. Quelltext, Lizenz und Hinweise zu enthaltenen Komponenten: '),
       h('a', { href: 'https://github.com/Elemirus1996/BitaxeTuner', target: '_blank', rel: 'noopener' }, 'github.com/Elemirus1996/BitaxeTuner'), '.')));
   addToc();
+  if (S.settingsJump) { const id = S.settingsJump; S.settingsJump = null; setTimeout(() => jumpTo(id), 50); }
   if (S.settingsSection) { jumpTo(S.settingsSection); S.settingsSection = null; }
 }
 
@@ -3019,12 +3118,13 @@ function newsKindsInput(s) {
 }
 
 /** Neuigkeiten als Liste (Hilfe-Seite): neueste zuerst, mit Link zur Quelle. */
-function newsCard() {
+function newsCard(compact) {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
-  api(`/news?lang=${LANG}`).then(d => {
+  const cached = S.newsCache && Date.now() - S.newsCache.at < 10 * 60 * 1000 && S.newsCache.lang === LANG ? Promise.resolve(S.newsCache.data) : null;
+  (cached || api(`/news?lang=${LANG}`).then(d => { S.newsCache = { at: Date.now(), lang: LANG, data: d }; return d; })).then(d => {
     const label = Object.fromEntries(NEWS_KINDS());
     fill(body, d.items.length
-      ? h('ul', { class: 'news' }, d.items.slice(0, 12).map(i => h('li', {},
+      ? h('ul', { class: 'news' }, d.items.slice(0, compact ? 6 : 12).map(i => h('li', {},
           h('span', { class: `pill ${i.kind === 'solo' || i.kind === 'miner' ? '' : 'gray'}` }, label[i.kind] || i.kind), ' ',
           h('span', { class: 'muted small' }, new Date(i.date).toLocaleDateString(LOCALE)), ' ',
           i.url ? h('a', { href: i.url, target: '_blank', rel: 'noopener' }, i.title) : h('b', {}, i.title),

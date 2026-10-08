@@ -135,6 +135,10 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.11", tr.T("Übersicht selbst gestalten"),
+                server ? tr.T("Einstellungen → „Übersicht gestalten“: Panels wie beim Kiosk anordnen (Kennzahlen, Verlauf, Miner, Smart Plugs, Neuigkeiten, eigener Text …), jedes mit eigener Breite. Dazu die Reihenfolge der Miner – z. B. Gamma 1, 2, 3 –, die dann überall gilt.")
+                       : tr.T("Die Reihenfolge der Miner lässt sich im Browser unter Einstellungen → „Übersicht gestalten“ festlegen und gilt dann auch hier in der App."),
+                null),
             new("0.9.11", tr.T("Mehrere E-Paper-Anzeigen"),
                 tr.T("Unter Lüfter & Anzeige → „Weitere Anzeigen“ bis zu acht zusätzliche E-Paper anlegen: jede mit eigenem Display-Pico (am besten per WLAN), eigenen Seiten, eigenem Intervall und auf Wunsch nur für eine Miner-Gruppe. Taste 1 blättert auf der eigenen Anzeige, Blockfunde und Warnungen erscheinen überall."),
                 null),

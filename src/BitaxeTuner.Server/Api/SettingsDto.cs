@@ -60,7 +60,7 @@ public sealed class SettingsDto
         VatPercent = c.VatPercent,
         Currency = c.Currency,
         CurrencyCode = Currencies.Of(c).Code,
-        CurrencyOptions = Currencies.All.Select(x => new CurrencyOption(x.Code, L.T(x.Name), x.Symbol, x.Cent)).ToList(),
+        CurrencyOptions = Currencies.All.Select(x => new CurrencyOption(x.Code, x.Name, x.Symbol, x.Cent)).ToList(),
         TempWarn = c.TempWarn,
         RestartAfterApply = c.RestartAfterApply,
         CheckForUpdates = c.CheckForUpdates,

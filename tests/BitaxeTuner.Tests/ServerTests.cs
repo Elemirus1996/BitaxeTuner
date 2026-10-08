@@ -315,6 +315,33 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Overview_layout_and_miner_order_can_be_designed_by_the_admin()
+    {
+        // 0.9.11 Übersicht-Designer
+        var admin = await AdminAsync();
+        var start = await Json(await admin.GetAsync("/api/v1/overview-layout"));
+        Assert.False(start.GetProperty("custom").GetBoolean());
+        Assert.Equal("kpis", start.GetProperty("layout").GetProperty("panels")[0].GetProperty("type").GetString());
+
+        var panels = new object[] { new { type = "hashrate", colSpan = 3 }, new { type = "text", colSpan = 99, text = "Hallo" }, new { type = "miners", colSpan = 12 } };
+        var saved = await Json(await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels }));
+        Assert.True(saved.GetProperty("custom").GetBoolean());
+        Assert.Equal(12, saved.GetProperty("layout").GetProperty("panels")[1].GetProperty("colSpan").GetInt32());   // begrenzt
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels = new[] { new { type = "script" } } })).StatusCode);
+        Assert.False((await Json(await admin.PutAsJsonAsync("/api/v1/overview-layout", new { reset = true }))).GetProperty("custom").GetBoolean());
+
+        var ids = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices").EnumerateArray().Select(d => d.GetProperty("id").GetString()).ToList();
+        if (ids.Count > 1)
+        {
+            var reversed = Enumerable.Reverse(ids).ToList();
+            var order = await Json(await admin.PutAsJsonAsync("/api/v1/devices/order", new { ids = reversed }));
+            Assert.Equal(reversed, order.GetProperty("order").EnumerateArray().Select(x => x.GetString()));
+            await Json(await admin.PutAsJsonAsync("/api/v1/devices/order", new { ids }));
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/devices/order", new { ids = new[] { "unbekannt" } })).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

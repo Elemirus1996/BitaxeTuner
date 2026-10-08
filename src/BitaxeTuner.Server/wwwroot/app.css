@@ -313,3 +313,10 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 /* 0.9.11: Chip-Temperaturen (Mehrchip-Boards) */
 .tile .chips { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; font-weight: 600; margin: 4px 0; }
 .tile .chips .hot { color: var(--danger); }
+
+/* 0.9.11 Übersicht-Designer: Panels im 12er-Raster, auf dem Handy volle Breite */
+.ov-grid { display: grid; gap: var(--gap); grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+.ov-panel { min-width: 0; }
+.ov-panel > .tile { height: 100%; }
+.ov-title { margin: 0 0 6px; font-size: 15px; }
+@media (max-width: 700px) { .ov-grid > .ov-panel { grid-column: 1 / -1 !important; } }

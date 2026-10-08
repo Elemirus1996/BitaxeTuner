@@ -147,6 +147,9 @@ public sealed class AppConfig
     /// <summary>0.9.11: weitere Anzeigen mit eigenem Display-Pico (eigene Seiten je Anzeige). Additiv.</summary>
     public List<ExtraDisplayConfig> ExtraDisplays { get; set; } = [];
 
+    /// <summary>0.9.11: Aufbau der Übersicht im Browser (Übersicht-Designer); null = Standardaufbau. Additiv.</summary>
+    public OverviewLayout? OverviewLayout { get; set; }
+
     /// <summary>Tägliche Sicherung (Datenordner, Ordner/USB, Netzlaufwerk).</summary>
     public BackupSettings Backup { get; set; } = new();
 

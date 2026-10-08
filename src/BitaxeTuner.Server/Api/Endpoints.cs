@@ -60,6 +60,7 @@ public static class Endpoints
         MapViewer(viewer);
         KioskEndpoints.MapViewer(viewer);
         ExtraDisplayEndpoints.MapViewer(viewer);
+        OverviewEndpoints.MapViewer(viewer);
 
         var admin = api.MapGroup("").AddEndpointFilter(Require(Role.Admin));
         MapDevices(admin);
@@ -1092,6 +1093,7 @@ public static class Endpoints
         })));
 
         ExtraDisplayEndpoints.MapAdmin(g);
+        OverviewEndpoints.MapAdmin(g);
 
         g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
