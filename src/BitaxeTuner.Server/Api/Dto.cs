@@ -149,6 +149,9 @@ public static class Dto
             online = s.Online,
             error = s.Online ? null : s.Error,
             maintenance = d.Connection.InMaintenance,
+            maintenanceMode = d.Config.MaintenanceMode,                 // 0.9.11: von Hand, Überwachung pausiert
+            maintenanceText = MinerHub.MaintenanceText(d.Config),
+            maintenanceUntil = d.Config is { MaintenanceMode: true, MaintenanceUntil: { } mu } ? new DateTimeOffset(mu) : (DateTimeOffset?)null,
             simulated = d.IsSimulated,
             model = n?.DeviceModel ?? n?.AsicModel,
             firmware = i?.version,

@@ -478,6 +478,7 @@ function renderOverview() {
       d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
       d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
+      d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
       webUiIcon(d),
       poolLinkIcon(d)),
     d.online
@@ -489,7 +490,7 @@ function renderOverview() {
           h('div', {}, h('span', {}, t('Effizienz')), d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–'),
           h('div', {}, h('span', {}, t('Takt')), t('{0} MHz / {1} mV', d.frequency ?? '–', d.voltage ?? '–')),
           h('div', {}, h('span', {}, t('Laufzeit')), dur(d.uptimeSeconds)))
-      : h('div', { class: d.maintenance ? 'warn' : 'danger' }, d.maintenance ? t('Neustart/Tuning …') : (d.error || 'offline')),
+      : h('div', { class: d.maintenance ? 'warn' : 'danger' }, d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart/Tuning …')) : (d.error || 'offline')),
     d.automation ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
     d.benchmark?.running ? h('div', { class: 'progress', style: 'margin-top:8px' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
     d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}`, style: 'margin-top:6px' },
@@ -1153,6 +1154,7 @@ function renderDevice() {
       h('h2', {}, d.name),
       h('span', { class: 'muted' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · ')),
       h('span', { class: 'spacer' }),
+      isAdmin() ? maintenanceToggle(d) : d.maintenanceMode ? h('span', { class: 'pill gray' }, '🔧 ' + maintText(d)) : null,
       d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
       h('span', { class: 'pill' }, S.detail.profile.name)),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
@@ -1164,6 +1166,40 @@ function renderDevice() {
       onclick: e => { if (S.route.tab === 'automation' && e.target.closest('button')) markTabDirty(); },
     })));
   refreshDeviceTab();
+}
+
+/** „Wartung“ bzw. „Wartung bis …“ in der Sprache des Browsers. */
+function maintText(d) {
+  return d.maintenanceUntil ? t('Wartung bis {0}', new Date(d.maintenanceUntil).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })) : t('Wartung');
+}
+
+/** 0.9.11 Wartungsmodus: Haken je Miner – Überwachung pausieren, während am Miner gearbeitet wird. */
+function maintenanceToggle(d) {
+  const box = h('input', { type: 'checkbox', checked: !!d.maintenanceMode });
+  box.addEventListener('change', async () => {
+    const on = box.checked;
+    box.checked = !on;                                   // erst nach Bestätigung bzw. Antwort umschalten
+    let hours = null;
+    if (on) {
+      const dur = h('select', {}, [[0, t('bis ich ihn ausschalte')], [1, t('1 Stunde')], [2, t('2 Stunden')], [4, t('4 Stunden')], [8, t('8 Stunden')], [24, t('24 Stunden')]]
+        .map(([v, l]) => h('option', { value: v }, l)));
+      const body = h('div', { class: 'stack' },
+        h('p', {}, t('Während des Wartungsmodus pausiert die Überwachung von {0}:', d.name)),
+        h('ul', { class: 'small' },
+          h('li', {}, t('keine Meldungen (offline, Temperatur, Pool, Gesundheit) – Blockfunde werden weiter gemeldet')),
+          h('li', {}, t('kein Watchdog-Neustart, keine Automatik, Pool-Umschaltung oder Temperatur-Absenkung')),
+          h('li', {}, t('die Zeit zählt nicht als Ausfall in Verfügbarkeit und Berichten'))),
+        h('p', { class: 'muted small' }, t('Werte werden weiter abgefragt und angezeigt. Der Überhitzungsschutz der Miner-Firmware bleibt aktiv.')),
+        h('div', {}, h('label', {}, t('Wartungsmodus endet')), dur));
+      if (!await confirmBox(t('Wartungsmodus für {0}', d.name), body, t('Einschalten'))) return;
+      hours = Number(dur.value);
+    }
+    const r = await run(() => api(`/devices/${d.id}/maintenance`, { method: 'POST', body: { on, hours } }),
+      on ? t('Wartungsmodus an – Überwachung pausiert.') : t('Wartungsmodus aus – Überwachung läuft wieder.'));
+    if (r) { box.checked = on; d.maintenanceMode = on; d.maintenanceUntil = on ? r.until : null; label.textContent = on ? '🔧 ' + maintText(d) : t('Wartungsmodus'); }
+  });
+  const label = h('span', {}, d.maintenanceMode ? '🔧 ' + maintText(d) : t('Wartungsmodus'));
+  return h('label', { class: 'row', style: 'gap:6px;cursor:pointer', title: t('Überwachung pausieren, während am Miner gearbeitet wird') }, box, label);
 }
 
 /**
@@ -1347,7 +1383,7 @@ function liveTiles(d) {
     tile(t('Shares'), d.sharesAccepted ?? '–', [d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : '',
       d.poolDifficulty ? t('Pool-Diff {0}', diffText(d.poolDifficulty)) : ''].filter(Boolean).join(' · ')),
     tile(t('Laufzeit'), dur(d.uptimeSeconds), d.bestDiff ? t('Best {0}', d.bestDiff) : ''),
-    tile(t('Status'), d.online ? 'online' : d.maintenance ? t('Neustart …') : 'offline', d.pool || d.error || '', d.online ? 'ok' : 'warn'),
+    tile(t('Status'), d.online ? 'online' : d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart …')) : 'offline', d.maintenanceMode ? t('Überwachung pausiert') : (d.pool || d.error || ''), d.online ? 'ok' : 'warn'),
     d.fan ? tile(t('VR-Lüfter K{0}', d.fan.channel), `${d.fan.percent} %`, d.fan.stalled ? t('Lüfter steht!') : d.fan.rpm != null ? t('{0} U/min', d.fan.rpm) : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,
   ].filter(Boolean);
 }

@@ -134,6 +134,25 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
 
     public bool IsIdle => !IsRunning;
     public string Title => _device.Title;
+
+    /// <summary>0.9.11 Wartungsmodus: Überwachung des Miners pausieren, während an ihm gearbeitet wird.</summary>
+    public bool MaintenanceMode
+    {
+        get => _device.Config.MaintenanceMode;
+        set
+        {
+            if (value != _device.Config.MaintenanceMode)
+            {
+                if (!value) _hub.SetMaintenanceMode(_device, false, null, L.T("Desktop"));
+                else if (Views.MaintenanceDialog.Ask(System.Windows.Application.Current?.MainWindow, Title) is { } hours)
+                    _hub.SetMaintenanceMode(_device, true, hours, L.T("Desktop"));
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MaintenanceText));
+        }
+    }
+
+    public string MaintenanceText => MinerHub.MaintenanceText(_device.Config) is { } text ? "🔧 " + text : L.T("Wartungsmodus");
     public string Subtitle => Info is null ? Address
         : $"{Address} · {Info.DeviceModel ?? Info.AsicModel} · {MinerHub.FirmwareName(Info.Firmware)} {Info.FirmwareVersion}";
     public string? ProfileNotes => Profile?.Notes;
@@ -200,6 +219,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         if (!ReferenceEquals(device, _device)) return;
         Ui(() =>
         {
+            OnPropertyChanged(nameof(MaintenanceMode));   // z. B. Ablauf der Wartungszeit
+            OnPropertyChanged(nameof(MaintenanceText));
             AutomationStatus = AutomationText(device.AutomationStatus);
             SoakStatus = device.SoakStatus;
             OnPropertyChanged(nameof(SoakActive));

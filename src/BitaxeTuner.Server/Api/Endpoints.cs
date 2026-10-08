@@ -552,6 +552,14 @@ public static class Endpoints
             return new { ok = true };
         })));
 
+        // 0.9.11 Wartungsmodus: Überwachung des Miners pausieren, während an ihm gearbeitet wird
+        g.MapPost("/devices/{id}/maintenance", async (string id, MaintenanceRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var d = Device(h, id);
+            h.SetMaintenanceMode(d, req.On, req.Hours, L.T("Browser"));
+            return new { ok = true, text = MinerHub.MaintenanceText(d.Config), until = d.Config.MaintenanceUntil is { } mu ? new DateTimeOffset(mu) : (DateTimeOffset?)null };
+        })));
+
         g.MapPost("/devices/{id}/restart", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var d = Device(h, id);
@@ -1230,3 +1238,6 @@ public static class Endpoints
         });
     }
 }
+
+/// <summary>0.9.11: Wartungsmodus an/aus; Hours &gt; 0 = endet danach von selbst.</summary>
+public sealed record MaintenanceRequest(bool On, double? Hours);

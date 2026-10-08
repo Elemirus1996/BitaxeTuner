@@ -12,6 +12,7 @@ public sealed class MaintenanceTracker
     private readonly object _lock = new();
     private readonly Dictionary<string, int> _open = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _until = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _manual = new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<DateTime> _now;
 
     public MaintenanceTracker(Func<DateTime>? utcNow = null) => _now = utcNow ?? (() => DateTime.UtcNow);
@@ -33,11 +34,25 @@ public sealed class MaintenanceTracker
         }
     }
 
+    /// <summary>0.9.11: Wartungsmodus von Hand (Einstellung des Miners) – gilt, bis er wieder ausgeschaltet wird.</summary>
+    public void SetManual(string host, bool on)
+    {
+        lock (_lock)
+        {
+            if (on) _manual.Add(host); else _manual.Remove(host);
+        }
+    }
+
+    public bool IsManual(string host)
+    {
+        lock (_lock) return _manual.Contains(host);
+    }
+
     public bool IsActive(string host)
     {
         lock (_lock)
         {
-            if (_open.GetValueOrDefault(host) > 0) return true;
+            if (_manual.Contains(host) || _open.GetValueOrDefault(host) > 0) return true;
             return _until.TryGetValue(host, out var until) && until > _now();
         }
     }

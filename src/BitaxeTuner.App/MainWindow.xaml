@@ -129,6 +129,8 @@
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <CheckBox IsChecked="{Binding MaintenanceMode}" Content="{Binding MaintenanceText}" VerticalAlignment="Center" Margin="0,0,16,0"
+                                      ToolTip="{l:T 'Wartungsmodus: Überwachung pausieren, während am Miner gearbeitet wird – keine Meldungen außer Blockfunden, kein Watchdog-Neustart, keine Automatik, keine Ausfallzeit in der Statistik.'}" />
                             <TextBlock Text="{l:T 'Profil:'}" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <ComboBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding Profile}" Width="260"
                                       DisplayMemberPath="Name" IsEnabled="{Binding IsIdle}" Margin="0,0,8,0" VerticalContentAlignment="Center" />

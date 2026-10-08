@@ -43,6 +43,9 @@ public sealed class NotificationService : IDisposable
 
     /// <summary>Gruppen eines Miners (vom Hub gesetzt) – für Push-Ziele mit Gruppenauswahl.</summary>
     public Func<string, IReadOnlyCollection<string>>? GroupsOf { get; set; }
+
+    /// <summary>0.9.11: Miner im Wartungsmodus (vom Hub gesetzt) – keine Meldungen zu ihm außer Blockfunden.</summary>
+    public Func<string, bool>? Muted { get; set; }
     /// <summary>Für Tests: Ziel-ID, Schlüssel und tatsächlich gesendeter Text.</summary>
     internal event Action<string, string, string>? Delivered;
 
@@ -82,6 +85,7 @@ public sealed class NotificationService : IDisposable
                                 NotifyPriority priority = NotifyPriority.Normal, TimeSpan? cooldown = null,
                                 NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
+        if (host is not null && category != NotifyCategory.Finds && Muted?.Invoke(host) == true) return SendOutcome.NoTarget;
         var accepting = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host, GroupsOf)).ToList();
         if (accepting.Count == 0) return SendOutcome.NoTarget;
 

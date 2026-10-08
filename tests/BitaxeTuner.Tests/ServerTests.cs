@@ -262,6 +262,23 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Maintenance_mode_is_switched_by_the_admin_and_shown_in_the_status()
+    {
+        // 0.9.11: Wartungsmodus je Miner
+        var admin = await AdminAsync();
+        var id = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString();
+        var on = await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/maintenance", new { on = true, hours = 4 }));
+        Assert.StartsWith("Wartung bis", on.GetProperty("text").GetString());
+        var dev = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices").EnumerateArray().First(d => d.GetProperty("id").GetString() == id);
+        Assert.True(dev.GetProperty("maintenanceMode").GetBoolean());
+        Assert.True(dev.GetProperty("maintenance").GetBoolean());
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync($"/api/v1/devices/{id}/maintenance", new { on = true, hours = 9999 })).StatusCode);
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/maintenance", new { on = false }));
+        dev = (await Json(await admin.GetAsync("/api/v1/status"))).GetProperty("devices").EnumerateArray().First(d => d.GetProperty("id").GetString() == id);
+        Assert.False(dev.GetProperty("maintenanceMode").GetBoolean());
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();

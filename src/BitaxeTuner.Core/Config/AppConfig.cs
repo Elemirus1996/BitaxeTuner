@@ -298,6 +298,18 @@ public sealed class DeviceConfig
     /// </summary>
     public bool LogArchive { get; set; }
 
+    /// <summary>
+    /// 0.9.11 Wartungsmodus: Am Miner wird gearbeitet – keine Meldungen (außer Blockfunden), kein Watchdog-Neustart,
+    /// keine Automatik, Ausfallzeit zählt nicht in die Verfügbarkeit. Additiv, standardmäßig aus.
+    /// </summary>
+    public bool MaintenanceMode { get; set; }
+
+    /// <summary>Beginn des Wartungsmodus (Ortszeit).</summary>
+    public DateTime? MaintenanceSince { get; set; }
+
+    /// <summary>Wartungsmodus endet automatisch zu diesem Zeitpunkt (Ortszeit); null = erst von Hand.</summary>
+    public DateTime? MaintenanceUntil { get; set; }
+
     /// <summary>Benannte Einstellungen (z. B. "Hashrate", "Effizienz") für Zeitplan und Strompreis-Regel.</summary>
     public List<TuningPreset> Presets { get; set; } = [];
 

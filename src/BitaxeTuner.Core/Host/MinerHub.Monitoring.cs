@@ -133,6 +133,7 @@ public sealed partial class MinerHub
 
     private void AfterPoll(DateTime now)
     {
+        TickMaintenanceMode(now);
         foreach (var device in Devices)
         {
             if (device.State.Online && device.State.Normalized is { } info && !device.ProfileResolved)
@@ -197,7 +198,7 @@ public sealed partial class MinerHub
                 history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
                 if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
             }
-            else history.AddSample(host, now, 0, 0, 0, false);
+            else if (!Maintenance.IsManual(host)) history.AddSample(host, now, 0, 0, 0, false);   // Wartungsmodus: kein Ausfall
         }
 
         if ((now - _lastAggWrite).TotalSeconds >= 60 && States.Count > 0)

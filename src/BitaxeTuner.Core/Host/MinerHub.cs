@@ -83,7 +83,7 @@ public sealed partial class MinerHub : IDisposable
         if (explicitDir is not null) config.FilePath ??= Path.Combine(explicitDir, "config.json");
         _tuningDirectory = Path.Combine(DataDirectory, "tuning");
 
-        Maintenance = new MaintenanceTracker();
+        Maintenance = new MaintenanceTracker(options.Clock is { } clock ? () => clock().ToUniversalTime() : null);
         Profiles = ProfileRegistry.Load(_tuningDirectory);
         Results = new ResultStore(_tuningDirectory);
         var factory = options.ClientFactory ?? (host => MinerClientFactory.Create(host, Profiles));
@@ -113,6 +113,7 @@ public sealed partial class MinerHub : IDisposable
         Notify = new NotificationService(() => Config.Notifications)
         {
             GroupsOf = GroupsOfHost,
+            Muted = host => Maintenance.IsManual(host),
             QueueFile = Path.Combine(DataDirectory, "push-queue.json"),
         };
         config.SaveFailed += OnConfigSaveFailed;
@@ -264,6 +265,7 @@ public sealed partial class MinerHub : IDisposable
             InitDevice(device);
         }
 
+        foreach (var d in _devices.Values) Maintenance.SetManual(d.Host, d.Config.MaintenanceMode);   // 0.9.11
         if (!_paused) SyncLogAlerts();
         DevicesChanged?.Invoke();
     }
