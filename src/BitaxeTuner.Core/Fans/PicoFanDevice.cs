@@ -101,7 +101,7 @@ public sealed class PicoUpdatedException(string message) : IOException(message);
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "8";
+    public const string FirmwareVersion = "8.1";
     public const string RoleFans = "fans";
     public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;
@@ -400,7 +400,8 @@ public sealed class PicoFanDevice : IFanDevice
             if (line is null) break;
             line = line.Trim();
             if (line.StartsWith(prefix, StringComparison.Ordinal)) return line;
-            if (line.StartsWith("BTN ", StringComparison.Ordinal) || line == "EPD DONE")
+            if (line.StartsWith("BTN ", StringComparison.Ordinal) || line.StartsWith("EPD DONE", StringComparison.Ordinal)
+                || line.StartsWith("INFO ", StringComparison.Ordinal))   // 8.1: EPD DONE mit Angaben, INFO = Neustart-Grund/Fehler
             {
                 lock (_events) _events.Add(line);
                 continue;

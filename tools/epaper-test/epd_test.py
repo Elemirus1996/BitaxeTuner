@@ -79,7 +79,20 @@ if wait(5000, "power on"):
     cmd(0x10); data(black)
     cmd(0x13); data(red)
     cmd(0x12); time.sleep_ms(100)          # refresh (~16-25 s)
-    if wait(40000, "refresh"):
-        cmd(0x02); wait(5000, "power off")
-        cmd(0x07); data(b"\xa5")           # deep sleep
-        print("Done - the picture should be visible now.")
+    # Did BUSY go low ("busy") at all? If not, the BUSY line does not work - then wait a fixed time instead,
+    # otherwise switching the panel off right away would cut the refresh short (picture does not change).
+    t0 = time.ticks_ms()
+    seen = False
+    while time.ticks_diff(time.ticks_ms(), t0) < 3000:
+        if busy.value() == 0:
+            seen = True
+            break
+        time.sleep_ms(10)
+    if seen:
+        wait(40000, "refresh")
+    else:
+        print("BUSY never went low - BUSY line (GP13) not working? Waiting 25 s instead ...")
+        time.sleep_ms(25000)
+    cmd(0x02); wait(5000, "power off")
+    cmd(0x07); data(b"\xa5")               # deep sleep
+    print("Done - the picture should be visible now.", "(BUSY ok)" if seen else "(BUSY NOT working)")

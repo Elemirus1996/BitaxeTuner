@@ -119,12 +119,33 @@ public sealed class PicoNetworkTests : IDisposable
     [Fact]
     public void Hanging_program_is_restarted_by_the_hardware_watchdog()
     {
-        const string loop = "    while True:\n        wdt.feed()\n";
+        const string loop = "    while True:\n        try:\n            wdt.feed()\n";
         Assert.Contains(loop, PicoFanDevice.Firmware);
-        var hanging = PicoFanDevice.Firmware.Replace(loop, "    while True:\n        time.sleep(30)\n");
+        var hanging = PicoFanDevice.Firmware.Replace(loop, "    while True:\n        try:\n            time.sleep(30)\n");
         if (StartPico(firmware: hanging) is null) return;
         Assert.True(_pico!.WaitForExit(15000));
         Assert.Equal(4, _pico.ExitCode);                                            // Simulator: "WATCHDOG RESET"
+    }
+
+    [Fact]
+    public void Error_in_the_loop_is_reported_and_the_program_keeps_running()
+    {
+        // 8.1: früher endete das Programm bei einem Fehler, und der Watchdog startete den Pico neu
+        const string loop = "    while True:\n        try:\n            wdt.feed()\n";
+        var faulty = PicoFanDevice.Firmware.Replace(loop, loop +
+            "            if not globals().get('_boom'):\n                globals()['_boom'] = 1\n                raise ValueError('boom')\n");
+        if (StartPico(firmware: faulty) is not var (port, key)) return;
+        using var io = NetworkLineTransport.Connect("127.0.0.1", port, key);
+        io.Write("HELLO\r\n");
+        Assert.StartsWith("OK BTFAN " + PicoFanDevice.FirmwareVersion, io.ReadLine(TimeSpan.FromSeconds(3)));
+        var info = io.ReadLine(TimeSpan.FromSeconds(3));
+        Assert.StartsWith("INFO reset=", info);
+        Assert.Contains("ValueError", info);
+        Assert.Contains("Pico-Programm", Core.Host.MinerHub.PicoInfoText(info!));
+        io.Write("GET\r\n");
+        Assert.StartsWith("RPM", io.ReadLine(TimeSpan.FromSeconds(3)));             // läuft weiter
+        Assert.Null(Core.Host.MinerHub.PicoInfoText("INFO reset=power err=-"));   // normaler Start: nichts protokollieren
+        Assert.Contains("Watchdog", Core.Host.MinerHub.PicoInfoText("INFO reset=wdt err=-"));
     }
 
     [Fact]
@@ -163,7 +184,7 @@ public sealed class PicoNetworkTests : IDisposable
     [Fact]
     public void Older_program_is_updated_over_wlan_and_verified()
     {
-        var old = PicoFanDevice.Firmware.Replace("VERSION = \"8\"", "VERSION = \"6x\"");
+        var old = PicoFanDevice.Firmware.Replace($"VERSION = \"{PicoFanDevice.FirmwareVersion}\"", "VERSION = \"6x\"");
         Assert.NotEqual(PicoFanDevice.Firmware, old);
         if (StartPico(firmware: old) is not var (port, key)) return;
         var io = NetworkLineTransport.Connect("127.0.0.1", port, key);

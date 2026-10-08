@@ -29,7 +29,10 @@
 #   COMMIT               -> OK COMMIT | ERR ... (checks size and SHA-256, then replaces main.py; RESET starts it)
 #   NET                  -> OK NET <1|0> <ip|->   (WLAN connected and IP address)
 #   RESET                -> OK RESET, then the Pico restarts
-# Unsolicited: BTN <n> (short press 1-3), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s), EPD DONE (refresh finished).
+# Unsolicited: BTN <n> (short press 1-3), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s),
+#   EPD DONE busy=<1|0> ms=<n> (refresh finished; busy=0: the BUSY line never reported "busy" - fixed wait time used),
+#   INFO reset=<power|wdt|other> err=<text|-> (8.1: why the Pico last started and the last caught error; once after HELLO
+#   and after every new error - the program no longer stops on an error, it notes it and goes on).
 # Button 4 has no short press. Without SET for WATCHDOG_MS all fans go to 100 %.
 # Button 3 (short) sets 100 % locally even without server.
 #
@@ -50,7 +53,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8"
+VERSION = "8.1"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -64,6 +67,53 @@ PLANE = EPD_W * EPD_H // 8
 SERVER_LOST_MS = 10 * 60 * 1000
 NET_PORT = 8490
 AUTH_TIMEOUT_MS = 5000
+
+# ---------- Diagnosis (8.1) ----------
+
+try:
+    RESET_CAUSE = machine.reset_cause()
+except Exception:
+    RESET_CAUSE = -1
+LAST_ERR = ""
+try:
+    with open("btlast.txt") as f:
+        LAST_ERR = f.read()[:120]
+except Exception:
+    LAST_ERR = ""
+info_pending = True
+
+
+def info_line():
+    if RESET_CAUSE == getattr(machine, "WDT_RESET", -2):
+        cause = "wdt"
+    elif RESET_CAUSE == getattr(machine, "PWRON_RESET", -3):
+        cause = "power"
+    else:
+        cause = "other"
+    return "INFO reset=%s err=%s" % (cause, (LAST_ERR or "-").replace(" ", "_"))
+
+
+def note_error(where, e):
+    # remember the error (also across a restart) instead of stopping the program
+    global LAST_ERR, info_pending
+    msg = (where + ":" + repr(e))[:100]
+    if msg != LAST_ERR:
+        try:
+            with open("btlast.txt", "w") as f:
+                f.write(msg)
+        except Exception:
+            pass
+        LAST_ERR = msg
+        info_pending = True
+
+
+def info_sent():
+    global info_pending
+    info_pending = False
+    try:
+        os.remove("btlast.txt")
+    except Exception:
+        pass
 
 # ---------- Configuration ----------
 
@@ -254,6 +304,8 @@ img_pos = 0
 img_len = 0
 epd_state = 0        # 0 idle, 1 refreshing
 epd_started = 0
+epd_busy_seen = False   # BUSY went low ("busy") during the current refresh
+EPD_MIN_MS = 25000      # without a working BUSY line: wait this long before powering the panel off
 last_show = 0
 lost_drawn = False
 
@@ -308,7 +360,7 @@ def epd_init():
     epd_cmd(0x06)            # booster soft start
     epd_data(b"\x17\x17\x28\x17")
     epd_cmd(0x04)            # power on
-    time.sleep_ms(100)
+    time.sleep_ms(300)       # 8.1: also enough when the BUSY line does not work
     if not epd_wait(3000):
         return False
     epd_cmd(0x00)            # panel setting: BWR, LUT from OTP
@@ -327,7 +379,7 @@ def epd_init():
 
 
 def epd_show():
-    global epd_state, epd_started, last_show
+    global epd_state, epd_started, last_show, epd_busy_seen
     if img is None or img_pos < len(img):
         return "ERR no image"
     if epd_state != 0:
@@ -345,21 +397,28 @@ def epd_show():
         return "ERR " + str(e)
     epd_state = 1
     epd_started = time.ticks_ms()
+    epd_busy_seen = False
     last_show = epd_started
     return "OK SHOW"
 
 
 def epd_poll():
-    global epd_state
+    global epd_state, epd_busy_seen
     if epd_state != 1:
         return
-    if epd_idle() or time.ticks_diff(time.ticks_ms(), epd_started) > 40000:
+    elapsed = time.ticks_diff(time.ticks_ms(), epd_started)
+    idle = epd_idle()
+    if not idle:
+        epd_busy_seen = True
+    # Done when BUSY went low and is high again; if BUSY never went low (line not working) only after EPD_MIN_MS -
+    # powering off right away would cut the refresh short and the picture would not change (8.1)
+    if (idle and (epd_busy_seen or elapsed > EPD_MIN_MS)) or elapsed > 45000:
         epd_cmd(0x02)        # power off
         epd_wait(3000)
         epd_cmd(0x07)        # deep sleep
         epd_data(b"\xa5")
         epd_state = 0
-        event("EPD DONE")
+        event("EPD DONE busy=%d ms=%d" % (1 if epd_busy_seen else 0, elapsed))
 
 
 def draw_server_lost():
@@ -480,6 +539,9 @@ def handle(line):
             upd_chunk(parts[1])
     elif cmd == "HELLO":
         reply("OK BTFAN %s %d %s" % (VERSION, N, ROLE))
+        if info_pending:
+            reply(info_line())
+            info_sent()
     elif cmd == "SET":
         vals = parts[1:]
         if len(vals) != N:
@@ -775,51 +837,64 @@ net_setup()
 
 try:
     while True:
-        wdt.feed()
-        # read everything that is waiting (image transfers are large)
-        budget = 600
-        while budget > 0 and usb.poll(0 if budget < 600 else (5 if wlan is not None else 20)):
-            budget -= 1
-            c = sys.stdin.read(1)
-            if c in ("\n", "\r"):
-                if buf:
-                    reply = usb_send
-                    handle(buf)
-                buf = ""
-            elif len(buf) < 400:
-                buf += c
-        now = time.ticks_ms()
-        for _ in range(40):
-            net_poll(now)
-            if net is None or net.sock is None or not poll_ready(net.sock):
-                break
-        now = time.ticks_ms()
-        dt = time.ticks_diff(now, last_rpm)
-        if dt >= 1000:
-            state = machine.disable_irq()
-            snap = counts[:]
-            for i in range(N):
-                counts[i] = 0
-            machine.enable_irq(state)
-            for i in range(N):
-                rpm[i] = snap[i] * 60000 // (PULSES_PER_REV * dt)
-            last_rpm = now
-        if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS:
-            all_full()
-            failsafe = True
-        poll_buttons(now)
-        poll_temps(now)
-        if led_off_at and time.ticks_diff(now, led_off_at) >= 0:
-            led.value(0)
-            led_off_at = 0
-        epd_poll()
-        if (img is not None and img_pos == len(img) and not lost_drawn and epd_state == 0
-                and time.ticks_diff(now, last_cmd) > SERVER_LOST_MS and time.ticks_diff(now, last_show) > 180000):
-            lost_drawn = True
-            draw_server_lost()
-            epd_show()
-        if time.ticks_diff(now, last_cmd) < 1000:
-            lost_drawn = False
+        try:
+            wdt.feed()
+            # read everything that is waiting (image transfers are large)
+            budget = 600
+            while budget > 0 and usb.poll(0 if budget < 600 else (5 if wlan is not None else 20)):
+                budget -= 1
+                c = sys.stdin.read(1)
+                if c in ("\n", "\r"):
+                    if buf:
+                        reply = usb_send
+                        handle(buf)
+                    buf = ""
+                elif len(buf) < 400:
+                    buf += c
+            now = time.ticks_ms()
+            for _ in range(40):
+                net_poll(now)
+                if net is None or net.sock is None or not poll_ready(net.sock):
+                    break
+            now = time.ticks_ms()
+            dt = time.ticks_diff(now, last_rpm)
+            if dt >= 1000:
+                state = machine.disable_irq()
+                snap = counts[:]
+                for i in range(N):
+                    counts[i] = 0
+                machine.enable_irq(state)
+                for i in range(N):
+                    rpm[i] = snap[i] * 60000 // (PULSES_PER_REV * dt)
+                last_rpm = now
+            if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS:
+                all_full()
+                failsafe = True
+            poll_buttons(now)
+            poll_temps(now)
+            if led_off_at and time.ticks_diff(now, led_off_at) >= 0:
+                led.value(0)
+                led_off_at = 0
+            epd_poll()
+            if (img is not None and img_pos == len(img) and not lost_drawn and epd_state == 0
+                    and time.ticks_diff(now, last_cmd) > SERVER_LOST_MS and time.ticks_diff(now, last_show) > 180000):
+                lost_drawn = True
+                draw_server_lost()
+                epd_show()
+            if time.ticks_diff(now, last_cmd) < 1000:
+                lost_drawn = False
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            # 8.1: note the error and keep running (before, the program stopped and the watchdog restarted the Pico)
+            note_error("loop", e)
+            try:
+                event(info_line())
+                if net is not None:      # reached the server over WLAN - otherwise it follows after the next HELLO
+                    info_sent()
+            except Exception:
+                pass
+            time.sleep_ms(50)
 finally:
     # Ctrl-C (update) or crash: fans to 100 %
     all_full()

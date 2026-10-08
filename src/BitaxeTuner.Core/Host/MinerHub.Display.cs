@@ -65,9 +65,17 @@ public sealed partial class MinerHub
     {
         foreach (var e in events)
         {
-            if (e == "EPD DONE")
+            if (e.StartsWith("EPD DONE", StringComparison.Ordinal))
             {
                 if (display is null) _displayRefreshing = false; else display.Refreshing = false;
+                // 8.1: BUSY-Leitung meldete nie „beschäftigt“ – der Pico hat mit fester Wartezeit gearbeitet; einmal je Verbindung melden
+                if (e.Contains(" busy=0", StringComparison.Ordinal) && _busyWarned.Add(display?.Config.Id ?? ""))
+                    LogEvent(null, EventCategories.Fans, L.T("E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest 25 Sekunden. Steckverbindung zum Display prüfen (BUSY = GP13 beim Waveshare-Board)."));
+                continue;
+            }
+            if (e.StartsWith("INFO ", StringComparison.Ordinal))
+            {
+                if (PicoInfoText(e) is { } text) LogEvent(null, EventCategories.Fans, text);
                 continue;
             }
             if (!(display?.Config.Settings ?? Config.Display).ButtonsEnabled) continue;
@@ -81,6 +89,27 @@ public sealed partial class MinerHub
                 case "BTN 4 LONG": _ = RebootAsync(L.T("Taste 4")); break;
             }
         }
+    }
+
+    private readonly HashSet<string> _busyWarned = [];
+
+    /// <summary>
+    /// 8.1: „INFO reset=wdt|power|other err=…“ vom Pico verständlich machen. Ein normaler Start (Strom an, ohne Fehler)
+    /// wird nicht protokolliert.
+    /// </summary>
+    internal static string? PicoInfoText(string line)
+    {
+        string? reset = null, err = null;
+        foreach (var part in line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1))
+        {
+            if (part.StartsWith("reset=", StringComparison.Ordinal)) reset = part[6..];
+            else if (part.StartsWith("err=", StringComparison.Ordinal)) err = part[4..].Replace('_', ' ');
+        }
+        if (err is "-" or "") err = null;
+        if (err is { Length: > 120 }) err = err[..120];
+        var why = reset == "wdt" ? L.T("Der Pico wurde vom Watchdog neu gestartet (Programm hing).") : null;
+        if (why is null && err is null) return null;
+        return string.Join(" ", new[] { why, err is null ? null : L.T("Letzter Fehler im Pico-Programm: {0}", err) }.Where(x => x is not null));
     }
 
     /// <summary>Bei „Aus“ musste die Sicherheitsregel einen Lüfter trotzdem einschalten → einmal melden.</summary>
