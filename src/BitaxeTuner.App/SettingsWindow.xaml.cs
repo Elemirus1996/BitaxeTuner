@@ -51,7 +51,9 @@ public partial class SettingsWindow : Window
         PriceBox.Text = config.ElectricityCtPerKwh.ToString("0.##", CultureInfo.CurrentCulture);
         SelectByTag(PriceNetBox, config.ElectricityPriceIsNet ? "net" : "gross");
         VatBox.Text = config.VatPercent.ToString("0.##", CultureInfo.CurrentCulture);
-        CurrencyBox.Text = config.Currency;
+        foreach (var cur in Currencies.All)
+            CurrencyBox.Items.Add(new ComboBoxItem { Content = $"{L.T(cur.Name)} ({cur.Symbol})", Tag = cur.Code });
+        SelectByTag(CurrencyBox, Currencies.Of(config).Code);
         IntervalBox.Text = config.IntervalSeconds.ToString();
         HistoryBox.Text = config.HistoryMinutes.ToString();
         WalletIntervalBox.Text = config.WalletPollMinutes.ToString();
@@ -381,7 +383,7 @@ public partial class SettingsWindow : Window
         _config.ElectricityCtPerKwh = price;
         _config.ElectricityPriceIsNet = SelectedTag(PriceNetBox) == "net";
         _config.VatPercent = vat;
-        _config.Currency = CurrencyBox.Text.Trim().Length > 0 ? CurrencyBox.Text.Trim() : "€";
+        if (SelectedTag(CurrencyBox) is { } code && code != Currencies.Of(_config).Code) Currencies.Set(_config, code);
         _config.IntervalSeconds = interval;
         _config.HistoryMinutes = history;
         _config.WalletPollMinutes = walletInterval;

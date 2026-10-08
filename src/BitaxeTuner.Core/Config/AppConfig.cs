@@ -71,6 +71,9 @@ public sealed class AppConfig
     /// <summary>Optionaler CoinGecko-Demo-Key (kostenlos); ohne Key gilt ein niedrigeres Rate-Limit.</summary>
     public string CoinGeckoApiKey { get; set; } = "";
     public string Currency { get; set; } = "€";
+
+    /// <summary>0.9.11: ISO-Code der Währung für alles (Kurse, Erträge, Kosten, Steuer); leer = aus <see cref="Currency"/> abgeleitet.</summary>
+    public string? CurrencyCode { get; set; }
     public bool StartMinimized { get; set; } = false;
 
     /// <summary>Zuletzt gesehene eingehende TX je Adresse - dient der Auszahlungs-Erkennung.</summary>

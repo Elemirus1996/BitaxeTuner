@@ -7,7 +7,7 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Tax.Services;
 
 /// <summary>
-/// EUR-Kurs über die CoinGecko-API.
+/// Kurs über die CoinGecko-API, in Euro oder (0.9.11) einer anderen Währung (<c>vs_currency</c>).
 ///
 /// Primär <c>/coins/{id}/market_chart/range</c> mit einem Fenster von ±2 Stunden
 /// um den Zuflusszeitpunkt. Laut Doku liefert der Endpunkt für Zeiträume bis
@@ -44,9 +44,10 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
             _http.DefaultRequestHeaders.Add("x-cg-demo-api-key", demoApiKey.Trim());
     }
 
-    public async Task<(PriceQuote? Quote, string? FailureReason)> GetEurPriceAsync(
-        CoinType coin, DateTime atUtc, CancellationToken ct = default)
+    public async Task<(PriceQuote? Quote, string? FailureReason)> GetPriceAsync(
+        CoinType coin, DateTime atUtc, string currency, CancellationToken ct = default)
     {
+        var vs = Vs(currency);
         atUtc = DateTime.SpecifyKind(atUtc, DateTimeKind.Utc);
 
         if (DateTime.UtcNow - atUtc > MaxAge)
@@ -56,10 +57,10 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         {
             // Audit F6: Der ungenauere Tageswert (00:00 UTC) nur, wenn die Zeitreihe geantwortet hat, aber keinen Punkt kennt –
             // bei einem vorübergehenden Fehler (Netz, 429) später erneut die genaue Zeitreihe versuchen
-            var (quote, answered) = await FromRangeAsync(coin, atUtc, ct);
+            var (quote, answered) = await FromRangeAsync(coin, atUtc, vs, ct);
             if (quote is null && !answered)
                 return (null, L.T("CoinGecko-Zeitreihe gerade nicht erreichbar – wird erneut versucht."));
-            quote ??= await FromHistoryAsync(coin, atUtc, ct);
+            quote ??= await FromHistoryAsync(coin, atUtc, vs, ct);
             if (quote is null)
                 return (null, L.T("CoinGecko lieferte keinen Kurs – wird beim nächsten Durchlauf erneut versucht."));
             return (quote, null);
@@ -70,12 +71,18 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
         }
     }
 
-    /// <summary>Kursverlauf der letzten 24 Stunden in EUR (für die Anzeige); leer bei Fehler.</summary>
-    public async Task<List<(DateTime Time, double Eur)>> GetDayChartAsync(CoinType coin, CancellationToken ct = default)
+    public Task<(PriceQuote? Quote, string? FailureReason)> GetEurPriceAsync(CoinType coin, DateTime atUtc, CancellationToken ct = default) =>
+        GetPriceAsync(coin, atUtc, "EUR", ct);
+
+    /// <summary>Nur bekannte Währungscodes in die Adresse übernehmen.</summary>
+    private static string Vs(string? currency) => Config.Currencies.Get(currency).GeckoCode;
+
+    /// <summary>Kursverlauf der letzten 24 Stunden in der Währung (für die Anzeige); leer bei Fehler.</summary>
+    public async Task<List<(DateTime Time, double Value)>> GetDayChartAsync(CoinType coin, string currency = "EUR", CancellationToken ct = default)
     {
         try
         {
-            using var doc = await GetJsonAsync($"api/v3/coins/{coin.CoinGeckoId()}/market_chart?vs_currency=eur&days=1", ct);
+            using var doc = await GetJsonAsync($"api/v3/coins/{coin.CoinGeckoId()}/market_chart?vs_currency={Vs(currency)}&days=1", ct);
             if (doc is null || !doc.RootElement.TryGetProperty("prices", out var prices) || prices.ValueKind != JsonValueKind.Array) return [];
             var list = new List<(DateTime, double)>();
             foreach (var p in prices.EnumerateArray())
@@ -90,14 +97,14 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     }
 
     /// <summary>Kurspunkt aus der Zeitreihe, der dem Zeitpunkt am nächsten liegt.</summary>
-    private async Task<(PriceQuote? Quote, bool Answered)> FromRangeAsync(CoinType coin, DateTime atUtc, CancellationToken ct)
+    private async Task<(PriceQuote? Quote, bool Answered)> FromRangeAsync(CoinType coin, DateTime atUtc, string vs, CancellationToken ct)
     {
         var from = new DateTimeOffset(atUtc - Window).ToUnixTimeSeconds();
         var toTime = atUtc + Window;
         if (toTime > DateTime.UtcNow) toTime = DateTime.UtcNow;
         var to = new DateTimeOffset(toTime).ToUnixTimeSeconds();
 
-        var url = $"api/v3/coins/{coin.CoinGeckoId()}/market_chart/range?vs_currency=eur&from={from}&to={to}";
+        var url = $"api/v3/coins/{coin.CoinGeckoId()}/market_chart/range?vs_currency={vs}&from={from}&to={to}";
         using var doc = await GetJsonAsync(url, ct);
         if (doc is null) return (null, false);
 
@@ -133,7 +140,7 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     }
 
     /// <summary>Rückfall: Schnappschuss um 00:00 UTC des Tages.</summary>
-    private async Task<PriceQuote?> FromHistoryAsync(CoinType coin, DateTime atUtc, CancellationToken ct)
+    private async Task<PriceQuote?> FromHistoryAsync(CoinType coin, DateTime atUtc, string vs, CancellationToken ct)
     {
         var date = atUtc.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
         var url = $"api/v3/coins/{coin.CoinGeckoId()}/history?date={date}&localization=false";
@@ -143,8 +150,8 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
 
         if (doc.RootElement.TryGetProperty("market_data", out var md) &&
             md.TryGetProperty("current_price", out var cp) &&
-            cp.TryGetProperty("eur", out var eur) &&
-            TryNumber(eur, out var value))
+            cp.TryGetProperty(vs, out var price) &&
+            TryNumber(price, out var value))
         {
             return new PriceQuote(value, atUtc.Date,
                 L.T("CoinGecko Tagesschnappschuss 00:00 UTC ({0:d}), Rückfallwert", atUtc));

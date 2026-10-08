@@ -37,12 +37,12 @@ public static class ReportRenderer
         sb.AppendLine();
         Line(L.T("Energie gesamt (kWh)"), F(r.Energy.Kwh, "0.00"));
         Line(L.T("Stromkosten ({0})", r.Currency), F(r.Energy.Cost, "0.00"));
-        Line(L.T("Ø Strompreis (ct/kWh)"), F(r.Energy.AvgCt, "0.0"));
+        Line(L.T("Ø Strompreis ({0})", Config.Currencies.Get(r.IncomeCode).CentPerKwh), F(r.Energy.AvgCt, "0.0"));
         Line(L.T("Stunden mit Stundenpreis"), r.Energy.DynamicHours.ToString(C), L.T("von {0}", r.Energy.Hours));
         if (r.Income.Count > 0)
         {
             sb.AppendLine();
-            Line(L.T("Zuflüsse"), L.T("Anzahl"), L.T("Menge"), L.T("Wert ({0})", "EUR"), L.T("ohne Kurs"));
+            Line(L.T("Zuflüsse"), L.T("Anzahl"), L.T("Menge"), L.T("Wert ({0})", Config.Currencies.Get(r.IncomeCode).Code), L.T("ohne Kurs"));
             foreach (var i in r.Income)
                 Line(i.Coin, i.Count.ToString(C), i.Amount.ToString("0.00000000", C), i.Eur.ToString("0.00", C), i.EurMissing.ToString(C));
         }
@@ -83,8 +83,8 @@ public static class ReportRenderer
         Tile(L.T("Ø Hashrate gesamt"), r.TotalAvgHashGh is { } gh ? (gh >= 1000 ? (gh / 1000).ToString("0.00", C) + " TH/s" : gh.ToString("0", C) + " GH/s") : "–");
         Tile(L.T("Energie"), r.Energy.Kwh.ToString("0.00", C) + " kWh");
         Tile(L.T("Stromkosten"), r.Energy.Cost.ToString("0.00", C) + " " + r.Currency);
-        Tile(L.T("Ø Strompreis"), r.Energy.AvgCt is { } ct ? ct.ToString("0.0", C) + " ct/kWh" : "–");
-        if (r.Income.Count > 0) Tile(L.T("Zuflüsse"), r.IncomeEur.ToString("0.00", C) + " €");
+        Tile(L.T("Ø Strompreis"), r.Energy.AvgCt is { } ct ? ct.ToString("0.0", C) + " " + Config.Currencies.Get(r.IncomeCode).CentPerKwh : "–");
+        if (r.Income.Count > 0) Tile(L.T("Zuflüsse"), r.IncomeEur.ToString("0.00", C) + " " + r.IncomeSymbol);
         sb.Append("</div>");
         if (r.Energy.DynamicHours > 0)
             sb.Append($"<div class=\"muted\">{E(L.T("{0} von {1} Stunden mit Stundenpreis der Strompreis-Quelle, sonst fester Preis.", r.Energy.DynamicHours, r.Energy.Hours))}</div>");
@@ -108,12 +108,12 @@ public static class ReportRenderer
 
         if (r.Income.Count > 0)
         {
-            sb.Append($"<h2>{E(L.T("Zuflüsse"))}</h2><table><tr><th>Coin</th><th>{E(L.T("Anzahl"))}</th><th>{E(L.T("Menge"))}</th><th>EUR</th></tr>");
+            sb.Append($"<h2>{E(L.T("Zuflüsse"))}</h2><table><tr><th>Coin</th><th>{E(L.T("Anzahl"))}</th><th>{E(L.T("Menge"))}</th><th>{E(Config.Currencies.Get(r.IncomeCode).Code)}</th></tr>");
             foreach (var i in r.Income)
                 sb.Append($"<tr><td>{E(i.Coin)}</td><td>{i.Count}</td><td>{E(i.Amount.ToString("0.00000000", C))}</td>" +
                           $"<td>{E(i.Eur.ToString("0.00", C))}{(i.EurMissing > 0 ? E(L.T(" ({0} ohne Kurs)", i.EurMissing)) : "")}</td></tr>");
             sb.Append("</table>");
-            sb.Append($"<p class=\"muted\">{E(L.T("Zuflüsse aus dem Steuer-Bereich (Euro-Kurs zum Zeitpunkt des Zuflusses). Keine Steuerberatung."))}</p>");
+            sb.Append($"<p class=\"muted\">{E(L.T("Zuflüsse aus dem Steuer-Bereich (Kurs in {0} zum Zeitpunkt des Zuflusses). Keine Steuerberatung.", Config.Currencies.Get(r.IncomeCode).Code))}</p>");
         }
         sb.Append($"<p class=\"muted\">{E(L.T("Erstellt mit BitaxeTuner am {0}.", DateTime.Now.ToString("g", C)))}</p></body></html>");
         return sb.ToString();

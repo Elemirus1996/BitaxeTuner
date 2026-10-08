@@ -244,6 +244,7 @@ public sealed partial class MinerHub
             Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps)
         {
             Inverted = Config.Display.Inverted,
+            PriceCent = Currencies.Of(Config).Cent,
         };
     }
 }

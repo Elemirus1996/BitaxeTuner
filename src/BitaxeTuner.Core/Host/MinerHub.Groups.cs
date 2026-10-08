@@ -104,7 +104,7 @@ public sealed partial class MinerHub
         var s = rule.Schedule;
         var names = PresetNames(s);
         var body = s.Mode == "price"
-            ? L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → „{2}“, sonst → „{3}“", Prices.SourceName, s.ThresholdCt, s.CheapPreset, s.ExpensivePreset)
+            ? L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → „{2}“, sonst → „{3}“", Prices.SourceName, s.ThresholdCt, s.CheapPreset, s.ExpensivePreset).Cents(Config)
             : string.Join("\n", s.Entries.Select(e => L.T("{0} {1:00}–{2:00} Uhr → „{3}“", e.DaysText, e.FromHour, e.ToHour, e.Preset))) +
               L.T("\nsonst → {0}", s.DefaultPreset.Length == 0 ? L.T("keine Änderung") : $"„{s.DefaultPreset}“");
         var lines = GroupMembers(group).Select(d =>

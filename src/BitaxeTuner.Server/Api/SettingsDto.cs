@@ -19,6 +19,10 @@ public sealed class SettingsDto
     public bool ElectricityPriceIsNet { get; set; }
     public double VatPercent { get; set; } = 19;
     public string Currency { get; set; } = "€";
+    /// <summary>0.9.11: eine Währung für alles (ISO-Code); das Zeichen <see cref="Currency"/> folgt.</summary>
+    public string? CurrencyCode { get; set; }
+    /// <summary>Nur zum Anzeigen: wählbare Währungen (Code, Name, Zeichen, Untereinheit) – beim Speichern ignoriert.</summary>
+    public List<CurrencyOption>? CurrencyOptions { get; set; }
     public double TempWarn { get; set; }
     public bool RestartAfterApply { get; set; }
     public bool CheckForUpdates { get; set; }
@@ -55,6 +59,8 @@ public sealed class SettingsDto
         ElectricityPriceIsNet = c.ElectricityPriceIsNet,
         VatPercent = c.VatPercent,
         Currency = c.Currency,
+        CurrencyCode = Currencies.Of(c).Code,
+        CurrencyOptions = Currencies.All.Select(x => new CurrencyOption(x.Code, L.T(x.Name), x.Symbol, x.Cent)).ToList(),
         TempWarn = c.TempWarn,
         RestartAfterApply = c.RestartAfterApply,
         CheckForUpdates = c.CheckForUpdates,
@@ -89,7 +95,10 @@ public sealed class SettingsDto
         c.ElectricityCtPerKwh = Math.Clamp(ElectricityCtPerKwh, 0, 500);
         c.ElectricityPriceIsNet = ElectricityPriceIsNet;
         c.VatPercent = Math.Clamp(VatPercent, 0, 50);
-        c.Currency = string.IsNullOrWhiteSpace(Currency) ? "€" : Currency.Trim();
+        if (Currencies.IsKnown(CurrencyCode) && !string.Equals(CurrencyCode, Currencies.Of(c).Code, StringComparison.OrdinalIgnoreCase))
+            Currencies.Set(c, CurrencyCode);
+        else if (!Currencies.IsKnown(CurrencyCode))
+            c.Currency = string.IsNullOrWhiteSpace(Currency) ? "€" : Currency.Trim();
         c.TempWarn = Math.Clamp(TempWarn, 30, 120);
         c.RestartAfterApply = RestartAfterApply;
         c.CheckForUpdates = CheckForUpdates;
@@ -110,3 +119,6 @@ public sealed class SettingsDto
         c.PriceSource = PriceSource;
     }
 }
+
+/// <summary>Wählbare Währung für die Einstellungen im Browser.</summary>
+public sealed record CurrencyOption(string Code, string Name, string Symbol, string Cent);

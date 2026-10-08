@@ -293,7 +293,7 @@ public static class DailyReport
               L.T("{0} kWh ≈ {1} {2}", kwh.ToString("0.00", De), cost.ToString("0.00", De), config.Currency)
             : L.T("Gesamt Ø {0} · {1} W", FormatHash(totalHash), totalPower.ToString("0.0", De));
         if (include(ReportParts.Costs) && dyn is { AvgCt: { } avgCt, DynamicHours: > 0 })
-            header += L.T(" (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)", avgCt.ToString("0.0", De), dyn.DynamicHours, dyn.Hours);
+            header += L.T(" (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)", avgCt.ToString("0.0", De), dyn.DynamicHours, dyn.Hours).Cents(config);
         if (include(ReportParts.Plugs) && energy.OverheadW is { } overhead)
             header += L.T("\nSteckdose gemessen: AxeOS {0} W, Netzteil/Nebenverbrauch {1} W", energy.MinerPowerW.ToString("0.0", De),
                 overhead.ToString("+0.0;-0.0", De));

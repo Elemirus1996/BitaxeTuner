@@ -324,6 +324,7 @@ public sealed partial class MinerHub
 
     private (DateTime Fetched, Network.DifficultyDto Dto, DisplayDifficulty Data)? _difficulty;
     private readonly Dictionary<CoinType, (DateTime Fetched, List<(DateTime Time, double Eur)> Points)> _coinCharts = [];
+    private string _coinChartCurrency = Currencies.Euro;   // 0.9.11: Währung der gespeicherten Kursverläufe
     private bool _marketBusy;
     private (DateTime At, string Key, DisplayMonthly Data)? _monthlyCache;
 
@@ -340,7 +341,7 @@ public sealed partial class MinerHub
         double? now = pts.Count > 0 ? pts[^1].Eur : null;
         double? change = pts.Count > 1 && pts[0].Eur > 0 ? (pts[^1].Eur / pts[0].Eur - 1) * 100 : null;
         return new DisplayCoin(c.Symbol(), c == CoinType.Bitcoin ? "Bitcoin (BTC)" : "Bitcoin Cash (BCH)", now, change,
-            pts.Select(p => new DisplayValue(p.Time, p.Eur)).ToList());
+            pts.Select(p => new DisplayValue(p.Time, p.Eur)).ToList(), Currencies.Get(_coinChartCurrency).Symbol);
     }).ToList();
 
     /// <summary>Kurse (CoinGecko) und Difficulty (mempool.space) höchstens alle 10 Minuten holen – nur für die Kurs-Seite.</summary>
@@ -352,10 +353,12 @@ public sealed partial class MinerHub
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var currency = Currencies.Of(Config).Code;
+            if (currency != _coinChartCurrency) { _coinCharts.Clear(); _coinChartCurrency = currency; }   // Währung gewechselt
             foreach (var coin in DisplayCoins())
             {
                 if (!force && _coinCharts.TryGetValue(coin, out var c) && now - c.Fetched < TimeSpan.FromMinutes(10)) continue;
-                var pts = await CoinGecko.GetDayChartAsync(coin, cts.Token);
+                var pts = await CoinGecko.GetDayChartAsync(coin, currency, cts.Token);
                 if (pts.Count > 0) _coinCharts[coin] = (now, pts);
             }
             if (Config.Display.PriceCoins != "bch" && (force || _difficulty is not { } d || now - d.Fetched >= TimeSpan.FromMinutes(10)))
@@ -413,7 +416,7 @@ public sealed partial class MinerHub
                 {
                     "hashrate" => History.Average(HistoryStore.AggregateHost, day, end)?.HashRateGh ?? 0,
                     // Audit N-F4: Zuflüsse je Tag in Steuerzeit – wie die Monatssumme (Steuer-Zeitzone)
-                    "income" => (double)rewards.Where(r => r.ReceivedAtLocal.Date == day).Sum(r => r.EurValue ?? 0),
+                    "income" => (double)rewards.Where(r => r.ReceivedAtLocal.Date == day).Sum(r => r.ValueIn(report.IncomeCode) ?? 0),
                     "cost" => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Cost,
                     _ => Plugs.EnergyCost.Compute(History, Config, hosts, day, end).Kwh,
                 };
@@ -424,12 +427,12 @@ public sealed partial class MinerHub
             var (label, format) = kind switch
             {
                 "hashrate" => (tera ? L.T("Ø Hashrate je Tag (TH/s)") : L.T("Ø Hashrate je Tag (GH/s)"), tera ? "0.00" : "0"),
-                "income" => (L.T("Ertrag je Tag (€)"), "0.00"),
+                "income" => (L.T("Ertrag je Tag ({0})", report.IncomeSymbol), "0.00"),
                 "cost" => (L.T("Stromkosten je Tag ({0})", Config.Currency), "0.00"),
                 _ => (L.T("Strom je Tag (kWh)"), "0.0"),
             };
             var data = new DisplayMonthly(start, report.Partial, report.Energy.Kwh, report.Energy.Cost, report.Currency, (double)report.IncomeEur,
-                report.Income.Sum(i => i.EurMissing), report.TotalAvgHashGh, label, format, bars);
+                report.Income.Sum(i => i.EurMissing), report.TotalAvgHashGh, label, format, bars, report.IncomeSymbol);
             _monthlyCache = (now, key, data);
             return data;
         }
@@ -458,7 +461,7 @@ public sealed partial class MinerHub
             var avg = (hours[i].Value + hours[i + 1].Value + hours[i + 2].Value) / 3;
             if (cheapAvg is null || avg < cheapAvg) (cheapFrom, cheapAvg) = (hours[i].Time, avg);
         }
-        return new DisplayPower(Prices.PriceAt(utc), hours, cheapFrom, cheapAvg, Prices.SourceName);
+        return new DisplayPower(Prices.PriceAt(utc), hours, cheapFrom, cheapAvg, Prices.SourceName, Currencies.Of(Config).Cent);
     }
 
     /// <summary>QR-Code zur Browser-Oberfläche: eigene Adresse aus den Einstellungen oder die dieses Servers.</summary>

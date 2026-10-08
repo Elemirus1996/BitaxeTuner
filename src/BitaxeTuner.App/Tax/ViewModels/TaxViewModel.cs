@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using BitaxeTuner.Core.Config;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -63,17 +64,26 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     private string _statusText = L.T("Bereit.");
     public string StatusText { get => _statusText; set { _statusText = value; Raise(); } }
 
-    /// <summary>Summe aller EUR-Werte im laufenden Kalenderjahr — relevant für die 256-€-Freigrenze.</summary>
+    /// <summary>0.9.11: eingestellte Währung (ISO-Code); Beträge der Übersicht darin.</summary>
+    public Func<string> Currency { get; set; } = () => "EUR";
+    private CurrencyInfo Cur => Currencies.Get(Currency());
+
+    /// <summary>Betrag in der eingestellten Währung („12,34 €“, „12,34 $“).</summary>
+    private string Money(decimal v) => v.ToString("N2", De) + " " + Cur.Symbol;
+
+    /// <summary>Summe aller Werte im laufenden Kalenderjahr (in der eingestellten Währung).</summary>
     public string YearSummary
     {
         get
         {
             var year = DateTime.Now.Year;
+            var code = Cur.Code;
             var inYear = Rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
-            var sum = inYear.Sum(r => r.EurValue ?? 0);
-            var missing = inYear.Count(r => r.EurValue is null);
-            var text = L.T("{0}: {1} Zuflüsse · {2} €", year, inYear.Count, sum.ToString("N2", De));
+            var sum = inYear.Sum(r => r.ValueIn(code) ?? 0);
+            var missing = inYear.Count(r => r.ValueIn(code) is null);
+            var text = L.T("{0}: {1} Zuflüsse · {2}", year, inYear.Count, Money(sum));
             if (missing > 0) text += L.T(" · {0} ohne Kurs", missing);
+            if (!Cur.IsEuro) text += L.T(" · Beträge in {0}; das deutsche Steuerrecht rechnet in Euro (Euro-Kurse stehen im CSV)", code);
             return text;
         }
     }
@@ -88,10 +98,13 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             if (inYear.Count == 0) return L.T("{0}: keine Verkäufe erfasst", year);
 
             var gain = inYear.Sum(r => r.TaxableGainEur);
-            var text = L.T("{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze 1.000 €)", year, inYear.Count, gain.ToString("N2", De));
+            var text = Cur.IsEuro
+                ? L.T("{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze 1.000 €)", year, inYear.Count, gain.ToString("N2", De))
+                : L.T("{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2}", year, inYear.Count, Money(gain));
             if (inYear.Any(r => r.MissingPrice)) text += L.T(" · Kurs fehlt");
             if (inYear.Any(r => r.UnmatchedAmount > 0)) text += L.T(" · Menge ohne Zufluss");
-            if (inYear.Sum(r => r.UncertainGainEur) is > 0 and var u) text += L.T(" · davon {0} € mit 0 € Anschaffung (Kurs fehlt/ohne Zufluss)", u.ToString("N2", De));
+            if (inYear.Any(r => r.OtherCurrency)) text += L.T(" · Erlös in anderer Währung erfasst");
+            if (inYear.Sum(r => r.UncertainGainEur) is > 0 and var u) text += L.T(" · davon {0} mit 0 Anschaffung (Kurs fehlt/ohne Zufluss)", Money(u));
             return text;
         }
     }
@@ -277,9 +290,9 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
             var text = L.T("{0} {1} auf {2}\n", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel) +
                        L.T("Zeitpunkt: {0:g}\n", reward.ReceivedAtUtc.ToLocalTime()) +
-                       (reward.EurValue is { } eur
-                           ? L.T("Wert: {0} € (Kurs {1} €)", eur.ToString("N2", De), reward.EurPriceAtReceipt!.Value.ToString("N2", De))
-                           : L.T("EUR-Kurs konnte nicht ermittelt werden – bitte nachtragen."));
+                       (reward.ValueIn(Cur.Code) is { } value
+                           ? L.T("Wert: {0} (Kurs {1})", Money(value), Money(reward.PriceIn(Cur.Code)!.Value))
+                           : L.T("Kurs in {0} konnte nicht ermittelt werden – bitte nachtragen.", Cur.Code));
             MessageBox.Show(text, L.T("Neuer Zufluss dokumentiert"), MessageBoxButton.OK, MessageBoxImage.Information);
         });
     }
@@ -291,11 +304,9 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     public void SaveReward(MinedReward reward)
     {
         var stored = _monitor.LoadRewards().FirstOrDefault(r => r.Id == reward.Id);
-        if (stored is null || stored.EurPriceAtReceipt != reward.EurPriceAtReceipt)
-        {
-            reward.PriceSource = L.T("manuell eingetragen am {0:d}", DateTime.Now);
-            reward.PriceAtUtc = null;
-        }
+        var code = Cur.Code;
+        if (stored is null || stored.PriceIn(code) != reward.PriceIn(code))
+            reward.SetPrice(code, reward.PriceIn(code), null, L.T("manuell eingetragen am {0:d}", DateTime.Now));
 
         _monitor.SaveReward(reward);
         Raise(nameof(YearSummary));
@@ -313,6 +324,9 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             row.EurPriceAtReceipt = updated.EurPriceAtReceipt;
             row.PriceAtUtc = updated.PriceAtUtc;
             row.PriceSource = updated.PriceSource;
+            row.OtherPrices = updated.OtherPrices;
+            row.ViewCurrency = "";   // Anzeige neu lesen
+            row.ViewCurrency = Cur.Code;
             row.Note = updated.Note;
             Raise(nameof(YearSummary));
             Recalculate();
@@ -350,20 +364,23 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
         if (dialog.ShowDialog() != true) return;
 
-        _repository.ExportCsv(dialog.FileName, Rewards);   // Restbestand ist durch Recalculate() schon gesetzt
+        _repository.ExportCsv(dialog.FileName, Rewards, currency: Cur.Code);   // Restbestand ist durch Recalculate() schon gesetzt
         StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
     }
 
     // ---------- Verkäufe und Haltefrist ----------
 
-    /// <summary>FIFO neu anwenden: Restbestände der Zuflüsse und Ergebnis je Verkauf.</summary>
-    private void Recalculate()
+    /// <summary>FIFO neu anwenden: Restbestände der Zuflüsse und Ergebnis je Verkauf (in der eingestellten Währung).</summary>
+    public void Recalculate()
     {
-        _results = HoldingCalculator.Apply(Rewards, _disposals);
+        var code = Cur.Code;
+        foreach (var r in Rewards) r.ViewCurrency = code;
+        _results = HoldingCalculator.Apply(Rewards, _disposals, code);
+        Raise(nameof(YearSummary));
 
         Disposals.Clear();
         foreach (var r in _results.OrderByDescending(r => r.Disposal.SoldAtUtc))
-            Disposals.Add(new DisposalRow(r));
+            Disposals.Add(new DisposalRow(r, code));
 
         Raise(nameof(SalesSummary));
     }
@@ -396,7 +413,9 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             Coin = NewSaleCoin,
             SoldAtUtc = Core.Tax.TaxTime.FromTax(local),
             Amount = amount,
-            ProceedsEur = proceeds,
+            ProceedsEur = Cur.IsEuro ? proceeds : 0,
+            Currency = Cur.IsEuro ? null : Cur.Code,
+            Proceeds = Cur.IsEuro ? null : proceeds,
             Note = NewSaleNote.Trim()
         });
         _repository.SaveDisposals(_disposals);
@@ -430,7 +449,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         };
         if (dialog.ShowDialog() != true) return;
 
-        _repository.ExportDisposalsCsv(dialog.FileName, _results);
+        _repository.ExportDisposalsCsv(dialog.FileName, _results, Cur.Code);
         StatusText = L.T("Export gespeichert: {0}", dialog.FileName);
     }
 

@@ -88,7 +88,8 @@ public partial class MonitorView : UserControl
     public void Initialize(AppHost host)
     {
         _host = host;
-        _taxViewModel = new TaxViewModel(_taxMonitor, _taxRepository, MinerAddressCandidates);
+        _taxViewModel = new TaxViewModel(_taxMonitor, _taxRepository, MinerAddressCandidates) { Currency = () => Currencies.Of(_config).Code };
+        _taxViewModel.Recalculate();
         TaxView.DataContext = _taxViewModel;
         TaxView.MonthReports = year => _host.Hub.MonthReports(year, DateTime.Now);
         TaxView.ReportYears = () => _host.Hub.ReportPeriods(DateTime.Now).Where(p => p.Length == 4).Select(int.Parse)
@@ -916,6 +917,7 @@ public partial class MonitorView : UserControl
         _availabilityCache.Clear();
 
         await _host.Hub.ApplySettingsChangedAsync();
+        _taxViewModel.Recalculate();   // 0.9.11: Währung kann sich geändert haben
     }
 
     // ---------- Gesundheit ----------
@@ -952,7 +954,7 @@ public partial class MonitorView : UserControl
         SetTile(T13Label, T13Value, T13Sub, L.T("STROMKOSTEN/TAG"), Money(day),
                 L.T("{0} kWh {1}", (watt * 24 / 1000.0).ToString("0.00", De), scope), Normal);
         SetTile(T14Label, T14Value, T14Sub, L.T("STROMKOSTEN/MONAT"), Money(day * 30.44),
-                L.T("{0} ct/kWh · Jahr {1}", CurrentCt.ToString("0.##", De), Money(day * 365)), Normal);
+                L.T("{0} ct/kWh · Jahr {1}", CurrentCt.ToString("0.##", De), Money(day * 365)).Cents(_config), Normal);
     }
 
     // ---------- Steuer-Modul ----------

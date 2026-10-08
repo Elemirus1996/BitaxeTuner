@@ -16,6 +16,26 @@ public class Disposal
     /// <summary>Erlös in EUR, bei Tausch der Marktwert der erhaltenen Gegenleistung.</summary>
     public decimal ProceedsEur { get; set; }
 
+    /// <summary>
+    /// 0.9.11: Währung, in der der Erlös erfasst wurde; null = Euro (<see cref="ProceedsEur"/>). Bei einer anderen Währung
+    /// steht der Erlös in <see cref="Proceeds"/> und <see cref="ProceedsEur"/> bleibt 0.
+    /// </summary>
+    public string? Currency { get; set; }
+
+    /// <summary>0.9.11: Erlös in <see cref="Currency"/>, wenn das nicht Euro ist.</summary>
+    public decimal? Proceeds { get; set; }
+
+    [JsonIgnore]
+    public string EnteredCurrency => string.IsNullOrEmpty(Currency) ? "EUR" : Currency;
+
+    /// <summary>Erlös in der Währung, oder null, wenn er in einer anderen Währung erfasst ist.</summary>
+    public decimal? ProceedsIn(string? currency)
+    {
+        var code = string.IsNullOrEmpty(currency) ? "EUR" : currency.ToUpperInvariant();
+        if (!code.Equals(EnteredCurrency, StringComparison.OrdinalIgnoreCase)) return null;
+        return code == "EUR" ? ProceedsEur : Proceeds;
+    }
+
     public string Note { get; set; } = string.Empty;
 
     [JsonIgnore]

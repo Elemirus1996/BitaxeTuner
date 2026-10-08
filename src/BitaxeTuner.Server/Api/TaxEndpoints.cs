@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Tax.Models;
@@ -19,19 +20,23 @@ public static class TaxEndpoints
     {
         g.MapGet("/tax/rewards", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
-            var (rewards, disposals, summary, available) = h.TaxEditor.Overview(DateTime.Now);
+            var cur = Currencies.Of(h.Config);
+            var (rewards, disposals, summary, available) = h.TaxEditor.Overview(DateTime.Now, cur.Code);
             return new
             {
+                // 0.9.11: Beträge in der gewählten Währung (price/value); die Euro-Felder bleiben für Kompatibilität
+                currency = new { code = cur.Code, symbol = cur.Symbol, isEuro = cur.IsEuro },
                 wallets = h.TaxMonitor.Wallets,
                 rewards = rewards.Select(r => new
                 {
-                    r.Id, r.ReceivedAtUtc, r.Coin, symbol = r.Coin.Symbol(), r.Amount, r.EurPriceAtReceipt, r.EurValue, r.PriceSource,
-                    manualPrice = r.IsManualPrice, r.Note, r.WalletLabel, r.TxId, r.Remaining, r.HoldingStatus, r.TaxFreeFrom,
+                    r.Id, r.ReceivedAtUtc, r.Coin, symbol = r.Coin.Symbol(), r.Amount, r.EurPriceAtReceipt, r.EurValue,
+                    price = r.PriceIn(cur.Code), value = r.ValueIn(cur.Code), priceSource = r.SourceIn(cur.Code),
+                    manualPrice = r.IsManualIn(cur.Code), r.Note, r.WalletLabel, r.TxId, r.Remaining, r.HoldingStatus, r.TaxFreeFrom,
                 }),
                 disposals = disposals.Select(d => new
                 {
                     d.Id, d.SoldAtUtc, d.Coin, symbol = d.Coin.Symbol(), d.Amount, d.ProceedsEur, d.CostBasisEur, d.TaxableGainEur,
-                    d.TaxFreeAmount, d.UnmatchedAmount, d.MissingPrice, d.Note,
+                    d.TaxFreeAmount, d.UnmatchedAmount, d.MissingPrice, d.Note, d.ProceedsCurrency, d.EnteredProceeds, d.OtherCurrency,
                 }),
                 summary,
                 available,
@@ -43,7 +48,7 @@ public static class TaxEndpoints
         g.MapGet("/tax/rewards.csv", async (HubService hub) =>
         {
             var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.csv");   // Audit N-Sec5
-            await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals()); return true; });
+            await hub.RunAsync(h => { h.TaxRepository.ExportCsv(file, h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals(), Currencies.Of(h.Config).Code); return true; });
             var bytes = await File.ReadAllBytesAsync(file);
             File.Delete(file);
             return Results.File(bytes, "text/csv; charset=utf-8", $"zufluesse-{DateTime.Now:yyyyMMdd}.csv");
@@ -54,8 +59,9 @@ public static class TaxEndpoints
             var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.csv");   // Audit N-Sec5
             await hub.RunAsync(h =>
             {
-                var results = HoldingCalculator.Apply(h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals());
-                h.TaxRepository.ExportDisposalsCsv(file, results);
+                var code = Currencies.Of(h.Config).Code;
+                var results = HoldingCalculator.Apply(h.TaxMonitor.LoadRewards(), h.TaxRepository.LoadDisposals(), code);
+                h.TaxRepository.ExportDisposalsCsv(file, results, code);
                 return true;
             });
             var bytes = await File.ReadAllBytesAsync(file);
@@ -104,7 +110,7 @@ public static class TaxEndpoints
 
         g.MapPut("/tax/rewards/{id}", async (string id, RewardRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
-            var r = h.TaxEditor.UpdateReward(id, req.Price, req.Note);
+            var r = h.TaxEditor.UpdateReward(id, req.Price, req.Note, Currencies.Of(h.Config).Code);
             h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Zufluss vom {0} bearbeitet (Kurs/Notiz).", L.Short(r.ReceivedAtUtc.ToLocalTime())));
             return new { ok = true };
         })));
@@ -120,7 +126,7 @@ public static class TaxEndpoints
 
         g.MapPost("/tax/disposals", async (DisposalRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
-            var d = h.TaxEditor.AddDisposal(req.Coin, req.Date, req.Amount, req.Proceeds, req.Note, req.AllowOversell);
+            var d = h.TaxEditor.AddDisposal(req.Coin, req.Date, req.Amount, req.Proceeds, req.Note, req.AllowOversell, Currencies.Of(h.Config).Code);
             h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Verkauf vom {0:d} ({1}) erfasst.", d.SoldAtLocal, d.Coin.Symbol()));
             return new { ok = true, d.Id };
         })));

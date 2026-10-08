@@ -94,9 +94,9 @@ public sealed class ReportWindow : Window
         {
             ReportRenderer.Title(r) + (r.Partial ? " " + L.T("(läuft noch)") : ""),
             L.T("Energie {0} kWh · Stromkosten {1} {2}", r.Energy.Kwh.ToString("0.00", c), r.Energy.Cost.ToString("0.00", c), r.Currency) +
-                (r.Energy.AvgCt is { } ct ? L.T(" · Ø {0} ct/kWh", ct.ToString("0.0", c)) : ""),
+                (r.Energy.AvgCt is { } ct ? L.T(" · Ø {0} ct/kWh", ct.ToString("0.0", c)).Replace("ct/kWh", BitaxeTuner.Core.Config.Currencies.Get(r.IncomeCode).CentPerKwh) : ""),
         };
-        if (r.Income.Count > 0) lines.Add(L.T("Zuflüsse: {0} € ({1})", r.IncomeEur.ToString("0.00", c), string.Join(", ", r.Income.Select(i => $"{i.Count}× {i.Coin}"))));
+        if (r.Income.Count > 0) lines.Add(L.T("Zuflüsse: {0} {1} ({2})", r.IncomeEur.ToString("0.00", c), r.IncomeSymbol, string.Join(", ", r.Income.Select(i => $"{i.Count}× {i.Coin}"))));
         if (r.DataFrom is { } df) lines.Add(L.T("Messwerte liegen erst ab {0} vor – der Zeitraum davor fehlt im Bericht.", df.ToString("g", c)));
         lines.Add("");
         foreach (var m in r.Miners)

@@ -46,6 +46,8 @@ public sealed record DisplayModel(
     public DisplaySeries? DailySeries { get; init; }
     public DisplayMonthly? Monthly { get; init; }
     public DisplayPower? Power { get; init; }
+    /// <summary>0.9.11: Untereinheit der Währung für den Strompreis in der Fußzeile (ct, ¢, p, Rp. …).</summary>
+    public string PriceCent { get; init; } = "ct";
     public DisplayQr? Qr { get; init; }
     public IReadOnlyList<DisplaySensor>? Sensors { get; init; }
 }
@@ -212,7 +214,7 @@ public static partial class StatusRenderer
         if (m.PriceCt is { } p)
         {
             // Strompreis zwischen Lüfter und Stand – nur, wenn er ohne Überlappung passt
-            var price = L.T("Strom {0} ct", p.ToString("0.0", De));
+            var price = L.T("Strom {0} {1}", p.ToString("0.0", De), m.PriceCent);
             var left = 16 + TextMeasurer.MeasureSize(fanText, new TextOptions(fanFont)).Width + 28;
             var right = Width - 16 - TextMeasurer.MeasureSize(stand, new TextOptions(foot)).Width - 28;
             var w = TextMeasurer.MeasureSize(price, new TextOptions(foot)).Width;

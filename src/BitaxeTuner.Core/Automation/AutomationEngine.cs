@@ -47,6 +47,9 @@ public sealed class AutomationEngine
 
     public AutomationEngine(PriceService? prices) => _prices = prices;
 
+    /// <summary>0.9.11: Einheit des Strompreises in der gewählten Währung (z. B. „ct/kWh“, „p/kWh“).</summary>
+    public Func<string> CentPerKwh { get; set; } = () => "ct/kWh";
+
     /// <summary>Ist der Temperaturschutz für diesen Miner gerade aktiv abgesenkt?</summary>
     public int? GuardOriginalFrequency(string host) => _hosts.TryGetValue(host, out var s) ? s.OriginalFrequency : null;
 
@@ -170,7 +173,7 @@ public sealed class AutomationEngine
                 return result;
             }
             presetName = price <= schedule.ThresholdCt ? schedule.CheapPreset : schedule.ExpensivePreset;
-            result.Status += L.T(" · Preis {0} ct/kWh", F(price.Value, "0.0"));
+            result.Status += L.T(" · Preis {0} ct/kWh", F(price.Value, "0.0")).Replace("ct/kWh", CentPerKwh());
         }
         else
         {

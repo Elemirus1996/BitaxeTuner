@@ -33,6 +33,18 @@ public sealed class WalletMonitorService : IDisposable
 
     public DateTime? LastPollUtc { get; private set; }
 
+    /// <summary>
+    /// 0.9.11: eingestellte Währung (ISO-Code). Der Euro-Kurs wird immer geholt (deutsches Steuerrecht, vorhandene Daten),
+    /// bei einer anderen Währung zusätzlich deren Kurs.
+    /// </summary>
+    public Func<string> Currency { get; set; } = () => "EUR";
+
+    private string CurrentCurrency()
+    {
+        try { return Config.Currencies.Get(Currency()).Code; }
+        catch { return "EUR"; }
+    }
+
     public WalletMonitorService(IBlockchainService blockchain, IPriceService prices, TaxLogRepository repository)
     {
         _blockchain = blockchain;
@@ -177,6 +189,8 @@ public sealed class WalletMonitorService : IDisposable
                     if (_knownTxKeys.Contains(key)) continue;
 
                     var (quote, failure) = await _prices.GetEurPriceAsync(wallet.Coin, tx.ReceivedAtUtc, ct);
+                    var currency = CurrentCurrency();
+                    var (other, otherFailure) = currency == "EUR" ? (null, null) : await _prices.GetPriceAsync(wallet.Coin, tx.ReceivedAtUtc, currency, ct);
 
                     var reward = new MinedReward
                     {
@@ -187,11 +201,12 @@ public sealed class WalletMonitorService : IDisposable
                         BlockHeight = tx.BlockId,
                         ReceivedAtUtc = tx.ReceivedAtUtc,
                         Amount = tx.Amount,
-                        EurPriceAtReceipt = quote?.Eur,
+                        EurPriceAtReceipt = quote?.Value,
                         PriceAtUtc = quote?.AtUtc,
                         PriceSource = quote?.Source ?? string.Empty,
-                        Note = failure ?? string.Empty
+                        Note = failure ?? otherFailure ?? string.Empty
                     };
+                    if (other is not null) reward.SetPrice(currency, other.Value, other.AtUtc, other.Source);
 
                     lock (_walletLock)
                     {
@@ -225,31 +240,30 @@ public sealed class WalletMonitorService : IDisposable
     }
 
     /// <summary>
-    /// Einträge ohne Kurs erneut bewerten, z. B. nach einem Netzwerkfehler.
+    /// Einträge ohne Kurs erneut bewerten, z. B. nach einem Netzwerkfehler oder (0.9.11) nach dem Wechsel der Währung.
     /// Manuell eingetragene Kurse werden nie angefasst.
     /// </summary>
     private async Task<int> RetryMissingPricesAsync(CancellationToken ct)
     {
-        List<MinedReward> pending;
+        var currencies = new[] { "EUR", CurrentCurrency() }.Distinct().ToList();
+        List<(MinedReward Reward, string Currency)> pending;
         lock (_walletLock)
         {
             pending = _repository.LoadRewards()
-                .Where(r => r.EurPriceAtReceipt is null && !r.IsManualPrice
-                            && DateTime.UtcNow - r.ReceivedAtUtc < TimeSpan.FromDays(364))
+                .Where(r => DateTime.UtcNow - r.ReceivedAtUtc < TimeSpan.FromDays(364))
                 .OrderByDescending(r => r.ReceivedAtUtc)
+                .SelectMany(r => currencies.Where(c => r.PriceIn(c) is null && !r.IsManualIn(c)).Select(c => (r, c)))
                 .Take(PriceRetriesPerPoll)
                 .ToList();
         }
 
         var repaired = 0;
-        foreach (var reward in pending)
+        foreach (var (reward, currency) in pending)
         {
-            var (quote, _) = await _prices.GetEurPriceAsync(reward.Coin, reward.ReceivedAtUtc, ct);
+            var (quote, _) = await _prices.GetPriceAsync(reward.Coin, reward.ReceivedAtUtc, currency, ct);
             if (quote is null) continue;
 
-            reward.EurPriceAtReceipt = quote.Eur;
-            reward.PriceAtUtc = quote.AtUtc;
-            reward.PriceSource = quote.Source;
+            reward.SetPrice(currency, quote.Value, quote.AtUtc, quote.Source);
             reward.Note = L.T("Kurs nachgeholt am {0:g}", DateTime.Now);
             SaveReward(reward);
 

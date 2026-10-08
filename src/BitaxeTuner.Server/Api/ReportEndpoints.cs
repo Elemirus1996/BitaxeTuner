@@ -36,6 +36,7 @@ public static class ReportEndpoints
             {
                 year,
                 currency = months.FirstOrDefault()?.Currency,
+                incomeCurrency = months.FirstOrDefault()?.IncomeSymbol,
                 months = months.Select(m => new { m.Period, m.Partial, kwh = m.Energy.Kwh, cost = m.Energy.Cost, incomeEur = m.IncomeEur,
                     incomeMissing = m.Income.Sum(i => i.EurMissing), hasData = m.Miners.Any(x => x.TotalMinutes > 0) }).ToList(),
             });

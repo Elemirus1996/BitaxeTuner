@@ -26,7 +26,7 @@ public sealed record MqttPlug(string Key, string Name, double? PowerW, double? E
 /// <summary>Gesamtzustand für MQTT.</summary>
 public sealed record MqttSnapshot(double HashrateGh, double PowerW, int Online, int Count, double? PriceCt, bool Paused, string FanMode,
     IReadOnlyList<MqttMiner> Miners, IReadOnlyList<MqttFan> Fans, IReadOnlyList<MqttSensor> Sensors,
-    IReadOnlyList<MqttPlug>? Plugs = null, double? WallPowerW = null);
+    IReadOnlyList<MqttPlug>? Plugs = null, double? WallPowerW = null, string PriceUnit = "ct/kWh");
 
 /// <summary>
 /// Verbindung zum MQTT-Broker (z. B. Mosquitto in Home Assistant): Zustände als JSON (retained), Geräteerkennung
@@ -273,7 +273,7 @@ public sealed partial class MqttBridge : IAsyncDisposable
         Add("sensor", "server_power", L.T("Leistung gesamt"), st, "{{ value_json.power_w }}", serverDevice, o => Unit(o, "W", "power"));
         Add("sensor", "server_efficiency", L.T("Effizienz gesamt"), st, "{{ value_json.efficiency_jth }}", serverDevice, o => Unit(o, "J/TH"));
         Add("sensor", "server_online", L.T("Miner online"), st, "{{ value_json.online }}", serverDevice, o => o["state_class"] = "measurement");
-        Add("sensor", "server_price", "Strompreis", st, "{{ value_json.price_ct }}", serverDevice, o => Unit(o, "ct/kWh"));
+        Add("sensor", "server_price", "Strompreis", st, "{{ value_json.price_ct }}", serverDevice, o => Unit(o, s.PriceUnit));
         Add("binary_sensor", "server_paused", "Pausiert", st, "{{ value_json.paused }}", serverDevice);
         Add("button", "server_display_refresh", L.T("Anzeige aktualisieren"), st, "", serverDevice, o =>
         {

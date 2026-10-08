@@ -229,7 +229,7 @@ public sealed partial class MinerHub
                 count = devices.Count,
                 maxTemp,
             },
-            price = price is null ? null : new { source = Prices.SourceName, ct = price },
+            price = price is null ? null : new { source = Prices.SourceName, ct = price, unit = Currencies.Of(Config).CentPerKwh },
             miners,
         });
     }

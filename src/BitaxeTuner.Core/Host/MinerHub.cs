@@ -126,7 +126,7 @@ public sealed partial class MinerHub : IDisposable
         Odds = new SoloOddsService(Blockchair);
         Tax.TaxTime.Configure(config.TaxTimeZone);
         TaxRepository = new TaxLogRepository(explicitDir is null ? null : Path.Combine(explicitDir, "tax"));
-        TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository);
+        TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository) { Currency = () => Currencies.Of(Config).Code };
         TaxEditor = new TaxEditor(TaxMonitor, TaxRepository);
 
         Snapshots = new SettingsSnapshots(Path.Combine(DataDirectory, "snapshots"));
@@ -135,7 +135,7 @@ public sealed partial class MinerHub : IDisposable
 
         _priceHttp.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner");
         Prices = new PriceService(() => Config.PriceSource, _priceHttp);
-        Automation = new AutomationEngine(Prices);
+        Automation = new AutomationEngine(Prices) { CentPerKwh = () => Currencies.Of(Config).CentPerKwh };
         WebView = new WebViewServer(() => Config.WebView.PinHash, () => WebStatusJson, UpgradeLegacyPin);
         Updates = new UpdateService(_updateHttp, options.UpdateRepository);
         Benchmarks = new BenchmarkManager(this);

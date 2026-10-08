@@ -79,7 +79,7 @@ public static class WebViewPage
         ["efficiency"] = L.T("Effizienz"),
         ["online"] = L.T("Online"),
         ["tempMax"] = L.T("Temp max"),
-        ["price"] = L.T("Strompreis ({0}): {1} ct/kWh"),
+        ["price"] = L.T("Strompreis ({0}): {1} {2}"),
         ["tempVr"] = L.T("Temp / VR"),
         ["frequency"] = L.T("Frequenz"),
         ["voltage"] = L.T("Spannung"),
@@ -118,7 +118,7 @@ public static class WebViewPage
             tile(L.hashrate, hash(s.total.hashrate)) + tile(L.power, de.format(s.total.power) + ' W') +
             tile(L.efficiency, s.total.efficiency ? de.format(s.total.efficiency) + ' J/TH' : '–') +
             tile(L.online, s.total.online + '/' + s.total.count) + tile(L.tempMax, de.format(s.total.maxTemp) + ' °C');
-          document.getElementById('price').textContent = s.price ? f(L.price, s.price.source, de.format(s.price.ct)) : '';
+          document.getElementById('price').textContent = s.price ? f(L.price, s.price.source, de.format(s.price.ct), s.price.unit || 'ct/kWh') : '';
           document.getElementById('miners').innerHTML = s.miners.map(m => `
             <article class="card">
               <h2><span class="dot ${m.online ? 'ok' : 'bad'}"></span>${esc(m.name)}</h2>

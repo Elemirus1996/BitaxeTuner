@@ -16,7 +16,7 @@ public class TaxEditorTests
 
     private sealed class NoPrices : IPriceService
     {
-        public Task<(PriceQuote? Quote, string? FailureReason)> GetEurPriceAsync(CoinType coin, DateTime atUtc, CancellationToken ct = default) =>
+        public Task<(PriceQuote? Quote, string? FailureReason)> GetPriceAsync(CoinType coin, DateTime atUtc, string currency, CancellationToken ct = default) =>
             Task.FromResult<(PriceQuote?, string?)>((null, "offline"));
     }
 
@@ -114,7 +114,7 @@ public class TaxEditorTests
         using (var gecko = new CoinGeckoPriceService(empty))
         {
             var (quote, _) = await gecko.GetEurPriceAsync(CoinType.Bitcoin, DateTime.UtcNow.AddDays(-2));
-            Assert.Equal(61000m, quote!.Eur);
+            Assert.Equal(61000m, quote!.Value);
         }
     }
 

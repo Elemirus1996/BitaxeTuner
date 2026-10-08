@@ -5,12 +5,15 @@ using BitaxeTuner.Core.Tax.Models;
 namespace BitaxeTuner.Core.Tax.Services;
 
 /// <summary>Zeile der Verkaufsübersicht: Verkauf mit FIFO-Ergebnis.</summary>
+/// Beträge (Namen mit „Eur“) in der gerechneten Währung (0.9.11); ProceedsCurrency ist die Währung, in der der Erlös erfasst wurde.
 public sealed record DisposalView(string Id, DateTime SoldAtUtc, CoinType Coin, decimal Amount, decimal ProceedsEur,
-    decimal CostBasisEur, decimal TaxableGainEur, decimal TaxFreeAmount, decimal UnmatchedAmount, bool MissingPrice, string Note);
+    decimal CostBasisEur, decimal TaxableGainEur, decimal TaxFreeAmount, decimal UnmatchedAmount, bool MissingPrice, string Note,
+    string ProceedsCurrency = "EUR", decimal? EnteredProceeds = null, bool OtherCurrency = false);
 
-/// <summary>Jahreswerte wie in der Desktop-App (Zuflüsse; Verkäufe nach § 23 EStG mit Freigrenze).</summary>
+/// <summary>Jahreswerte wie in der Desktop-App (Zuflüsse; Verkäufe nach § 23 EStG mit Freigrenze), Beträge in Currency.</summary>
 public sealed record TaxYearSummary(int Year, int RewardCount, decimal RewardEur, int RewardsWithoutPrice,
-    int SaleCount, decimal TaxableGainEur, decimal FreeLimitEur, bool SaleMissingPrice, bool SaleUnmatched, decimal UncertainGainEur = 0);
+    int SaleCount, decimal TaxableGainEur, decimal FreeLimitEur, bool SaleMissingPrice, bool SaleUnmatched, decimal UncertainGainEur = 0,
+    string Currency = "EUR", bool SaleOtherCurrency = false);
 
 /// <summary>
 /// Steuer-Bereich bearbeiten (0.9.6, Browser im Server-Betrieb): Wallets, Kurs/Notiz eines Zuflusses, Einträge entfernen,
@@ -89,11 +92,12 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     // ---------- Zuflüsse ----------
 
     /// <summary>
-    /// Kurs und/oder Notiz ändern. <paramref name="price"/>: null = unverändert, leer = Kurs entfernen, sonst EUR je Coin.
-    /// Ein geänderter Kurs gilt als manuell und wird nie automatisch überschrieben.
+    /// Kurs und/oder Notiz ändern. <paramref name="price"/>: null = unverändert, leer = Kurs entfernen, sonst Kurs je Coin
+    /// in <paramref name="currency"/> (0.9.11). Ein geänderter Kurs gilt als manuell und wird nie automatisch überschrieben.
     /// </summary>
-    public MinedReward UpdateReward(string id, string? price, string? note)
+    public MinedReward UpdateReward(string id, string? price, string? note, string currency = "EUR")
     {
+        var cur = Config.Currencies.Get(currency);
         var reward = monitor.LoadRewards().FirstOrDefault(r => r.Id == id)
                      ?? throw new LocalizedException("Eintrag nicht gefunden.") { Status = 404 };
         if (price is not null)
@@ -104,16 +108,12 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
                 if (!TryParseEur(price, out var v) || v <= 0 || v > 100_000_000m) throw new LocalizedException("Kurs ungültig.");
                 // Audit N-F1: BTC und BCH lagen nie unter 100 € je Coin, seit es Mining-Erträge zu dokumentieren gibt
                 if (v < MinPlausiblePriceEur)
-                    throw new LocalizedException("Kurs {0} € je Coin ist unplausibel niedrig – Tausender bitte mit Punkt und Dezimalstellen mit Komma (z. B. 65.000,00).",
-                        v.ToString("0.##", L.Culture));
+                    throw new LocalizedException("Kurs {0} {1} je Coin ist unplausibel niedrig – Tausender bitte mit Punkt und Dezimalstellen mit Komma (z. B. 65.000,00).",
+                        v.ToString("0.##", L.Culture), cur.Symbol);
                 value = v;
             }
-            if (value != reward.EurPriceAtReceipt)
-            {
-                reward.EurPriceAtReceipt = value;
-                reward.PriceSource = value is null ? "" : L.T("manuell eingetragen am {0:d}", DateTime.Now);
-                reward.PriceAtUtc = null;
-            }
+            if (value != reward.PriceIn(cur.Code))
+                reward.SetPrice(cur.Code, value, null, value is null ? "" : L.T("manuell eingetragen am {0:d}", DateTime.Now));
         }
         if (note is not null) reward.Note = note.Trim().Length > 500 ? note.Trim()[..500] : note.Trim();
         monitor.SaveReward(reward);
@@ -135,8 +135,9 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     /// Verkauf erfassen (Uhrzeit 12:00 lokal, damit ein Verkauf am Zuflusstag nicht vor dem Zufluss einsortiert wird).
     /// Ist mehr verkauft als dokumentiert, nur mit <paramref name="allowOversell"/> – sonst Status 409 mit Hinweis.
     /// </summary>
-    public Disposal AddDisposal(CoinType coin, string? date, string? amount, string? proceeds, string? note, bool allowOversell)
+    public Disposal AddDisposal(CoinType coin, string? date, string? amount, string? proceeds, string? note, bool allowOversell, string currency = "EUR")
     {
+        var cur = Config.Currencies.Get(currency);
         if (!DateOnly.TryParseExact(date ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
             || day > DateOnly.FromDateTime(DateTime.Now) || day.Year < 2009)
             throw new LocalizedException("Datum ungültig.");
@@ -156,7 +157,9 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             Coin = coin,
             SoldAtUtc = TaxTime.FromTax(day.ToDateTime(new TimeOnly(12, 0))),
             Amount = a,
-            ProceedsEur = p,
+            ProceedsEur = cur.IsEuro ? p : 0,
+            Currency = cur.IsEuro ? null : cur.Code,
+            Proceeds = cur.IsEuro ? null : p,
             Note = (note ?? "").Trim(),
         };
         disposals.Add(disposal);
@@ -175,26 +178,28 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
 
     // ---------- Übersicht ----------
 
-    /// <summary>Zuflüsse mit Restbestand (FIFO), Verkäufe mit Ergebnis, Jahreswerte und Bestand je Coin.</summary>
+    /// <summary>Zuflüsse mit Restbestand (FIFO), Verkäufe mit Ergebnis, Jahreswerte und Bestand je Coin – Beträge in <paramref name="currency"/>.</summary>
     public (List<MinedReward> Rewards, List<DisposalView> Disposals, TaxYearSummary Summary, Dictionary<string, decimal> Available)
-        Overview(DateTime now)
+        Overview(DateTime now, string currency = "EUR")
     {
+        var cur = Config.Currencies.Get(currency).Code;
         var rewards = monitor.LoadRewards();
-        var results = HoldingCalculator.Apply(rewards, repository.LoadDisposals());
+        var results = HoldingCalculator.Apply(rewards, repository.LoadDisposals(), cur);
         var year = TaxTime.ToTax(now.ToUniversalTime()).Year;
         var inYear = rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
         var sales = results.Where(r => r.Disposal.SoldAtLocal.Year == year).ToList();
-        var summary = new TaxYearSummary(year, inYear.Count, inYear.Sum(r => r.EurValue ?? 0), inYear.Count(r => r.EurValue is null),
+        var summary = new TaxYearSummary(year, inYear.Count, inYear.Sum(r => r.ValueIn(cur) ?? 0), inYear.Count(r => r.ValueIn(cur) is null),
             sales.Count, sales.Sum(r => r.TaxableGainEur), FreeLimitEur, sales.Any(r => r.MissingPrice), sales.Any(r => r.UnmatchedAmount > 0),
-            sales.Sum(r => r.UncertainGainEur));
+            sales.Sum(r => r.UncertainGainEur), cur, sales.Any(r => r.OtherCurrency));
         var views = results.OrderByDescending(r => r.Disposal.SoldAtUtc).Select(r => new DisposalView(r.Disposal.Id, r.Disposal.SoldAtUtc,
-            r.Disposal.Coin, r.Disposal.Amount, r.Disposal.ProceedsEur, r.CostBasisEur, r.TaxableGainEur, r.TaxFreeAmount,
-            r.UnmatchedAmount, r.MissingPrice, r.Disposal.Note)).ToList();
+            r.Disposal.Coin, r.Disposal.Amount, r.Disposal.ProceedsIn(cur) ?? 0, r.CostBasisEur, r.TaxableGainEur, r.TaxFreeAmount,
+            r.UnmatchedAmount, r.MissingPrice, r.Disposal.Note, r.Disposal.EnteredCurrency,
+            r.Disposal.EnteredCurrency == "EUR" ? r.Disposal.ProceedsEur : r.Disposal.Proceeds, r.OtherCurrency)).ToList();
         var available = Enum.GetValues<CoinType>().ToDictionary(c => c.Symbol(), c => rewards.Where(r => r.Coin == c).Sum(r => r.Remaining));
         return (rewards.OrderByDescending(r => r.ReceivedAtUtc).ToList(), views, summary, available);
     }
 
-    /// <summary>Untergrenze für einen von Hand eingetragenen Kurs (€ je Coin).</summary>
+    /// <summary>Untergrenze für einen von Hand eingetragenen Kurs (je Coin; gilt für alle wählbaren Währungen).</summary>
     public const decimal MinPlausiblePriceEur = 100m;
 
     /// <summary>
@@ -203,16 +208,20 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     /// </summary>
     public static bool TryParseEur(string text, out decimal value)
     {
-        var t = text.Trim().Replace(" ", "").Replace("€", "");
+        var t = StripCurrency(text);
         if (!t.Contains(',') && System.Text.RegularExpressions.Regex.IsMatch(t, @"^\d{1,3}(\.\d{3})+$"))
             t = t.Replace(".", "");
         return TryParseDecimal(t, out value);
     }
 
+    /// <summary>Leerzeichen und Währungszeichen/-codes (€, $, CHF, kr …) entfernen.</summary>
+    private static string StripCurrency(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text.Trim(), @"[\s\p{Sc}]|[A-Za-zÀ-ž]+\.?", "");
+
     /// <summary>Mit Komma deutsch, ohne Komma mit Punkt als Dezimaltrenner (wie in der Desktop-App); € und Leerzeichen erlaubt.</summary>
     public static bool TryParseDecimal(string text, out decimal value)
     {
-        text = text.Trim().Replace(" ", "").Replace("€", "");
+        text = StripCurrency(text);
         return text.Contains(',')
             ? decimal.TryParse(text, NumberStyles.Number, CultureInfo.GetCultureInfo("de-DE"), out value)
             : decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);

@@ -11,8 +11,12 @@ public sealed record DisposalResult(
     decimal TaxableAmount,
     decimal UnmatchedAmount,
     bool MissingPrice,
-    decimal UncertainGainEur = 0)
+    decimal UncertainGainEur = 0,
+    bool OtherCurrency = false)
 {
+    /// <summary>0.9.11: Erlös ist in einer anderen Währung erfasst als gerechnet wird – Gewinn dieses Verkaufs unbekannt.</summary>
+    public bool OtherCurrency { get; init; } = OtherCurrency;
+
     /// <summary>
     /// Audit F6: Teil von <see cref="TaxableGainEur"/>, der mit 0 € Anschaffungskosten gerechnet ist – Zufluss ohne Kurs
     /// oder verkaufte Menge ohne dokumentierten Zufluss. Mit nachgetragenem Kurs wird er kleiner.
@@ -23,7 +27,8 @@ public sealed record DisposalResult(
 /// <summary>
 /// Ordnet Verkäufe nach FIFO den dokumentierten Zuflüssen desselben Coins zu.
 ///
-/// Anschaffungskosten eines Zuflusses sind sein EUR-Wert zum Zuflusszeitpunkt.
+/// Anschaffungskosten eines Zuflusses sind sein Wert zum Zuflusszeitpunkt – in Euro oder (0.9.11) der gewählten Währung;
+/// die Beträge der Ergebnisse (Namen mit „Eur“) sind dann in dieser Währung.
 /// Anteile, die mehr als ein Jahr gehalten wurden, gelten als haltefristfrei
 /// und gehen nicht in den Gewinn ein. Liegt kein Kurs vor, wird mit 0 €
 /// Anschaffungskosten gerechnet und das Ergebnis markiert.
@@ -34,7 +39,7 @@ public sealed record DisposalResult(
 /// </summary>
 public static class HoldingCalculator
 {
-    public static List<DisposalResult> Apply(IList<MinedReward> rewards, IEnumerable<Disposal> disposals)
+    public static List<DisposalResult> Apply(IList<MinedReward> rewards, IEnumerable<Disposal> disposals, string currency = "EUR")
     {
         foreach (var r in rewards) r.Remaining = r.Amount;
 
@@ -52,6 +57,9 @@ public static class HoldingCalculator
             var open = d.Amount;
             decimal costBasis = 0, taxableGain = 0, taxFreeAmount = 0, taxableAmount = 0, uncertain = 0;
             var missingPrice = false;
+            var proceedsTotal = d.ProceedsIn(currency);
+            var otherCurrency = proceedsTotal is null;
+            var proceedsAll = proceedsTotal ?? 0;
 
             foreach (var lot in lots)
             {
@@ -62,9 +70,10 @@ public static class HoldingCalculator
                 open -= take;
 
                 var share = d.Amount > 0 ? take / d.Amount : 0;
-                var proceeds = d.ProceedsEur * share;
-                var cost = take * (lot.EurPriceAtReceipt ?? 0);
-                if (lot.EurPriceAtReceipt is null) missingPrice = true;
+                var proceeds = proceedsAll * share;
+                var price = lot.PriceIn(currency);
+                var cost = take * (price ?? 0);
+                if (price is null) missingPrice = true;
 
                 costBasis += cost;
 
@@ -76,18 +85,20 @@ public static class HoldingCalculator
                 {
                     taxableAmount += take;
                     taxableGain += proceeds - cost;
-                    if (lot.EurPriceAtReceipt is null) uncertain += proceeds;
+                    if (price is null) uncertain += proceeds;
                 }
             }
 
             if (open > 0 && d.Amount > 0)
             {
                 taxableAmount += open;
-                taxableGain += d.ProceedsEur * (open / d.Amount);
-                uncertain += d.ProceedsEur * (open / d.Amount);
+                taxableGain += proceedsAll * (open / d.Amount);
+                uncertain += proceedsAll * (open / d.Amount);
             }
 
-            results.Add(new DisposalResult(d, costBasis, taxableGain, taxFreeAmount, taxableAmount, open, missingPrice, uncertain));
+            // Erlös in anderer Währung: Menge und Haltefrist stimmen, Beträge nicht – kein Gewinn ausweisen, nur markieren
+            if (otherCurrency) taxableGain = uncertain = 0;
+            results.Add(new DisposalResult(d, costBasis, taxableGain, taxFreeAmount, taxableAmount, open, missingPrice, uncertain, otherCurrency));
         }
 
         return results;

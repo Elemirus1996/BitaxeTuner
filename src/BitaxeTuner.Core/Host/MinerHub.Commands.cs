@@ -126,7 +126,7 @@ public sealed partial class MinerHub
         string body;
         if (s.Mode == "price")
         {
-            body = L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → {2}\n", Prices.SourceName, s.ThresholdCt, PresetText(device, s.CheapPreset)) +
+            body = L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → {2}\n", Prices.SourceName, s.ThresholdCt, PresetText(device, s.CheapPreset)).Cents(Config) +
                    L.T("sonst → {0}", PresetText(device, s.ExpensivePreset));
         }
         else

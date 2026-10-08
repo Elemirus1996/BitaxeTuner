@@ -83,7 +83,7 @@
                 <Grid>
                     <!-- Zuflüsse -->
                     <DockPanel Visibility="{Binding ShowRewards, Converter={StaticResource BoolToVis}}">
-                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'DOKUMENTIERTE ZUFLÜSSE (EUR-Kurs und Notiz editierbar)'}"
+                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'DOKUMENTIERTE ZUFLÜSSE (Kurs und Notiz editierbar)'}"
                                    Style="{StaticResource TileLabel}"/>
                         <DataGrid x:Name="RewardGrid" ItemsSource="{Binding Rewards}" SelectedItem="{Binding SelectedReward}"
                                   RowEditEnding="RewardGrid_RowEditEnding">
@@ -92,12 +92,12 @@
                                 <DataGridTextColumn Header="Coin" Binding="{Binding CoinSymbol}" Width="50" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Wallet" Binding="{Binding WalletLabel}" Width="120" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{l:T 'Menge'}" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="{l:T 'EUR-Kurs'}" Binding="{Binding EurPriceAtReceipt, StringFormat='N2', ConverterCulture='de-DE', TargetNullValue=''}" Width="90"/>
-                                <DataGridTextColumn Header="{l:T 'EUR-Wert'}" Binding="{Binding EurValue, StringFormat='N2', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Kurs'}" Binding="{Binding ViewPrice, StringFormat='N2', ConverterCulture='de-DE', TargetNullValue=''}" Width="90"/>
+                                <DataGridTextColumn Header="{l:T 'Wert'}" Binding="{Binding ViewValue, StringFormat='N2', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{l:T 'Rest'}" Binding="{Binding Remaining, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{l:T 'Frei ab'}" Binding="{Binding TaxFreeFrom, StringFormat='d', ConverterCulture='de-DE'}" Width="85" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{l:T 'Haltefrist'}" Binding="{Binding HoldingStatus}" Width="120" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="{l:T 'Kursquelle'}" Binding="{Binding PriceSource}" Width="180" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{l:T 'Kursquelle'}" Binding="{Binding ViewSource}" Width="180" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{l:T 'Notiz'}" Binding="{Binding Note}" Width="180"/>
                                 <DataGridTextColumn Header="TXID" Binding="{Binding TxId}" Width="*" IsReadOnly="True"/>
                             </DataGrid.Columns>
@@ -115,12 +115,12 @@
                             <TextBox Width="130" Margin="8,0,0,0" Text="{Binding NewSaleAmount, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="{l:T 'Menge in BTC bzw. BCH, z. B. 0,125'}"/>
                             <TextBox Width="110" Margin="8,0,0,0" Text="{Binding NewSaleProceeds, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="{l:T 'Erlös in EUR; bei Tausch der Marktwert der Gegenleistung'}"/>
+                                     ToolTip="{l:T 'Erlös in der eingestellten Währung; bei Tausch der Marktwert der Gegenleistung'}"/>
                             <TextBox Width="200" Margin="8,0,0,0" Text="{Binding NewSaleNote, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="{l:T 'Notiz, z. B. Börse oder Zweck'}"/>
                             <Button Content="{l:T 'Erfassen'}" Margin="8,0,0,0" Command="{Binding AddDisposalCommand}"/>
                         </StackPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'Felder: Datum · Coin · Menge · Erlös in EUR · Notiz'}"
+                        <TextBlock DockPanel.Dock="Top" Text="{l:T 'Felder: Datum · Coin · Menge · Erlös (eingestellte Währung) · Notiz'}"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,-6,0,8"/>
 
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
@@ -133,10 +133,10 @@
                                 <DataGridTextColumn Header="{l:T 'Datum'}" Binding="{Binding SoldAtLocal, StringFormat='d', ConverterCulture='de-DE'}" Width="90"/>
                                 <DataGridTextColumn Header="Coin" Binding="{Binding CoinSymbol}" Width="50"/>
                                 <DataGridTextColumn Header="{l:T 'Menge'}" Binding="{Binding Amount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
-                                <DataGridTextColumn Header="{l:T 'Erlös €'}" Binding="{Binding ProceedsEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="90"/>
-                                <DataGridTextColumn Header="{l:T 'Anschaffung €'}" Binding="{Binding CostBasisEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="100"/>
+                                <DataGridTextColumn Header="{l:T 'Erlös'}" Binding="{Binding ProceedsEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="90"/>
+                                <DataGridTextColumn Header="{l:T 'Anschaffung'}" Binding="{Binding CostBasisEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="100"/>
                                 <DataGridTextColumn Header="{l:T 'Haltefristfrei'}" Binding="{Binding TaxFreeAmount, StringFormat='0.00000000', ConverterCulture='de-DE'}" Width="105"/>
-                                <DataGridTextColumn Header="{l:T 'Steuerpfl. Gewinn €'}" Binding="{Binding TaxableGainEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="130"/>
+                                <DataGridTextColumn Header="{l:T 'Steuerpfl. Gewinn'}" Binding="{Binding TaxableGainEur, StringFormat='N2', ConverterCulture='de-DE'}" Width="130"/>
                                 <DataGridTextColumn Header="{l:T 'Hinweis'}" Binding="{Binding Hint}" Width="220"/>
                                 <DataGridTextColumn Header="{l:T 'Notiz'}" Binding="{Binding Note}" Width="*"/>
                             </DataGrid.Columns>

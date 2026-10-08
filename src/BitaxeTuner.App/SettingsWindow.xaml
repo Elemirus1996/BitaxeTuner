@@ -131,8 +131,8 @@
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
-                        <TextBlock Text="{l:T 'WÄHRUNGSZEICHEN'}" Style="{StaticResource Label}"/>
-                        <TextBox x:Name="CurrencyBox"/>
+                        <TextBlock Text="{l:T 'WÄHRUNG (FÜR ALLES)'}" Style="{StaticResource Label}"/>
+                        <ComboBox x:Name="CurrencyBox" ToolTip="{l:T 'Kurse, Erträge, Stromkosten, Berichte, E-Paper und Steuer-Übersicht in dieser Währung'}"/>
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
                         <TextBlock Text="{l:T 'ABFRAGEINTERVALL (S)'}" Style="{StaticResource Label}"/>

@@ -6,8 +6,8 @@ using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Display;
 
-/// <summary>Kurs eines Coins: aktueller EUR-Kurs, Änderung über 24 h in %, Verlauf.</summary>
-public sealed record DisplayCoin(string Symbol, string Name, double? Eur, double? Change24h, IReadOnlyList<DisplayValue> Points);
+/// <summary>Kurs eines Coins: aktueller Kurs (in Unit, 0.9.11 wählbare Währung), Änderung über 24 h in %, Verlauf.</summary>
+public sealed record DisplayCoin(string Symbol, string Name, double? Eur, double? Change24h, IReadOnlyList<DisplayValue> Points, string Unit = "€");
 
 /// <summary>Nächste Difficulty-Anpassung (Bitcoin).</summary>
 public sealed record DisplayDifficulty(double ProgressPercent, double ExpectedChangePercent, int RemainingBlocks, DateTime? Eta);
@@ -19,11 +19,12 @@ public sealed record DisplayValue(DateTime Time, double Value);
 public sealed record DisplaySeries(string Label, string Unit, string Format, IReadOnlyList<DisplayValue> Points);
 
 /// <summary>Monatsbilanz mit Balken je Tag.</summary>
+/// Ertrag in IncomeCurrency (0.9.11), Stromkosten in Currency.
 public sealed record DisplayMonthly(DateTime Month, bool Partial, double Kwh, double Cost, string Currency, double IncomeEur, int IncomeMissing,
-    double? AvgGh, string BarLabel, string BarFormat, IReadOnlyList<DisplayValue> Bars);
+    double? AvgGh, string BarLabel, string BarFormat, IReadOnlyList<DisplayValue> Bars, string IncomeCurrency = "€");
 
-/// <summary>Strompreise der kommenden Stunden (ct/kWh) und das günstigste 3-Stunden-Fenster.</summary>
-public sealed record DisplayPower(double? NowCt, IReadOnlyList<DisplayValue> Hours, DateTime? CheapFrom, double? CheapAvg, string Source);
+/// <summary>Strompreise der kommenden Stunden (in Cent/kWh, z. B. ct) und das günstigste 3-Stunden-Fenster.</summary>
+public sealed record DisplayPower(double? NowCt, IReadOnlyList<DisplayValue> Hours, DateTime? CheapFrom, double? CheapAvg, string Source, string Cent = "ct");
 
 /// <summary>QR-Code (Module zeilenweise, true = schwarz) und die Adresse darin.</summary>
 public sealed record DisplayQr(string Url, IReadOnlyList<bool[]> Modules);
@@ -33,7 +34,7 @@ public sealed record DisplaySensor(string Name, double? Temp, double Warn, bool 
 
 public static partial class StatusRenderer
 {
-    private static string Eur(double v) => v >= 1000 ? $"{N(v, "N0")} €" : $"{N(v, "N2")} €";
+    private static string Money(double v, string unit) => v >= 1000 ? $"{N(v, "N0")} {unit}" : $"{N(v, "N2")} {unit}";
 
     private static string Signed(double v, string format) => (v > 0 ? "+" : "") + N(v, format);
 
@@ -97,7 +98,7 @@ public static partial class StatusRenderer
         {
             var c = coins[0];
             Text(ctx, c.Name, Regular.Value, 22, 16, 76, Ink);
-            Text(ctx, c.Eur is { } e ? Eur(e) : "–", Bold.Value, 64, 16, 100, Ink);
+            Text(ctx, c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value, 64, 16, 100, Ink);
             if (c.Change24h is { } ch)
                 TextRight(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 32, Width - 16, 122, ch < 0 ? Red : Ink);
             LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), line: Red);
@@ -110,7 +111,7 @@ public static partial class StatusRenderer
                 var c = coins[i];
                 var x = 16 + i * (colW + 16);
                 Text(ctx, c.Name, Regular.Value, 22, x, 76, Ink);
-                Text(ctx, Fit(c.Eur is { } e ? Eur(e) : "–", Bold.Value.CreateFont(46), colW), Bold.Value.CreateFont(46), x, 102, Ink);
+                Text(ctx, Fit(c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value.CreateFont(46), colW), Bold.Value.CreateFont(46), x, 102, Ink);
                 if (c.Change24h is { } ch) Text(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 24, x, 160, ch < 0 ? Red : Ink);
                 LineChart(ctx, c.Points, new RectangleF(x + 70, 204, colW - 74, chartBottom - 204 - 24), m.Time.AddHours(-24), m.Time,
                     c.Eur is >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), timeLabels: 2, line: Red);
@@ -155,11 +156,11 @@ public static partial class StatusRenderer
         PageHeader(ctx, m, L.T("Monatsbilanz · {0}", mo.Month.ToString("MMMM yyyy", De)) + (mo.Partial ? L.T(" (läuft)") : ""));
         var w = (Width - 32) / 4f;
         var diff = mo.IncomeEur - mo.Cost;
-        Tile(ctx, 16, 76, w, L.T("Ertrag"), $"{N(mo.IncomeEur, "0.00")} €");
+        Tile(ctx, 16, 76, w, L.T("Ertrag"), $"{N(mo.IncomeEur, "0.00")} {mo.IncomeCurrency}");
         Tile(ctx, 16 + w, 76, w, L.T("Strom"), $"{N(mo.Kwh, "0.0")} kWh");
         Tile(ctx, 16 + 2 * w, 76, w, L.T("Stromkosten"), $"{N(mo.Cost, "0.00")} {mo.Currency}");
-        // Audit N-F4: Ertrag ist immer in €, Stromkosten in der eingestellten Währung – nur gleiche Währungen verrechnen
-        if (mo.Currency is "€" or "EUR" or "Euro")
+        // Audit N-F4: nur gleiche Währungen verrechnen (0.9.11: Ertrag in der gewählten Währung, Stromkosten mit ihrem Zeichen)
+        if (mo.Currency == mo.IncomeCurrency || (mo.IncomeCurrency == "€" && mo.Currency is "EUR" or "Euro"))
             Tile(ctx, 16 + 3 * w, 76, w, L.T("Differenz"), Signed(diff, "0.00"), red: diff < 0);
         else
             Tile(ctx, 16 + 3 * w, 76, w, L.T("Differenz"), L.T("andere Währung"));
@@ -211,11 +212,11 @@ public static partial class StatusRenderer
             return;
         }
         Text(ctx, L.T("jetzt"), Regular.Value, 20, 16, 74, Ink);
-        Text(ctx, p.NowCt is { } now ? L.T("{0} ct/kWh", N(now, "0.0")) : "–", Bold.Value, 44, 16, 96, Ink);
+        Text(ctx, p.NowCt is { } now ? $"{N(now, "0.0")} {p.Cent}/kWh" : "–", Bold.Value, 44, 16, 96, Ink);
         if (p.CheapFrom is { } cf && p.CheapAvg is { } ca)
         {
             TextRight(ctx, L.T("günstigste 3 Stunden"), Regular.Value, 20, Width - 16, 74, Ink);
-            TextRight(ctx, L.T("{0}–{1} Uhr · Ø {2} ct", cf.ToString("HH:mm", De), cf.AddHours(3).ToString("HH:mm", De), N(ca, "0.0")),
+            TextRight(ctx, L.T("{0}–{1} Uhr · Ø {2} {3}", cf.ToString("HH:mm", De), cf.AddHours(3).ToString("HH:mm", De), N(ca, "0.0"), p.Cent),
                 Bold.Value, 30, Width - 16, 104, Ink);
         }
         var hours = p.Hours.OrderBy(h => h.Time).Take(24).ToList();
@@ -230,7 +231,7 @@ public static partial class StatusRenderer
         ctx.DrawLine(Crisp, Ink, 2, new PointF(area.Left, area.Top), new PointF(area.Left, area.Bottom), new PointF(area.Right, area.Bottom));
         TextRight(ctx, N(max, "0"), small, area.Left - 6, area.Top - 8, Ink);
         TextRight(ctx, N(min, "0"), small, area.Left - 6, Y(min) - 10, Ink);
-        Text(ctx, "ct", small, 16, area.Top - 30, Ink);
+        Text(ctx, p.Cent, small, 16, area.Top - 30, Ink);
         var slot = area.Width / hours.Count;
         for (var i = 0; i < hours.Count; i++)
         {

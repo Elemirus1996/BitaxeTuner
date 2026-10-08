@@ -102,17 +102,20 @@ public sealed class TaxLogRepository
     /// </summary>
     /// <param name="disposals">Verkäufe; angegeben → Restbestand je Zufluss per FIFO neu berechnen (sonst gilt der Wert aus
     /// <see cref="HoldingCalculator.Apply"/>, den der Aufrufer schon gesetzt hat).</param>
-    public void ExportCsv(string filePath, IEnumerable<MinedReward> rewards, IEnumerable<Disposal>? disposals = null)
+    /// <param name="currency">0.9.11: gewählte Währung; ist es nicht Euro, folgen Kurs, Wert und Quelle darin als weitere Spalten.</param>
+    public void ExportCsv(string filePath, IEnumerable<MinedReward> rewards, IEnumerable<Disposal>? disposals = null, string currency = "EUR")
     {
         if (disposals is not null)
         {
             var list = rewards.ToList();
-            HoldingCalculator.Apply(list, disposals);
+            HoldingCalculator.Apply(list, disposals, currency);
             rewards = list;
         }
+        var cur = Config.Currencies.Get(currency).Code;
         var de = CultureInfo.GetCultureInfo("de-DE");
         var sb = new StringBuilder();
-        sb.AppendLine("Datum;Uhrzeit;Zeitpunkt UTC;Coin;Wallet;Blockhöhe;TXID;Menge;EUR-Kurs;EUR-Wert;Kursquelle;Haltefrist endet;Restbestand;Notiz");
+        sb.AppendLine("Datum;Uhrzeit;Zeitpunkt UTC;Coin;Wallet;Blockhöhe;TXID;Menge;EUR-Kurs;EUR-Wert;Kursquelle;Haltefrist endet;Restbestand;Notiz" +
+                      (cur == "EUR" ? "" : $";{cur}-Kurs;{cur}-Wert;Kursquelle {cur}"));
 
         foreach (var r in rewards.OrderBy(r => r.ReceivedAtUtc))
         {
@@ -131,30 +134,37 @@ public sealed class TaxLogRepository
                 Escape(r.PriceSource),
                 r.TaxFreeFrom.AddDays(-1).ToString("dd.MM.yyyy", de),
                 r.Remaining.ToString("0.00000000", de),
-                Escape(r.Note)));
+                Escape(r.Note)) +
+                (cur == "EUR" ? "" : ";" + string.Join(';',
+                    r.PriceIn(cur)?.ToString("0.00", de) ?? "",
+                    r.ValueIn(cur)?.ToString("0.00", de) ?? "",
+                    Escape(r.SourceIn(cur)))));
         }
 
         File.WriteAllText(filePath, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
     }
 
-    /// <summary>Verkäufe mit FIFO-Ergebnis als CSV.</summary>
-    public void ExportDisposalsCsv(string filePath, IEnumerable<DisposalResult> results)
+    /// <summary>Verkäufe mit FIFO-Ergebnis als CSV; Beträge in der Währung, in der gerechnet wurde (0.9.11).</summary>
+    public void ExportDisposalsCsv(string filePath, IEnumerable<DisposalResult> results, string currency = "EUR")
     {
+        var cur = Config.Currencies.Get(currency).Code;
         var de = CultureInfo.GetCultureInfo("de-DE");
         var sb = new StringBuilder();
-        sb.AppendLine("Datum;Coin;Menge;Erlös EUR;Anschaffungskosten EUR;steuerpfl. Menge;haltefristfreie Menge;steuerpfl. Gewinn EUR;Hinweis;Notiz;davon ohne Kurs/Zufluss EUR");
+        sb.AppendLine("Datum;Coin;Menge;Erlös EUR;Anschaffungskosten EUR;steuerpfl. Menge;haltefristfreie Menge;steuerpfl. Gewinn EUR;Hinweis;Notiz;davon ohne Kurs/Zufluss EUR"
+            .Replace("EUR", cur));
 
         foreach (var r in results.OrderBy(r => r.Disposal.SoldAtUtc))
         {
             var hint = new List<string>();
             if (r.MissingPrice) hint.Add(L.T("Kurs fehlt bei mind. einem Zufluss"));
             if (r.UnmatchedAmount > 0) hint.Add(L.T("{0} ohne Zufluss", r.UnmatchedAmount.ToString("0.00000000", de)));
+            if (r.OtherCurrency) hint.Add(L.T("Erlös in {0} erfasst", r.Disposal.EnteredCurrency));
 
             sb.AppendLine(string.Join(';',
                 r.Disposal.SoldAtLocal.ToString("dd.MM.yyyy", de),
                 r.Disposal.Coin.Symbol(),
                 r.Disposal.Amount.ToString("0.00000000", de),
-                r.Disposal.ProceedsEur.ToString("0.00", de),
+                (r.Disposal.ProceedsIn(cur)?.ToString("0.00", de) ?? ""),
                 r.CostBasisEur.ToString("0.00", de),
                 r.TaxableAmount.ToString("0.00000000", de),
                 r.TaxFreeAmount.ToString("0.00000000", de),

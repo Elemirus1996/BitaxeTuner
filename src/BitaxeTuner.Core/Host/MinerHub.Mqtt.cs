@@ -90,6 +90,6 @@ public sealed partial class MinerHub
             fans.Select(c => new MqttFan(c.Channel, c.Name, c.Percent, c.Rpm)).ToList(),
             (FanStatus.Sensors ?? []).Select(s => new MqttSensor(MqttBridge.Key(s.Id), s.Name, s.Temp)).ToList(),
             PlugStatuses().Select(p => new MqttPlug(MqttBridge.Key(p.Id), p.Name, p.PowerW, p.EnergyWh / 1000)).ToList(),
-            Config.Plugs.Items.Count > 0 && CurrentEnergy() is { FromPlugs: true } e ? e.TotalPowerW : null);
+            Config.Plugs.Items.Count > 0 && CurrentEnergy() is { FromPlugs: true } e ? e.TotalPowerW : null, Currencies.Of(Config).CentPerKwh);
     }
 }

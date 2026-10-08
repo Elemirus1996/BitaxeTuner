@@ -82,7 +82,8 @@ public sealed partial class MinerHub
             if (!Config.Notifications.Wants(NotifyCategory.Finds)) return;
             if (DateTime.UtcNow - reward.ReceivedAtUtc > TimeSpan.FromHours(6)) return; // Erstimport alter Eingänge
 
-            var eur = reward.EurValue is { } v ? $" ≈ {v.ToString("N2", De)} €" : "";
+            var cur = Currencies.Of(Config);
+            var eur = reward.ValueIn(cur.Code) is { } v ? $" ≈ {v.ToString("N2", De)} {cur.Symbol}" : "";
             _ = Notify.SendAsync($"reward:{reward.Coin.Symbol()}:{reward.TxId}", L.T("Zufluss dokumentiert"),
                 L.T("{0} {1} auf {2}{3}", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel, eur),
                 NotifyPriority.High, TimeSpan.FromDays(365), category: NotifyCategory.Finds);

@@ -4,6 +4,9 @@
 'use strict';
 
 const S = { role: 'None', csrf: null, status: null, info: null, es: null, logEs: null, detail: null, route: null, chartRange: '1h' };
+/** 0.9.11: eine Währung für alles – Zeichen und Untereinheit für Strompreise kommen mit dem Status. */
+const money = () => S.status?.money || { code: 'EUR', symbol: '€', cent: 'ct' };
+const cents = s => money().code === 'EUR' ? s : s.replaceAll('ct/kWh', money().cent + '/kWh');
 const $ = (sel, root = document) => root.querySelector(sel);
 const isAdmin = () => S.role === 'Admin';
 
@@ -502,7 +505,7 @@ function renderOverview() {
         : tile(t('Leistung'), t('{0} W', n(tv.power, 1)), tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : ''),
       tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
       tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
-      s.price ? tile(t('Strompreis'), t('{0} ct/kWh', n(s.price.ct, 2)), s.price.source) : null),
+      s.price ? tile(t('Strompreis'), cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source) : null),
     // Ansicht-Zugang mit Gruppen: kein Gesamtverlauf über alle Miner (der Server liefert ihn dann nicht)
     S.viewGroups?.length ? null : h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)),
     s.whatsNew ? whatsNewCard(s.whatsNew) : null,
@@ -627,8 +630,8 @@ async function renderReports() {
       h('div', { class: 'tiles' },
         tile(t('Ø Hashrate gesamt'), r.totalAvgHashGh != null ? hash(r.totalAvgHashGh) : '–', ''),
         tile(t('Energie'), t('{0} kWh', n(r.energy.kwh, 2)), ''),
-        tile(t('Stromkosten'), `${n(r.energy.cost, 2)} ${r.currency}`, r.energy.avgCt != null ? t('Ø {0} ct/kWh', n(r.energy.avgCt, 1)) : ''),
-        r.income.length ? tile(t('Zuflüsse'), `${n(r.incomeEur, 2)} €`, r.income.map(i => `${i.count}× ${i.coin}`).join(', ')) : null),
+        tile(t('Stromkosten'), `${n(r.energy.cost, 2)} ${r.currency}`, r.energy.avgCt != null ? cents(t('Ø {0} ct/kWh', n(r.energy.avgCt, 1))) : ''),
+        r.income.length ? tile(t('Zuflüsse'), `${n(r.incomeEur, 2)} ${r.incomeSymbol || '€'}`, r.income.map(i => `${i.count}× ${i.coin}`).join(', ')) : null),
       h('div', { class: 'table-wrap' }, h('table', {},
         h('thead', {}, h('tr', {}, [t('Miner'), t('Verfügbarkeit'), t('Ø Hashrate'), t('Ø Temperatur'), t('Ø Leistung'), 'J/TH', 'kWh', t('Tuning')].map(x => h('th', {}, x)))),
         h('tbody', {}, r.miners.map(m => h('tr', {},
@@ -1088,7 +1091,7 @@ function advisorCard() {
     const d = await api(`/advisor?goal=${goalSel.value}`).catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
     if (!d) return;
     fill(body, 
-      h('p', { class: 'muted small' }, t('Grundlage: stabile Benchmark-Ergebnisse innerhalb der Profilgrenzen und bestandene Dauertests; im Dauertest durchgefallene Einstellungen werden nicht vorgeschlagen. Kosten mit {0} ct/kWh, 30 Tage. Angewendet wird nur nach Bestätigung.', n(d.ctPerKwh, 1))),
+      h('p', { class: 'muted small' }, t('Grundlage: stabile Benchmark-Ergebnisse innerhalb der Profilgrenzen und bestandene Dauertests; im Dauertest durchgefallene Einstellungen werden nicht vorgeschlagen. Kosten mit {0} ct/kWh, 30 Tage. Angewendet wird nur nach Bestätigung.', n(d.ctPerKwh, 1)).replace('ct/kWh', money().cent + '/kWh')),
       d.miners.length ? d.miners.map(m => {
         const c = m.recommended;
         return h('div', { class: 'card stack', style: 'margin:0' },
@@ -1661,7 +1664,7 @@ function tabAutomation() {
       h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: presets[0]?.name || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
         h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
       h('h3', {}, t('Strompreis')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('günstig bis (ct/kWh)')), numInput(sched, 'thresholdCt', 0.1)),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
         h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: () => approve('schedule') }, t('Speichern & freigeben …')))),
     h('div', { class: 'card stack' },
@@ -1930,7 +1933,7 @@ function kioskView(dz, s, opt = {}) {
       case 'efficiency': return num('eff', label, tv.wallEfficiency ?? tv.efficiency, v => t('{0} J/TH', n(v, 1)));
       case 'online': return [h('div', { class: 'klabel' }, label), h('div', { class: `kval ${tv.online < tv.count ? 'kwarn-text' : ''}` }, `${tv.online}/${tv.count}`)];
       case 'cost': return num('cost', label, tv.costPerDay, v => `${n(v, 2)} ${tv.currency}`);
-      case 'price': return num('price', label, s.price?.ct, v => t('{0} ct/kWh', n(v, 1)));
+      case 'price': return num('price', label, s.price?.ct, v => cents(t('{0} ct/kWh', n(v, 1))));
       case 'maxtemp': return num('maxtemp', label, tv.maxTemp, v => `${n(v, 1)} °C`);
       case 'alerts': return alerts.length
         ? [h('div', { class: 'klabel' }, label), h('div', { class: 'kalert-list' }, alerts.slice(0, 6).map(x => h('div', {}, '⚠ ' + x)))]
@@ -2299,7 +2302,7 @@ function groupAutomationCard(g) {
     h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: names[0] || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
       h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
     h('h3', {}, t('Strompreis')),
-    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('günstig bis (ct/kWh)')), numInput(sched, 'thresholdCt', 0.1)),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
       h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
 }
@@ -2455,18 +2458,23 @@ async function renderTax() {
   const tab = ['rewards', 'sales', 'wallets'].includes(S.taxTab) ? S.taxTab : 'rewards';
   const tabLink = (k, label) => h('a', { href: '#', class: k === tab ? 'active' : null, onclick: e => { e.preventDefault(); S.taxTab = k; renderTax(); } }, label);
   const refresh = async () => { if (await run(() => api('/tax/refresh', { method: 'POST' }), t('Wallets geprüft.'))) renderTax(); };
+  const cur = tv.currency || { code: 'EUR', symbol: '€', isEuro: true };
+  const amount = v => `${n(v, 2)} ${cur.symbol}`;
   const salesText = sm.saleCount
-    ? t('{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze {3} €)', sm.year, sm.saleCount, n(sm.taxableGainEur, 2), n(sm.freeLimitEur, 0))
+    ? (cur.isEuro ? t('{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2} € (Freigrenze {3} €)', sm.year, sm.saleCount, n(sm.taxableGainEur, 2), n(sm.freeLimitEur, 0))
+        : t('{0}: {1} Verkäufe · steuerpflichtiger Gewinn {2}', sm.year, sm.saleCount, amount(sm.taxableGainEur)))
       + (sm.saleMissingPrice ? t(' · Kurs fehlt') : '') + (sm.saleUnmatched ? t(' · Menge ohne Zufluss') : '')
-      + (sm.uncertainGainEur > 0 ? t(' · davon {0} € mit 0 € Anschaffung (Kurs fehlt/ohne Zufluss)', n(sm.uncertainGainEur, 2)) : '')
+      + (sm.saleOtherCurrency ? t(' · Erlös in anderer Währung erfasst') : '')
+      + (sm.uncertainGainEur > 0 ? t(' · davon {0} mit 0 Anschaffung (Kurs fehlt/ohne Zufluss)', amount(sm.uncertainGainEur)) : '')
     : t('{0}: keine Verkäufe erfasst', sm.year);
   mount(h('div', { class: 'stack' },
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h2', {}, t('Steuer – dokumentierte Zuflüsse')), h('span', { class: 'spacer' }),
         h('button', { class: 'btn', onclick: refresh }, t('Jetzt prüfen')),
         h('a', { class: 'btn', href: '/api/v1/tax/rewards.csv', download: '' }, t('CSV exportieren'))),
-      h('p', {}, t('{0}: {1} Zuflüsse · {2} €', sm.year, sm.rewardCount, n(sm.rewardEur, 2)) + (sm.rewardsWithoutPrice ? t(' · {0} ohne Kurs', sm.rewardsWithoutPrice) : ''),
+      h('p', {}, t('{0}: {1} Zuflüsse · {2}', sm.year, sm.rewardCount, amount(sm.rewardEur)) + (sm.rewardsWithoutPrice ? t(' · {0} ohne Kurs', sm.rewardsWithoutPrice) : ''),
         h('br'), salesText),
+      cur.isEuro ? null : h('p', { class: 'warn small' }, t('Beträge in {0}. Das deutsche Steuerrecht rechnet in Euro (Freigrenze 1.000 €) – die Euro-Kurse werden weiter mit erfasst und stehen im CSV-Export. Fehlende Kurse in {0} holt BitaxeTuner für Zuflüsse der letzten 365 Tage nach.', cur.code)),
       h('p', { class: 'muted small' }, t('Überwachte Wallets: {0} · letzte Prüfung {1}. Rohrechnung nach deutschem Steuerrecht (§ 23 EStG, FIFO, ein Jahr Haltefrist) für die eigene Übersicht – keine Steuerberatung.', tv.wallets.length, time(tv.status))),
       tv.warning ? h('p', { class: 'danger' }, tv.warning) : null),
     h('div', { class: 'tabs' }, tabLink('rewards', t('Zuflüsse')), tabLink('sales', t('Verkäufe')), tabLink('wallets', t('Wallets ({0})', tv.wallets.length))),
@@ -2484,17 +2492,18 @@ const sat8 = v => n(v, 8);
 
 /** Zuflüsse: Kurs/Notiz nachtragen, Eingänge entfernen, die kein Mining-Ertrag sind. */
 function taxRewardsCard(tv) {
+  const cur = tv.currency || { code: 'EUR' };
   const edit = async r => {
-    const price = h('input', { value: r.eurPriceAtReceipt ?? '', inputmode: 'decimal', placeholder: t('z. B. 58.250,00') });
+    const price = h('input', { value: r.price ?? '', inputmode: 'decimal', placeholder: t('z. B. 58.250,00') });
     const note = h('input', { value: r.note || '', maxlength: 500 });
     const body = h('div', { class: 'stack' },
       h('p', {}, t('{0} {1} vom {2}', sat8(r.amount), r.symbol, time(r.receivedAtUtc))),
-      h('div', {}, h('label', {}, t('EUR-Kurs je Coin (leer = entfernen)')), price),
+      h('div', {}, h('label', {}, t('Kurs je Coin in {0} (leer = entfernen)', cur.code)), price),
       r.priceSource ? h('p', { class: 'muted small' }, t('Bisher: {0}', r.priceSource)) : null,
       h('div', {}, h('label', {}, t('Notiz')), note),
       h('p', { class: 'muted small' }, t('Ein geänderter Kurs gilt als manuell und wird nicht mehr automatisch überschrieben.')));
     if (!await confirmBox(t('Zufluss bearbeiten'), body, t('Speichern'))) return;
-    const changed = price.value.trim() !== String(r.eurPriceAtReceipt ?? '');
+    const changed = price.value.trim() !== String(r.price ?? '');
     if (await run(() => api(`/tax/rewards/${r.id}`, { method: 'PUT', body: { price: changed ? price.value : null, note: note.value } }), t('Gespeichert.'))) renderTax();
   };
   const remove = async r => {
@@ -2503,11 +2512,11 @@ function taxRewardsCard(tv) {
   };
   if (!tv.rewards.length) return h('div', { class: 'card muted' }, t('Noch keine Zuflüsse erfasst.'));
   return h('div', { class: 'card table-wrap' }, h('table', {},
-    h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Kurs (EUR)'), t('Wert (EUR)'), t('Rest'), t('Haltefrist'), t('Wallet'), t('Notiz'), ''].map(x => h('th', {}, x)))),
+    h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Kurs ({0})', cur.code), t('Wert ({0})', cur.code), t('Rest'), t('Haltefrist'), t('Wallet'), t('Notiz'), ''].map(x => h('th', {}, x)))),
     h('tbody', {}, tv.rewards.map(r => h('tr', {},
       h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.symbol), h('td', { class: 'num' }, sat8(r.amount)),
-      h('td', { class: 'num', title: r.priceSource || '' }, r.eurPriceAtReceipt != null ? n(r.eurPriceAtReceipt, 2) + (r.manualPrice ? ' ✎' : '') : h('span', { class: 'warn' }, t('fehlt'))),
-      h('td', { class: 'num' }, r.eurValue != null ? n(r.eurValue, 2) : '–'),
+      h('td', { class: 'num', title: r.priceSource || '' }, r.price != null ? n(r.price, 2) + (r.manualPrice ? ' ✎' : '') : h('span', { class: 'warn' }, t('fehlt'))),
+      h('td', { class: 'num' }, r.value != null ? n(r.value, 2) : '–'),
       h('td', { class: 'num' }, r.remaining > 0 ? sat8(r.remaining) : '–'),
       h('td', { class: 'small' }, r.remaining > 0 ? r.holdingStatus : t('verkauft')),
       h('td', {}, r.walletLabel || ''), h('td', { class: 'small' }, r.note || ''),
@@ -2518,10 +2527,11 @@ function taxRewardsCard(tv) {
 
 /** Verkäufe: erfassen (FIFO, Haltefrist), löschen, als CSV exportieren. */
 function taxSalesCard(tv) {
+  const cur = tv.currency || { code: 'EUR' };
   const coin = coinSelect('Bitcoin');
   const date = h('input', { type: 'date', value: new Date().toLocaleDateString('sv'), max: new Date().toLocaleDateString('sv'), style: 'width:auto' });
   const amount = h('input', { inputmode: 'decimal', placeholder: t('Menge, z. B. 0,0025'), style: 'width:auto;flex:1 1 130px' });
-  const proceeds = h('input', { inputmode: 'decimal', placeholder: t('Erlös in EUR'), style: 'width:auto;flex:1 1 110px' });
+  const proceeds = h('input', { inputmode: 'decimal', placeholder: t('Erlös in {0}', cur.code), style: 'width:auto;flex:1 1 110px' });
   const note = h('input', { placeholder: t('Notiz (optional)'), maxlength: 200, style: 'width:auto;flex:2 1 160px' });
   const stock = h('p', { class: 'muted small' });
   const showStock = () => { const sym = COINS.find(c => c[0] === coin.value)[1]; stock.textContent = t('Dokumentierter Bestand: {0} {1}', sat8(tv.available[sym] ?? 0), sym); };
@@ -2544,7 +2554,8 @@ function taxSalesCard(tv) {
     if (await run(() => api(`/tax/disposals/${d.id}`, { method: 'DELETE' }), t('Verkauf gelöscht.'))) renderTax();
   };
   const hint = d => [d.missingPrice ? t('Kurs fehlt bei einem Zufluss') : null,
-    d.unmatchedAmount > 0 ? t('{0} ohne dokumentierten Zufluss', sat8(d.unmatchedAmount)) : null].filter(Boolean).join(' · ');
+    d.unmatchedAmount > 0 ? t('{0} ohne dokumentierten Zufluss', sat8(d.unmatchedAmount)) : null,
+    d.otherCurrency ? t('Erlös in {0} erfasst – in {1} nicht gerechnet', d.proceedsCurrency, cur.code) : null].filter(Boolean).join(' · ');
   return h('div', { class: 'stack' },
     h('div', { class: 'card stack' },
       h('h3', {}, t('Verkauf oder Tausch erfassen')),
@@ -2558,7 +2569,8 @@ function taxSalesCard(tv) {
         h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Menge'), t('Erlös'), t('Anschaffung'), t('Gewinn (steuerpflichtig)'), t('haltefristfrei'), t('Hinweis'), t('Notiz'), ''].map(x => h('th', {}, x)))),
         h('tbody', {}, tv.disposals.map(d => h('tr', {},
           h('td', {}, new Date(d.soldAtUtc).toLocaleDateString(LOCALE)), h('td', {}, d.symbol), h('td', { class: 'num' }, sat8(d.amount)),
-          h('td', { class: 'num' }, n(d.proceedsEur, 2)), h('td', { class: 'num' }, n(d.costBasisEur, 2)), h('td', { class: 'num' }, n(d.taxableGainEur, 2)),
+          h('td', { class: 'num' }, d.otherCurrency ? `${n(d.enteredProceeds, 2)} ${d.proceedsCurrency}` : n(d.proceedsEur, 2)), h('td', { class: 'num' }, n(d.costBasisEur, 2)),
+          h('td', { class: 'num' }, d.otherCurrency ? '–' : n(d.taxableGainEur, 2)),
           h('td', { class: 'num' }, d.taxFreeAmount > 0 ? sat8(d.taxFreeAmount) : '–'), h('td', { class: 'small warn' }, hint(d)), h('td', { class: 'small' }, d.note || ''),
           h('td', {}, h('button', { class: 'btn small', title: t('Löschen'), onclick: () => remove(d) }, '✕')))))))
         : h('p', { class: 'muted' }, t('Noch keine Verkäufe erfasst.'))));
@@ -2600,7 +2612,7 @@ function taxWalletsCard(tv) {
       h('h3', {}, t('Wallet hinzufügen')),
       h('div', { class: 'row' }, address, coin, label, h('button', { class: 'btn primary', onclick: add }, t('Hinzufügen')),
         h('button', { class: 'btn', onclick: importMiners }, t('Aus Minern übernehmen'))),
-      h('p', { class: 'muted small' }, t('Eingänge auf diesen Adressen werden mit EUR-Kurs zum Zuflusszeitpunkt dokumentiert. Dafür fragt BitaxeTuner die Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) ab.'))),
+      h('p', { class: 'muted small' }, t('Eingänge auf diesen Adressen werden mit dem Kurs zum Zuflusszeitpunkt dokumentiert (Euro und die gewählte Währung). Dafür fragt BitaxeTuner die Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) ab.'))),
     h('div', { class: 'card table-wrap' }, tv.wallets.length ? h('table', {},
       h('thead', {}, h('tr', {}, [t('Bezeichnung'), 'Coin', t('Adresse'), t('Hinzugefügt'), ''].map(x => h('th', {}, x)))),
       h('tbody', {}, tv.wallets.map(w => h('tr', {},
@@ -2624,9 +2636,10 @@ function taxEnergyCard() {
     if (!rows.length) { fill(body, h('p', { class: 'muted' }, t('Für dieses Jahr liegen keine Messwerte oder Zuflüsse vor.'))); return; }
     const sum = k => rows.reduce((a, m) => a + m[k], 0);
     const cur = d.currency || '€';
+    const inc = d.incomeCurrency || '€';
     const month = p => new Date(`${p}-01T00:00:00`).toLocaleDateString(LOCALE, { month: 'long' });
     fill(body, h('div', { class: 'table-wrap' }, h('table', {},
-      h('thead', {}, h('tr', {}, [t('Monat'), 'kWh', t('Stromkosten ({0})', cur), t('Zuflüsse (EUR)'), t('Differenz')].map(x => h('th', {}, x)))),
+      h('thead', {}, h('tr', {}, [t('Monat'), 'kWh', t('Stromkosten ({0})', cur), t('Zuflüsse ({0})', inc), t('Differenz')].map(x => h('th', {}, x)))),
       h('tbody', {}, rows.map(m => h('tr', {},
         h('td', {}, month(m.period) + (m.partial ? t(' (läuft)') : '')), h('td', { class: 'num' }, m.hasData ? n(m.kwh, 1) : '–'),
         h('td', { class: 'num' }, m.hasData ? n(m.cost, 2) : '–'),
@@ -2768,11 +2781,11 @@ async function renderSettings() {
         h('div', {}, h('label', {}, t('Live-Verlauf (min)')), text(s, 'historyMinutes', 'number')),
         h('div', {}, h('label', {}, t('Verlauf aufbewahren (Tage)')), text(s, 'historyDays', 'number')),
         h('div', {}, h('label', {}, t('Miner-Logs aufbewahren (Stunden, 1–168)')), text(s, 'minerLogKeepHours', 'number')),
-        h('div', {}, h('label', {}, t('Strompreis (ct/kWh)')), text(s, 'electricityCtPerKwh', 'number')),
+        h('div', {}, h('label', {}, cents(t('Strompreis (ct/kWh)'))), text(s, 'electricityCtPerKwh', 'number')),
         h('div', {}, h('label', {}, t('Preis ist')), (() => { const el = h('select', { onchange: e => { s.electricityPriceIsNet = e.target.value === 'net'; } },
           h('option', { value: 'gross' }, t('brutto (inkl. MwSt.)')), h('option', { value: 'net' }, t('netto (zzgl. MwSt.)'))); el.value = s.electricityPriceIsNet ? 'net' : 'gross'; return el; })()),
         h('div', {}, h('label', {}, t('MwSt. (%)')), text(s, 'vatPercent', 'number')),
-        h('div', {}, h('label', {}, t('Währung')), text(s, 'currency')),
+        h('div', {}, h('label', {}, t('Währung (für alles)')), selectInput(s, 'currencyCode', (s.currencyOptions || [{ code: 'EUR', name: 'Euro', symbol: '€' }]).map(c => [c.code, `${c.name} (${c.symbol})`]))),
         h('div', {}, h('label', {}, t('Warnung ab ASIC (°C)')), text(s, 'tempWarn', 'number')),
         h('div', {}, h('label', {}, t('Wallets prüfen alle (min)')), text(s, 'walletPollMinutes', 'number')),
         h('div', {}, h('label', {}, t('Steuer-Erfassung alle (min)')), text(s, 'taxPollMinutes', 'number'))),
@@ -2802,7 +2815,7 @@ async function renderSettings() {
     h('div', { class: 'card stack' }, h('h2', {}, t('Strompreis-Quelle')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Quelle')), select(ps, 'source', [['none', t('keine')], ['awattar-de', t('aWATTar Deutschland')], ['awattar-at', t('aWATTar Österreich')], ['tibber', 'Tibber']])),
         h('div', {}, h('label', {}, t('Tibber-Token')), text(ps, 'tibberToken', 'password')),
-        h('div', {}, h('label', {}, t('Aufschlag (ct/kWh)')), numInput(ps, 'surchargeCt', 0.1))),
+        h('div', {}, h('label', {}, cents(t('Aufschlag (ct/kWh)'))), numInput(ps, 'surchargeCt', 0.1))),
       checkInput(ps, 'dynamicCosts', t('Stromkosten mit Stundenpreisen rechnen')),
       h('p', { class: 'muted small' }, t('Aufschlag bei aWATTar: Netzentgelte, Steuern und Umlagen (typisch 15–25 ct/kWh), bei Tibber 0. Ohne Preis für eine Stunde gilt der feste Strompreis.'))),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, t('Einstellungen speichern'))),

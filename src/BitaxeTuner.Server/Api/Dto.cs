@@ -53,6 +53,8 @@ public static class Dto
                 costPerDay = costPower * 24 / 1000.0 * EnergyCost.CurrentCt(hub.Config, price) / 100.0,
                 currency = hub.Config.Currency,
             },
+            // 0.9.11: eine Währung für alles – Zeichen und Untereinheit für Strompreise (ct, ¢, p, Rp. …)
+            money = new { code = Currencies.Of(hub.Config).Code, symbol = Currencies.Of(hub.Config).Symbol, cent = Currencies.Of(hub.Config).Cent },
             price = price is null ? null : new { source = hub.Prices.SourceName, ct = price },
             history = scope.Restricted ? []
                 : hub.AggregateHistory.TakeLast(360).Select(s => new[] { Unix(s.Time), R(s.HashRateGh), R(s.Temp), R(s.Power) }).ToList(),

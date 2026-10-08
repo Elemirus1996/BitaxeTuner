@@ -19,7 +19,7 @@ public sealed record PeriodMinerRow(string Name, string Host, int OnlineMinutes,
 /// <summary>Smart Plug im Bericht: gemessene Energie und Messdauer.</summary>
 public sealed record PeriodPlugRow(string Name, string Role, double Kwh, double MeasuredHours);
 
-/// <summary>Zuflüsse eines Coins; EurMissing = Zuflüsse ohne Euro-Kurs.</summary>
+/// <summary>Zuflüsse eines Coins; Eur = Wert in der Währung des Berichts (0.9.11, IncomeCode), EurMissing = ohne Kurs darin.</summary>
 public sealed record PeriodIncome(string Coin, int Count, decimal Amount, decimal Eur, int EurMissing);
 
 /// <summary>
@@ -28,8 +28,11 @@ public sealed record PeriodIncome(string Coin, int Count, decimal Amount, decima
 /// </summary>
 public sealed record PeriodReport(string Period, DateTime From, DateTime To, bool Partial,
     IReadOnlyList<PeriodMinerRow> Miners, IReadOnlyList<PeriodPlugRow> Plugs, CostResult Energy,
-    IReadOnlyList<PeriodIncome> Income, string Currency, DateTime? DataFrom)
+    IReadOnlyList<PeriodIncome> Income, string Currency, DateTime? DataFrom, string? IncomeCode = null)
 {
+    /// <summary>0.9.11: Zeichen der Währung der Zuflüsse (älter: immer Euro).</summary>
+    public string IncomeSymbol => Config.Currencies.Get(IncomeCode).Symbol;
+
     /// <summary>Im Mittel gelieferte Hashrate aller Miner: Σ Ø Hashrate × Verfügbarkeit.</summary>
     public double? TotalAvgHashGh => Miners.Any(m => m.AvgHashGh is not null)
         ? Miners.Where(m => m.AvgHashGh is not null).Sum(m => m.AvgHashGh!.Value * (m.Availability ?? 0))
@@ -74,7 +77,7 @@ public static class PeriodReports
         var months = new List<PeriodReport>();
         for (var m = from; m < to && m <= now; m = m.AddMonths(1))
             months.Add(Month(history, config, miners, rewardList, m.ToString("yyyy-MM", CultureInfo.InvariantCulture), m, m.AddMonths(1), now));
-        return Combine(period, from, to, now, months, Income(rewardList, from, to), config.Currency);
+        return Combine(period, from, to, now, months, Income(rewardList, from, to, config), config.Currency) with { IncomeCode = Code(config) };
     }
 
     /// <summary>Alle Monate eines Jahres bis heute (Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen).</summary>
@@ -97,7 +100,7 @@ public static class PeriodReports
             try
             {
                 if (JsonSerializer.Deserialize<PeriodReport>(stored, Json) is { } r)
-                    return r with { Income = Income(rewards, from, to) }; // Zuflüsse können nachträglich erfasst werden
+                    return r with { Income = Income(rewards, from, to, config), IncomeCode = Code(config) }; // Zuflüsse können nachträglich erfasst werden
             }
             catch (JsonException) { /* neu berechnen */ }
         }
@@ -119,8 +122,8 @@ public static class PeriodReports
         }).Where(p => p.MeasuredHours > 0).ToList();
         var energy = EnergyCost.Compute(history, config, miners.Select(m => m.Host).ToList(), from, end);
         var earliest = history.EarliestSample();
-        var report = new PeriodReport(period, from, to, !complete, rows, plugs, energy, Income(rewards, from, to), config.Currency,
-            earliest is { } e && e > from ? e : null);
+        var report = new PeriodReport(period, from, to, !complete, rows, plugs, energy, Income(rewards, from, to, config), config.Currency,
+            earliest is { } e && e > from ? e : null, Code(config));
 
         // Abgeschlossenen Monat mit Messwerten einmal ablegen – bleibt, auch wenn die Minutenwerte bereinigt werden
         if (complete && rows.Any(r => r.TotalMinutes > 0))
@@ -150,9 +153,14 @@ public static class PeriodReports
         return new PeriodReport(period, from, to, to > now, rows, plugs, energy, income, currency, dataFrom);
     }
 
-    private static List<PeriodIncome> Income(List<MinedReward> rewards, DateTime from, DateTime to) =>
-        rewards.Where(r => r.ReceivedAtLocal >= from && r.ReceivedAtLocal < to)
+    private static string Code(AppConfig config) => Config.Currencies.Of(config).Code;
+
+    private static List<PeriodIncome> Income(List<MinedReward> rewards, DateTime from, DateTime to, AppConfig config)
+    {
+        var code = Code(config);
+        return rewards.Where(r => r.ReceivedAtLocal >= from && r.ReceivedAtLocal < to)
             .GroupBy(r => r.CoinSymbol)
-            .Select(g => new PeriodIncome(g.Key, g.Count(), g.Sum(r => r.Amount), g.Sum(r => r.EurValue ?? 0), g.Count(r => r.EurValue is null)))
+            .Select(g => new PeriodIncome(g.Key, g.Count(), g.Sum(r => r.Amount), g.Sum(r => r.ValueIn(code) ?? 0), g.Count(r => r.ValueIn(code) is null)))
             .OrderBy(i => i.Coin).ToList();
+    }
 }
