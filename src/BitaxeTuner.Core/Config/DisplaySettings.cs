@@ -126,3 +126,23 @@ public sealed class DisplayPages
     /// <summary>0.9.11: Neuigkeiten aus der Solo-Mining-Welt (Firmware, neue Miner, Solo-Blockfunde, Netzwerk, BitaxeTuner).</summary>
     public bool News { get; set; }
 }
+
+/// <summary>
+/// 0.9.11: weitere E-Paper-Anzeige mit eigenem Display-Pico (USB mit festem Port oder WLAN) – eigene Seiten, eigenes
+/// Intervall, optional nur eine Miner-Gruppe. Die erste Anzeige bleibt <see cref="AppConfig.Display"/>. Additiv.
+/// </summary>
+public sealed class ExtraDisplayConfig
+{
+    /// <summary>Kurzkennung (a–f, 0–9), auch für den WLAN-Schlüssel und den Zustand der Sonderanzeigen.</summary>
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+
+    public string Name { get; set; } = "";
+
+    /// <summary>Nur diese Miner-Gruppe (Übersicht und Summen); leer = alle Miner.</summary>
+    public string Group { get; set; } = "";
+
+    /// <summary>Seiten, Intervall, Verbindung usw. wie bei der ersten Anzeige; Device ist immer „own“.</summary>
+    public DisplaySettings Settings { get; set; } = new() { Enabled = true, Device = "own", Connection = "wlan" };
+
+    public static bool ValidId(string? id) => id is { Length: > 0 and <= 16 } && id.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+}

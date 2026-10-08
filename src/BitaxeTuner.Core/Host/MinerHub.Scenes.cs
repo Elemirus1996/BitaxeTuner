@@ -40,6 +40,21 @@ public sealed partial class MinerHub
 
     private string SceneFile => Path.Combine(DataDirectory, "display-state.json");
 
+    // 0.9.11 mehrere Anzeigen: Während eine weitere Anzeige zusammengestellt wird, gelten ihre Einstellungen, ihr Zustand
+    // und ihre Gruppe (Hub-Thread, synchron – danach wieder die erste Anzeige).
+    private ExtraDisplayRuntime? _extraContext;
+    private DisplaySettings Ds => _extraContext?.Config.Settings ?? Config.Display;
+    private DisplaySceneState CurState => _extraContext?.State ?? SceneState;
+    private string? CurGroup => _extraContext?.Config.Group is { Length: > 0 } g ? g : null;
+
+    private T WithDisplay<T>(ExtraDisplayRuntime? display, Func<T> f)
+    {
+        var before = _extraContext;
+        _extraContext = display;
+        try { return f(); }
+        finally { _extraContext = before; }
+    }
+
     public DisplaySceneState SceneState
     {
         get
@@ -56,7 +71,11 @@ public sealed partial class MinerHub
 
     private void SaveSceneState()
     {
-        try { File.WriteAllText(SceneFile, JsonSerializer.Serialize(SceneState)); }
+        try
+        {
+            if (_extraContext is { } x) File.WriteAllText(ExtraSceneFile(x.Config.Id), JsonSerializer.Serialize(x.State));
+            else File.WriteAllText(SceneFile, JsonSerializer.Serialize(SceneState));
+        }
         catch { /* nicht kritisch */ }
     }
 
@@ -69,35 +88,47 @@ public sealed partial class MinerHub
     /// <summary>Blockfund laut Miner (Zähler gestiegen): Vollbild, so schnell wie ein Tastendruck.</summary>
     internal void OnBlockFound(string miner, int count, DateTime now)
     {
-        SceneState.BlockFound = new DisplayBlockFound(miner, now, count,
-            _network is { } n && now - n.Fetched < TimeSpan.FromMinutes(5) ? n.Height : null);
+        var found = new DisplayBlockFound(miner, now, count, _network is { } n && now - n.Fetched < TimeSpan.FromMinutes(5) ? n.Height : null);
+        SceneState.BlockFound = found;
         SceneState.BlockFoundAcknowledged = false;
         SaveSceneState();
         if (Config.Display.Enabled && Config.Display.BlockFoundScreen) _displayUserRequested = true;
+        foreach (var x in ExtraRuntimes())
+        {
+            x.State.BlockFound = found;
+            x.State.BlockFoundAcknowledged = false;
+            WithDisplay(x, () => { SaveSceneState(); return 0; });
+            if (x.Config.Settings.BlockFoundScreen) x.UserRequested = true;
+        }
         _ = RefreshNetworkAsync(force: true);
     }
 
     /// <summary>Neuer Best-Diff-Rekord eines Miners (nicht der Ersteintrag).</summary>
     internal void OnBestDiffRecord(string miner, string coin, string previous, string current, DateTime now)
     {
-        SceneState.BestDiff = new DisplayBestDiff(miner, coin, previous, current, now);
-        SceneState.BestDiffShown = false;
-        SceneState.BestDiffSince = null;
+        var record = new DisplayBestDiff(miner, coin, previous, current, now);
+        foreach (var st in new[] { SceneState }.Concat(ExtraRuntimes().Select(x => x.State)))
+        {
+            st.BestDiff = record;
+            st.BestDiffShown = false;
+            st.BestDiffSince = null;
+        }
         SaveSceneState();
+        foreach (var x in ExtraRuntimes()) WithDisplay(x, () => { SaveSceneState(); return 0; });
     }
 
     /// <summary>Taste 1 / Browser: Sonderanzeige quittieren oder zur nächsten Seite.</summary>
     private void AdvanceDisplayScene(string source)
     {
-        var st = SceneState;
-        switch (_lastScene)
+        var st = CurState;
+        switch (_extraContext?.LastScene ?? _lastScene)
         {
             case DisplayScene.BlockFound:
                 st.BlockFoundAcknowledged = true;
                 RaiseStatus(true, L.T("Blockfund-Anzeige quittiert ({0}).", source));
                 break;
             case DisplayScene.Alarm:
-                st.AlarmAcknowledged = AlarmKey(BuildDisplayModel(Options.Clock?.Invoke() ?? DateTime.Now).Alerts);
+                st.AlarmAcknowledged = AlarmKey(BuildDisplayModel(Options.Clock?.Invoke() ?? DateTime.Now, CurGroup).Alerts);
                 RaiseStatus(true, L.T("Warnungen auf der Anzeige quittiert ({0}).", source));
                 break;
             case DisplayScene.BestDiff:
@@ -118,7 +149,7 @@ public sealed partial class MinerHub
     /// <summary>Seiten, die gerade in Frage kommen (Dauertest nur, wenn einer läuft; je Gruppe eine Seite).</summary>
     private List<DisplayPage> EnabledPages()
     {
-        var p = Config.Display.Pages;
+        var p = Ds.Pages;
         var list = new List<DisplayPage>();
         if (p.Overview) list.Add(new(DisplayScene.Overview));
         if (p.Groups) list.AddRange(MinerGroups.All(Config.Devices).Select(g => new DisplayPage(DisplayScene.Group, g)));
@@ -139,9 +170,9 @@ public sealed partial class MinerHub
     /// <summary>Anzeige zusammenstellen. <paramref name="nextPage"/>: regelmäßiger Seitenwechsel.</summary>
     public DisplayModel ComposeDisplay(DateTime now, bool nextPage = false)
     {
-        var s = Config.Display;
-        var st = SceneState;
-        var model = BuildDisplayModel(now);
+        var s = Ds;
+        var st = CurState;
+        var model = BuildDisplayModel(now, CurGroup);
 
         // 0.9.11: wie Sonderanzeigen enden – je Anzeige („each“) oder für alle gleich („hours“ / „button“)
         var hold = TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours));
@@ -177,17 +208,17 @@ public sealed partial class MinerHub
     /// <summary>Nach dem Anzeigen: gezeigte Szene merken, einmalige Anzeigen als gesehen markieren.</summary>
     internal void SceneShown(DisplayModel m)
     {
-        _lastScene = m.Scene;
+        if (_extraContext is { } x) x.LastScene = m.Scene; else _lastScene = m.Scene;
         // Best-Diff-Rekord: nur bei „je Anzeige“ nach einmaligem Zeigen erledigt, sonst bis Taste 1 bzw. Haltezeit
-        if (m.Scene == DisplayScene.BestDiff && Config.Display.SpecialUntil is not ("hours" or "button"))
+        if (m.Scene == DisplayScene.BestDiff && Ds.SpecialUntil is not ("hours" or "button"))
         {
-            SceneState.BestDiffShown = true;
+            CurState.BestDiffShown = true;
             SaveSceneState();
         }
         // Warnungen sind weg: Quittung verfällt, damit dieselbe Warnung später wieder als Vollbild kommt
-        else if (m.Alerts.Count == 0 && SceneState.AlarmAcknowledged.Length > 0)
+        else if (m.Alerts.Count == 0 && CurState.AlarmAcknowledged.Length > 0)
         {
-            SceneState.AlarmAcknowledged = "";
+            CurState.AlarmAcknowledged = "";
             SaveSceneState();
         }
     }
@@ -195,8 +226,8 @@ public sealed partial class MinerHub
     /// <summary>Bestimmte Szene zeigen (Vorschau im Browser); Sonderanzeigen ohne Ereignis mit Beispieldaten.</summary>
     public DisplayModel PreviewScene(DisplayScene scene, DateTime now)
     {
-        var model = BuildDisplayModel(now);
-        var st = SceneState;
+        var model = BuildDisplayModel(now, CurGroup);
+        var st = CurState;
         return scene switch
         {
             DisplayScene.BlockFound => model with
@@ -231,14 +262,14 @@ public sealed partial class MinerHub
                 return model with { Scene = page, Monthly = monthly };
             case DisplayScene.Prices:
                 _ = RefreshMarketAsync(force: false);
-                return model with { Scene = page, Coins = BuildCoins(), Difficulty = Config.Display.PriceCoins != "bch" ? _difficulty?.Data : null };
+                return model with { Scene = page, Coins = BuildCoins(), Difficulty = Ds.PriceCoins != "bch" ? _difficulty?.Data : null };
             case DisplayScene.Power:
                 return model with { Scene = page, Power = BuildPower(now) };
             case DisplayScene.Qr:
                 return model with { Scene = page, Qr = BuildQr() };
             case DisplayScene.News:
                 _ = RefreshNewsAsync(force: false);
-                return model with { Scene = page, News = News.Items(Config.Display.NewsKinds, 6) };
+                return model with { Scene = page, News = News.Items(Ds.NewsKinds, 6) };
             case DisplayScene.Sensors:
                 return model with
                 {
@@ -250,7 +281,7 @@ public sealed partial class MinerHub
                 try { pts = History.Query(HistoryStore.AggregateHost, now.AddHours(-24), now, 300); }
                 catch { pts = []; }
                 // 0.9.11: wählbarer Graph – der Wert steht jeweils im Feld Gh
-                var kind = Config.Display.HistoryChart is "temp" or "power" or "efficiency" ? Config.Display.HistoryChart : "hashrate";
+                var kind = Ds.HistoryChart is "temp" or "power" or "efficiency" ? Ds.HistoryChart : "hashrate";
                 return model with
                 {
                     Scene = page,
@@ -332,7 +363,7 @@ public sealed partial class MinerHub
     private bool _marketBusy;
     private (DateTime At, string Key, DisplayMonthly Data)? _monthlyCache;
 
-    private IEnumerable<CoinType> DisplayCoins() => Config.Display.PriceCoins switch
+    private IEnumerable<CoinType> DisplayCoins() => Ds.PriceCoins switch
     {
         "bch" => [CoinType.BitcoinCash],
         "both" => [CoinType.Bitcoin, CoinType.BitcoinCash],
@@ -365,7 +396,7 @@ public sealed partial class MinerHub
                 var pts = await CoinGecko.GetDayChartAsync(coin, currency, cts.Token);
                 if (pts.Count > 0) _coinCharts[coin] = (now, pts);
             }
-            if (Config.Display.PriceCoins != "bch" && (force || _difficulty is not { } d || now - d.Fetched >= TimeSpan.FromMinutes(10)))
+            if (Ds.PriceCoins != "bch" && (force || _difficulty is not { } d || now - d.Fetched >= TimeSpan.FromMinutes(10)))
             {
                 var dto = await NetworkClient.GetDifficultyAsync(cts.Token);
                 _difficulty = (now, dto, new DisplayDifficulty(dto.ProgressPercent, dto.ExpectedChangePercent, dto.RemainingBlocks, dto.Eta));
@@ -381,7 +412,7 @@ public sealed partial class MinerHub
     /// <summary>24-h-Graph der Tagesbilanz (Summe aller Miner) – nur, wenn in den Einstellungen gewählt.</summary>
     private DisplaySeries? BuildDailySeries(DateTime now)
     {
-        var kind = Config.Display.DailyChart;
+        var kind = Ds.DailyChart;
         if (History is null || kind is not ("hashrate" or "power" or "efficiency" or "temp")) return null;
         List<Monitoring.Sample> pts;
         try { pts = History.Query(HistoryStore.AggregateHost, now.AddHours(-24), now, 300); }
@@ -402,7 +433,7 @@ public sealed partial class MinerHub
     private DisplayMonthly? BuildMonthly(DateTime now)
     {
         if (History is null) return null;
-        var kind = Config.Display.MonthlyChart is "cost" or "income" or "hashrate" ? Config.Display.MonthlyChart : "kwh";
+        var kind = Ds.MonthlyChart is "cost" or "income" or "hashrate" ? Ds.MonthlyChart : "kwh";
         var key = $"{now:yyyy-MM}|{kind}";
         if (_monthlyCache is { } c && c.Key == key && now - c.At < TimeSpan.FromMinutes(30) && now >= c.At) return c.Data;
         try
@@ -471,7 +502,7 @@ public sealed partial class MinerHub
     /// <summary>QR-Code zur Browser-Oberfläche: eigene Adresse aus den Einstellungen oder die dieses Servers.</summary>
     private DisplayQr BuildQr()
     {
-        var url = Config.Display.QrUrl is { Length: > 0 } own ? own.Trim()
+        var url = Ds.QrUrl is { Length: > 0 } own ? own.Trim()
             : Options.WebUrl?.Invoke() ?? Web.WebViewServer.LocalUrls(Config.WebView.Port).FirstOrDefault();
         if (string.IsNullOrWhiteSpace(url) || url.Length > 200) return new DisplayQr("", []);
         using var generator = new QRCoder.QRCodeGenerator();
@@ -492,7 +523,7 @@ public sealed partial class MinerHub
                 d.State.Online ? d.State.Normalized?.PoolDifficulty : null);
         }).ToList();
         return new DisplayNetwork(pools, _network?.Height, _network?.Pool, _network?.Time,
-            _bchNetwork?.Height, _bchNetwork?.Pool, _bchNetwork?.Time, Config.Display.NetworkBch);
+            _bchNetwork?.Height, _bchNetwork?.Pool, _bchNetwork?.Time, Ds.NetworkBch);
     }
 
     /// <summary>Blockhöhe und letzter Block (mempool.space), höchstens alle 10 Minuten.</summary>
@@ -519,7 +550,7 @@ public sealed partial class MinerHub
         }
         catch { /* ohne Netzwerkdaten weiter */ }
         // 0.9.11: letzter Bitcoin-Cash-Block (Blockchair) – mit dem BTC-Netzwerk alle 10 Minuten
-        if (Config.Display.NetworkBch)
+        if (Ds.NetworkBch)
         {
             try
             {

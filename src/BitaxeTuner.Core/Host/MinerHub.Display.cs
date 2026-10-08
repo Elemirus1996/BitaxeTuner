@@ -60,18 +60,20 @@ public sealed partial class MinerHub
         await FanTickAsync();
     }
 
-    private async Task HandlePicoEventsAsync(IReadOnlyList<string> events)
+    /// <param name="display">0.9.11: Ereignisse eines weiteren Display-Pico (Taste 1 blättert dann dort).</param>
+    private async Task HandlePicoEventsAsync(IReadOnlyList<string> events, ExtraDisplayRuntime? display = null)
     {
         foreach (var e in events)
         {
             if (e == "EPD DONE")
             {
-                _displayRefreshing = false;
+                if (display is null) _displayRefreshing = false; else display.Refreshing = false;
                 continue;
             }
-            if (!Config.Display.ButtonsEnabled) continue;
+            if (!(display?.Config.Settings ?? Config.Display).ButtonsEnabled) continue;
             switch (e)
             {
+                case "BTN 1" when display is not null: ExtraDisplayNext(display, L.T("Taste 1")); break;
                 case "BTN 1": DisplayNextOrAcknowledge(L.T("Taste 1")); break;
                 case "BTN 2": await SetFanOverrideAsync(FanOverride.None, L.T("Taste 2")); break;
                 case "BTN 3": await SetFanOverrideAsync(FanOverride.Full, L.T("Taste 3")); break;
@@ -113,6 +115,13 @@ public sealed partial class MinerHub
                 try { await display.ResetAsync(); } catch { /* Pico startet ohnehin neu oder ist weg */ }
                 CloseDisplayDevice();
                 _displayNextConnect = DateTime.Now.AddSeconds(5);
+            }
+            foreach (var x in _extras.Values.Where(x => x.Device is not null))
+            {
+                try { await x.Device!.ResetAsync(); } catch { /* Pico startet ohnehin neu oder ist weg */ }
+                x.Device?.Dispose();
+                x.Device = null;
+                x.NextConnect = DateTime.Now.AddSeconds(5);
             }
             if (Config.Display.AllowSystemReboot && Options.SystemReboot is { } reboot)
             {
@@ -240,10 +249,10 @@ public sealed partial class MinerHub
             FanOverride.Full => L.T("100 % (Taste)"),
             _ => !Config.Fans.Enabled ? "–" : caseFan is not null ? L.T("Automatik · Gehäuse {0} %", caseFan.Percent) : L.T("Automatik"),
         };
-        return new DisplayModel(group is null ? Config.Display.Title : $"{Config.Display.Title} · {group}", now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
+        return new DisplayModel(group is null ? Ds.Title : $"{Ds.Title} · {group}", now, gh, w, gh > 1 ? w / (gh / 1000) : null, online.Count, devices.Count,
             Prices.PriceAt(now.ToUniversalTime()), fanMode, FanOverride != FanOverride.None, IsPaused, miners, alerts, temps)
         {
-            Inverted = Config.Display.Inverted,
+            Inverted = Ds.Inverted,
             PriceCent = Currencies.Of(Config).Cent,
         };
     }

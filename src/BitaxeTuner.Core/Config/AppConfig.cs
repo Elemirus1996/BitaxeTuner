@@ -144,6 +144,9 @@ public sealed class AppConfig
     /// <summary>E-Paper-Anzeige und Taster am Pico.</summary>
     public DisplaySettings Display { get; set; } = new();
 
+    /// <summary>0.9.11: weitere Anzeigen mit eigenem Display-Pico (eigene Seiten je Anzeige). Additiv.</summary>
+    public List<ExtraDisplayConfig> ExtraDisplays { get; set; } = [];
+
     /// <summary>Tägliche Sicherung (Datenordner, Ordner/USB, Netzlaufwerk).</summary>
     public BackupSettings Backup { get; set; } = new();
 

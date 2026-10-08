@@ -39,7 +39,7 @@ public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
 public sealed record OverrideRequest(string Mode);
 public sealed record KioskLoginRequest(string? Token);
-public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host);
+public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host, string? DisplayId = null);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
 public static class Endpoints
@@ -59,10 +59,36 @@ public static class Endpoints
         var viewer = api.MapGroup("").AddEndpointFilter(Require(Role.Viewer));
         MapViewer(viewer);
         KioskEndpoints.MapViewer(viewer);
+        ExtraDisplayEndpoints.MapViewer(viewer);
 
         var admin = api.MapGroup("").AddEndpointFilter(Require(Role.Admin));
         MapDevices(admin);
         MapAdmin(admin);
+    }
+
+    /// <summary>Anzeige-Einstellungen prüfen und begrenzen (erste und weitere Anzeigen).</summary>
+    internal static void NormalizeDisplay(Core.Config.DisplaySettings req)
+    {
+        req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
+        req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
+        req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
+        req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
+        req.HistoryChart = req.HistoryChart is "temp" or "power" or "efficiency" ? req.HistoryChart : "hashrate";
+        req.Pages ??= new Core.Config.DisplayPages();
+        req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
+        req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
+        req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
+        req.Device = req.Device == "own" ? "own" : "fans";
+        req.PriceCoins = req.PriceCoins is "bch" or "both" ? req.PriceCoins : "btc";
+        req.DailyChart = req.DailyChart is "hashrate" or "power" or "efficiency" or "temp" ? req.DailyChart : "none";
+        req.MonthlyChart = req.MonthlyChart is "cost" or "income" or "hashrate" ? req.MonthlyChart : "kwh";
+        req.QrUrl = (req.QrUrl ?? "").Trim();
+        if (req.QrUrl.Length > 0 && (req.QrUrl.Length > 200 || !Uri.TryCreate(req.QrUrl, UriKind.Absolute, out var qr) || qr.Scheme is not ("http" or "https")))
+            throw new LocalizedException("QR-Code: bitte eine Adresse mit http:// oder https:// eintragen (höchstens 200 Zeichen).");
+        req.Port = string.IsNullOrWhiteSpace(req.Port) ? "auto" : req.Port.Trim();
+        (req.Connection, req.NetworkHost) = ValidatePicoConnection(req.Connection, req.NetworkHost);
+        req.NetworkIp = System.Net.IPAddress.TryParse(req.NetworkIp ?? "", out _) ? req.NetworkIp! : "";
+        req.NewsKinds = (req.NewsKinds ?? []).Where(k => Core.Network.NewsFeed.Kinds.Contains(k)).Distinct().ToList();
     }
 
     // ---------- Filter ----------
@@ -1057,31 +1083,15 @@ public static class Endpoints
 
         g.MapPut("/display", async (Core.Config.DisplaySettings req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
-            req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
-            req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
-            req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
-            req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
-            req.HistoryChart = req.HistoryChart is "temp" or "power" or "efficiency" ? req.HistoryChart : "hashrate";
-            req.Pages ??= new Core.Config.DisplayPages();
-            req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);
-            req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
-            req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
-            req.Device = req.Device == "own" ? "own" : "fans";
-            req.PriceCoins = req.PriceCoins is "bch" or "both" ? req.PriceCoins : "btc";
-            req.DailyChart = req.DailyChart is "hashrate" or "power" or "efficiency" or "temp" ? req.DailyChart : "none";
-            req.MonthlyChart = req.MonthlyChart is "cost" or "income" or "hashrate" ? req.MonthlyChart : "kwh";
-            req.QrUrl = (req.QrUrl ?? "").Trim();
-            if (req.QrUrl.Length > 0 && (req.QrUrl.Length > 200 || !Uri.TryCreate(req.QrUrl, UriKind.Absolute, out var qr) || qr.Scheme is not ("http" or "https")))
-                throw new LocalizedException("QR-Code: bitte eine Adresse mit http:// oder https:// eintragen (höchstens 200 Zeichen).");
-            req.Port = string.IsNullOrWhiteSpace(req.Port) ? "auto" : req.Port.Trim();
-            (req.Connection, req.NetworkHost) = ValidatePicoConnection(req.Connection, req.NetworkHost);
-            req.NetworkIp = System.Net.IPAddress.TryParse(req.NetworkIp ?? "", out _) ? req.NetworkIp! : "";
+            NormalizeDisplay(req);
             h.Config.Display = req;
             h.Config.Save();
             h.RequestDisplayRefresh();
             await h.ApplyFanSettingsAsync();
             return new { ok = true, status = h.DisplayStatus };
         })));
+
+        ExtraDisplayEndpoints.MapAdmin(g);
 
         g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
@@ -1102,8 +1112,11 @@ public static class Endpoints
         g.MapPost("/fans/wlan-setup", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
             var role = req.Role == "display" ? Core.Fans.PicoFanDevice.RoleDisplay : Core.Fans.PicoFanDevice.RoleFans;
-            var result = await h.SetupPicoNetworkAsync(role, req.Port, req.Ssid, req.Password, req.Host);
-            if (role == Core.Fans.PicoFanDevice.RoleDisplay) h.Config.Display.Enabled = true;
+            // 0.9.11: Display-Pico einer weiteren Anzeige – eigener Gerätename, damit sich mehrere Picos im WLAN nicht stören
+            var extraId = role == Core.Fans.PicoFanDevice.RoleDisplay && req.DisplayId is { Length: > 0 } id ? id : null;
+            var host = extraId is not null && string.IsNullOrWhiteSpace(req.Host) ? $"bitaxetuner-display-{extraId}" : req.Host;
+            var result = await h.SetupPicoNetworkAsync(role, req.Port, req.Ssid, req.Password, host, extraId);
+            if (extraId is null && role == Core.Fans.PicoFanDevice.RoleDisplay) h.Config.Display.Enabled = true;
             h.Config.Save();
             await h.ApplyFanSettingsAsync();
             return new { ok = true, result.Role, result.Host, result.Ip, result.Port };

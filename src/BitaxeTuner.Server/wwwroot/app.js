@@ -2967,6 +2967,7 @@ async function renderFans() {
   const parts = [h('div', { class: 'card stack' }, h('h2', {}, t('Zusatzlüfter')), status)];
   if (isAdmin()) parts.push(quickActions(data.status, display));
   if (display?.status) parts.push(displayCard(display));   // Ansicht-Zugang mit Gruppen: keine E-Paper-Anzeige (Summen über alle Miner)
+  if (display?.status) parts.push(await extraDisplaysCard());
   if (isAdmin()) parts.push(fanEditor(data));
   else parts.push(h('p', { class: 'muted small' }, t('Einstellungen ändern kann nur der Admin.')));
   mount(h('div', { class: 'stack' }, parts));
@@ -3034,6 +3035,115 @@ function newsCard() {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Neuigkeiten aus der Solo-Mining-Welt')), body);
 }
 
+/** Seiten, Intervall, Sonderanzeigen und Taster – gleich für die erste und jede weitere Anzeige. */
+function displaySettingsFields(s) {
+  return [
+    checkInput(s, 'inverted', t('Farben umkehren: helle Schrift auf schwarzem Grund (Rot bleibt rot)')),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Titel')), h('input', { value: s.title, oninput: e => { s.title = e.target.value; } })),
+      h('div', {}, h('label', {}, t('aktualisieren alle (min, mind. 3)')), numInput(s, 'intervalMinutes')),
+      h('div', {}, h('label', {}, t('Ruhe von (Uhr)')), numInput(s, 'quietFromHour')),
+      h('div', {}, h('label', {}, t('bis (Uhr)')), numInput(s, 'quietToHour'))),
+    checkInput(s, 'quietEnabled', t('Nachts nur bei Warnungen aktualisieren')),
+    h('h3', {}, t('Seiten (Taste 1 blättert)')),
+    h('div', { class: 'row' },
+      checkInput(s.pages, 'overview', t('Übersicht')),
+      checkInput(s.pages, 'daily', t('Tagesbilanz')),
+      checkInput(s.pages, 'chart', t('Verlauf 24 h')),
+      checkInput(s.pages, 'soak', t('Dauertest (wenn aktiv)')),
+      checkInput(s.pages, 'network', t('Pool & Netzwerk')),
+      checkInput(s.pages, 'groups', t('je Miner-Gruppe')),
+      checkInput(s.pages, 'monthly', t('Monatsbilanz')),
+      checkInput(s.pages, 'prices', t('Kurs')),
+      checkInput(s.pages, 'power', t('Strompreis-Ampel')),
+      checkInput(s.pages, 'sensors', t('Temperaturfühler')),
+      checkInput(s.pages, 'qr', t('QR-Code')),
+      checkInput(s.pages, 'news', t('Neuigkeiten'))),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')]])),
+      h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
+        ['power', t('Graph: Leistung')], ['efficiency', t('Graph: Effizienz')], ['temp', t('Graph: Temperatur')]])),
+      h('div', {}, h('label', {}, t('Monatsbilanz: Balken je Tag')), pageSelect(s, 'monthlyChart', [['kwh', 'kWh'], ['cost', t('Stromkosten')],
+        ['income', t('Ertrag')], ['hashrate', t('Hashrate')]])),
+      h('div', {}, h('label', {}, t('Verlauf (24 h) zeigt')), pageSelect(s, 'historyChart', [['hashrate', t('Hashrate')], ['temp', t('Temperatur')],
+        ['power', t('Leistung')], ['efficiency', t('Effizienz')]])),
+      h('div', {}, h('label', {}, t('QR-Code-Adresse (leer = dieser Server)')), h('input', { value: s.qrUrl || '', placeholder: 'https://…', oninput: e => { s.qrUrl = e.target.value; } }))),
+    h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
+    checkInput(s, 'networkBch', t('Pool & Netzwerk: auch den letzten Block im Bitcoin-Cash-Netzwerk zeigen (Blockchair)')),
+    newsKindsInput(s),
+    checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
+    h('h3', {}, t('Sonderanzeigen')),
+    h('div', { class: 'form' },
+      h('div', { class: 'wide' }, h('label', {}, t('Alle Sonderanzeigen enden')), pageSelect(s, 'specialUntil', [['each', t('je Anzeige wie unten eingestellt')],
+        ['hours', t('alle nach Stunden (oder mit Taste 1)')], ['button', t('alle erst mit Taste 1')]]))),
+    h('div', { class: 'form' },
+      h('div', {}, checkInput(s, 'blockFoundScreen', t('Blockfund als Vollbild'))),
+      h('div', {}, h('label', {}, t('Blockfund-Anzeige endet')), pageSelect(s, 'blockFoundUntil', [['hours', t('nach Stunden oder mit Taste 1')], ['button', t('erst mit Taste 1 (wie Warnungen)')]])),
+      h('div', {}, h('label', {}, t('stehen lassen (Stunden, bis Taste 1)')), numInput(s, 'blockFoundHoldHours'))),
+    checkInput(s, 'alarmFullscreen', t('Warnungen als Vollbild (Taste 1 quittiert bis zur nächsten neuen Warnung)')),
+    checkInput(s, 'bestDiffNotice', t('Neuen Best-Diff-Rekord einmal groß anzeigen')),
+    h('h3', {}, t('Taster')),
+    checkInput(s, 'buttonsEnabled', t('Taster am Pico auswerten')),
+    checkInput(s, 'allowSystemReboot', t('Taste 4 (3 s halten) startet auch den Raspberry Pi neu'))];
+}
+
+/** 0.9.11: weitere Anzeigen, jede mit eigenem Display-Pico, eigenen Seiten und optional nur einer Miner-Gruppe. */
+async function extraDisplaysCard() {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const groups = (S.status?.groups || []);
+  const load = async () => {
+    const d = await api('/displays').catch(e => { fill(box, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!d) return;
+    fill(box,
+      h('p', { class: 'muted small' }, t('Für zwei oder drei E-Paper: jede weitere Anzeige bekommt einen eigenen Display-Pico (am besten per WLAN), eigene Seiten und ein eigenes Intervall. Mit einer Gruppe zeigt die Übersicht nur deren Miner. Taste 1 blättert auf der eigenen Anzeige, Taste 2–4 wirken wie überall.')),
+      d.displays.map(x => extraDisplayItem(x, groups, load)),
+      isAdmin() ? h('div', { class: 'row' }, h('button', { class: 'btn', onclick: async () => {
+        if (await run(() => api('/displays', { method: 'POST', body: {} }), t('Weitere Anzeige angelegt.'))) load();
+      } }, t('Weitere Anzeige hinzufügen'))) : null);
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Weitere Anzeigen')), box);
+}
+
+function extraDisplayItem(x, groups, reload) {
+  const st = x.status || {};
+  const url = scene => `/api/v1/displays/${x.id}/preview.png?${scene ? `scene=${scene}&` : ''}t=${Date.now()}`;
+  const img = h('img', { src: url(''), alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:560px;border:1px solid var(--border);border-radius:6px;background:#fff' });
+  const info = !st.enabled ? t('ausgeschaltet')
+    : t('{0} · zuletzt {1}', st.connected ? t('Pico verbunden') : t('Pico nicht verbunden'), st.lastShown ? time(st.lastShown) : t('noch nie')) + (st.error ? ` · ${st.error}` : '');
+  const head = h('div', { class: 'titlebar' }, h('h3', {}, x.name || x.id), x.group ? h('span', { class: 'pill gray' }, x.group) : null, h('span', { class: 'spacer' }),
+    isAdmin() ? h('button', { class: 'btn small', onclick: async () => { if (await run(() => api(`/displays/${x.id}/next`, { method: 'POST', body: {} }))) img.src = url(''); } }, t('Seite weiter (wie Taste 1)')) : null,
+    h('button', { class: 'btn small', onclick: () => { img.src = url(''); } }, t('Vorschau neu laden')));
+  const parts = [head, h('p', { class: `small ${st.error ? 'danger' : 'muted'}` }, info), img];
+  if (isAdmin() && x.settings) {
+    const s = structuredClone(x.settings);
+    const meta = { name: x.name, group: x.group || '' };
+    const groupSel = h('select', { style: 'width:auto', onchange: e => { meta.group = e.target.value; } },
+      [['', t('alle Miner')], ...groups.map(g => [g, g])].map(([v, l]) => h('option', { value: v }, l)));
+    groupSel.value = meta.group;
+    const editor = h('details', {}, h('summary', {}, t('Einstellungen dieser Anzeige')),
+      h('div', { class: 'stack' },
+        checkInput(s, 'enabled', t('Anzeige einschalten')),
+        h('div', { class: 'form' },
+          h('div', {}, h('label', {}, t('Name')), h('input', { value: meta.name, maxlength: 40, oninput: e => { meta.name = e.target.value; } })),
+          h('div', {}, h('label', {}, t('Nur Gruppe')), groupSel)),
+        picoConnectionInputs(s, 'display'),
+        h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => picoWlanSetup('display', x.id) }, t('Display-Pico für WLAN einrichten …'))),
+        x.device ? h('p', { class: 'muted small' }, t('Angeschlossen über: {0}', x.device)) : null,
+        ...displaySettingsFields(s),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn primary', onclick: async () => {
+            if (await run(() => api(`/displays/${x.id}`, { method: 'PUT', body: { name: meta.name, group: meta.group, settings: s } }), t('Anzeige-Einstellungen gespeichert.'))) reload();
+          } }, t('Speichern')),
+          h('button', { class: 'btn danger', onclick: async () => {
+            if (!await confirmBox(t('Anzeige entfernen'), t('„{0}“ entfernen? Der Display-Pico bleibt eingerichtet und kann später wieder eingetragen werden.', x.name || x.id), t('Entfernen'), true)) return;
+            if (await run(() => api(`/displays/${x.id}`, { method: 'DELETE' }), t('Anzeige entfernt.'))) reload();
+          } }, t('Entfernen')))));
+    parts.push(editor);
+  }
+  return h('div', { class: 'stack', style: 'border-top:1px solid var(--border);padding-top:12px' }, parts);
+}
+
 /** E-Paper: Vorschau genau wie auf dem Display, Status, Einstellungen. */
 function displayCard(d) {
   const st = d.status;
@@ -3069,53 +3179,7 @@ function displayCard(d) {
         sel.value = s.device || 'fans';
         return h('div', { class: 'stack' }, h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Anzeige hängt')), sel)), own);
       })(),
-      checkInput(s, 'inverted', t('Farben umkehren: helle Schrift auf schwarzem Grund (Rot bleibt rot)')),
-      h('div', { class: 'form' },
-        h('div', {}, h('label', {}, t('Titel')), h('input', { value: s.title, oninput: e => { s.title = e.target.value; } })),
-        h('div', {}, h('label', {}, t('aktualisieren alle (min, mind. 3)')), numInput(s, 'intervalMinutes')),
-        h('div', {}, h('label', {}, t('Ruhe von (Uhr)')), numInput(s, 'quietFromHour')),
-        h('div', {}, h('label', {}, t('bis (Uhr)')), numInput(s, 'quietToHour'))),
-      checkInput(s, 'quietEnabled', t('Nachts nur bei Warnungen aktualisieren')),
-      h('h3', {}, t('Seiten (Taste 1 blättert)')),
-      h('div', { class: 'row' },
-        checkInput(s.pages, 'overview', t('Übersicht')),
-        checkInput(s.pages, 'daily', t('Tagesbilanz')),
-        checkInput(s.pages, 'chart', t('Verlauf 24 h')),
-        checkInput(s.pages, 'soak', t('Dauertest (wenn aktiv)')),
-        checkInput(s.pages, 'network', t('Pool & Netzwerk')),
-        checkInput(s.pages, 'groups', t('je Miner-Gruppe')),
-        checkInput(s.pages, 'monthly', t('Monatsbilanz')),
-        checkInput(s.pages, 'prices', t('Kurs')),
-        checkInput(s.pages, 'power', t('Strompreis-Ampel')),
-        checkInput(s.pages, 'sensors', t('Temperaturfühler')),
-        checkInput(s.pages, 'qr', t('QR-Code')),
-        checkInput(s.pages, 'news', t('Neuigkeiten'))),
-      h('div', { class: 'form' },
-        h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')]])),
-        h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
-          ['power', t('Graph: Leistung')], ['efficiency', t('Graph: Effizienz')], ['temp', t('Graph: Temperatur')]])),
-        h('div', {}, h('label', {}, t('Monatsbilanz: Balken je Tag')), pageSelect(s, 'monthlyChart', [['kwh', 'kWh'], ['cost', t('Stromkosten')],
-          ['income', t('Ertrag')], ['hashrate', t('Hashrate')]])),
-        h('div', {}, h('label', {}, t('Verlauf (24 h) zeigt')), pageSelect(s, 'historyChart', [['hashrate', t('Hashrate')], ['temp', t('Temperatur')],
-          ['power', t('Leistung')], ['efficiency', t('Effizienz')]])),
-        h('div', {}, h('label', {}, t('QR-Code-Adresse (leer = dieser Server)')), h('input', { value: s.qrUrl || '', placeholder: 'https://…', oninput: e => { s.qrUrl = e.target.value; } }))),
-      h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
-      checkInput(s, 'networkBch', t('Pool & Netzwerk: auch den letzten Block im Bitcoin-Cash-Netzwerk zeigen (Blockchair)')),
-      newsKindsInput(s),
-      checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
-      h('h3', {}, t('Sonderanzeigen')),
-      h('div', { class: 'form' },
-        h('div', { class: 'wide' }, h('label', {}, t('Alle Sonderanzeigen enden')), pageSelect(s, 'specialUntil', [['each', t('je Anzeige wie unten eingestellt')],
-          ['hours', t('alle nach Stunden (oder mit Taste 1)')], ['button', t('alle erst mit Taste 1')]]))),
-      h('div', { class: 'form' },
-        h('div', {}, checkInput(s, 'blockFoundScreen', t('Blockfund als Vollbild'))),
-        h('div', {}, h('label', {}, t('Blockfund-Anzeige endet')), pageSelect(s, 'blockFoundUntil', [['hours', t('nach Stunden oder mit Taste 1')], ['button', t('erst mit Taste 1 (wie Warnungen)')]])),
-        h('div', {}, h('label', {}, t('stehen lassen (Stunden, bis Taste 1)')), numInput(s, 'blockFoundHoldHours'))),
-      checkInput(s, 'alarmFullscreen', t('Warnungen als Vollbild (Taste 1 quittiert bis zur nächsten neuen Warnung)')),
-      checkInput(s, 'bestDiffNotice', t('Neuen Best-Diff-Rekord einmal groß anzeigen')),
-      h('h3', {}, t('Taster')),
-      checkInput(s, 'buttonsEnabled', t('Taster am Pico auswerten')),
-      checkInput(s, 'allowSystemReboot', t('Taste 4 (3 s halten) startet auch den Raspberry Pi neu')),
+      ...displaySettingsFields(s),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/display', { method: 'PUT', body: s }), t('Anzeige-Einstellungen gespeichert.'))) renderFans(); } }, t('Speichern')),
         h('button', { class: 'btn', onclick: () => run(() => api('/display/refresh', { method: 'POST', body: {} }), t('Anzeige wird aktualisiert, sobald die Mindestpause von 3 Minuten um ist.')) }, t('Jetzt aktualisieren'))),
@@ -3149,13 +3213,13 @@ function picoConnectionInputs(obj, role) {
  * Pico für WLAN einrichten: Pico per USB an den Server, WLAN-Zugang eintragen. Der Server spielt Programm, Rolle,
  * WLAN-Zugang und einen neuen Schlüssel auf; das WLAN-Passwort speichert er selbst nicht.
  */
-async function picoWlanSetup(role) {
+async function picoWlanSetup(role, displayId) {
   const ports = await run(() => api('/fans/ports'));
   if (!ports) return;
   const port = h('select', { style: 'width:auto' }, [['auto', t('automatisch')], ...ports.pico.map(p => [p, p])].map(([v, l]) => h('option', { value: v }, l)));
   const ssid = h('input', { autocomplete: 'off', maxlength: 32 });
   const pw = h('input', { type: 'password', autocomplete: 'new-password', maxlength: 63 });
-  const host = h('input', { value: role === 'display' ? 'bitaxetuner-display' : 'bitaxetuner-fans', maxlength: 32 });
+  const host = h('input', { value: displayId ? `bitaxetuner-display-${displayId}` : role === 'display' ? 'bitaxetuner-display' : 'bitaxetuner-fans', maxlength: 32 });
   const body = h('div', { class: 'stack' },
     h('p', {}, role === 'display'
       ? t('Display-Pico (Pico 2 WH, auf das E-Paper gesteckt) jetzt per USB-Datenkabel an diesen Server anschließen.')
@@ -3168,7 +3232,7 @@ async function picoWlanSetup(role) {
     h('p', { class: 'muted small' }, t('Aufgespielt werden Programm, Rolle, WLAN-Zugang und ein neuer Schlüssel. Das WLAN-Passwort steht danach nur auf dem Pico, nicht auf dem Server. Dauer ca. 30 Sekunden; Lüfter laufen dabei mit 100 %.')));
   if (!await confirmBox(t('Pico für WLAN einrichten'), body, t('Einrichten'))) return;
   toast(t('Pico wird eingerichtet …'), 'info', 30000);
-  const r = await run(() => api('/fans/wlan-setup', { method: 'POST', body: { role, port: port.value, ssid: ssid.value, password: pw.value, host: host.value } }));
+  const r = await run(() => api('/fans/wlan-setup', { method: 'POST', body: { role, port: port.value, ssid: ssid.value, password: pw.value, host: host.value, displayId } }));
   pw.value = '';
   if (!r) return;
   toast(r.ip ? t('Eingerichtet: {0} ({1}). Pico jetzt vom Server trennen und an sein eigenes Netzteil.', r.host, r.ip)

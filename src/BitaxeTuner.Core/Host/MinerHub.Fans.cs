@@ -87,6 +87,7 @@ public sealed partial class MinerHub
             if (!NeedFanPico && !(Config.Display.Enabled && Config.Display.OwnDevice))
             {
                 FanStatus = new FanStatus(false, false, null, null, null, []);
+                await ExtraDisplaysTickAsync(now);
                 return;
             }
 
@@ -169,6 +170,7 @@ public sealed partial class MinerHub
             FansUpdated?.Invoke();
             ReportSafetyOverrides(targets);
             await DisplayTickAsync(now);
+            await ExtraDisplaysTickAsync(now);
         }
         finally
         {
@@ -452,8 +454,11 @@ public sealed partial class MinerHub
     /// Pico am USB für WLAN einrichten (Programm, Rolle, WLAN-Zugang, neuer Schlüssel), Schlüssel in secrets.json ablegen
     /// und die Verbindung in den Einstellungen auf WLAN umstellen. Das WLAN-Passwort wird nirgends auf dem Server gespeichert.
     /// </summary>
-    public async Task<PicoSetupResult> SetupPicoNetworkAsync(string role, string? port, string? ssid, string? password, string? host)
+    /// <param name="displayId">0.9.11: Display-Pico einer weiteren Anzeige (eigener Schlüssel, eigene Verbindung).</param>
+    public async Task<PicoSetupResult> SetupPicoNetworkAsync(string role, string? port, string? ssid, string? password, string? host, string? displayId = null)
     {
+        var extra = displayId is null ? null
+            : Config.ExtraDisplays.FirstOrDefault(d => d.Id == displayId) ?? throw new LocalizedException("Anzeige nicht gefunden.");
         var config = PicoNetworkConfig.Create(role, ssid, password, host);
         var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
         if (candidates.Count == 0) throw new LocalizedException("Kein Pico am USB gefunden – Pico per Datenkabel anschließen.");
@@ -463,6 +468,7 @@ public sealed partial class MinerHub
         // Ports freigeben und während der Einrichtung nicht neu verbinden
         CloseFanDevice();
         CloseDisplayDevice();
+        CloseExtraDisplays();
         _fanNextConnect = _displayNextConnect = DateTime.MaxValue;
         string? ip = null;
         try
@@ -478,11 +484,19 @@ public sealed partial class MinerHub
         {
             var now = Options.Clock?.Invoke() ?? DateTime.Now;
             _fanNextConnect = _displayNextConnect = now.AddSeconds(3);
+            foreach (var x in _extras.Values) x.NextConnect = now.AddSeconds(3);
         }
 
-        Secrets.Set(role == PicoFanDevice.RoleDisplay ? PicoKeyDisplay : PicoKeyFans, config.KeyHex);
+        Secrets.Set(extra is not null ? ExtraPicoKey(extra.Id) : role == PicoFanDevice.RoleDisplay ? PicoKeyDisplay : PicoKeyFans, config.KeyHex);
         var target = config.Host + ".local";
-        if (role == PicoFanDevice.RoleDisplay)
+        if (extra is not null)
+        {
+            extra.Settings.Device = "own";
+            extra.Settings.Connection = "wlan";
+            extra.Settings.NetworkHost = target;
+            extra.Settings.NetworkIp = ip ?? "";
+        }
+        else if (role == PicoFanDevice.RoleDisplay)
         {
             Config.Display.Device = "own";
             Config.Display.Connection = "wlan";

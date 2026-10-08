@@ -290,6 +290,31 @@ public sealed class ServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Extra_displays_can_be_added_configured_previewed_and_removed()
+    {
+        // 0.9.11: weitere Anzeigen mit eigenem Display-Pico
+        var admin = await AdminAsync();
+        var created = await Json(await admin.PostAsJsonAsync("/api/v1/displays", new { name = "Flur" }));
+        var id = created.GetProperty("id").GetString();
+        Assert.Matches("^[0-9a-f]{8}$", id);
+        var body = new { name = "Flur oben", group = "", settings = new { enabled = false, title = "Flur", intervalMinutes = 1, connection = "wlan", networkHost = "flur.local",
+            pages = new { overview = true, news = true }, newsKinds = new[] { "solo", "erfunden" } } };
+        var updated = await Json(await admin.PutAsJsonAsync($"/api/v1/displays/{id}", body));
+        Assert.Equal("Flur oben", updated.GetProperty("name").GetString());
+        Assert.Equal(3, updated.GetProperty("settings").GetProperty("intervalMinutes").GetInt32());        // Mindestpause
+        Assert.Equal("own", updated.GetProperty("settings").GetProperty("device").GetString());
+        Assert.Equal(new[] { "solo" }, updated.GetProperty("settings").GetProperty("newsKinds").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/v1/displays/{id}", new { group = "gibtsnicht" })).StatusCode);
+
+        var png = await admin.GetAsync($"/api/v1/displays/{id}/preview.png?scene=News");
+        Assert.Equal("image/png", png.Content.Headers.ContentType?.MediaType);
+        Assert.Single((await Json(await admin.GetAsync("/api/v1/displays"))).GetProperty("displays").EnumerateArray());
+        await Json(await admin.DeleteAsync($"/api/v1/displays/{id}"));
+        Assert.Empty((await Json(await admin.GetAsync("/api/v1/displays"))).GetProperty("displays").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/api/v1/displays/{id}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Help_is_available_for_every_signed_in_role_but_not_anonymous()
     {
         var admin = await AdminAsync();
