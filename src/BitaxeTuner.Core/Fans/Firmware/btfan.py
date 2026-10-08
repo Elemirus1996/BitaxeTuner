@@ -33,6 +33,8 @@
 #   EPD DONE busy=<1|0> ms=<n> (refresh finished; busy=0: the BUSY line never reported "busy" - fixed wait time used),
 #   INFO reset=<power|wdt|other> err=<text|-> (8.1: why the Pico last started and the last caught error; once after HELLO
 #   and after every new error - the program no longer stops on an error, it notes it and goes on).
+# Safe start for Thonny (8.1): press BOOTSEL within 3 s after plugging in (LED lit) - the program stops before the
+#   hardware watchdog starts.
 # Button 4 has no short press. Without SET for WATCHDOG_MS all fans go to 100 %.
 # Button 3 (short) sets 100 % locally even without server.
 #
@@ -831,6 +833,27 @@ last_cmd = time.ticks_ms()
 last_fan = last_cmd
 failsafe = True
 last_rpm = time.ticks_ms()
+# Safe start (8.1): BOOTSEL pressed within 3 s after power-up (LED on) -> stop before the watchdog starts, so the Pico
+# can be used with Thonny. Fans run at 100 % meanwhile (fail-safe).
+try:
+    import rp2
+    _bootsel = getattr(rp2, "bootsel_button", None)
+except ImportError:
+    _bootsel = None
+if _bootsel is not None:
+    led.value(1)
+    _t0 = time.ticks_ms()
+    _safe = False
+    while time.ticks_diff(time.ticks_ms(), _t0) < 3000:
+        if _bootsel():
+            _safe = True
+            break
+        time.sleep_ms(50)
+    led.value(0)
+    if _safe:
+        all_full()
+        print("BitaxeTuner: safe start (BOOTSEL) - program stopped, no watchdog. Unplug and plug in again to start it.")
+        raise SystemExit
 # Hardware watchdog: cannot be stopped once started (also not by Ctrl-C); the server feeds it while installing.
 wdt = machine.WDT(timeout=8000)
 net_setup()

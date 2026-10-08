@@ -136,7 +136,7 @@ public static class WhatsNew
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
             new("0.9.12", tr.T("Pico-Programm 8.1: E-Paper zuverlässiger"),
-                tr.T("Meldet die BUSY-Leitung des Displays nie „beschäftigt“, wartet der Pico jetzt fest 25 Sekunden, statt den Bildaufbau abzubrechen. Ein Fehler im Programm hält es nicht mehr an (bisher startete der Watchdog den Pico dann neu); Neustart-Grund und Fehler stehen im Protokoll."),
+                tr.T("Meldet die BUSY-Leitung des Displays nie „beschäftigt“, wartet der Pico jetzt fest 25 Sekunden, statt den Bildaufbau abzubrechen. Ein Fehler im Programm hält es nicht mehr an (bisher startete der Watchdog den Pico dann neu); Neustart-Grund und Fehler stehen im Protokoll. Für Thonny: BOOTSEL innerhalb von 3 Sekunden nach dem Einstecken drücken (LED leuchtet) – dann startet das Programm nicht und der Watchdog stört nicht."),
                 null),
             new("0.9.12", tr.T("HTTPS ohne Warnung"),
                 server ? tr.T("Einstellungen → Verbindung → „HTTPS ohne Warnung“: Zertifikat von Let's Encrypt für einen kostenlosen DuckDNS-Namen – ohne offenen Port im Router, automatisch erneuert. Per Name ohne Browser-Warnung, per IP wie bisher.")
