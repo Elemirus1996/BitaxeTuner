@@ -590,6 +590,7 @@
       <dt>“key does not match”</dt><dd>The Pico was set up again elsewhere or the server was reinstalled → set the Pico up for WLAN again via USB.</dd>
       <dt>“does not answer (WLAN?)”</dt><dd>Check WLAN name/password, is the 2.4 GHz network on? Look up the Pico's IP in the router and enter it.</dd>
       <dt>“is set up as display Pico”</dt><dd>Fan and display Pico swapped → use the other setup button.</dd>
+      <dt>Display stays blank</dt><dd>Fixed from fan program 7.1 (before, the Pico's SPI took the display's DC line, GP8). To check the hardware without a server: open <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny and "Run" – after 20–30 s a test picture with a black and a red bar appears. The program on the Pico stays unchanged.</dd>
       <dt>Back to USB</dt><dd>Choose “Connection: USB cable on the server” and save; the program keeps working via USB.</dd>
     </dl>
   </section>

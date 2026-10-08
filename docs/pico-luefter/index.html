@@ -590,6 +590,7 @@
       <dt>„Schlüssel passt nicht“</dt><dd>Pico wurde woanders neu eingerichtet oder der Server neu installiert → Pico per USB erneut „für WLAN einrichten“.</dd>
       <dt>„antwortet nicht (WLAN?)“</dt><dd>WLAN-Name/Passwort prüfen, 2,4-GHz-Netz aktiv? Im Router nachsehen, ob der Pico eine IP hat, und diese eintragen.</dd>
       <dt>„ist als Display-Pico eingerichtet“</dt><dd>Lüfter- und Display-Pico vertauscht → den jeweils anderen Einrichtungsknopf verwenden.</dd>
+      <dt>Display bleibt leer</dt><dd>Ab Lüfterprogramm 7.1 behoben (vorher nahm die SPI-Schnittstelle des Pico die DC-Leitung des Displays, GP8). Zum Prüfen der Hardware ohne Server: <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny öffnen und „Ausführen“ – nach 20–30 s erscheint ein Testbild mit schwarzem und rotem Balken. Das Programm des Pico bleibt dabei unverändert.</dd>
       <dt>Zurück zu USB</dt><dd>„Verbindung: USB-Kabel am Server“ wählen und speichern; das Programm funktioniert per USB weiter.</dd>
     </dl>
   </section>
