@@ -517,6 +517,57 @@ public sealed partial class MinerHub
     }
 
 
+    /// <summary>
+    /// 0.9.12: Pico am USB als Lüfter- oder Display-Pico festlegen – ohne WLAN und ohne Thonny. Display: die Anzeige hängt
+    /// danach am eigenen Display-Pico an genau diesem USB-Port (Waveshare-Belegung GP8–GP13). Lüfter: Kabel-Belegung
+    /// der Lüfterplatine (Anzeige am Lüfter-Pico, BUSY GP22).
+    /// </summary>
+    public async Task<(string Role, string Port)> SetPicoRoleAsync(string role, string? port)
+    {
+        if (role is not (PicoFanDevice.RoleFans or PicoFanDevice.RoleDisplay)) throw new LocalizedException("Unbekannte Rolle.");
+        var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
+        if (candidates.Count == 0) throw new LocalizedException("Kein Pico am USB gefunden – Pico per Datenkabel anschließen.");
+        if (candidates.Count > 1) throw new LocalizedException("Mehrere Picos am USB ({0}) – bitte den Port auswählen.", string.Join(", ", candidates));
+        var name = candidates[0];
+
+        CloseFanDevice();
+        CloseDisplayDevice();
+        CloseExtraDisplays();
+        _fanNextConnect = _displayNextConnect = DateTime.MaxValue;
+        try
+        {
+            await Task.Run(() =>
+            {
+                using var io = Options.SerialTransportFactory?.Invoke(name) ?? new SerialLineTransport(name);
+                PicoFanDevice.ProvisionUsb(io, name, role, msg => RaiseStatus(true, msg));
+            });
+        }
+        finally
+        {
+            var now = Options.Clock?.Invoke() ?? DateTime.Now;
+            _fanNextConnect = _displayNextConnect = now.AddSeconds(3);
+            foreach (var x in _extras.Values) x.NextConnect = now.AddSeconds(3);
+        }
+
+        if (role == PicoFanDevice.RoleDisplay)
+        {
+            Config.Display.Enabled = true;
+            Config.Display.Device = "own";
+            Config.Display.Connection = "usb";
+            Config.Display.Port = name;
+        }
+        else
+        {
+            Config.Fans.Connection = "usb";
+            if (Config.Display is { Device: "own", Connection: "usb" } d && d.Port == name) d.Device = "fans";   // Anzeige hängt jetzt an ihm
+        }
+        Config.Save();
+        LogEvent(null, EventCategories.Fans, role == PicoFanDevice.RoleDisplay
+            ? L.T("Pico an {0} als Display-Pico per USB eingerichtet (Waveshare-Belegung GP8–GP13, ohne WLAN).", name)
+            : L.T("Pico an {0} als Lüfter-Pico per USB eingerichtet (ohne WLAN).", name));
+        return (role, name);
+    }
+
     /// <summary>„Lüfter steht“: Soll ≥ 20 %, Drehzahlsignal vorhanden, aber 0 U/min in 3 Messungen nach 10 s Anlaufzeit.</summary>
     private bool CheckStall(FanChannelSettings c, FanTarget t, int? rpm, DateTime now)
     {

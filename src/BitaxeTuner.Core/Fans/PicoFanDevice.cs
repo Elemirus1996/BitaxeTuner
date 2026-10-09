@@ -215,6 +215,20 @@ public sealed class PicoFanDevice : IFanDevice
         log?.Invoke(L.T("Pico an {0}: eingerichtet als „{1}“ für WLAN „{2}“.", portName, config.Role, config.Ssid));
     }
 
+    /// <summary>
+    /// 0.9.12: Rolle per USB festlegen (Lüfter- oder Display-Pico) – Programm neu aufspielen, btcfg.json nur mit der Rolle,
+    /// ohne WLAN. Vorhandene WLAN-Einstellungen auf dem Pico werden dabei entfernt.
+    /// </summary>
+    public static void ProvisionUsb(ILineTransport io, string portName, string role, Action<string>? log = null)
+    {
+        if (role is not (RoleFans or RoleDisplay)) throw new LocalizedException("Unbekannte Rolle.");
+        log?.Invoke(L.T("Pico an {0}: Programm wird aufgespielt, Rolle „{1}“ …", portName, role));
+        Install(io, Firmware, new Dictionary<string, string> { ["btcfg.json"] = System.Text.Json.JsonSerializer.Serialize(new { role }) });
+        var (version, actual) = HelloInfo(io, TimeSpan.FromSeconds(6));
+        if (version != FirmwareVersion || actual != role)
+            throw new IOException(L.T("Pico antwortet nach dem Einrichten nicht wie erwartet (Version {0}, Rolle {1}).", version ?? "?", actual));
+    }
+
     /// <summary>Nach dem Einrichten: bis zu <paramref name="timeout"/> warten, bis der Pico im WLAN ist; liefert seine IP oder null.</summary>
     public static string? WaitForNetwork(ILineTransport io, TimeSpan timeout)
     {

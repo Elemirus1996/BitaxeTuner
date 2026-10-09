@@ -1111,6 +1111,15 @@ public static class Endpoints
 
         g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));
 
+        // 0.9.12: Pico am USB als Lüfter- oder Display-Pico festlegen – ohne WLAN, ohne Thonny
+        g.MapPost("/fans/pico-role", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var role = req.Role == "display" ? Core.Fans.PicoFanDevice.RoleDisplay : Core.Fans.PicoFanDevice.RoleFans;
+            var (r, port) = await h.SetPicoRoleAsync(role, req.Port);
+            await h.ApplyFanSettingsAsync();
+            return new { ok = true, role = r, port };
+        })));
+
         // Pico am USB für WLAN einrichten (Lüfter- oder Display-Pico). Das WLAN-Passwort geht nur auf den Pico.
         g.MapPost("/fans/wlan-setup", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {

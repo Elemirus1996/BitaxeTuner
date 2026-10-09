@@ -567,7 +567,8 @@
       </div>
       <div class="panel">
         <h3>Display Pico</h3>
-        <p><b>Plug the Pico 2 WH directly onto the Waveshare e-paper module</b> – no wires, no board. Orientation as shown by the Pico outline printed on the module (USB socket on the marked side), with power off. Power via a USB power supply on the Pico.</p>
+        <p><b>Plug the Pico 2 WH directly onto the Waveshare e-paper module</b> – no wires, no board. Orientation as shown by the Pico outline printed on the module: <b>USB socket towards the “Interface Config” end, i.e. away from the ribbon cable</b>, VBUS on VBUS, GP0 on GP0; with power off. Power via a USB power supply on the Pico.</p>
+        <p>The program then uses the Waveshare layout (GP8–GP13, BUSY GP13), not the cable layout of the fan board (BUSY GP22). Which layout applies is set by the <b>Pico's role</b>, not by the server setting. On the module: switch <b>“Interface Config” at 0</b> (4-wire SPI). Without WLAN: <b>“Set up display Pico via USB (no WLAN) …”</b> sets the role directly over the USB cable.</p>
         <p>It shows the display and reports its buttons; it has no fans. For this the program uses the Waveshare pin layout (GP8–GP13).</p>
       </div>
     </div>
@@ -591,7 +592,8 @@
       <dt>“key does not match”</dt><dd>The Pico was set up again elsewhere or the server was reinstalled → set the Pico up for WLAN again via USB.</dd>
       <dt>“does not answer (WLAN?)”</dt><dd>Check WLAN name/password, is the 2.4 GHz network on? Look up the Pico's IP in the router and enter it.</dd>
       <dt>“is set up as display Pico”</dt><dd>Fan and display Pico swapped → use the other setup button.</dd>
-      <dt>Display stays blank</dt><dd>Fixed from fan program 7.1 (before, the Pico's SPI took the display's DC line, GP8). To check the hardware without a server: open <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny and "Run" – after 20–30 s a test picture with a black and a red bar appears. The program on the Pico stays unchanged.</dd>
+      <dt>Display stays blank</dt><dd>Check first: Pico orientation on the module (USB socket away from the ribbon cable, VBUS on VBUS), ribbon cable fully inserted and locked, switch “Interface Config” at 0, role “display” (see above). To check the hardware without a server: open <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny and "Run" – after 20–30 s a test picture with a black and a red bar appears; the output says “(BUSY ok)” when the display answers. The program on the Pico stays unchanged.</dd>
+      <dt>Thonny loses the connection</dt><dd>From Pico program 8 a hardware watchdog restarts the Pico 8 s after the program is stopped. From 8.1: <b>press BOOTSEL within 3 s after plugging in</b> (LED lit) – the program then does not start and Thonny stays connected.</dd>
       <dt>Back to USB</dt><dd>Choose “Connection: USB cable on the server” and save; the program keeps working via USB.</dd>
     </dl>
   </section>

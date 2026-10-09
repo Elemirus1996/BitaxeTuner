@@ -246,6 +246,35 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Role_can_be_switched_over_usb_without_wlan()
+    {
+        // 0.9.12: Pico per USB als Display- oder Lüfter-Pico festlegen – ohne WLAN-Daten, ohne Thonny
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var pico = new FakePico { ProgramRunning = true };
+        var config = new AppConfig();
+        using var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = _dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new SimulatedMinerClient(gamma, 1, h),
+            SerialTransportFactory = _ => pico,
+            DisplayDeviceFactory = _ => new SimulatedFanDevice(PicoFanDevice.RoleDisplay),
+        });
+
+        var (role, port) = await hub.SetPicoRoleAsync("display", "COM9");
+        Assert.Equal(("display", "COM9"), (role, port));
+        Assert.Equal("{\"role\":\"display\"}", pico.Files["btcfg.json"]);                 // keine WLAN-Daten
+        Assert.Equal(PicoFanDevice.Firmware, pico.MainPy);
+        Assert.Equal(("own", "usb", "COM9"), (config.Display.Device, config.Display.Connection, config.Display.Port));
+        Assert.True(config.Display.Enabled);
+
+        await hub.SetPicoRoleAsync("fans", "COM9");
+        Assert.Equal("{\"role\":\"fans\"}", pico.Files["btcfg.json"]);
+        Assert.Equal("fans", config.Display.Device);                                             // Anzeige hängt jetzt am Lüfter-Pico
+        await Assert.ThrowsAsync<LocalizedException>(() => hub.SetPicoRoleAsync("drucker", "COM9"));
+    }
+
+    [Fact]
     public async Task Display_goes_to_its_own_pico_while_fans_stay_on_the_fan_pico()
     {
         var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");

@@ -567,8 +567,9 @@
       </div>
       <div class="panel">
         <h3>Display-Pico</h3>
-        <p>Pico 2 WH <b>direkt auf das Waveshare-E-Paper-Modul stecken</b> – keine Kabel, keine Platine. Ausrichtung nach dem auf dem Modul aufgedruckten Pico-Umriss (USB-Buchse an der markierten Seite), vorher ohne Strom. Strom über ein USB-Netzteil am Pico.</p>
-        <p>Er zeigt die Anzeige und meldet seine Taster; Lüfter hat er keine. Dafür nutzt das Programm hier die Waveshare-Belegung (GP8–GP13).</p>
+        <p>Pico 2 WH <b>direkt auf das Waveshare-E-Paper-Modul stecken</b> – keine Kabel, keine Platine. Ausrichtung nach dem auf dem Modul aufgedruckten Pico-Umriss: <b>USB-Buchse zum Ende mit „Interface Config“, also vom Flachbandkabel weg</b>, VBUS auf VBUS, GP0 auf GP0; vorher ohne Strom. Strom über ein USB-Netzteil am Pico.</p>
+        <p>Er zeigt die Anzeige und meldet seine Taster; Lüfter hat er keine. Dafür nutzt das Programm hier die Waveshare-Belegung (GP8–GP13, BUSY GP13) – nicht die Kabelbelegung der Lüfterplatine (BUSY GP22). Welche Belegung gilt, legt die <b>Rolle des Pico</b> fest, nicht die Einstellung im Server.</p>
+        <p>Auf dem Modul: Schalter <b>„Interface Config“ auf 0</b> (4-Leitungs-SPI). Ohne WLAN: <b>„Display-Pico per USB einrichten (ohne WLAN) …“</b> legt die Rolle direkt am USB-Kabel fest.</p>
       </div>
     </div>
     <ol class="steps">
@@ -590,8 +591,9 @@
     <dl>
       <dt>„Schlüssel passt nicht“</dt><dd>Pico wurde woanders neu eingerichtet oder der Server neu installiert → Pico per USB erneut „für WLAN einrichten“.</dd>
       <dt>„antwortet nicht (WLAN?)“</dt><dd>WLAN-Name/Passwort prüfen, 2,4-GHz-Netz aktiv? Im Router nachsehen, ob der Pico eine IP hat, und diese eintragen.</dd>
-      <dt>„ist als Display-Pico eingerichtet“</dt><dd>Lüfter- und Display-Pico vertauscht → den jeweils anderen Einrichtungsknopf verwenden.</dd>
-      <dt>Display bleibt leer</dt><dd>Ab Lüfterprogramm 7.1 behoben (vorher nahm die SPI-Schnittstelle des Pico die DC-Leitung des Displays, GP8). Zum Prüfen der Hardware ohne Server: <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny öffnen und „Ausführen“ – nach 20–30 s erscheint ein Testbild mit schwarzem und rotem Balken. Das Programm des Pico bleibt dabei unverändert.</dd>
+      <dt>„ist als Display-Pico eingerichtet“</dt><dd>Lüfter- und Display-Pico vertauscht → den jeweils anderen Einrichtungsknopf verwenden, auch ohne WLAN: „Pico per USB als Lüfter-Pico einrichten …“ bzw. „Display-Pico per USB einrichten (ohne WLAN) …“.</dd>
+      <dt>Display bleibt leer</dt><dd>Zuerst prüfen: Lage des Pico auf dem Modul (USB-Buchse vom Flachbandkabel weg, VBUS auf VBUS), Flachbandkabel ganz eingesteckt und verriegelt, Schalter „Interface Config“ auf 0, Rolle „Display“ (siehe oben). Zum Prüfen der Hardware ohne Server: <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny öffnen und „Ausführen“ – nach 20–30 s erscheint ein Testbild mit schwarzem und rotem Balken; die Ausgabe meldet „(BUSY ok)“, wenn das Display antwortet. Das Programm des Pico bleibt dabei unverändert.</dd>
+      <dt>Thonny verliert die Verbindung</dt><dd>Ab Pico-Programm 8 läuft ein Hardware-Watchdog, der den Pico 8 s nach dem Anhalten des Programms neu startet. Ab 8.1: <b>BOOTSEL innerhalb von 3 s nach dem Einstecken drücken</b> (LED leuchtet) – dann startet das Programm nicht und Thonny bleibt verbunden.</dd>
       <dt>Zurück zu USB</dt><dd>„Verbindung: USB-Kabel am Server“ wählen und speichern; das Programm funktioniert per USB weiter.</dd>
     </dl>
   </section>
