@@ -7,7 +7,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Fans/Firmware/btfan.py" LogicalName="BitaxeTuner.Core.Fans.btfan.py" />
     <!-- WithCulture=false: sonst hielte MSBuild „.en.“ für eine Kultur und legte die Datei in eine Satelliten-Assembly -->
-    <EmbeddedResource Include="I18n/Strings.en.json" LogicalName="BitaxeTuner.Core.I18n.Strings.en.json" WithCulture="false" />
+    <EmbeddedResource Include="I18n/Strings.*.json" LogicalName="BitaxeTuner.Core.I18n.%(Filename).json" WithCulture="false" />
     <!-- DejaVu Sans Condensed (freie Lizenz, siehe Display/Fonts/LICENSE) für das E-Paper-Bild -->
     <EmbeddedResource Include="Display/Fonts/DejaVuSansCondensed.ttf" LogicalName="BitaxeTuner.Core.Display.Regular.ttf" />
     <EmbeddedResource Include="Display/Fonts/DejaVuSansCondensed-Bold.ttf" LogicalName="BitaxeTuner.Core.Display.Bold.ttf" />

@@ -97,7 +97,8 @@ public class I18nTests
     {
         Assert.Equal("en", Loc.ForRequest("en-US,en;q=0.9").Language);
         Assert.Equal("de", Loc.ForRequest("").Language);          // keine Angabe → Programm (Tests: Deutsch)
-        Assert.Equal("de", Loc.ForRequest("fr-FR,fr").Language);  // nicht unterstützt → Programm
+        Assert.Equal("de", Loc.ForRequest("it-IT,it").Language);  // nicht unterstützt → Programm
+        Assert.Equal("fr", Loc.ForRequest("fr-FR,fr").Language);
     }
 
     [Fact]

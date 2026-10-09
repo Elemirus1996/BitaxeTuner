@@ -688,7 +688,7 @@ public sealed class ScheduleEntry
     {
         get
         {
-            var names = Loc.Current.Language == "en" ? EnglishDayNames : DayNames;
+            var names = Loc.Current.Language == "de" ? DayNames : EnglishDayNames;   // weitere Sprachen: englische Kürzel (lesbar und wieder einlesbar)
             if ((Days & 127) == 127) return L.T("täglich");
             if ((Days & 127) == 0b0111110) return $"{names[1]}-{names[5]}";
             if ((Days & 127) == 0b1000001) return $"{names[6]},{names[0]}";
@@ -702,6 +702,7 @@ public sealed class ScheduleEntry
     {
         var t = (text ?? "").Trim().ToLowerInvariant().Replace(" ", "");
         if (t is "" or "täglich" or "taeglich" or "alle" or "mo-so" or "daily" or "everyday" or "all" or "mo-su") return 127;
+        if (t == L.T("täglich").ToLowerInvariant().Replace(" ", "")) return 127;   // „täglich“ in der Sprache der App (es, pt, fr, nl)
         static int Day(string name)
         {
             var i = Array.FindIndex(DayNames, n => n.Equals(name, StringComparison.OrdinalIgnoreCase));

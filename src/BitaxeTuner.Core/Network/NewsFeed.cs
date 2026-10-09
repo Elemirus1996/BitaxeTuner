@@ -113,7 +113,7 @@ public sealed class NewsFeed : IDisposable
         if (!x.TryGetProperty(name, out var v)) return "";
         if (v.ValueKind == JsonValueKind.String) return v.GetString() ?? "";
         if (v.ValueKind != JsonValueKind.Object) return "";
-        foreach (var l in new[] { language, "de", "en" })
+        foreach (var l in new[] { language, "en", "de" })
             if (v.TryGetProperty(l, out var t) && t.ValueKind == JsonValueKind.String && t.GetString() is { Length: > 0 } s) return s;
         return "";
     }

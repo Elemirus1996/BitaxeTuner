@@ -553,7 +553,7 @@ public sealed class ServerTests : IDisposable
         Assert.Equal("The password needs at least 10 characters.", await SetupError("en", "kurz"));
         Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError("de", "kurz"));
         Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError(null, "kurz"));
-        Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError("fr-FR", "kurz"));
+        Assert.Equal("Das Passwort braucht mindestens 10 Zeichen.", await SetupError("it-IT", "kurz"));
 
         // Ohne Anmeldung: feste Meldung
         var status = new HttpRequestMessage(HttpMethod.Get, "/api/v1/status");

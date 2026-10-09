@@ -251,6 +251,10 @@
                             <ComboBoxItem Content="{l:T 'Automatisch (Windows)'}" Tag="auto"/>
                             <ComboBoxItem Content="Deutsch" Tag="de"/>
                             <ComboBoxItem Content="English" Tag="en"/>
+                            <ComboBoxItem Content="Español" Tag="es"/>
+                            <ComboBoxItem Content="Português (Brasil)" Tag="pt"/>
+                            <ComboBoxItem Content="Français" Tag="fr"/>
+                            <ComboBoxItem Content="Nederlands" Tag="nl"/>
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="1">

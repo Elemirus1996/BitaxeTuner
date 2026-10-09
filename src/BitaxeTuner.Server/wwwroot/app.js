@@ -38,7 +38,10 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k
 // Der deutsche Text ist der Schlüssel; die Tabelle der gewählten Sprache kommt vom Server (/api/v1/i18n/{lang}).
 // Fehlt eine Übersetzung, erscheint der deutsche Text. Platzhalter {0}, {1} …; {{ und }} für geschweifte Klammern.
 
-const LANGS = ['de', 'en'];
+const LANGS = ['de', 'en', 'es', 'pt', 'fr', 'nl'];
+/** Name jeder Sprache in ihr selbst (wie Loc.NativeNames). */
+const LANG_NAMES = { de: 'Deutsch', en: 'English', es: 'Español', pt: 'Português (Brasil)', fr: 'Français', nl: 'Nederlands' };
+const LANG_LOCALES = { de: 'de-DE', en: 'en-GB', es: 'es-ES', pt: 'pt-BR', fr: 'fr-FR', nl: 'nl-NL' };
 let LANG = 'de', LOCALE = 'de-DE', I18N = {};
 
 function t(s, ...args) {
@@ -61,7 +64,7 @@ function pickLanguage(serverDefault) {
 function pickLocale(lang) {
   const own = (navigator.languages || [navigator.language]).find(l => String(l || '').slice(0, 2).toLowerCase() === lang);
   try { if (own) return Intl.getCanonicalLocales(own)[0]; } catch { /* ungültig */ }
-  return lang === 'de' ? 'de-DE' : 'en-GB';
+  return LANG_LOCALES[lang] || 'en-GB';
 }
 
 async function loadLanguage(serverDefault) {
@@ -86,15 +89,18 @@ function applyStaticTexts() {
   $('#theme').setAttribute('aria-label', t('Hell/Dunkel umschalten'));
   $('#logout').textContent = t('Abmelden');
   $('#dialog [value="cancel"]').textContent = t('Abbrechen');
+  // Auswahl: Kürzel im Kopf, ausgeklappt der Name jeder Sprache in ihr selbst
   const lang = $('#lang');
-  const other = LANG === 'de' ? 'en' : 'de';
-  lang.textContent = other.toUpperCase();
-  lang.title = other === 'en' ? 'English' : 'Deutsch';
+  lang.replaceChildren(...LANGS.map(l => h('option', { value: l, title: LANG_NAMES[l] }, l.toUpperCase() + ' – ' + LANG_NAMES[l])));
+  lang.value = LANG;
+  lang.options[lang.selectedIndex].textContent = LANG.toUpperCase();
+  lang.title = LANG_NAMES[LANG];
   lang.setAttribute('aria-label', t('Sprache wechseln'));
 }
 
 function switchLanguage() {
-  localStorageSet('lang', LANG === 'de' ? 'en' : 'de');
+  if (!LANGS.includes($('#lang').value) || $('#lang').value === LANG) return;
+  localStorageSet('lang', $('#lang').value);
   location.reload();
 }
 
@@ -209,7 +215,7 @@ async function boot() {
     stopEvents();
     renderLogin();
   });
-  $('#lang').addEventListener('click', switchLanguage);
+  $('#lang').addEventListener('change', switchLanguage);
   window.addEventListener('hashchange', route);
 
   // Kiosk-Link: Schlüssel merken und sofort aus der Adresszeile entfernen
@@ -2930,7 +2936,7 @@ async function renderSettings() {
       checkInput(s, 'checkForUpdates', t('Nach neuen Versionen suchen')),
       checkInput(s, 'walletLookupConsent', t('Aus dem Pool-Benutzer erkannte Wallet-Adressen bei mempool.space/Blockchair abfragen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Sprache des Servers (Push, Tagesbericht, E-Paper)')),
-        select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ['de', 'Deutsch'], ['en', 'English']]))),
+        select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ...LANGS.map(l => [l, LANG_NAMES[l]])]))),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('PIN für „Nur ansehen“ (mind. 6 Ziffern, „-“ = entfernen)')), pin)),
       s.viewerPinLegacy ? h('p', { class: 'warn small' }, t('Die PIN ist noch im alten Format gespeichert. Bitte einmal neu setzen (mind. 6 Ziffern) – sie wird dann sicherer gespeichert.')) : null),
     h('div', { class: 'card stack' }, h('h2', {}, t('Push-Benachrichtigungen')),

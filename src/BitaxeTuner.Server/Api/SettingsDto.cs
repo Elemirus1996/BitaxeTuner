@@ -103,7 +103,7 @@ public sealed class SettingsDto
         c.RestartAfterApply = RestartAfterApply;
         c.CheckForUpdates = CheckForUpdates;
         if (WalletLookupConsent is not null) c.WalletLookupConsent = WalletLookupConsent;
-        c.Language = Language is "de" or "en" ? Language : "auto";
+        c.Language = Language is not null && Loc.Languages.Contains(Language) ? Language : "auto";
         c.BlockchairApiKey = BlockchairApiKey.Trim();
         c.CoinGeckoApiKey = CoinGeckoApiKey.Trim();
         Notifications.ApplyTargets(c.Devices.Select(d => d.Host));

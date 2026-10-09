@@ -244,7 +244,8 @@ public static class EventExplanations
         lock (Patterns)
         {
             if (Patterns.TryGetValue(e.Id, out var p)) return p;
-            var templates = new[] { e.Template, Loc.For("en").T(e.Template) }.Distinct();
+            // Protokolleinträge stehen in der Sprache, die beim Schreiben galt – jede Sprache erkennen
+            var templates = Loc.Languages.Select(l => Loc.For(l).T(e.Template)).Distinct();
             p = templates.Select(t => new Regex(
                 Regex.Replace(Regex.Escape(t), @"\\\{\d+(?::[^}]*)?\}", "(.*?)"),
                 RegexOptions.CultureInvariant | RegexOptions.Singleline)).ToArray();

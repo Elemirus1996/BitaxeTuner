@@ -461,7 +461,7 @@ public static class Endpoints
         g.MapGet("/news", async (string? lang, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             _ = h.RefreshNewsAsync(force: false);   // höchstens alle 3 h, Antwort kommt aus dem Zwischenspeicher
-            var language = lang is "de" or "en" ? lang : null;
+            var language = lang is not null && Loc.Languages.Contains(lang) ? lang : null;
             return new
             {
                 updated = h.News.UpdatedUtc,
