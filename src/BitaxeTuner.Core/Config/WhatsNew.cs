@@ -135,6 +135,9 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.12", tr.T("Vier weitere Sprachen"),
+                tr.T("BitaxeTuner spricht jetzt auch Spanisch, Portugiesisch (Brasilien), Französisch und Niederländisch – Oberfläche, Push-Meldungen, Tagesbericht und E-Paper. Im Browser oben die Sprache wählen, in der App unter Einstellungen → Sprache. Die Übersetzungen sind maschinell erstellt; Verbesserungen gern über GitHub."),
+                null),
             new("0.9.12", tr.T("Push direkt im Browser, als App installierbar"),
                 server ? tr.T("Einstellungen → Push → „Dieses Gerät für Push anmelden …“: Meldungen kommen direkt im Browser bzw. in der installierten App an – ohne ntfy, Telegram oder Konto. Jedes Gerät ist ein eigener Push-Dienst mit Meldungen und Miner-Auswahl. Braucht „HTTPS ohne Warnung“ (oder localhost); auf dem iPhone die Seite zuerst „Zum Home-Bildschirm“ hinzufügen.")
                        : tr.T("Im Browser lässt sich jedes Handy oder jeder PC direkt für Push anmelden (Einstellungen → Push) – ohne ntfy oder Telegram. Die Geräte erscheinen hier als Push-Dienst „Browser/App“; anmelden und abmelden nur im Browser."),

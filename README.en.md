@@ -24,10 +24,11 @@ Several devices can be tested **in parallel**.
 ## Language
 
 The desktop app, the browser interface, push notifications, the daily report, the e-paper display and Home Assistant
-are available in **English and German**:
+are available in **English, German, Spanish, Portuguese (Brazil), French and Dutch** (from 0.9.12; the four new
+languages are machine-translated – improvements by native speakers are welcome as an issue or pull request):
 
 - **Desktop app**: *Settings → Language* (Automatic = Windows language). Takes effect after a restart of the app.
-- **Browser**: the **EN/DE** button in the header – every browser keeps its own choice (default: browser language).
+- **Browser**: the language selector in the header (DE, EN, ES, PT, FR, NL) – every browser keeps its own choice (default: browser language).
 - **Server** (push, daily report, e-paper, status texts): *Settings → Server language* in the browser interface.
   A Raspberry Pi is set to English by default, so choose German there if you want German messages.
 - Numbers and dates follow your system format as long as its language matches, otherwise the usual format of the

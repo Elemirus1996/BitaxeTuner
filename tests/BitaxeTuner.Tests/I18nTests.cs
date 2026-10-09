@@ -71,6 +71,42 @@ public class I18nTests
         Assert.True(bad.Count == 0, string.Join("\n", bad.Take(30)));
     }
 
+    /// <summary>1.0: Spanisch, Portugiesisch (BR), Französisch, Niederländisch – vollständig, gleiche Platzhalter, Ränder wie im Original.</summary>
+    [Theory]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("fr")]
+    [InlineData("nl")]
+    public void Further_languages_are_complete_and_keep_placeholders(string language)
+    {
+        var table = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Root, "src", "BitaxeTuner.Core", "I18n", $"Strings.{language}.json")))!;
+        var en = English();
+        var missing = en.Keys.Where(k => !table.ContainsKey(k)).ToList();
+        Assert.True(missing.Count == 0, $"{missing.Count} Text(e) ohne Übersetzung ({language}):\n" + string.Join("\n", missing.Take(30).Select(t => "  " + JsonSerializer.Serialize(t))));
+        Assert.Empty(table.Keys.Where(k => !en.ContainsKey(k)));
+        static string Holes(string s) => string.Join(",", Regex.Matches(s, @"\{(\d+)(?:[:,][^}]*)?\}").Select(m => m.Groups[1].Value).Distinct().Order());
+        var bad = table.Where(p => string.IsNullOrWhiteSpace(p.Value) || Holes(p.Key) != Holes(p.Value)
+                                   || char.IsWhiteSpace(p.Key.FirstOrDefault()) != char.IsWhiteSpace(p.Value.FirstOrDefault())
+                                   || char.IsWhiteSpace(p.Key.LastOrDefault()) != char.IsWhiteSpace(p.Value.LastOrDefault()))
+            .Select(p => $"{p.Key} → {p.Value}").ToList();
+        Assert.True(bad.Count == 0, string.Join("\n", bad.Take(20)));
+    }
+
+    [Fact]
+    public void Further_languages_translate_with_their_culture_and_fall_back_to_english()
+    {
+        Assert.Equal("Annuler", Loc.For("fr").T("Abbrechen"));
+        Assert.Equal("Cancelar", Loc.For("es").T("Abbrechen"));
+        Assert.Equal("1,5", Loc.For("nl").T("{0:0.0}", 1.5));
+        Assert.Equal("pt", Loc.For("pt-BR,pt;q=0.9").Language);
+        Assert.Equal("Das gibt es nicht übersetzt", Loc.For("es").T("Das gibt es nicht übersetzt"));
+        Assert.Equal("Annuler", Loc.Table("fr")["Abbrechen"]);
+        foreach (var l in Loc.Languages) _ = Loc.CultureFor(l).DateTimeFormat;
+        // Datumsformate der Sprachen sind gültige .NET-Formate
+        foreach (var l in Loc.Languages)
+            Assert.False(string.IsNullOrWhiteSpace(new DateTime(2026, 10, 9, 12, 5, 0).ToString(Loc.For(l).T("dddd, dd.MM.yyyy · HH:mm 'Uhr'"), Loc.CultureFor(l))));
+    }
+
     [Fact]
     public void Unused_translations_are_reported()
     {
