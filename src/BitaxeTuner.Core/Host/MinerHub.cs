@@ -116,6 +116,7 @@ public sealed partial class MinerHub : IDisposable
             Muted = host => Maintenance.IsManual(host),
             QueueFile = Path.Combine(DataDirectory, "push-queue.json"),
         };
+        InitWebPush();
         config.SaveFailed += OnConfigSaveFailed;
         Firmware = new FirmwareChecker();
 

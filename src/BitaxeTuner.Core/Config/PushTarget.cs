@@ -30,7 +30,7 @@ public sealed class PushTarget
     public string Name { get; set; } = "";
     public bool Enabled { get; set; } = true;
 
-    /// <summary>"ntfy", "telegram", "discord", "pushover" oder "webhook".</summary>
+    /// <summary>"ntfy", "telegram", "discord", "pushover", "webhook" oder (0.9.12) "webpush" = Browser/installierte App.</summary>
     public string Provider { get; set; } = "ntfy";
 
     public string NtfyServer { get; set; } = "https://ntfy.sh";
@@ -41,6 +41,11 @@ public sealed class PushTarget
     public string PushoverUserKey { get; set; } = "";
     public string PushoverAppToken { get; set; } = "";
     public string WebhookUrl { get; set; } = "";
+
+    // 0.9.12 Web-Push: Anmeldung eines Browsers (Push-Adresse und Schlüssel des Geräts – kein Geheimnis des Nutzers)
+    public string WebPushEndpoint { get; set; } = "";
+    public string WebPushP256dh { get; set; } = "";
+    public string WebPushAuth { get; set; } = "";
 
     /// <summary>Gewünschte Bereiche (Namen aus <see cref="NotifyCategory"/>); Standard: alle außer Rekorden.</summary>
     public List<string> Categories { get; set; } = DefaultCategories();

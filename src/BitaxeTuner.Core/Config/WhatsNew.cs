@@ -135,6 +135,10 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.12", tr.T("Push direkt im Browser, als App installierbar"),
+                server ? tr.T("Einstellungen → Push → „Dieses Gerät für Push anmelden …“: Meldungen kommen direkt im Browser bzw. in der installierten App an – ohne ntfy, Telegram oder Konto. Jedes Gerät ist ein eigener Push-Dienst mit Meldungen und Miner-Auswahl. Braucht „HTTPS ohne Warnung“ (oder localhost); auf dem iPhone die Seite zuerst „Zum Home-Bildschirm“ hinzufügen.")
+                       : tr.T("Im Browser lässt sich jedes Handy oder jeder PC direkt für Push anmelden (Einstellungen → Push) – ohne ntfy oder Telegram. Die Geräte erscheinen hier als Push-Dienst „Browser/App“; anmelden und abmelden nur im Browser."),
+                null),
             new("0.9.12", tr.T("Pico-Rolle per USB festlegen"),
                 tr.T("Lüfter & Anzeige: „Display-Pico per USB einrichten (ohne WLAN) …“ bzw. „Pico per USB als Lüfter-Pico einrichten …“ – ohne Thonny und ohne WLAN. Wichtig: Direkt auf das Waveshare-Modul gesteckt gilt die Belegung GP8–GP13 (BUSY GP13), per Kabel an der Lüfterplatine GP11–GP15 und GP22; welche gilt, bestimmt die Rolle des Pico."),
                 null),

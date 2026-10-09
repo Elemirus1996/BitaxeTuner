@@ -4,6 +4,8 @@
 'use strict';
 
 const S = { role: 'None', csrf: null, status: null, info: null, es: null, logEs: null, detail: null, route: null, chartRange: '1h' };
+// 0.9.12 installierbare App: Service Worker nur in sicherem Kontext (gültiges HTTPS oder localhost)
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
 /** 0.9.11: eine Währung für alles – Zeichen und Untereinheit für Strompreise kommen mit dem Status. */
 const money = () => S.status?.money || { code: 'EUR', symbol: '€', cent: 'ct' };
 const cents = s => money().code === 'EUR' ? s : s.replaceAll('ct/kWh', money().cent + '/kWh');
@@ -3440,8 +3442,31 @@ function pushTargetsEditor(nt, text, select, devices, save) {
       nt.targets.push({ id: newId(), name: '', enabled: true, provider: 'ntfy', ntfyServer: 'https://ntfy.sh', ntfyTopic: '',
         categories: cats.map(c => c[0]).filter(c => c !== 'Record'), miners: [] });
       draw();
-    } }, t('Push-Dienst hinzufügen'))));
+    } }, t('Push-Dienst hinzufügen')),
+      h('button', { class: 'btn', onclick: subscribeThisDevice }, t('Dieses Gerät für Push anmelden …'))),
+    h('p', { class: 'muted small' }, t('Push im Browser bzw. in der installierten App – ohne ntfy oder Telegram. Braucht ein gültiges HTTPS-Zertifikat („HTTPS ohne Warnung“ unter Verbindung) oder localhost; auf dem iPhone die Seite erst „Zum Home-Bildschirm“ hinzufügen.')));
 }
+
+/** 0.9.12: dieses Gerät für Push im Browser anmelden (wird ein eigener Push-Dienst mit Bereichen und Miner-Auswahl). */
+async function subscribeThisDevice() {
+  if (!window.isSecureContext || !('serviceWorker' in navigator) || !('PushManager' in window))
+    return toast(t('Push im Browser geht nur mit gültigem HTTPS (ohne Zertifikatswarnung) oder über localhost. Auf dem iPhone die Seite zuerst „Zum Home-Bildschirm“ hinzufügen und von dort öffnen.'), 'error', 15000);
+  if (await Notification.requestPermission() !== 'granted') return toast(t('Benachrichtigungen wurden im Browser nicht erlaubt.'), 'error');
+  try {
+    const { key } = await api('/webpush/key');
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const raw = Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - key.length % 4) % 4)), c => c.charCodeAt(0));
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
+    const name = prompt(t('Name für dieses Gerät, z. B. Handy oder Büro-PC'), /Android|iPhone|iPad/i.test(navigator.userAgent) ? t('Handy') : t('Browser'));
+    if (name === null) return;
+    const r = await run(() => api('/webpush/subscribe', { method: 'POST', body: { ...sub.toJSON(), name } }), t('Gerät angemeldet – über „Speichern & testen“ eine Testnachricht schicken.'));
+    if (r) renderSettings();
+  } catch (e) {
+    toast(t('Anmelden für Push fehlgeschlagen: {0}', e.message || e), 'error', 12000);
+  }
+}
+
 
 function notifyForm(nt, text, select, withNone = true) {
   const field = (provider, label, el) => { const d = h('div', { 'data-provider': provider }, h('label', {}, label), el); return d; };
@@ -3451,9 +3476,13 @@ function notifyForm(nt, text, select, withNone = true) {
     field('discord', t('Discord-Webhook-URL'), text(nt, 'discordWebhookUrl', 'password')),
     field('pushover', t('Pushover-User-Key'), text(nt, 'pushoverUserKey', 'password')), field('pushover', t('Pushover-App-Token'), text(nt, 'pushoverAppToken', 'password')),
     field('webhook', t('Webhook-URL (JSON-POST: title, message, priority)'), text(nt, 'webhookUrl')),
+    field('webpush', t('Gerät'), h('p', { class: 'small muted' }, nt.webPushEndpoint
+      ? t('Angemeldet über {0}', (() => { try { return new URL(nt.webPushEndpoint).host; } catch { return '?'; } })())
+      : t('Noch nicht angemeldet – unten „Dieses Gerät für Push anmelden …“.'))),
   ];
   const show = () => fields.forEach(f => { f.style.display = f.dataset.provider === nt.provider ? '' : 'none'; });
-  const sel = select(nt, 'provider', [...(withNone ? [['none', t('aus')]] : []), ['ntfy', 'ntfy'], ['telegram', 'Telegram'], ['discord', 'Discord'], ['pushover', 'Pushover'], ['webhook', t('Eigener Webhook')]]);
+  const sel = select(nt, 'provider', [...(withNone ? [['none', t('aus')]] : []), ['ntfy', 'ntfy'], ['telegram', 'Telegram'], ['discord', 'Discord'], ['pushover', 'Pushover'], ['webhook', t('Eigener Webhook')],
+    ...(nt.provider === 'webpush' ? [['webpush', t('Browser/App (Push im Browser)')]] : [])]);
   sel.addEventListener('change', show);
   show();
   return h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Dienst')), sel), ...fields);

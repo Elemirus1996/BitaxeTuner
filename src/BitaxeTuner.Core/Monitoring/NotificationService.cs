@@ -24,7 +24,13 @@ public enum NotifyPriority
 /// </summary>
 public sealed class NotificationService : IDisposable
 {
-    public static readonly string[] Providers = ["ntfy", "telegram", "discord", "pushover", "webhook"];
+    public static readonly string[] Providers = ["ntfy", "telegram", "discord", "pushover", "webhook", "webpush"];
+
+    /// <summary>0.9.12: VAPID-Schlüssel für Web-Push (vom Hub aus secrets.json); null = Web-Push nicht möglich.</summary>
+    public Func<string?>? VapidKey { get; set; }
+
+    /// <summary>0.9.12: Browser hat seine Push-Anmeldung beendet (404/410) – der Hub schaltet das Ziel ab.</summary>
+    public event Action<string>? WebPushGone;
 
     private readonly HttpClient _http;
     private readonly Func<NotificationSettings> _settings;
@@ -356,6 +362,22 @@ public sealed class NotificationService : IDisposable
                 });
                 using var resp = await _http.PostAsync("https://api.pushover.net/1/messages.json", form);
                 resp.EnsureSuccessStatusCode();
+                break;
+            }
+
+            case "webpush":
+            {
+                if (s.WebPushEndpoint.Length == 0 || s.WebPushP256dh.Length == 0 || s.WebPushAuth.Length == 0)
+                    throw new InvalidOperationException(L.T("Dieses Gerät ist nicht für Push angemeldet."));
+                var vapid = VapidKey?.Invoke() ?? throw new InvalidOperationException(L.T("Web-Push ist auf diesem Server nicht eingerichtet."));
+                var (result, error) = await WebPush.SendAsync(_http, s.WebPushEndpoint, s.WebPushP256dh, s.WebPushAuth, vapid,
+                    new { title, body = message, tag = title, url = "/" }, priority >= NotifyPriority.High);
+                if (result == WebPush.Result.Gone)
+                {
+                    WebPushGone?.Invoke(s.Id);
+                    throw new InvalidOperationException(error);
+                }
+                if (result == WebPush.Result.Failed) throw new HttpRequestException(error);
                 break;
             }
 

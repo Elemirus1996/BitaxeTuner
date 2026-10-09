@@ -476,6 +476,36 @@ public sealed class ServerTests : IDisposable
         return await r.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    [Fact]
+    public async Task Browser_registers_for_web_push_as_its_own_push_target()
+    {
+        var admin = await AdminAsync();
+        var key = (await Json(await admin.GetAsync("/api/v1/webpush/key"))).GetProperty("key").GetString()!;
+        Assert.Equal(65, BitaxeTuner.Core.Monitoring.WebPush.FromB64(key).Length);
+        Assert.Equal(key, (await Json(await admin.GetAsync("/api/v1/webpush/key"))).GetProperty("key").GetString());   // bleibt gleich
+
+        using var ua = System.Security.Cryptography.ECDiffieHellman.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var q = ua.ExportParameters(false).Q;
+        var keys = new { p256dh = BitaxeTuner.Core.Monitoring.WebPush.B64([0x04, .. q.X!, .. q.Y!]), auth = BitaxeTuner.Core.Monitoring.WebPush.B64(new byte[16]) };
+        var sub = new { endpoint = "https://push.example/send/abc", keys, name = "Handy" };
+        var first = await Json(await admin.PostAsJsonAsync("/api/v1/webpush/subscribe", sub));
+        var again = await Json(await admin.PostAsJsonAsync("/api/v1/webpush/subscribe", sub));
+        Assert.Equal(first.GetProperty("id").GetString(), again.GetProperty("id").GetString());     // kein Doppel
+
+        var hub = _factory.Services.GetRequiredService<HubService>();
+        var target = Assert.Single(await hub.RunAsync(h => h.Config.Notifications.Targets.Where(t => t.Provider == "webpush").ToList()));
+        Assert.Equal("Handy", target.Name);
+        Assert.True(target.Enabled);
+
+        // ungültige Angaben, ohne Anmeldung, ohne CSRF
+        Assert.False((await admin.PostAsJsonAsync("/api/v1/webpush/subscribe", new { endpoint = "http://push.example/x", keys, name = "x" })).IsSuccessStatusCode);
+        Assert.False((await admin.PostAsJsonAsync("/api/v1/webpush/subscribe", new { sub.endpoint, keys = new { p256dh = "abc", auth = "abc" }, name = "x" })).IsSuccessStatusCode);
+        Assert.False((await _factory.CreateClient().GetAsync("/api/v1/webpush/key")).IsSuccessStatusCode);
+        var noCsrf = _factory.CreateClient();
+        foreach (var c in admin.DefaultRequestHeaders.Where(h => h.Key != AuthContext.CsrfHeader)) noCsrf.DefaultRequestHeaders.Add(c.Key, c.Value);
+        Assert.False((await noCsrf.PostAsJsonAsync("/api/v1/webpush/subscribe", sub)).IsSuccessStatusCode);
+    }
+
     private async Task<string> DeviceIdAsync(HttpClient c) =>
         (await Json(await c.GetAsync("/api/v1/status"))).GetProperty("devices")[0].GetProperty("id").GetString()!;
 

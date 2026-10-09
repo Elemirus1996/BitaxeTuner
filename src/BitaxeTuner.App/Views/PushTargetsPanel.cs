@@ -88,7 +88,9 @@ public sealed class PushTargetsPanel : StackPanel
         var name = new TextBox { Text = t.Name, Width = 170 };
         var enabled = new CheckBox { Content = L.T("aktiv"), IsChecked = t.Enabled, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
         var provider = new ComboBox { Width = 150, DisplayMemberPath = "Label", SelectedValuePath = "Value", Margin = new Thickness(12, 0, 0, 0) };
-        provider.ItemsSource = Providers.Select(p => new { p.Value, p.Label }).ToList();
+        // 0.9.12: Push im Browser wird nur dort angemeldet – hier nur anzeigen, nie in einen anderen Dienst umwandeln
+        provider.ItemsSource = Providers.Concat(t.Provider == "webpush" ? [("webpush", L.T("Browser/App (Push im Browser)"))] : [])
+            .Select(p => new { p.Value, p.Label }).ToList();
         provider.SelectedValue = t.Provider;
 
         // Zugangsdaten je Dienst
@@ -119,6 +121,9 @@ public sealed class PushTargetsPanel : StackPanel
         Field("discord", 0, L.T("DISCORD-WEBHOOK-URL (KANAL → INTEGRATIONEN → WEBHOOKS)"), discord);
         Field("pushover", 0, L.T("Pushover-User-Key"), poUser); Field("pushover", 1, L.T("Pushover-App-Token"), poToken);
         Field("webhook", 0, L.T("WEBHOOK-URL (JSON-POST: TITLE, MESSAGE, PRIORITY)"), hook);
+        if (t.Provider == "webpush")
+            Field("webpush", 0, L.T("Angemeldet im Browser – Anmelden und Abmelden nur dort (Einstellungen → Push)."),
+                new TextBox { Text = Uri.TryCreate(t.WebPushEndpoint, UriKind.Absolute, out var wp) ? wp.Host : "", IsReadOnly = true });
         void ShowFields()
         {
             foreach (var (prov, els) in groups)
@@ -173,6 +178,7 @@ public sealed class PushTargetsPanel : StackPanel
             Id = t.Id, Name = name.Text.Trim(), Enabled = enabled.IsChecked == true, Provider = provider.SelectedValue as string ?? "ntfy",
             NtfyServer = ntfyServer.Text.Trim(), NtfyTopic = ntfyTopic.Text.Trim(), TelegramBotToken = tgToken.Text.Trim(), TelegramChatId = tgChat.Text.Trim(),
             DiscordWebhookUrl = discord.Text.Trim(), PushoverUserKey = poUser.Text.Trim(), PushoverAppToken = poToken.Text.Trim(), WebhookUrl = hook.Text.Trim(),
+            WebPushEndpoint = t.WebPushEndpoint, WebPushP256dh = t.WebPushP256dh, WebPushAuth = t.WebPushAuth,
             Categories = catBoxes.Where(c => c.cb.IsChecked == true).Select(c => c.Cat.ToString()).ToList(),
             Miners = all.IsChecked == true ? [] : minerBoxes.Where(m => m.cb.IsChecked == true).Select(m => m.Host).ToList(),
             Groups = all.IsChecked == true ? [] : groupBoxes.Where(g => g.cb.IsChecked == true).Select(g => g.Group).ToList(),

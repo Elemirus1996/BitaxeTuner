@@ -34,7 +34,7 @@ configure them.</p>
   <tr><td>api.blockchair.com</td><td>Wallet balances and incoming payments (e.g. BCH), for the tax overview</td><td>Only for addresses you enter, or detected addresses after you agree</td></tr>
   <tr><td>api.coingecko.com</td><td>Historical EUR exchange rates for the tax overview; current BTC/BCH price and 24-hour chart for the e-paper price page</td><td>Tax: only if you use the tax features. Price page: only if you switch it on (off by default); no wallet or miner data is sent</td></tr>
   <tr><td>api.awattar.de / .at, api.tibber.com</td><td>Electricity prices</td><td>Only if you select a price source (Tibber: with your own token)</td></tr>
-  <tr><td>ntfy.sh (or your ntfy server), api.telegram.org, discord.com, api.pushover.net, or your own webhook URL</td><td>Push notifications you configured</td><td>Only if you set up push notifications</td></tr>
+  <tr><td>ntfy.sh (or your ntfy server), api.telegram.org, discord.com, api.pushover.net, your own webhook URL, or the push service of a browser you registered (Google, Mozilla, Apple – end-to-end encrypted)</td><td>Push notifications you configured</td><td>Only if you set up push notifications</td></tr>
   <tr><td>Your smart plugs (Shelly) in your local network</td><td>Read power and energy (never switched)</td><td>Only if you add smart plugs</td></tr>
   <tr><td>Your own MQTT broker (e.g. Home Assistant)</td><td>Publish miner values</td><td>Only if you enable MQTT</td></tr>
   <tr><td>www.duckdns.org, acme-v02.api.letsencrypt.org, dns.google / cloudflare-dns.com</td><td>HTTPS without warning: DuckDNS name, DuckDNS token and the server's home network address go to DuckDNS; the name to Let's Encrypt; DNS lookups of the validation entry via DNS-over-HTTPS</td><td>Only if you switch on “HTTPS without warning” (server, off by default)</td></tr>
@@ -61,7 +61,7 @@ GitHub may process technical access data (e.g. IP address) when delivering the p
 keinen Cloud-Dienst des Projekts. Einstellungen, Verlauf und Steuerdaten bleiben auf deinem PC, Raspberry Pi oder Server.</p>
 <p>Das Programm verbindet sich nur mit den oben aufgeführten Diensten und nur zum jeweils genannten Zweck: mit deinen Minern im
 Heimnetz und deinen Smart Plugs (nur Messwerte lesen), mit GitHub (Updates, Firmware-Versionen), mempool.space und Blockchair (Netzwerkdaten, Wallet-Guthaben), CoinGecko
-(Euro-Kurse für die Steuerübersicht und – nur wenn eingeschaltet – die Kursseite des E-Papers), aWATTar/Tibber (Strompreis), ntfy/Telegram/Discord/Pushover oder deinem eigenen Webhook (Push), deinem MQTT-Broker, DuckDNS und Let's Encrypt (HTTPS ohne Warnung: Name, Token, Heimnetz-Adresse)
+(Euro-Kurse für die Steuerübersicht und – nur wenn eingeschaltet – die Kursseite des E-Papers), aWATTar/Tibber (Strompreis), ntfy/Telegram/Discord/Pushover, deinem eigenen Webhook oder dem Push-Dienst eines angemeldeten Browsers (Google, Mozilla, Apple – Ende-zu-Ende verschlüsselt), deinem MQTT-Broker, DuckDNS und Let's Encrypt (HTTPS ohne Warnung: Name, Token, Heimnetz-Adresse)
 und GitHub für die Neuigkeiten-Seite – die optionalen
 Dienste nur, wenn du sie einrichtest. Eingetragene Wallet-Adressen werden zur Abfrage an den jeweiligen Explorer übermittelt; Adressen, die BitaxeTuner im
 Pool-Benutzer deiner Miner erkennt (Format <code>adresse.worker</code>), erst nachdem du einmal zugestimmt hast – widerrufbar

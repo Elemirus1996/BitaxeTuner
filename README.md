@@ -148,6 +148,7 @@ einzeln. Ein bisher eingerichteter Dienst wird automatisch als erster übernomme
 | **Telegram** | Bot-Token (von @BotFather) und Chat-ID |
 | **Discord** | Webhook-URL eines Kanals (*Kanal-Einstellungen → Integrationen → Webhooks*) |
 | **Pushover** | User-Key und App-Token (pushover.net) |
+| **Browser/App** (ab 0.9.12) | nichts – im Browser *Einstellungen → Push → „Dieses Gerät für Push anmelden …“*. Meldungen kommen direkt im Browser bzw. in der installierten App an, ohne Fremd-App und Konto. Braucht ein gültiges Zertifikat (**HTTPS ohne Warnung**, siehe unten) oder `localhost`; auf dem iPhone/iPad (ab iOS 16.4) die Seite zuerst *Teilen → Zum Home-Bildschirm* hinzufügen und von dort öffnen. Die Nachricht ist Ende-zu-Ende verschlüsselt (Web Push, RFC 8291/8292); der Push-Dienst des Browsers (Google, Mozilla, Apple) sieht nur verschlüsselte Daten. Beendet der Browser die Anmeldung, schaltet BitaxeTuner das Ziel ab. |
 | **Eigener Webhook** | URL; BitaxeTuner sendet `POST` mit JSON `{"source":"BitaxeTuner","title":…,"message":…,"priority":"high","priorityLevel":4,"time":…}` – z. B. an Home Assistant oder n8n |
 
 Meldungsarten je Dienst: offline, Überhitzung, Blockfund/Zufluss, Watchdog/Automatik/Firmware, Rekorde,

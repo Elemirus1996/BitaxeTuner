@@ -1111,6 +1111,14 @@ public static class Endpoints
 
         g.MapGet("/fans/ports", () => Results.Json(new { pico = Core.Fans.PicoFanDevice.FindPorts(), all = System.IO.Ports.SerialPort.GetPortNames() }));
 
+        // 0.9.12 Push im Browser: öffentlicher VAPID-Schlüssel und Anmeldung dieses Geräts (wird ein Push-Ziel „webpush“)
+        g.MapGet("/webpush/key", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { key = h.WebPushPublicKey() })));
+        g.MapPost("/webpush/subscribe", async (WebPushRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var t = h.AddWebPushTarget(req.Endpoint, req.Keys?.P256dh, req.Keys?.Auth, req.Name);
+            return new { ok = true, id = t.Id, name = t.Title };
+        })));
+
         // 0.9.12: Pico am USB als Lüfter- oder Display-Pico festlegen – ohne WLAN, ohne Thonny
         g.MapPost("/fans/pico-role", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
@@ -1280,3 +1288,7 @@ public static class Endpoints
 
 /// <summary>0.9.11: Wartungsmodus an/aus; Hours &gt; 0 = endet danach von selbst.</summary>
 public sealed record MaintenanceRequest(bool On, double? Hours);
+
+/// <summary>0.9.12: Push-Anmeldung eines Browsers (PushSubscription.toJSON()).</summary>
+public sealed record WebPushKeys(string? P256dh, string? Auth);
+public sealed record WebPushRequest(string? Endpoint, WebPushKeys? Keys, string? Name);

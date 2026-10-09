@@ -448,7 +448,7 @@ public sealed class NotificationSettings
         var ids = new HashSet<string>();
         foreach (var t in Targets)
         {
-            if (t.Provider is not ("ntfy" or "telegram" or "discord" or "pushover" or "webhook"))
+            if (t.Provider is not ("ntfy" or "telegram" or "discord" or "pushover" or "webhook" or "webpush"))
                 throw new I18n.LocalizedException("Unbekannter Push-Dienst: {0}", t.Provider);
             if (string.IsNullOrWhiteSpace(t.Id) || !System.Text.RegularExpressions.Regex.IsMatch(t.Id, "^[a-z0-9]{4,32}$") || !ids.Add(t.Id))
             {
@@ -460,6 +460,7 @@ public sealed class NotificationSettings
             (t.TelegramBotToken, t.TelegramChatId) = ((t.TelegramBotToken ?? "").Trim(), (t.TelegramChatId ?? "").Trim());
             (t.DiscordWebhookUrl, t.WebhookUrl) = ((t.DiscordWebhookUrl ?? "").Trim(), (t.WebhookUrl ?? "").Trim());
             (t.PushoverUserKey, t.PushoverAppToken) = ((t.PushoverUserKey ?? "").Trim(), (t.PushoverAppToken ?? "").Trim());
+            (t.WebPushEndpoint, t.WebPushP256dh, t.WebPushAuth) = ((t.WebPushEndpoint ?? "").Trim(), (t.WebPushP256dh ?? "").Trim(), (t.WebPushAuth ?? "").Trim());
             t.Categories = (t.Categories ?? []).Where(c => Enum.TryParse<NotifyCategory>(c, true, out _))
                 .Select(c => Enum.Parse<NotifyCategory>(c, true).ToString()).Distinct().ToList();
             t.Miners = (t.Miners ?? []).Where(h => hosts.Contains(h.Trim())).Select(h => h.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -486,7 +487,13 @@ public sealed class NotificationSettings
     public void SyncLegacyFromTargets()
     {
         if (Targets.Count == 0) return;
-        var t = Targets.FirstOrDefault(x => x.Enabled) ?? Targets[0];
+        // Web-Push (0.9.12) kennen ältere Versionen nicht – für den Rückweg ein anderes Ziel spiegeln
+        var t = Targets.FirstOrDefault(x => x.Enabled && x.Provider != "webpush") ?? Targets.FirstOrDefault(x => x.Provider != "webpush");
+        if (t is null)
+        {
+            Provider = "none";
+            return;
+        }
         Provider = t.Enabled ? t.Provider : "none";
         (NtfyServer, NtfyTopic, TelegramBotToken, TelegramChatId) = (t.NtfyServer, t.NtfyTopic, t.TelegramBotToken, t.TelegramChatId);
         (DiscordWebhookUrl, PushoverUserKey, PushoverAppToken, WebhookUrl) = (t.DiscordWebhookUrl, t.PushoverUserKey, t.PushoverAppToken, t.WebhookUrl);
