@@ -570,6 +570,7 @@
         <p>Pico 2 WH <b>direkt auf das Waveshare-E-Paper-Modul stecken</b> – keine Kabel, keine Platine. Ausrichtung nach dem auf dem Modul aufgedruckten Pico-Umriss: <b>USB-Buchse zum Ende mit „Interface Config“, also vom Flachbandkabel weg</b>, VBUS auf VBUS, GP0 auf GP0; vorher ohne Strom. Strom über ein USB-Netzteil am Pico.</p>
         <p>Er zeigt die Anzeige und meldet seine Taster; Lüfter hat er keine. Dafür nutzt das Programm hier die Waveshare-Belegung (GP8–GP13, BUSY GP13) – nicht die Kabelbelegung der Lüfterplatine (BUSY GP22). Welche Belegung gilt, legt die <b>Rolle des Pico</b> fest, nicht die Einstellung im Server.</p>
         <p>Auf dem Modul: Schalter <b>„Interface Config“ auf 0</b> (4-Leitungs-SPI). Ohne WLAN: <b>„Display-Pico per USB einrichten (ohne WLAN) …“</b> legt die Rolle direkt am USB-Kabel fest.</p>
+        <p><b>Tasten auf dem Modul</b> (ab Pico-Programm 8.2): <b>KEY0</b> blättert die Anzeige weiter oder quittiert eine Sonderanzeige (wie Taste 1). <b>KEY1</b> zeichnet die aktuelle Seite sofort mit frischen Werten neu; <b>3 Sekunden halten</b> löst den Neustart aus (wie Taste 4). Die Taste RUN startet nur den Pico selbst neu.</p>
       </div>
     </div>
     <ol class="steps">

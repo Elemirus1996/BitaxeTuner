@@ -569,6 +569,7 @@
         <h3>Display Pico</h3>
         <p><b>Plug the Pico 2 WH directly onto the Waveshare e-paper module</b> – no wires, no board. Orientation as shown by the Pico outline printed on the module: <b>USB socket towards the “Interface Config” end, i.e. away from the ribbon cable</b>, VBUS on VBUS, GP0 on GP0; with power off. Power via a USB power supply on the Pico.</p>
         <p>The program then uses the Waveshare layout (GP8–GP13, BUSY GP13), not the cable layout of the fan board (BUSY GP22). Which layout applies is set by the <b>Pico's role</b>, not by the server setting. On the module: switch <b>“Interface Config” at 0</b> (4-wire SPI). Without WLAN: <b>“Set up display Pico via USB (no WLAN) …”</b> sets the role directly over the USB cable.</p>
+        <p><b>Keys on the module</b> (Pico program 8.2 and later): <b>KEY0</b> turns the page or acknowledges a special screen (like button 1). <b>KEY1</b> redraws the current page right away with fresh values; <b>hold it for 3 seconds</b> to trigger the restart (like button 4). The RUN key only restarts the Pico itself.</p>
         <p>It shows the display and reports its buttons; it has no fans. For this the program uses the Waveshare pin layout (GP8–GP13).</p>
       </div>
     </div>

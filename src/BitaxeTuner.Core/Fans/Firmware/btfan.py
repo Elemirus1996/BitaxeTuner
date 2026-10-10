@@ -12,6 +12,8 @@
 # Role "display" (Pico plugged directly onto the Waveshare Pico-ePaper-7.5-B, no fans):
 #   e-Paper: DIN GP11, CLK GP10, CS GP9, DC GP8, RST GP12, BUSY GP13 (Waveshare layout).
 # Both roles: buttons GP1,3,5,7 to GND (internal pull-up), onboard LED blinks on every press;
+#   role "display" (8.2): the two keys of the Waveshare board count too - KEY0 (GP2) = button 1 (next page),
+#   KEY1 (GP3) = redraw now ("BTN 5"), held 3 s = restart like button 4;
 #   DS18B20 on GP26 (1-Wire, one 4.7k pull-up to 3V3), several sensors in parallel, each reported with its ROM id.
 #
 # Protocol (one command per line). Fan watchdog: only SET counts as a sign of life of the fan control (audit N-S1:
@@ -29,7 +31,7 @@
 #   COMMIT               -> OK COMMIT | ERR ... (checks size and SHA-256, then replaces main.py; RESET starts it)
 #   NET                  -> OK NET <1|0> <ip|->   (WLAN connected and IP address)
 #   RESET                -> OK RESET, then the Pico restarts
-# Unsolicited: BTN <n> (short press 1-3), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s),
+# Unsolicited: BTN <n> (short press 1-3, 5 = redraw), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s),
 #   EPD DONE busy=<1|0> ms=<n> (refresh finished; busy=0: the BUSY line never reported "busy" - fixed wait time used),
 #   INFO reset=<power|wdt|other> err=<text|-> (8.1: why the Pico last started and the last caught error; once after HELLO
 #   and after every new error - the program no longer stops on an error, it notes it and goes on).
@@ -55,7 +57,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8.1"
+VERSION = "8.2"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -63,6 +65,8 @@ DEBOUNCE_US = 1500
 BUTTON_PINS = (1, 3, 5, 7)
 # Hold time for a long press per button in ms (0 = no long press): button 3 = fans off, button 4 = reboot
 LONG_MS = (0, 0, 5000, 3000)
+# Events per button: (short press, long press), None = nothing
+BTN_EVENTS = (("BTN 1", None), ("BTN 2", None), ("BTN 3", "BTN 3 LONG"), (None, "BTN 4 LONG"))
 EPD_W = 800
 EPD_H = 480
 PLANE = EPD_W * EPD_H // 8
@@ -138,6 +142,11 @@ else:
     TACH_PINS = ()
     EPD_PINS = (11, 10, 9, 8, 12, 13)      # Waveshare Pico-ePaper layout
     EPD_SPI = 1
+    # Keys of the Waveshare board: KEY0 GP2 = next page, KEY1 GP3 = redraw (held 3 s: restart).
+    # Extra buttons on GP1/GP5/GP7 keep their meaning (GP3 is KEY1 here).
+    BUTTON_PINS = (2, 3, 1, 5, 7)
+    LONG_MS = (0, 3000, 0, 5000, 3000)
+    BTN_EVENTS = (("BTN 1", None), ("BTN 5", "BTN 4 LONG"), ("BTN 1", None), ("BTN 3", "BTN 3 LONG"), (None, "BTN 4 LONG"))
 
 N = len(PWM_PINS)
 
@@ -284,15 +293,16 @@ def poll_buttons(now):
         elif pressed and LONG_MS[i] and not btn_long_sent[i] and time.ticks_diff(now, btn_down[i]) >= LONG_MS[i]:
             btn_long_sent[i] = True
             blink(1000)
-            event("BTN %d LONG" % (i + 1))
+            event(BTN_EVENTS[i][1])
         elif not pressed and btn_down[i] != 0:
             held = time.ticks_diff(now, btn_down[i])
             btn_down[i] = 0
-            if not btn_long_sent[i] and 30 <= held and i != 3 and (not LONG_MS[i] or held < LONG_MS[i]):
+            short = BTN_EVENTS[i][0]
+            if short and not btn_long_sent[i] and 30 <= held and (not LONG_MS[i] or held < LONG_MS[i]):
                 blink()
-                if i == 2:
+                if short == "BTN 3":
                     all_full()  # 100 % sofort, auch ohne Server
-                event("BTN %d" % (i + 1))
+                event(short)
 
 # ---------- e-Paper 7.5" B V2 ----------
 

@@ -38,7 +38,10 @@ public sealed class DisplaySettings
     public int QuietFromHour { get; set; } = 23;
     public int QuietToHour { get; set; } = 7;
 
-    /// <summary>Taster am Pico (GP1/3/5/7) auswerten: Anzeige weiter / Automatik / 100 % (lang: aus) / Neustart.</summary>
+    /// <summary>
+    /// Taster am Pico (GP1/3/5/7) auswerten: Anzeige weiter / Automatik / 100 % (lang: aus) / Neustart. Display-Pico auf dem
+    /// Waveshare-Board (8.2): KEY0 = Anzeige weiter, KEY1 = sofort neu zeichnen (3 s halten: Neustart).
+    /// </summary>
     public bool ButtonsEnabled { get; set; } = true;
 
     /// <summary>Langer Druck auf Taste 4 startet neben dem Pico auch den Rechner neu (nur Linux-Paket/Pi).</summary>

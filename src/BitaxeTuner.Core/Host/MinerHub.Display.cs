@@ -83,6 +83,9 @@ public sealed partial class MinerHub
             {
                 case "BTN 1" when display is not null: ExtraDisplayNext(display, L.T("Taste 1")); break;
                 case "BTN 1": DisplayNextOrAcknowledge(L.T("Taste 1")); break;
+                // 8.2: KEY1 am Waveshare-Board des Display-Pico – gleiche Seite sofort neu zeichnen (aktuelle Werte)
+                case "BTN 5" when display is not null: display.Requested = display.UserRequested = true; break;
+                case "BTN 5": _displayRequested = _displayUserRequested = true; break;
                 case "BTN 2": await SetFanOverrideAsync(FanOverride.None, L.T("Taste 2")); break;
                 case "BTN 3": await SetFanOverrideAsync(FanOverride.Full, L.T("Taste 3")); break;
                 case "BTN 3 LONG": await SetFanOverrideAsync(FanOverride.Off, L.T("Taste 3 lang")); break;
