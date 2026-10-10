@@ -1,0 +1,356 @@
+{
+ "version": 1,
+ "updated": "2026-10-10T18:32:23Z",
+ "items": [
+  {
+   "id": "solo-bch-day-2026-10-09",
+   "date": "2026-10-09T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 14 Solo-Blöcke am 09.10.",
+    "en": "BCH: 14 solo blocks on Oct 09"
+   },
+   "text": {
+    "de": "solopool.org 5, solo.ckpool 5, solopool.eu 1, SoloHash.co.uk 1",
+    "en": "solopool.org 5, solo.ckpool 5, solopool.eu 1, SoloHash.co.uk 1"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-09)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.11",
+   "date": "2026-10-08T18:49:32Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.11 erschienen",
+    "en": "BitaxeTuner v0.9.11 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.11"
+  },
+  {
+   "id": "solo-bch-day-2026-10-08",
+   "date": "2026-10-08T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 21 Solo-Blöcke am 08.10.",
+    "en": "BCH: 21 solo blocks on Oct 08"
+   },
+   "text": {
+    "de": "Solo 7, solo.ckpool 6, solopool.org 3, SOLO 2",
+    "en": "Solo 7, solo.ckpool 6, solopool.org 3, SOLO 2"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-08)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-07",
+   "date": "2026-10-07T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 20 Solo-Blöcke am 07.10.",
+    "en": "BCH: 20 solo blocks on Oct 07"
+   },
+   "text": {
+    "de": "Solo 8, solo.ckpool 6, solopool.org 3, SOLO 1",
+    "en": "Solo 8, solo.ckpool 6, solopool.org 3, SOLO 1"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-07)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.10",
+   "date": "2026-10-05T15:47:38Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.10 erschienen",
+    "en": "BitaxeTuner v0.9.10 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.10"
+  },
+  {
+   "id": "bt-v0.9.9",
+   "date": "2026-10-03T21:30:58Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.9 erschienen",
+    "en": "BitaxeTuner v0.9.9 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.9"
+  },
+  {
+   "id": "diff-969696",
+   "date": "2026-10-03T07:16:36Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −0,03 %",
+    "en": "Difficulty adjustment −0.03 %"
+   },
+   "text": {
+    "de": "Block #969696 · 132,7 T",
+    "en": "Block #969696 · 132.7 T"
+   },
+   "url": "https://mempool.space/block/969696",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-shufps/ESP-Miner-NerdQAxePlus-v1.1.0.1",
+   "date": "2026-09-24T05:36:59Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "en": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/shufps/ESP-Miner-NerdQAxePlus/releases/tag/v1.1.0.1"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.3",
+   "date": "2026-09-20T15:57:20Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.3"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.3"
+  },
+  {
+   "id": "diff-967680",
+   "date": "2026-09-19T07:09:05Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +4,2 %",
+    "en": "Difficulty adjustment +4.2 %"
+   },
+   "text": {
+    "de": "Block #967680 · 132,8 T",
+    "en": "Block #967680 · 132.8 T"
+   },
+   "url": "https://mempool.space/block/967680",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-966351",
+   "date": "2026-09-10T11:06:46Z",
+   "kind": "solo",
+   "title": {
+    "de": "Solo-Block BTC #966351 – Braiins Solo",
+    "en": "Solo block BTC #966351 – Braiins Solo"
+   },
+   "text": {
+    "de": "Belohnung 3,147 BTC",
+    "en": "Reward 3.147 BTC"
+   },
+   "url": "https://mempool.space/block/000000000000000000014efb268b516c0f0dbbf7d45c1e3edbca9262f816b2ac",
+   "coin": "BTC"
+  },
+  {
+   "id": "diff-965664",
+   "date": "2026-09-05T20:32:47Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +1,3 %",
+    "en": "Difficulty adjustment +1.3 %"
+   },
+   "text": {
+    "de": "Block #965664 · 127,5 T",
+    "en": "Block #965664 · 127.5 T"
+   },
+   "url": "https://mempool.space/block/965664",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.1",
+   "date": "2026-08-29T10:57:02Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.1"
+  },
+  {
+   "id": "fw-shufps/ESP-Miner-NerdQAxePlus-v1.1.0",
+   "date": "2026-08-29T07:50:55Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "en": "Firmware ESP-Miner NerdQAxe+ v1.1.0"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/shufps/ESP-Miner-NerdQAxePlus/releases/tag/v1.1.0"
+  },
+  {
+   "id": "diff-963648",
+   "date": "2026-08-23T00:48:47Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −1,3 %",
+    "en": "Difficulty adjustment −1.3 %"
+   },
+   "text": {
+    "de": "Block #963648 · 125,8 T",
+    "en": "Block #963648 · 125.8 T"
+   },
+   "url": "https://mempool.space/block/963648",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.0",
+   "date": "2026-08-21T08:25:08Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.0"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.0"
+  },
+  {
+   "id": "diff-961632",
+   "date": "2026-08-08T19:35:55Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +1,0 %",
+    "en": "Difficulty adjustment +1.0 %"
+   },
+   "text": {
+    "de": "Block #961632 · 127,5 T",
+    "en": "Block #961632 · 127.5 T"
+   },
+   "url": "https://mempool.space/block/961632",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-960804",
+   "date": "2026-08-03T02:11:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "Solo-Block BTC #960804 – Solo CK",
+    "en": "Solo block BTC #960804 – Solo CK"
+   },
+   "text": {
+    "de": "Belohnung 3,157 BTC",
+    "en": "Reward 3.157 BTC"
+   },
+   "url": "https://mempool.space/block/0000000000000000000081c26d870f8ac4a0217b8c6dab7b63c25f03b3882c52",
+   "coin": "BTC"
+  },
+  {
+   "id": "diff-959616",
+   "date": "2026-07-25T22:51:06Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −0,7 %",
+    "en": "Difficulty adjustment −0.7 %"
+   },
+   "text": {
+    "de": "Block #959616 · 126,2 T",
+    "en": "Block #959616 · 126.2 T"
+   },
+   "url": "https://mempool.space/block/959616",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-959115",
+   "date": "2026-07-22T09:06:37Z",
+   "kind": "solo",
+   "title": {
+    "de": "Solo-Block BTC #959115 – Solo CK",
+    "en": "Solo block BTC #959115 – Solo CK"
+   },
+   "text": {
+    "de": "Belohnung 3,161 BTC",
+    "en": "Reward 3.161 BTC"
+   },
+   "url": "https://mempool.space/block/0000000000000000000146c469ee9ebff4e4e3e075de978d25846005e5860e75",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-957382",
+   "date": "2026-07-10T03:30:34Z",
+   "kind": "solo",
+   "title": {
+    "de": "Solo-Block BTC #957382 – Public Pool",
+    "en": "Solo block BTC #957382 – Public Pool"
+   },
+   "text": {
+    "de": "Belohnung 3,138 BTC",
+    "en": "Reward 3.138 BTC"
+   },
+   "url": "https://mempool.space/block/00000000000000000000f4f8c91a6c400c42a40577fafa2ca2231d78f1955424",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.14.2",
+   "date": "2026-07-08T18:44:24Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.14.2"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.14.2"
+  },
+  {
+   "id": "solo-btc-955703",
+   "date": "2026-06-27T19:16:56Z",
+   "kind": "solo",
+   "title": {
+    "de": "Solo-Block BTC #955703 – Solo CK",
+    "en": "Solo block BTC #955703 – Solo CK"
+   },
+   "text": {
+    "de": "Belohnung 3,155 BTC",
+    "en": "Reward 3.155 BTC"
+   },
+   "url": "https://mempool.space/block/00000000000000000001089806eb0365ac250e44bc0b306ba0339a6b63c63fc5",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.14.1",
+   "date": "2026-06-19T20:47:00Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.14.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.14.1"
+  }
+ ]
+}
