@@ -1,25 +1,58 @@
 namespace BitaxeTuner.Core.Tax.Models;
 
-/// <summary>Unterstützte Coins. Erweiterbar um weitere Bitcoin-Forks.</summary>
+/// <summary>
+/// Unterstützte Coins. Werte werden als Text gespeichert (rewards.json, disposals.json) – neue Coins nur hinten anfügen.
+/// 0.9.12: DigiByte, Namecoin, Elastos, Peercoin, Emercoin (SHA-256 bzw. Merged Mining) – kommen über ein Pool-Konto,
+/// nicht über Wallet-Abfragen.
+/// </summary>
 public enum CoinType
 {
     Bitcoin,
-    BitcoinCash
+    BitcoinCash,
+    DigiByte,
+    Namecoin,
+    Elastos,
+    Peercoin,
+    Emercoin,
 }
 
 public static class CoinTypeExtensions
 {
+    /// <summary>Coins mit Wallet-Abfrage über die Blockchain (mempool.space/Blockchair) und Solo-Chance.</summary>
+    public static readonly IReadOnlyList<CoinType> WalletCoins = [CoinType.Bitcoin, CoinType.BitcoinCash];
+
+    public static bool HasWalletSupport(this CoinType coin) => coin is CoinType.Bitcoin or CoinType.BitcoinCash;
+
     public static string Symbol(this CoinType coin) => coin switch
     {
         CoinType.Bitcoin => "BTC",
         CoinType.BitcoinCash => "BCH",
+        CoinType.DigiByte => "DGB",
+        CoinType.Namecoin => "NMC",
+        CoinType.Elastos => "ELA",
+        CoinType.Peercoin => "PPC",
+        CoinType.Emercoin => "EMC",
         _ => coin.ToString()
     };
+
+    /// <summary>Coin zu einem Kürzel (BTC, DGB …) oder Namen (bitcoin, digibyte …); null = unbekannt.</summary>
+    public static CoinType? FromSymbolOrName(string? value)
+    {
+        var v = (value ?? "").Trim().ToLowerInvariant();
+        foreach (var c in Enum.GetValues<CoinType>())
+            if (v == c.Symbol().ToLowerInvariant() || v == c.ToString().ToLowerInvariant() || v == c.CoinGeckoId()) return c;
+        return v switch { "bitcoincash" or "bcash" => CoinType.BitcoinCash, _ => null };
+    }
 
     public static string CoinGeckoId(this CoinType coin) => coin switch
     {
         CoinType.Bitcoin => "bitcoin",
         CoinType.BitcoinCash => "bitcoin-cash",
+        CoinType.DigiByte => "digibyte",
+        CoinType.Namecoin => "namecoin",
+        CoinType.Elastos => "elastos",
+        CoinType.Peercoin => "peercoin",
+        CoinType.Emercoin => "emercoin",
         _ => throw new ArgumentOutOfRangeException(nameof(coin))
     };
 

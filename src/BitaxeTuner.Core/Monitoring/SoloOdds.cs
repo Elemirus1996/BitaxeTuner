@@ -35,7 +35,7 @@ public sealed class SoloOddsService
 
     public async Task RefreshAsync(CancellationToken ct = default)
     {
-        foreach (var coin in Enum.GetValues<CoinType>())
+        foreach (var coin in CoinTypeExtensions.WalletCoins)
         {
             lock (_difficulty)
             {

@@ -64,7 +64,7 @@ Corrections to the English texts are welcome: they all live in
   watt), efficiency without tuning change, fan speed, rejected shares, availability.
 - **Watchdog** (restart at 0 hashrate), **firmware check**, **best diff records**, **tray**, autostart.
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
-  cost per month next to the income.
+  cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
 ### Power and costs
 
@@ -195,6 +195,23 @@ Supported: Shelly Gen1 (`/status`, e.g. Plug S) and Gen2+/Gen3 (RPC `Shelly.GetS
 Pro EM-50). Push when a plug has not responded for 5 min or the extra consumption rises clearly compared with the
 previous week (e.g. an ageing power supply). Home Assistant gets power and energy per plug (energy dashboard).
 **BitaxeTuner never switches the plugs** – not even when the server itself is behind a plug.
+
+### Pool account (Mining-Dutch)
+
+*Settings → Pool account* (desktop and browser, in the browser also *Tax → Pool account*): if your miners run on one
+[Mining-Dutch](https://www.mining-dutch.nl/) account and you switch coins there (including automatic profit switching),
+enter the **API key** (Mining-Dutch: *Edit Account* → *API Key*). It cannot change anything at the pool and is stored in
+`secrets.json`. BitaxeTuner then queries at most every 10 minutes (with pauses between requests so the pool doesn't block):
+
+- **the coin per miner** the pool is currently giving it, with payout scheme (PPS) and merged mining – matched by the
+  worker name (part after the dot in the pool user, e.g. `account.bench`); these miners don't count towards the solo chance,
+- **balance** per coin with value, credits of the last 24 h / 7 days, payouts of the last 30 days,
+- **bookings as inflows for the tax section**: either *credit at the pool* (all credits of a coin on one day as one
+  inflow once the day is over – default) or *payout to the wallet* (every payout individually). Manually entered prices
+  are kept when switching; please clarify with your tax advisor which view applies.
+
+Every booking ever seen stays in `tax\pool-ledger.json` (the pool only returns the most recent ones). Wallet lookups via
+the blockchain remain available for BTC and BCH only.
 
 ### Reports
 
@@ -538,7 +555,7 @@ All data lives in **one** folder, default `%AppData%\BitaxeMonitor\` (the former
 `config.json` (devices and all settings), `history.db` (history, tuning events, soak tests, smart plug values,
 electricity prices, monthly reports, health data), `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json` and
 `secrets.json` (passwords for NAS, MQTT and smart plugs – encrypted on Windows, readable only by the service on Linux,
-never in backups or transfers). Tokens and API keys (push services, Tibber, Blockchair, CoinGecko, the desktop app's
+never in backups or transfers). Tokens and API keys (push services, Tibber, Blockchair, CoinGecko, pool account, the desktop app's
 server token) are kept there too; `config.json` only holds a reference. Backups therefore don't contain them – after
 restoring on another computer, enter them once again. Transfers (desktop ↔ server, Pi setup) take the tokens along.
 

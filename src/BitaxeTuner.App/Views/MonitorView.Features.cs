@@ -128,7 +128,15 @@ public partial class MonitorView
          : span.TotalDays < 2 ? $"{span.TotalHours.ToString("0", De)} h"
          : L.T("{0} Tage", span.TotalDays.ToString("0", De));
 
-    private string PoolText(MinerState s) => _host.Hub.PoolText(s);
+    private string PoolText(MinerState s)
+    {
+        var text = _host.Hub.PoolText(s);
+        // 0.9.12 Pool-Konto: Coin, den der Pool gerade gibt (Profit-Wechsel im Pool-Dashboard)
+        if (_host.Hub.PoolWorkerOf(s) is not { } w) return text;
+        var coin = CoinTypeExtensions.FromSymbolOrName(w.NowMining)?.Symbol() ?? w.NowMining;
+        var pool = L.T("Pool-Konto: {0} · {1}", coin, w.Mode) + (w.MergedMining ? " + " + L.T("Merged Mining") : "");
+        return string.IsNullOrEmpty(text) ? pool : text + " · " + pool;
+    }
 
     private BestDiffRecord? RecordFor(string host)
         => _bestDiffs.Where(r => r.Host == host).OrderByDescending(r => r.Value).FirstOrDefault();
@@ -162,13 +170,14 @@ public partial class MonitorView
 
     private void RenderSoloOdds()
     {
-        foreach (var coin in Enum.GetValues<CoinType>())
+        foreach (var coin in CoinTypeExtensions.WalletCoins)
         {
             var (value, sub, sub2) = coin == CoinType.Bitcoin
                 ? (OddsBtcValue, OddsBtcSub, OddsBtcSub2)
                 : (OddsBchValue, OddsBchSub, OddsBchSub2);
 
-            var miners = _states.Where(s => s.Online && s.Info is not null && ResolveCoin(s) == coin).ToList();
+            // Miner auf einem Pool-Konto (PPS) mischen nicht solo mit – sie zählen nicht zur Solo-Chance
+            var miners = _states.Where(s => s.Online && s.Info is not null && ResolveCoin(s) == coin && _host.Hub.PoolWorkerOf(s) is null).ToList();
             var gh = miners.Sum(s => s.Info!.hashRate);
             var r = _odds.Calculate(coin, gh, miners.Count);
 

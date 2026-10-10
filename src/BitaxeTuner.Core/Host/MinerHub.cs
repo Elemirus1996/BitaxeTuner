@@ -395,6 +395,7 @@ public sealed partial class MinerHub : IDisposable
         // Wallets und Smart Plugs im Hintergrund (Netzabfrage) – der Start wartet nicht darauf
         _ = PollWalletsAsync();
         _ = PlugTickAsync();
+        if (Config.PoolAccount.Enabled) _ = PoolAccountTickAsync();
     }
 
     /// <summary>
@@ -431,6 +432,7 @@ public sealed partial class MinerHub : IDisposable
         // Audit I3: Wallets nur neu abfragen, wenn sich die Adressen geändert haben (nicht bei jedem Speichern)
         if (!LookupAddresses(States, Config.WalletLookupConsent).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(_lastWalletAddresses))
             await PollWalletsAsync();
+        await ApplyPoolAccountSettingsAsync();
     }
 
     private void RestartLoops()
@@ -441,6 +443,8 @@ public sealed partial class MinerHub : IDisposable
         _ = RunLoopAsync(() => TimeSpan.FromSeconds(Math.Clamp(Config.IntervalSeconds, 1, 300)), PollNowAsync, ct);
         _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.WalletPollMinutes, 1, 1440)), PollWalletsAsync, ct);
         _ = RunLoopAsync(() => PlugInterval, PlugTickAsync, ct);
+        _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.PoolAccount.IntervalMinutes, 10, 240)),
+            async () => { if (Config.PoolAccount.Enabled) await PoolAccountTickAsync(); }, ct);
         // Audit I3: Steuer-Wallets nicht bei jedem „Einstellungen speichern“ neu abfragen (Blockchair/CoinGecko) –
         // nur beim ersten Start, nach einer Pause oder wenn sich der Abstand geändert hat
         var taxInterval = TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440));
@@ -535,6 +539,7 @@ public sealed partial class MinerHub : IDisposable
         _priceHttp.Dispose();
         _updateHttp.Dispose();
         TaxMonitor.Dispose();
+        _poolClient?.Dispose();
         LogAlerts.Dispose();
         _minerLogs?.Dispose();   // schreibt die letzten gesammelten Zeilen
         Polling.Dispose();

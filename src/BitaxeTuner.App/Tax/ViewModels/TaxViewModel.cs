@@ -31,6 +31,8 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
     private List<Disposal> _disposals = new();
     private List<DisposalResult> _results = new();
     public IEnumerable<CoinType> AvailableCoins { get; } = Enum.GetValues<CoinType>();
+    /// <summary>0.9.12: Wallets nur für Coins mit Blockchain-Abfrage; Verkäufe für alle Coins.</summary>
+    public IEnumerable<CoinType> WalletCoins { get; } = CoinTypeExtensions.WalletCoins;
 
     // ---------- Eingabe ----------
 
@@ -157,6 +159,13 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
         _monitor.NewRewardDetected += OnNewRewardDetected;
         _monitor.RewardUpdated += OnRewardUpdated;
+        _monitor.RewardsReloaded += () => OnUi(() =>
+        {
+            Rewards.Clear();
+            foreach (var r in _monitor.LoadRewards().OrderByDescending(r => r.ReceivedAtUtc)) Rewards.Add(r);
+            Raise(nameof(YearSummary));
+            Recalculate();
+        });
         _monitor.StatusChanged += text => OnUi(() =>
         {
             StatusText = text;

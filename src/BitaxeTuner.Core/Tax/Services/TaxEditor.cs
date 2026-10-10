@@ -34,6 +34,7 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             throw new LocalizedException("Bitte eine gültige Wallet-Adresse eingeben.");
         if (monitor.Contains(a)) throw new LocalizedException("Adresse ist bereits eingetragen.");
         var c = coin ?? CoinTypeExtensions.GuessFromAddress(a);
+        if (!c.HasWalletSupport()) throw new LocalizedException("Wallet-Abfrage gibt es nur für BTC und BCH – andere Coins kommen über das Pool-Konto.");
         var wallet = new WalletAddress
         {
             Address = a,
@@ -48,7 +49,11 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     {
         var wallet = Wallet(id);
         if (!string.IsNullOrWhiteSpace(label)) wallet.Label = label.Trim();
-        if (coin is { } c) wallet.Coin = c;
+        if (coin is { } c)
+        {
+            if (!c.HasWalletSupport()) throw new LocalizedException("Wallet-Abfrage gibt es nur für BTC und BCH – andere Coins kommen über das Pool-Konto.");
+            wallet.Coin = c;
+        }
         monitor.UpdateWallet(wallet);
         return wallet;
     }

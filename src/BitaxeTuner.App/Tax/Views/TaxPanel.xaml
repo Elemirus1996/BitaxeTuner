@@ -40,7 +40,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBox Width="340" Text="{Binding NewAddress, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{l:T 'bc1…, 1…, bitcoincash:q… oder q…'}"/>
-                    <ComboBox Width="110" Margin="8,0,0,0" ItemsSource="{Binding AvailableCoins}"
+                    <ComboBox Width="110" Margin="8,0,0,0" ItemsSource="{Binding WalletCoins}"
                               SelectedItem="{Binding NewCoin}"/>
                     <TextBox Width="180" Margin="8,0,0,0" Text="{Binding NewLabel, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{l:T 'Anzeigename, z. B. Gamma 603'}"/>

@@ -135,6 +135,10 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.12", tr.T("Pool-Konto: Mining-Dutch mit DGB, NMC & Co."),
+                server ? tr.T("Einstellungen → Pool-Konto (auch unter Steuer → Pool-Konto): Mit dem API-Schlüssel deines Mining-Dutch-Kontos zeigt BitaxeTuner je Miner den Coin, den der Pool gerade gibt – auch nach einem Wechsel im Pool-Dashboard –, Guthaben und Gutschriften je Coin. Die Buchungen landen als Zuflüsse in der Steuer: wahlweise die Gutschriften je Tag und Coin (Standard) oder jede Auszahlung; DGB, NMC und andere Merged-Mining-Coins inklusive. Nur lesend.")
+                       : tr.T("Einstellungen → Pool-Konto: Mit dem API-Schlüssel deines Mining-Dutch-Kontos zeigt BitaxeTuner je Miner den Coin, den der Pool gerade gibt – auch nach einem Wechsel im Pool-Dashboard –, Guthaben und Gutschriften je Coin. Die Buchungen landen als Zuflüsse in der Steuer: wahlweise die Gutschriften je Tag und Coin (Standard) oder jede Auszahlung; DGB, NMC und andere Merged-Mining-Coins inklusive. Nur lesend."),
+                null),
             new("0.9.12", tr.T("Vier weitere Sprachen"),
                 tr.T("BitaxeTuner spricht jetzt auch Spanisch, Portugiesisch (Brasilien), Französisch und Niederländisch – Oberfläche, Push-Meldungen, Tagesbericht und E-Paper. Im Browser oben die Sprache wählen, in der App unter Einstellungen → Sprache. Die Übersetzungen sind maschinell erstellt; Verbesserungen gern über GitHub."),
                 null),

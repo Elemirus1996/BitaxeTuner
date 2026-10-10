@@ -23,6 +23,8 @@ public sealed class TaxLogRepository
     private readonly string _rewardsPath;
     private readonly string _ignoredPath;
     private readonly string _disposalsPath;
+    private readonly string _poolLedgerPath;
+    private readonly string _poolInactivePath;
     private readonly object _lock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -41,6 +43,8 @@ public sealed class TaxLogRepository
         _rewardsPath = Path.Combine(baseDir, "rewards.json");
         _ignoredPath = Path.Combine(baseDir, "ignored-txids.json");
         _disposalsPath = Path.Combine(baseDir, "disposals.json");
+        _poolLedgerPath = Path.Combine(baseDir, "pool-ledger.json");
+        _poolInactivePath = Path.Combine(baseDir, "pool-inactive.json");
 
         if (baseDirectory is null)
             MigrateFromPrototype(Path.Combine(appData, "BitaxeTaxMonitor"));
@@ -63,6 +67,21 @@ public sealed class TaxLogRepository
 
     public void SaveRewards(IEnumerable<MinedReward> rewards) => Save(_rewardsPath, rewards.ToList());
 
+    // ---------- Pool-Konto (0.9.12) ----------
+
+    /// <summary>Alle je gesehenen Buchungen des Pool-Kontos (Gutschriften und Auszahlungen) – Grundlage der Pool-Zuflüsse.</summary>
+    public List<Pools.PoolTransaction> LoadPoolLedger() => Load<Pools.PoolTransaction>(_poolLedgerPath);
+
+    public void SavePoolLedger(IEnumerable<Pools.PoolTransaction> items) => Save(_poolLedgerPath, items.ToList());
+
+    /// <summary>
+    /// Pool-Zuflüsse der gerade nicht gewählten Art (Gutschrift bzw. Auszahlung) – beim Umschalten verschoben statt
+    /// gelöscht, damit von Hand eingetragene Kurse und Notizen erhalten bleiben.
+    /// </summary>
+    public List<MinedReward> LoadPoolInactive() => Load<MinedReward>(_poolInactivePath);
+
+    public void SavePoolInactive(IEnumerable<MinedReward> items) => Save(_poolInactivePath, items.ToList());
+
     // ---------- Verkäufe ----------
 
     public List<Disposal> LoadDisposals() => Load<Disposal>(_disposalsPath);
@@ -79,6 +98,9 @@ public sealed class TaxLogRepository
         keys.UnionWith(Load<string>(_ignoredPath));
         return keys;
     }
+
+    /// <summary>Nur die bewusst ignorierten TXIDs (Schlüssel wie <see cref="TxKey"/>).</summary>
+    public HashSet<string> LoadIgnoredTxKeys() => Load<string>(_ignoredPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>TXID dauerhaft ausschließen, z. B. für einen Eingang, der kein Mining-Ertrag ist.</summary>
     public void AddIgnored(CoinType coin, string txId)

@@ -81,8 +81,10 @@ public partial class SettingsWindow : Window
         {
             _plugsPanel = new Views.SmartPlugsPanel(host);
             PlugsHost.Content = _plugsPanel;
+            _poolPanel = new Views.PoolAccountPanel(host);
+            PoolAccountHost.Content = _poolPanel;
         }
-        else PlugsCard.Visibility = Visibility.Collapsed;
+        else PlugsCard.Visibility = PoolAccountCard.Visibility = Visibility.Collapsed;
 
         DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
                           L.T("Feste IP ist zuverlässiger.");
@@ -392,7 +394,14 @@ public partial class SettingsWindow : Window
             ScrollToSection(L.T("Smart Plugs"));
             return;
         }
+        if (_poolPanel?.Validate() is { } poolError)
+        {
+            ErrorText.Text = poolError;
+            ScrollToSection(L.T("Pool-Konto"));
+            return;
+        }
         _plugsPanel?.Apply(_config);
+        _poolPanel?.Apply(_config);
         _notify.Targets = _pushPanel.Targets;
         _notify.ApplyTargets(_config.Devices.Select(d => d.Host));
         _config.Notifications = _notify;
@@ -596,6 +605,7 @@ public partial class SettingsWindow : Window
     private NotificationSettings _notify = new();
     private readonly Views.PushTargetsPanel _pushPanel;
     private readonly Views.SmartPlugsPanel? _plugsPanel;
+    private readonly Views.PoolAccountPanel? _poolPanel;
     private readonly AppHost? _host;
 
     private async void TestNotify_Click(object sender, RoutedEventArgs e)

@@ -61,7 +61,7 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
   Watt), Effizienz ohne Tuning-Änderung, Lüfter-Drehzahl, abgelehnte Shares, Verfügbarkeit.
 - **Watchdog** (Neustart bei 0 Hashrate), **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
-  Stromkosten je Monat neben den Zuflüssen.
+  Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
 ### Strom und Kosten
 
@@ -194,6 +194,24 @@ Unterstützt: Shelly Gen1 (`/status`, z. B. Plug S) und Gen2+/Gen3 (RPC `Shelly.
 Pro EM-50). Push, wenn ein Plug 5 min nicht antwortet oder der Mehrverbrauch gegenüber der Vorwoche deutlich steigt
 (z. B. alterndes Netzteil). Home Assistant bekommt je Plug Leistung und Energie (Energie-Dashboard).
 **BitaxeTuner schaltet die Plugs nie** – auch nicht, wenn der Server selbst am Plug hängt.
+
+### Pool-Konto (Mining-Dutch)
+
+*Einstellungen → Pool-Konto* (Desktop und Browser, im Browser auch *Steuer → Pool-Konto*): Laufen die Miner bei
+[Mining-Dutch](https://www.mining-dutch.nl/) auf einem Konto und wechselst du dort die Coins (auch automatischer
+Profit-Wechsel), trägst du den **API-Schlüssel** ein (Mining-Dutch: *Edit Account* → *API Key*). Er kann am Pool nichts
+ändern und liegt in `secrets.json`. Mindestens alle 10 Minuten fragt BitaxeTuner dann ab (mit Pausen zwischen den
+Anfragen, damit der Pool nicht sperrt):
+
+- **je Miner der Coin**, den der Pool gerade gibt, mit Abrechnung (PPS) und Merged Mining – zugeordnet über den
+  Worker-Namen (Teil hinter dem Punkt im Pool-Benutzer, z. B. `konto.werkbank`); diese Miner zählen nicht zur Solo-Chance,
+- **Guthaben** je Coin mit Wert, Gutschriften der letzten 24 h / 7 Tage, Auszahlungen der letzten 30 Tage,
+- **Buchungen als Zuflüsse für die Steuer**: wahlweise *Gutschrift beim Pool* (alle Gutschriften eines Coins an einem Tag
+  als ein Zufluss, sobald der Tag vorbei ist – Standard) oder *Auszahlung an die Wallet* (jede Auszahlung einzeln).
+  Beim Umschalten bleiben von Hand eingetragene Kurse erhalten; welche Sicht gilt, bitte mit der Steuerberatung klären.
+
+Alle je gesehenen Buchungen bleiben in `tax\pool-ledger.json` (der Pool liefert nur die jüngsten). Wallet-Abfragen über
+die Blockchain gibt es weiter nur für BTC und BCH.
 
 ### Berichte
 
@@ -545,7 +563,7 @@ Alle Daten liegen in **einem** Ordner, Standard `%AppData%\BitaxeMonitor\` (bish
 Strompreise, Monatsberichte, Frühwarnung), `tax\*.json`, `tuning\results\*.json`, `tuning\profiles.json` und
 `secrets.json` (Passwörter für NAS, MQTT und Smart Plugs – unter Windows verschlüsselt, unter Linux nur für den
 Dienst lesbar, nie in Sicherungen oder Übertragungen). Auch Tokens und API-Schlüssel (Push-Dienste, Tibber, Blockchair,
-CoinGecko, Server-Token der Desktop-App) liegen dort; `config.json` enthält nur einen Verweis. Sicherungen enthalten sie
+CoinGecko, Pool-Konto, Server-Token der Desktop-App) liegen dort; `config.json` enthält nur einen Verweis. Sicherungen enthalten sie
 daher nicht – nach dem Einspielen auf einem anderen Rechner einmal neu eintragen. Übertragungen (Desktop ↔ Server,
 Pi-Einrichtung) nehmen die Tokens mit.
 

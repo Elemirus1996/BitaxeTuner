@@ -437,6 +437,14 @@
             </StackPanel>
         </Border>
 
+        <!-- Pool-Konto (0.9.12) -->
+        <Border x:Name="PoolAccountCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'Pool-Konto'}" Style="{StaticResource Section}"/>
+                <ContentControl x:Name="PoolAccountHost"/>
+            </StackPanel>
+        </Border>
+
         </StackPanel>
         </ScrollViewer>
 

@@ -6,6 +6,7 @@ using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Plugs;
+using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Server.Security;
 
 namespace BitaxeTuner.Server.Api;
@@ -181,6 +182,10 @@ public static class Dto
             pool = admin ? hub.PoolText(s) : (i is null ? null : i.isUsingFallbackStratum != 0 ? L.T("Fallback-Pool") : L.T("Primär-Pool")),
             // Enthält den Pool-Benutzer (Wallet-Adresse) – daher nur für Admins
             poolLink = admin && !d.IsSimulated && PoolQuickLinks.For(i) is { } pl ? new { name = pl.Pool, url = pl.Url.AbsoluteUri } : null,
+            // 0.9.12 Pool-Konto: Coin, den der Pool diesem Miner gerade gibt (Profit-Wechsel), Abrechnung (PPS), Merged Mining
+            poolAccount = hub.PoolWorkerOf(s) is { } pw
+                ? new { coin = Core.Tax.Models.CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, mode = pw.Mode, merged = pw.MergedMining }
+                : null,
             automation = d.AutomationStatus,
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
             suggestion = d.PendingSuggestion,
@@ -216,6 +221,52 @@ public static class Dto
         overallProgress = R(b.OverallProgress),
         started = b.Started,
     };
+
+    /// <summary>0.9.12 Pool-Konto (nur Admin): Einstellungen ohne Schlüssel, Worker mit zugeordnetem Miner, Coins mit Wert.</summary>
+    public static object PoolAccount(MinerHub hub)
+    {
+        var st = hub.PoolAccount;
+        var cfg = hub.Config.PoolAccount;
+        var miners = hub.Polling.States.Select(s => (s, w: hub.PoolWorkerOf(s))).Where(x => x.w is not null).ToList();
+        return new
+        {
+            enabled = cfg.Enabled,
+            hasKey = st.HasKey,
+            provider = cfg.Provider,
+            intervalMinutes = cfg.IntervalMinutes,
+            taxBasis = cfg.TaxBasis == Core.Pools.PoolIncomeBasis.Payout ? "payout" : "credit",
+            taxImport = cfg.TaxImport,
+            busy = st.Busy,
+            lastPoll = st.LastPollUtc is { } lp ? new DateTimeOffset(lp) : (DateTimeOffset?)null,
+            error = st.Error,
+            currency = st.Currency,
+            newRewards = st.NewRewards,
+            workers = st.Workers.Select(w => new
+            {
+                name = w.Name,
+                alive = w.Alive,
+                hashrate = R(w.HashrateHs / 1e9),
+                coin = Core.Tax.Models.CoinTypeExtensions.FromSymbolOrName(w.NowMining)?.Symbol() ?? w.NowMining,
+                merged = w.MergedMining,
+                mode = w.Mode,
+                lastShare = w.LastShareUtc is { } ls ? new DateTimeOffset(ls) : (DateTimeOffset?)null,
+                miner = miners.FirstOrDefault(x => x.w == w).s?.Config.Name,
+            }).ToList(),
+            coins = st.Coins.Select(c => new
+            {
+                coin = c.Coin.Symbol(),
+                confirmed = c.Confirmed,
+                unconfirmed = c.Unconfirmed,
+                credits24h = c.Credits24h,
+                credits7d = c.Credits7d,
+                payouts30d = c.Payouts30d,
+                lastCredit = c.LastCreditUtc is { } a ? new DateTimeOffset(a) : (DateTimeOffset?)null,
+                lastPayout = c.LastPayoutUtc is { } b ? new DateTimeOffset(b) : (DateTimeOffset?)null,
+                price = c.Price,
+                value = c.Price is { } p ? Math.Round((c.Confirmed + c.Unconfirmed) * p, 2) : (decimal?)null,
+            }).ToList(),
+        };
+    }
 
     /// <summary>Einzelansicht eines Geräts: Zusammenfassung plus Profil, Ergebnisse, Automatik (Admin: Protokoll, Wallet).</summary>
     public static object Detail(MinerHub hub, HubDevice d, Role role)

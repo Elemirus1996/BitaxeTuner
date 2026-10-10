@@ -487,6 +487,8 @@ function renderOverview() {
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
       d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
       d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
+      d.poolAccount ? h('span', { class: 'pill gray', title: t('Coin laut Pool-Konto · Abrechnung {0}', d.poolAccount.mode || '–') + (d.poolAccount.merged ? ' · ' + t('Merged Mining') : '') },
+        d.poolAccount.coin + (d.poolAccount.merged ? '+' : '')) : null,
       webUiIcon(d),
       poolLinkIcon(d)),
     d.online
@@ -2597,7 +2599,7 @@ async function renderTax() {
   const tv = await run(() => api('/tax/rewards'));
   if (!tv) return;
   const sm = tv.summary;
-  const tab = ['rewards', 'sales', 'wallets'].includes(S.taxTab) ? S.taxTab : 'rewards';
+  const tab = ['rewards', 'sales', 'wallets', 'pool'].includes(S.taxTab) ? S.taxTab : 'rewards';
   const tabLink = (k, label) => h('a', { href: '#', class: k === tab ? 'active' : null, onclick: e => { e.preventDefault(); S.taxTab = k; renderTax(); } }, label);
   const refresh = async () => { if (await run(() => api('/tax/refresh', { method: 'POST' }), t('Wallets geprüft.'))) renderTax(); };
   const cur = tv.currency || { code: 'EUR', symbol: '€', isEuro: true };
@@ -2619,14 +2621,16 @@ async function renderTax() {
       cur.isEuro ? null : h('p', { class: 'warn small' }, t('Beträge in {0}. Das deutsche Steuerrecht rechnet in Euro (Freigrenze 1.000 €) – die Euro-Kurse werden weiter mit erfasst und stehen im CSV-Export. Fehlende Kurse in {0} holt BitaxeTuner für Zuflüsse der letzten 365 Tage nach.', cur.code)),
       h('p', { class: 'muted small' }, t('Überwachte Wallets: {0} · letzte Prüfung {1}. Rohrechnung nach deutschem Steuerrecht (§ 23 EStG, FIFO, ein Jahr Haltefrist) für die eigene Übersicht – keine Steuerberatung.', tv.wallets.length, time(tv.status))),
       tv.warning ? h('p', { class: 'danger' }, tv.warning) : null),
-    h('div', { class: 'tabs' }, tabLink('rewards', t('Zuflüsse')), tabLink('sales', t('Verkäufe')), tabLink('wallets', t('Wallets ({0})', tv.wallets.length))),
-    tab === 'rewards' ? taxRewardsCard(tv) : tab === 'sales' ? taxSalesCard(tv) : taxWalletsCard(tv),
+    h('div', { class: 'tabs' }, tabLink('rewards', t('Zuflüsse')), tabLink('sales', t('Verkäufe')), tabLink('wallets', t('Wallets ({0})', tv.wallets.length)), tabLink('pool', t('Pool-Konto'))),
+    tab === 'rewards' ? taxRewardsCard(tv) : tab === 'sales' ? taxSalesCard(tv) : tab === 'pool' ? poolAccountCard() : taxWalletsCard(tv),
     taxEnergyCard()));
 }
 
-const COINS = [['Bitcoin', 'BTC'], ['BitcoinCash', 'BCH']];
-const coinSelect = (value, auto) => {
-  const el = h('select', { style: 'width:auto' }, [...(auto ? [['', t('automatisch')]] : []), ...COINS].map(([v, l]) => h('option', { value: v }, l)));
+// 0.9.12: Wallet-Abfrage nur für BTC/BCH; Verkäufe für alle Coins (DGB, NMC … kommen über das Pool-Konto)
+const WALLET_COINS = [['Bitcoin', 'BTC'], ['BitcoinCash', 'BCH']];
+const COINS = [...WALLET_COINS, ['DigiByte', 'DGB'], ['Namecoin', 'NMC'], ['Elastos', 'ELA'], ['Peercoin', 'PPC'], ['Emercoin', 'EMC']];
+const coinSelect = (value, auto, list = COINS) => {
+  const el = h('select', { style: 'width:auto' }, [...(auto ? [['', t('automatisch')]] : []), ...list].map(([v, l]) => h('option', { value: v }, l)));
   el.value = value ?? '';
   return el;
 };
@@ -2721,7 +2725,7 @@ function taxSalesCard(tv) {
 /** Wallets: hinzufügen, aus den Minern übernehmen, umbenennen/Coin ändern, aus der Überwachung nehmen. */
 function taxWalletsCard(tv) {
   const address = h('input', { placeholder: t('Wallet-Adresse'), autocomplete: 'off', spellcheck: false, style: 'width:auto;flex:3 1 260px' });
-  const coin = coinSelect('', true);
+  const coin = coinSelect('', true, WALLET_COINS);
   const label = h('input', { placeholder: t('Bezeichnung (optional)'), maxlength: 60, style: 'width:auto;flex:1 1 150px' });
   const add = async () => {
     if (await run(() => api('/tax/wallets', { method: 'POST', body: { address: address.value, coin: coin.value || null, label: label.value } }), t('Wallet hinzugefügt.'))) renderTax();
@@ -2737,7 +2741,7 @@ function taxWalletsCard(tv) {
   };
   const edit = async w => {
     const name = h('input', { value: w.label, maxlength: 60 });
-    const c = coinSelect(w.coin);
+    const c = coinSelect(w.coin, false, WALLET_COINS);
     const body = h('div', { class: 'stack' }, h('p', { class: 'small', style: 'font-family:monospace;word-break:break-all' }, w.address),
       h('div', {}, h('label', {}, t('Bezeichnung')), name), h('div', {}, h('label', {}, 'Coin'), c),
       h('p', { class: 'muted small' }, t('Den Coin nur ändern, wenn er falsch erkannt wurde (Legacy-Adressen 1…/3… gibt es bei BTC und BCH).')));
@@ -2986,6 +2990,7 @@ async function renderSettings() {
     backupCard(),
     mqttCard(),
     plugsCard(),
+    poolAccountCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Admin-Passwort ändern')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Aktuell')), curPw), h('div', {}, h('label', {}, t('Neu (mind. 10 Zeichen)')), newPw),
@@ -3925,6 +3930,77 @@ function profilesCard() {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Geräteprofile')),
     h('p', { class: 'muted small' }, t('Ein Profil legt je Modell die Grenzen für Frequenz, Spannung, Temperatur und Leistung fest. Eingebaute Profile lassen sich anpassen und jederzeit zurücksetzen; für Sonderfälle (z. B. Umbau mit größerer Kühlung) eine Kopie anlegen und dem Miner unter Gerät → Live zuweisen.')),
     body, editor);
+}
+
+/** 0.9.12 Pool-Konto (Mining-Dutch): Coin je Miner, Guthaben, Gutschriften/Auszahlungen; Buchungen als Zuflüsse für die Steuer. */
+function poolAccountCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const amt = v => n(v, Math.abs(v) >= 1000 ? 2 : Math.abs(v) >= 1 ? 4 : 8);
+  let timer = null;
+  const load = async () => {
+    clearTimeout(timer);
+    const p = await api('/pool-account').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!p) return;
+    const enabled = h('input', { type: 'checkbox', checked: p.enabled });
+    const key = h('input', { type: 'password', autocomplete: 'off', maxlength: 200,
+      placeholder: p.hasKey ? t('gespeichert – leer lassen, um ihn zu behalten') : t('API-Schlüssel aus „Edit Account“') });
+    const interval = h('input', { type: 'number', min: 10, max: 240, value: p.intervalMinutes, style: 'width:6em' });
+    const basis = h('select', { style: 'width:auto' }, [['credit', t('Gutschrift beim Pool (je Tag und Coin)')], ['payout', t('Auszahlung an die Wallet')]]
+      .map(([v, l]) => h('option', { value: v, selected: p.taxBasis === v }, l)));
+    const imp = h('input', { type: 'checkbox', checked: p.taxImport });
+    const values = apiKey => ({ enabled: enabled.checked, intervalMinutes: +interval.value || 10, taxBasis: basis.value, taxImport: imp.checked, apiKey });
+    const save = async () => {
+      if (await run(() => api('/pool-account', { method: 'PUT', body: values(key.value.trim() || null) }), t('Gespeichert.'))) load();
+    };
+    const removeKey = async () => {
+      if (!await confirmBox(t('API-Schlüssel löschen'), t('Den gespeicherten API-Schlüssel löschen? Das Pool-Buch und die Zuflüsse bleiben erhalten.'), t('Löschen'), true)) return;
+      if (await run(() => api('/pool-account', { method: 'PUT', body: values('') }), t('API-Schlüssel gelöscht.'))) load();
+    };
+    const refresh = async () => {
+      if (await run(() => api('/pool-account/refresh', { method: 'POST' }), t('Abfrage gestartet – dauert etwa eine Minute.'))) load();
+    };
+    const coins = p.lastPoll && p.coins.length ? h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Coin'), t('Guthaben'), t('Wert'), t('Gutschriften 24 h'), t('7 Tage'), t('Auszahlungen 30 Tage'), t('Letzte Auszahlung')]
+        .map(x => h('th', {}, x)))),
+      h('tbody', {}, p.coins.map(c => h('tr', {},
+        h('td', {}, h('b', {}, c.coin)),
+        h('td', { class: 'num', title: t('bestätigt {0} · unbestätigt {1}', amt(c.confirmed), amt(c.unconfirmed)) }, amt(c.confirmed + c.unconfirmed)),
+        h('td', { class: 'num' }, c.value != null ? `${n(c.value, 2)} ${p.currency}` : '–'),
+        h('td', { class: 'num' }, amt(c.credits24h)),
+        h('td', { class: 'num' }, amt(c.credits7d)),
+        h('td', { class: 'num' }, amt(c.payouts30d)),
+        h('td', {}, time(c.lastPayout))))))) : null;
+    const workers = p.workers.length ? h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Worker'), t('Miner'), t('Coin'), t('Abrechnung'), t('Hashrate'), t('Letzter Share')].map(x => h('th', {}, x)))),
+      h('tbody', {}, p.workers.map(w => h('tr', {},
+        h('td', {}, h('span', { class: `dot ${w.alive ? 'on' : 'off'}` }), ' ', w.name),
+        h('td', {}, w.miner || h('span', { class: 'muted', title: t('Kein Miner mit diesem Worker-Namen (Teil hinter dem Punkt im Pool-Benutzer) und Pool-Adresse bei Mining-Dutch gefunden.') }, '–')),
+        h('td', {}, w.coin, w.merged ? h('span', { class: 'muted small' }, ' + ' + t('Merged Mining')) : null),
+        h('td', {}, w.mode || '–'),
+        h('td', { class: 'num' }, hash(w.hashrate)),
+        h('td', {}, time(w.lastShare))))))) : null;
+    fill(body,
+      h('label', { class: 'check' }, enabled, ' ', t('Pool-Konto abfragen (Mining-Dutch)')),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('API-Schlüssel')), key),
+        h('div', {}, h('label', {}, t('Abfrage alle … Minuten')), interval),
+        h('div', {}, h('label', {}, t('Zufluss für die Steuer')), basis)),
+      h('label', { class: 'check' }, imp, ' ', t('Pool-Buchungen als Zuflüsse in die Steuer übernehmen')),
+      h('p', { class: 'muted small' }, t('Gutschrift: alle Gutschriften eines Coins an einem Tag als ein Zufluss (sobald der Tag vorbei ist). Auszahlung: jede Auszahlung vom Pool an deine Wallet einzeln. Beim Umschalten bleiben von Hand eingetragene Kurse erhalten. Welche Sicht für dich gilt, klärst du am besten mit deiner Steuerberatung.')),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', onclick: save }, t('Speichern')),
+        p.enabled && p.hasKey ? h('button', { class: 'btn', disabled: p.busy, onclick: refresh }, t('Jetzt abfragen')) : null,
+        p.hasKey ? h('button', { class: 'btn danger', onclick: removeKey }, t('Schlüssel löschen')) : null),
+      p.enabled ? h('p', { class: 'small' }, p.busy ? t('Fragt gerade ab …') : p.lastPoll ? t('Zuletzt abgefragt: {0}', time(p.lastPoll)) : t('Noch nicht abgefragt.'),
+        p.newRewards ? ' · ' + t('{0} neue Zuflüsse seit dem Start', p.newRewards) : '') : null,
+      p.error ? h('p', { class: 'danger' }, p.error) : null,
+      coins, workers);
+    if (p.busy) timer = setTimeout(() => { if (body.isConnected) load(); }, 5000);
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Pool-Konto')),
+    h('p', { class: 'muted small' }, t('Laufen deine Miner bei Mining-Dutch auf einem Konto, zeigt BitaxeTuner je Miner den Coin, den der Pool gerade gibt (auch nach einem Wechsel im Pool-Dashboard), Guthaben und Gutschriften je Coin und übernimmt die Buchungen als Zuflüsse in die Steuer – auch DGB, NMC und andere Merged-Mining-Coins. Nur lesend: der Schlüssel aus „Edit Account“ → „API Key“ kann am Pool nichts ändern; er liegt geschützt in secrets.json, nicht in config.json oder Sicherungen.')),
+    body);
 }
 
 /** Prometheus/Grafana: /metrics ein-/ausschalten, Token erzeugen (nur einmal sichtbar), Beispiel für prometheus.yml. */

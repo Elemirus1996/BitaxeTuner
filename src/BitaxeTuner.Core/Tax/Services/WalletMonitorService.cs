@@ -1,5 +1,6 @@
 using BitaxeTuner.Core.Tax.Models;
 using BitaxeTuner.Core.I18n;
+using BitaxeTuner.Core.Pools;
 
 namespace BitaxeTuner.Core.Tax.Services;
 
@@ -30,6 +31,9 @@ public sealed class WalletMonitorService : IDisposable
     /// <summary>Ein vorhandener Eintrag wurde nachträglich ergänzt (z. B. Kurs nachgeholt).</summary>
     public event Action<MinedReward>? RewardUpdated;
     public event Action<string>? StatusChanged;
+
+    /// <summary>0.9.12: Mehrere Einträge geändert (Pool-Konto: Tagesmenge nachgezogen, Art umgeschaltet) – Liste neu laden.</summary>
+    public event Action? RewardsReloaded;
 
     public DateTime? LastPollUtc { get; private set; }
 
@@ -123,6 +127,85 @@ public sealed class WalletMonitorService : IDisposable
     // ---------- Rewards ----------
 
     public List<MinedReward> LoadRewards() => _repository.LoadRewards();
+
+    /// <summary>
+    /// 0.9.12: Zuflüsse unter derselben Sperre wie die Wallet-Abfrage ändern (Pool-Konto). <paramref name="change"/> liefert
+    /// true, wenn gespeichert werden soll.
+    /// </summary>
+    public void UpdateRewards(Func<List<MinedReward>, bool> change)
+    {
+        lock (_walletLock)
+        {
+            var all = _repository.LoadRewards();
+            if (change(all)) _repository.SaveRewards(all);
+        }
+    }
+
+    /// <summary>
+    /// 0.9.12: Pool-Buchungen als Zuflüsse abgleichen (<see cref="PoolTaxSync"/>) und neue Einträge bewerten. Liefert die Zahl
+    /// neuer Zuflüsse. Ohne Steuer-Übernahme (<paramref name="import"/> = false) wandern vorhandene Pool-Zuflüsse in den
+    /// Speicher für die andere Art – sie gehen nicht verloren und kommen beim Wiedereinschalten zurück.
+    /// </summary>
+    /// <param name="fetchPrices">false: keine Kursabfrage (Tests ohne Netz) – fehlende Kurse holt ein späterer Durchlauf nach.</param>
+    public async Task<int> SyncPoolAsync(IReadOnlyList<PoolTransaction> ledger, PoolIncomeBasis basis, bool import, CancellationToken ct = default,
+        bool fetchPrices = true)
+    {
+        await _pollLock.WaitAsync(ct);
+        try
+        {
+            List<MinedReward> added;
+            bool changed;
+            lock (_walletLock)
+            {
+                var all = _repository.LoadRewards();
+                var inactive = _repository.LoadPoolInactive();
+                if (import)
+                    added = PoolTaxSync.Apply(all, inactive, PoolTaxSync.Derive(ledger, basis, DateTime.UtcNow), basis,
+                        _repository.LoadIgnoredTxKeys(), out changed);
+                else
+                {
+                    added = [];
+                    var parked = all.Where(PoolTaxSync.IsPoolReward).ToList();
+                    foreach (var r in parked)
+                    {
+                        all.Remove(r);
+                        inactive.RemoveAll(x => x.TxId == r.TxId);
+                        inactive.Add(r);
+                    }
+                    changed = parked.Count > 0;
+                }
+                if (changed)
+                {
+                    _repository.SavePoolInactive(inactive);
+                    _repository.SaveRewards(all);
+                    foreach (var r in added) _knownTxKeys.Add(TaxLogRepository.TxKey(r.Coin, r.TxId));
+                }
+            }
+            if (added.Count > 0)
+            {
+                // Kurse für die neuesten Einträge gleich holen, ältere holt jeder Durchlauf nach (Rate-Limit)
+                foreach (var r in added.OrderByDescending(r => r.ReceivedAtUtc).Take(fetchPrices ? PriceRetriesPerPoll : 0))
+                {
+                    var (quote, failure) = await _prices.GetEurPriceAsync(r.Coin, r.ReceivedAtUtc, ct);
+                    if (quote is not null) r.SetPrice("EUR", quote.Value, quote.AtUtc, quote.Source);
+                    var currency = CurrentCurrency();
+                    if (currency != "EUR" && (await _prices.GetPriceAsync(r.Coin, r.ReceivedAtUtc, currency, ct)).Quote is { } other)
+                        r.SetPrice(currency, other.Value, other.AtUtc, other.Source);
+                    if (failure is not null) r.Note += " · " + failure;
+                    SaveReward(r);
+                }
+                foreach (var r in added.OrderBy(r => r.ReceivedAtUtc)) NewRewardDetected?.Invoke(r);
+            }
+            // Danach die ganze Liste neu (nachgezogene Mengen, umgeschaltete Art) – ersetzt auch die eben ergänzten Zeilen
+            if (changed) RewardsReloaded?.Invoke();
+            if (import && fetchPrices) await RetryMissingPricesAsync(ct);
+            return added.Count;
+        }
+        finally
+        {
+            _pollLock.Release();
+        }
+    }
 
     /// <summary>Manuell geänderten Eintrag (Kurs/Notiz) sichern.</summary>
     public void SaveReward(MinedReward reward)

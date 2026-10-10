@@ -32,6 +32,8 @@ public sealed record DeviceRequest(string? Name, string? Host, string? WalletAdd
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
+/// <summary>0.9.12 Pool-Konto. ApiKey: null = unverändert, leer = löschen.</summary>
+public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey);
 public sealed record HttpsRequest(bool Enable);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
@@ -974,6 +976,41 @@ public static class Endpoints
             h.Config.Save();
             h.LogEvent(null, EventCategories.Settings, L.T("Neues Prometheus-Token erzeugt (das alte gilt nicht mehr)."));
             return new { token };
+        })));
+
+        // 0.9.12 Pool-Konto (Mining-Dutch): Stand, Einstellungen, sofort abfragen. Der Schlüssel wird nie zurückgegeben.
+        g.MapGet("/pool-account", async (HubService hub) => Results.Json(await hub.RunAsync(Dto.PoolAccount)));
+
+        g.MapPut("/pool-account", async (PoolAccountRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var p = h.Config.PoolAccount;
+            var basis = string.Equals(req.TaxBasis, "payout", StringComparison.OrdinalIgnoreCase) ? Core.Pools.PoolIncomeBasis.Payout : Core.Pools.PoolIncomeBasis.Credit;
+            var changes = new List<string>();
+            if (p.Enabled != req.Enabled) changes.Add(req.Enabled ? L.T("Pool-Konto eingeschaltet.") : L.T("Pool-Konto ausgeschaltet."));
+            if (req.ApiKey is { } key && key.Trim() != p.ApiKey)
+                changes.Add(key.Trim().Length > 0 ? L.T("API-Schlüssel des Pool-Kontos geändert.") : L.T("API-Schlüssel des Pool-Kontos gelöscht."));
+            if (p.TaxBasis != basis)
+                changes.Add(basis == Core.Pools.PoolIncomeBasis.Payout ? L.T("Pool-Zuflüsse für die Steuer: je Auszahlung.") : L.T("Pool-Zuflüsse für die Steuer: Gutschriften je Tag."));
+            if (p.TaxImport != req.TaxImport)
+                changes.Add(req.TaxImport ? L.T("Pool-Buchungen werden in die Steuer übernommen.") : L.T("Pool-Buchungen werden nicht mehr in die Steuer übernommen."));
+            p.Enabled = req.Enabled;
+            p.IntervalMinutes = req.IntervalMinutes;
+            p.TaxBasis = basis;
+            p.TaxImport = req.TaxImport;
+            if (req.ApiKey is not null) p.ApiKey = req.ApiKey;
+            p.Normalize();
+            h.Config.Save();
+            foreach (var c in changes) h.LogEvent(null, EventCategories.Settings, c);
+            await h.ApplyPoolAccountSettingsAsync();
+            return Dto.PoolAccount(h);
+        })));
+
+        g.MapPost("/pool-account/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var p = h.Config.PoolAccount;
+            if (!p.Enabled || p.ApiKey.Length == 0) throw new LocalizedException("Pool-Konto einschalten und API-Schlüssel eintragen.");
+            _ = h.PoolAccountTickAsync();   // dauert wegen der Pausen zwischen den Anfragen gut eine Minute
+            return Dto.PoolAccount(h);
         })));
 
         g.MapGet("/tokens", (AuthStore auth) => Results.Json(auth.Tokens.Select(t => new { t.Id, t.Name, t.CreatedUtc, t.LastUsedUtc })));

@@ -165,6 +165,9 @@ public sealed class AppConfig
     /// <summary>0.6.1: Smart Plugs (Shelly) für Verbrauch an der Steckdose – rein additiv.</summary>
     public SmartPlugSettings Plugs { get; set; } = new();
 
+    /// <summary>0.9.12: Pool-Konto (Mining-Dutch) – Coin je Miner, Guthaben, Buchungen für die Steuer. Additiv, standardmäßig aus.</summary>
+    public PoolAccountSettings PoolAccount { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }
@@ -220,6 +223,8 @@ public sealed class AppConfig
         cfg.Host = null;
         cfg.WalletAddress = null;
         cfg.LastSeenPayoutTxid = null;
+        cfg.PoolAccount ??= new();
+        cfg.PoolAccount.Normalize();
 
         return cfg;
     }
