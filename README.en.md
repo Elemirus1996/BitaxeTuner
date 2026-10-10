@@ -62,7 +62,8 @@ Corrections to the English texts are welcome: they all live in
 - **Network**: recently found blocks, pool ranking, solo chances BTC/BCH.
 - **Health early warning**: daily comparison of the last 7 days with the 4 weeks before – cooling (temperature per
   watt), efficiency without tuning change, fan speed, rejected shares, availability.
-- **Watchdog** (restart at 0 hashrate), **firmware check**, **best diff records**, **tray**, autostart.
+- **Watchdog** (restart at 0 hashrate; from 0.9.12 also when the hashrate stays clearly below normal for a configurable
+  time – Settings → Monitoring), **firmware check**, **best diff records**, **tray**, autostart.
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
@@ -151,6 +152,7 @@ A previously configured service is taken over automatically as the first one.
 | **Telegram** | bot token (from @BotFather) and chat ID |
 | **Discord** | webhook URL of a channel (*channel settings → Integrations → Webhooks*) |
 | **Pushover** | user key and app token (pushover.net) |
+| **Browser/app** (from 0.9.12) | nothing – in the browser *Settings → Push → “Register this device for push …”*. Notifications arrive directly in the browser or the installed app, without a third-party app or account. Needs a valid certificate (**HTTPS without warning**) or `localhost`; on iPhone/iPad (iOS 16.4+) first add the page via *Share → Add to Home Screen* and open it from there. Messages are end-to-end encrypted (Web Push, RFC 8291/8292). |
 | **Custom webhook** | URL; BitaxeTuner sends `POST` with JSON `{"source":"BitaxeTuner","title":…,"message":…,"priority":"high","priorityLevel":4,"time":…}` – e.g. to Home Assistant or n8n |
 
 Notification types per service: offline, overheating, block found/income, watchdog/automation/firmware,
@@ -368,6 +370,10 @@ the WLAN password stays on the Pico only, the fail-safe (100 %) remains. Guide:
 versions – collected every 6 hours by a GitHub Action; the server only fetches this public file) and **several displays**:
 up to eight further e-papers with their own display Pico, own pages, own interval and optionally only one miner group.
 Pico program 8 has a **hardware watchdog**: if it hangs, the Pico restarts and the fans run at 100 % meanwhile.
+
+**From 0.9.12:** the Pico's role (fans or display) can also be set directly over USB without WLAN. Pico program 8.1 waits a
+fixed time when the BUSY line stays silent instead of aborting and reports the restart reason and errors to the log; 8.2
+reads the keys of the Waveshare module (KEY0 next page, KEY1 redraw now, hold 3 s = restart).
 
 ### Prometheus / Grafana
 

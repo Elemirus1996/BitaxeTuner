@@ -59,7 +59,8 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Netzwerk**: zuletzt gefundene Blöcke, Pool-Ranking, Solo-Chancen BTC/BCH.
 - **Gesundheits-Frühwarnung**: täglicher Vergleich der letzten 7 Tage mit den 4 Wochen davor – Kühlung (Temperatur je
   Watt), Effizienz ohne Tuning-Änderung, Lüfter-Drehzahl, abgelehnte Shares, Verfügbarkeit.
-- **Watchdog** (Neustart bei 0 Hashrate), **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
+- **Watchdog** (Neustart bei 0 Hashrate; ab 0.9.12 auch, wenn die Hashrate eine einstellbare Zeit lang deutlich unter dem
+  Normalwert liegt – Einstellungen → Überwachung), **Firmware-Check**, **Best-Diff-Rekorde**, **Tray**, Autostart.
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
@@ -366,6 +367,10 @@ BitaxeTuner-Versionen – gesammelt alle 6 Stunden von einer GitHub Action, der 
 und **mehrere Anzeigen**: bis zu acht weitere E-Paper mit eigenem Display-Pico, eigenen Seiten, eigenem Intervall und auf
 Wunsch nur für eine Miner-Gruppe. Das Pico-Programm 8 hat einen **Hardware-Watchdog**: hängt es, startet der Pico neu,
 die Lüfter laufen dabei mit 100 %.
+
+**Ab 0.9.12:** Die Rolle des Pico (Lüfter oder Display) lässt sich auch ohne WLAN direkt per USB festlegen. Pico-Programm
+8.1 wartet bei stummer BUSY-Leitung fest statt abzubrechen und meldet Neustart-Grund und Fehler ins Protokoll; 8.2 wertet
+die Tasten des Waveshare-Moduls aus (KEY0 Anzeige weiter, KEY1 sofort neu zeichnen, 3 s halten = Neustart).
 
 **Ohne Kabel zum Server (ab 0.9.7):** Mit einem Pico 2 WH laufen Lüftersteuerung und Anzeige über WLAN – als
 Lüfter-Pico auf der Platine und/oder als Display-Pico, der einfach auf das Waveshare-E-Paper gesteckt wird. Einmal per
