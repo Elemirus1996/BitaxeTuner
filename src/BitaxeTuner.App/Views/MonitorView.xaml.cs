@@ -422,12 +422,14 @@ public partial class MonitorView : UserControl
                 ? L.T("noch nie erreicht")
                 : L.T("zuletzt erreicht: {0:G}", state.LastOk);
             PoolStatusText.Text = "";
+            PoolIdText.Visibility = Visibility.Collapsed;
             DrawCharts(ChartData(state.Config.Host, state.History), state.Config.Name, state.Config.Host);
             RenderWalletSingle(state);
             return;
         }
 
         PoolStatusText.Text = PoolText(state) + HealthText(state.Config.Host);
+        ShowPoolId(state);
 
         var i = state.Info!;
         var th = i.hashRate / 1000.0;

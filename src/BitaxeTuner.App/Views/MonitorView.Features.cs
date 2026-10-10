@@ -138,6 +138,41 @@ public partial class MonitorView
         return string.IsNullOrEmpty(text) ? pool : text + " · " + pool;
     }
 
+    /// <summary>0.9.13: „Pool: Name ↗ · Coin: DGB“ – der Pool-Name öffnet die Pool-Seite im Browser.</summary>
+    private void ShowPoolId(MinerState s)
+    {
+        var pool = Core.Monitoring.PoolIdentities.For(s.Info);
+        var coin = (_host.Hub.PoolCoinOf(s) ?? ResolveCoin(s))?.Symbol();
+        PoolIdText.Inlines.Clear();
+        if (pool is null && coin is null)
+        {
+            PoolIdText.Visibility = System.Windows.Visibility.Collapsed;
+            return;
+        }
+        if (pool is not null)
+        {
+            PoolIdText.Inlines.Add(new System.Windows.Documents.Run(L.T("Pool: ")));
+            var url = pool.Name == "Mining-Dutch" && _host.Hub.PoolCoinOf(s) is { } c && Core.Pools.MiningDutchClient.Slugs.TryGetValue(c, out var slug)
+                ? new Uri($"https://www.mining-dutch.nl/pools/{slug}.php?page=dashboard")
+                : pool.Url;
+            if (url is not null)
+            {
+                var link = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(pool.Name + " ↗")) { NavigateUri = url, ToolTip = url.AbsoluteUri };
+                link.RequestNavigate += (_, e) =>
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+                    catch { /* kein Browser */ }
+                    e.Handled = true;
+                };
+                PoolIdText.Inlines.Add(link);
+            }
+            else PoolIdText.Inlines.Add(new System.Windows.Documents.Run(pool.Name));
+        }
+        if (coin is not null)
+            PoolIdText.Inlines.Add(new System.Windows.Documents.Run((pool is null ? "" : " · ") + L.T("Coin: {0}", coin)));
+        PoolIdText.Visibility = System.Windows.Visibility.Visible;
+    }
+
     private BestDiffRecord? RecordFor(string host)
         => _bestDiffs.Where(r => r.Host == host).OrderByDescending(r => r.Value).FirstOrDefault();
 

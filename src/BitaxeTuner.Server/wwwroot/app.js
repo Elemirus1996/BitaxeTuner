@@ -423,6 +423,29 @@ function poolLinkIcon(d) {
   }, h('img', { src: 'pool.svg', alt: '', width: '18', height: '18' }));
 }
 
+// 0.9.13: eigene Abzeichen statt fremder Logos (keine Bilder von Pool-Seiten laden)
+const COIN_COLORS = { BTC: '#f7931a', BCH: '#0ac18e', DGB: '#0066cc', NMC: '#186c9d', ELA: '#3e7bd6', PPC: '#3cb054', EMC: '#a3378f' };
+const poolColor = name => { let x = 0; for (const c of name) x = (x * 31 + c.charCodeAt(0)) % 360; return `hsl(${x} 55% 42%)`; };
+const initials = name => (name.replace(/[^\p{L}\p{N} .-]/gu, '').split(/[\s.-]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2) || '?').toUpperCase();
+
+/** Pool und Coin des Miners als Abzeichen; der Pool öffnet seine Seite (Statistik des Pool-Benutzers oder Startseite). */
+function poolCoinRow(d) {
+  const p = d.poolInfo, coin = d.poolAccount?.coin || d.coin;
+  if (!p && !coin) return null;
+  const open = e => { e.preventDefault(); e.stopPropagation(); window.open(p.url, '_blank', 'noopener,noreferrer'); };
+  const pool = p ? h('span', {
+    class: 'chip-badge' + (p.url ? ' linked' : ''), title: p.url ? t('{0}: Pool-Seite öffnen', p.name) : p.name,
+    ...(p.url ? { role: 'link', tabindex: '0', 'aria-label': t('{0}: Pool-Seite öffnen', p.name), onclick: open,
+      onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') open(e); } } : {}),
+  }, h('span', { class: 'badge-dot', style: `background:${poolColor(p.name)}` }, initials(p.name)), h('span', { class: 'chip-text' }, p.name), p.url ? ' ↗' : null) : null;
+  const acc = d.poolAccount;
+  const coinChip = coin ? h('span', {
+    class: 'chip-badge', title: acc ? t('Coin laut Pool-Konto · Abrechnung {0}', acc.mode || '–') + (acc.merged ? ' · ' + t('Merged Mining') : '') : t('Coin'),
+  }, h('span', { class: 'badge-dot', style: `background:${COIN_COLORS[coin] || 'var(--muted)'}` }, coin === 'BTC' ? '₿' : coin[0]), h('span', { class: 'chip-text' }, coin + (acc?.merged ? ' + MM' : '')),
+    acc?.mode ? h('span', { class: 'muted small' }, ' · ' + acc.mode) : null) : null;
+  return h('div', { class: 'pool-row' }, pool, coinChip);
+}
+
 /** Link zur Weboberfläche des Miners (AxeOS) – auf Karten, die selbst Links sind, als <span> wie poolLinkIcon. */
 function webUiIcon(d) {
   if (!d.webUrl) return null;
@@ -487,10 +510,9 @@ function renderOverview() {
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
       d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
       d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
-      d.poolAccount ? h('span', { class: 'pill gray', title: t('Coin laut Pool-Konto · Abrechnung {0}', d.poolAccount.mode || '–') + (d.poolAccount.merged ? ' · ' + t('Merged Mining') : '') },
-        d.poolAccount.coin + (d.poolAccount.merged ? '+' : '')) : null,
       webUiIcon(d),
-      poolLinkIcon(d)),
+      d.poolInfo ? null : poolLinkIcon(d)),
+    poolCoinRow(d),
     d.online
       ? h('div', { class: 'kv num' },
           h('div', {}, h('span', {}, t('Hashrate')), hash(d.hashrate)),

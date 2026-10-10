@@ -245,6 +245,8 @@
 
                         <Border Grid.Row="3" Style="{StaticResource Tile}">
                             <StackPanel>
+                                <TextBlock x:Name="PoolIdText" FontSize="11" Margin="0,0,0,3" Visibility="Collapsed"
+                                           TextTrimming="CharacterEllipsis"/>
                                 <TextBlock x:Name="PoolStatusText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"
                                            TextTrimming="CharacterEllipsis" Margin="0,0,0,3"/>
                                 <TextBlock x:Name="FooterText" Text="–" Foreground="{DynamicResource MutedTextBrush}" FontSize="11"

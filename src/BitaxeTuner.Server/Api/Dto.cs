@@ -182,6 +182,12 @@ public static class Dto
             pool = admin ? hub.PoolText(s) : (i is null ? null : i.isUsingFallbackStratum != 0 ? L.T("Fallback-Pool") : L.T("Primär-Pool")),
             // Enthält den Pool-Benutzer (Wallet-Adresse) – daher nur für Admins
             poolLink = admin && !d.IsSimulated && PoolQuickLinks.For(i) is { } pl ? new { name = pl.Pool, url = pl.Url.AbsoluteUri } : null,
+            // 0.9.13: Coin des Miners (Pool-Konto, sonst Einstellung/Wallet-Adresse) und Pool mit Link zur Pool-Seite.
+            // Der Link kann den Pool-Benutzer (Wallet-Adresse) enthalten – Pool daher nur für Admins
+            coin = (hub.PoolCoinOf(s) ?? MinerHub.ResolveCoin(s))?.Symbol(),
+            poolInfo = admin && i is not null && Core.Monitoring.PoolIdentities.For(i) is { } pid
+                ? new { name = pid.Name, url = PoolPage(hub, s, pid)?.AbsoluteUri }
+                : null,
             // 0.9.12 Pool-Konto: Coin, den der Pool diesem Miner gerade gibt (Profit-Wechsel), Abrechnung (PPS), Merged Mining
             poolAccount = hub.PoolWorkerOf(s) is { } pw
                 ? new { coin = Core.Tax.Models.CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, mode = pw.Mode, merged = pw.MergedMining }
@@ -221,6 +227,14 @@ public static class Dto
         overallProgress = R(b.OverallProgress),
         started = b.Started,
     };
+
+    /// <summary>Seite für den Pool-Link: bei Mining-Dutch mit Pool-Konto das Dashboard des gerade geschürften Coins.</summary>
+    private static Uri? PoolPage(MinerHub hub, Core.Monitoring.MinerState s, Core.Monitoring.PoolIdentity pid)
+    {
+        if (pid.Name == "Mining-Dutch" && hub.PoolCoinOf(s) is { } coin && Core.Pools.MiningDutchClient.Slugs.TryGetValue(coin, out var slug))
+            return new Uri($"https://www.mining-dutch.nl/pools/{slug}.php?page=dashboard");
+        return pid.Url;
+    }
 
     /// <summary>0.9.12 Pool-Konto (nur Admin): Einstellungen ohne Schlüssel, Worker mit zugeordnetem Miner, Coins mit Wert.</summary>
     public static object PoolAccount(MinerHub hub)

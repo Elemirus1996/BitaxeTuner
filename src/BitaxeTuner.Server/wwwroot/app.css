@@ -82,6 +82,12 @@ main { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px; }
 .device:hover { border-color: var(--accent); }
 .device .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .device .head b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pool-row { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; }
+.chip-badge { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 8px 1px 2px; border-radius: 999px; background: var(--alt); font-size: 12px; color: var(--text); }
+.chip-badge .chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-badge.linked { cursor: pointer; }
+.chip-badge.linked:hover, .chip-badge.linked:focus-visible { background: var(--accent-soft); outline: none; }
+.badge-dot { width: 18px; height: 18px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: -.3px; }
 .pool-link { display: inline-flex; padding: 2px; border-radius: 6px; cursor: pointer; opacity: .85; }
 .pool-link:hover, .pool-link:focus-visible { opacity: 1; background: var(--accent-soft); outline: none; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--idle); flex: none; }
