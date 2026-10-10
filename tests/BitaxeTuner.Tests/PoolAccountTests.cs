@@ -86,6 +86,19 @@ public class PoolAccountTests
         Assert.Equal(new DateTime(2026, 1, 15, 7, 30, 0, DateTimeKind.Utc), txs[1].TimeUtc); // Winterzeit = UTC+1
     }
 
+    [Theory]
+    [InlineData("PPS", false, false)]
+    [InlineData("PPLNS", false, false)]
+    [InlineData("A-PROP", false, false)]
+    [InlineData("SOLO", true, false)]
+    [InlineData("solo mining", true, false)]
+    [InlineData("PARTY", false, true)]
+    public void Payout_scheme_decides_who_owns_a_found_block(string mode, bool solo, bool party)
+    {
+        var w = new PoolWorker("w", true, 1e12, "bitcoin", false, mode, null);
+        Assert.Equal((solo, party), (w.IsSolo, w.IsParty));
+    }
+
     [Fact]
     public async Task Client_reports_rejected_key_and_unknown_coins()
     {

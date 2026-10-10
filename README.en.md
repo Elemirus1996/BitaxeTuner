@@ -206,7 +206,9 @@ enter the **API key** (Mining-Dutch: *Edit Account* → *API Key*). It cannot ch
 `secrets.json`. BitaxeTuner then queries at most every 10 minutes (with pauses between requests so the pool doesn't block):
 
 - **the coin per miner** the pool is currently giving it, with payout scheme (PPS) and merged mining – matched by the
-  worker name (part after the dot in the pool user, e.g. `account.bench`); these miners don't count towards the solo chance,
+  worker name (part after the dot in the pool user, e.g. `account.bench`). They count towards the solo chance only in
+  *SOLO mining* mode (then with the coin reported by the pool); with PPS, PROP, PPLNS or PARTY a found block isn't theirs
+  alone – the block-found notification says where the reward goes,
 - **balance** per coin with value, credits of the last 24 h / 7 days, payouts of the last 30 days,
 - **bookings as inflows for the tax section**: either *credit at the pool* (all credits of a coin on one day as one
   inflow once the day is over – default) or *payout to the wallet* (every payout individually). Manually entered prices

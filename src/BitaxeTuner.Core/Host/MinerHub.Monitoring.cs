@@ -275,9 +275,10 @@ public sealed partial class MinerHub
             if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.Wants(NotifyCategory.Finds))
             {
                 // 0.9.12 Pool-Konto: der Miner zählt Blöcke des Coins, den der Pool ihm gerade gibt (z. B. DGB)
-                var poolNote = PoolWorkerOf(s) is { } pw
-                    ? L.T(" Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, pw.Mode)
-                    : "";
+                var poolNote = PoolWorkerOf(s) is not { } pw ? ""
+                    : pw.IsSolo ? L.T(" Coin laut Pool-Konto: {0} (SOLO) – der Block gehört dir (abzüglich Pool-Gebühr); die Belohnung kommt als Gutschrift im Pool-Konto.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining)
+                    : pw.IsParty ? L.T(" Coin laut Pool-Konto: {0} (PARTY) – die Blockbelohnung wird unter den Party-Mitgliedern aufgeteilt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining)
+                    : L.T(" Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, pw.Mode);
                 _ = Notify.SendAsync($"block:{host}:{i.blockFound}", L.T("BLOCK GEFUNDEN – {0}", s.Config.Name),
                     L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound) + poolNote,
                     NotifyPriority.Urgent, TimeSpan.FromDays(365), category: NotifyCategory.Finds, host: host);

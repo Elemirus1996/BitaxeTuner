@@ -205,7 +205,9 @@ Profit-Wechsel), trägst du den **API-Schlüssel** ein (Mining-Dutch: *Edit Acco
 Anfragen, damit der Pool nicht sperrt):
 
 - **je Miner der Coin**, den der Pool gerade gibt, mit Abrechnung (PPS) und Merged Mining – zugeordnet über den
-  Worker-Namen (Teil hinter dem Punkt im Pool-Benutzer, z. B. `konto.werkbank`); diese Miner zählen nicht zur Solo-Chance,
+  Worker-Namen (Teil hinter dem Punkt im Pool-Benutzer, z. B. `konto.werkbank`). Zur Solo-Chance zählen sie nur im Modus
+  *SOLO Mining* (dann mit dem Coin laut Pool); bei PPS, PROP, PPLNS oder PARTY gehört ein gefundener Block nicht ihnen
+  allein – die Blockfund-Meldung sagt dazu, wohin die Belohnung geht,
 - **Guthaben** je Coin mit Wert, Gutschriften der letzten 24 h / 7 Tage, Auszahlungen der letzten 30 Tage,
 - **Buchungen als Zuflüsse für die Steuer**: wahlweise *Gutschrift beim Pool* (alle Gutschriften eines Coins an einem Tag
   als ein Zufluss, sobald der Tag vorbei ist – Standard) oder *Auszahlung an die Wallet* (jede Auszahlung einzeln).

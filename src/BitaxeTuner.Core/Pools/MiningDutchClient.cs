@@ -7,7 +7,15 @@ using BitaxeTuner.Core.Tax.Models;
 namespace BitaxeTuner.Core.Pools;
 
 /// <summary>Ein Worker beim Pool (Name = Teil hinter dem Punkt im Pool-Benutzer des Miners).</summary>
-public sealed record PoolWorker(string Name, bool Alive, double HashrateHs, string NowMining, bool MergedMining, string Mode, DateTime? LastShareUtc);
+/// <param name="Mode">Abrechnung, im Pool-Dashboard umschaltbar: PPS, PROP, A-PROP, PPLNS, SOLO, PARTY.</param>
+public sealed record PoolWorker(string Name, bool Alive, double HashrateHs, string NowMining, bool MergedMining, string Mode, DateTime? LastShareUtc)
+{
+    /// <summary>Solo beim Pool: ein gefundener Block gehört dem Miner (abzüglich Gebühr) – zählt zur Solo-Chance.</summary>
+    public bool IsSolo => Mode.Contains("SOLO", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Party-Mining: Blockbelohnung wird unter den Mitgliedern der Party aufgeteilt.</summary>
+    public bool IsParty => Mode.Contains("PARTY", StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>Guthaben je Coin beim Pool.</summary>
 public sealed record PoolBalance(CoinType Coin, decimal Confirmed, decimal Unconfirmed);

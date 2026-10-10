@@ -37,6 +37,8 @@
   " (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)": " (media {0} ct/kWh, {1} de {2} h con precio por hora)",
   " Bitte die PIN einmal neu setzen (mind. {0} Ziffern) – sie wird dann sicherer gespeichert.": " Por favor, vuelve a establecer el PIN una vez (mín. {0} dígitos) – así se guardará de forma más segura.",
   " Coin bei {0} bitte prüfen (Legacy-Adresse, BCH angenommen).": " Comprueba la moneda en {0} (dirección legacy, se asume BCH).",
+  " Coin laut Pool-Konto: {0} (PARTY) – die Blockbelohnung wird unter den Party-Mitgliedern aufgeteilt.": " Moneda según la cuenta del pool: {0} (PARTY): la recompensa del bloque se reparte entre los miembros de la party.",
+  " Coin laut Pool-Konto: {0} (SOLO) – der Block gehört dir (abzüglich Pool-Gebühr); die Belohnung kommt als Gutschrift im Pool-Konto.": " Moneda según la cuenta del pool: {0} (SOLO): el bloque es tuyo (menos la comisión del pool); la recompensa llega como abono en la cuenta del pool.",
   " Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.": " Moneda según la cuenta del pool: {0} ({1}): la recompensa del bloque va al pool, tu abono llega como siempre.",
   " Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“.": " Hasta entonces los ventiladores de la caja funcionan con el valor para “desconocido”.",
   " J/TH": " J/TH",

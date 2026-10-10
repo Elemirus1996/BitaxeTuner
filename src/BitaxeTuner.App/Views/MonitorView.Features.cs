@@ -176,8 +176,11 @@ public partial class MonitorView
                 ? (OddsBtcValue, OddsBtcSub, OddsBtcSub2)
                 : (OddsBchValue, OddsBchSub, OddsBchSub2);
 
-            // Miner auf einem Pool-Konto (PPS) mischen nicht solo mit – sie zählen nicht zur Solo-Chance
-            var miners = _states.Where(s => s.Online && s.Info is not null && ResolveCoin(s) == coin && _host.Hub.PoolWorkerOf(s) is null).ToList();
+            // Miner auf einem Pool-Konto zählen nur im Modus SOLO zur Solo-Chance (dann mit dem Coin laut Pool);
+            // bei PPS, PROP, PPLNS oder PARTY gehört ein Block nicht ihnen allein
+            var miners = _states.Where(s => s.Online && s.Info is not null && (_host.Hub.PoolWorkerOf(s) is { } w
+                ? w.IsSolo && _host.Hub.PoolCoinOf(s) == coin
+                : ResolveCoin(s) == coin)).ToList();
             var gh = miners.Sum(s => s.Info!.hashRate);
             var r = _odds.Calculate(coin, gh, miners.Count);
 
