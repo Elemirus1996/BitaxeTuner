@@ -37,6 +37,7 @@
   " (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)": " (avg {0} ct/kWh, {1} of {2} h with hourly price)",
   " Bitte die PIN einmal neu setzen (mind. {0} Ziffern) – sie wird dann sicherer gespeichert.": " Please set the PIN again once (at least {0} digits) – it will then be stored more securely.",
   " Coin bei {0} bitte prüfen (Legacy-Adresse, BCH angenommen).": " Please check the coin for {0} (legacy address, BCH assumed).",
+  " Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.": " Coin according to the pool account: {0} ({1}) – the block reward goes to the pool, your credit arrives as usual.",
   " Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“.": " Until then the case fans run at the value for “unknown”.",
   " J/TH": " J/TH",
   " MHz": " MHz",

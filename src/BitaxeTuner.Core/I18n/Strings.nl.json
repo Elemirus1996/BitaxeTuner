@@ -37,6 +37,7 @@
   " (Ø {0} ct/kWh, {1} von {2} h mit Stundenpreis)": " (gem. {0} ct/kWh, {1} van {2} h met uurprijs)",
   " Bitte die PIN einmal neu setzen (mind. {0} Ziffern) – sie wird dann sicherer gespeichert.": " Stel de pincode nog één keer opnieuw in (min. {0} cijfers) – hij wordt dan veiliger opgeslagen.",
   " Coin bei {0} bitte prüfen (Legacy-Adresse, BCH angenommen).": " Controleer de munt bij {0} (legacy-adres, BCH aangenomen).",
+  " Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.": " Coin volgens het poolaccount: {0} ({1}) – de blokbeloning gaat naar de pool, je bijschrijving komt zoals gewoonlijk.",
   " Die Gehäuselüfter laufen bis dahin mit dem Wert für „unbekannt“.": " Tot die tijd draaien de kastventilatoren met de waarde voor “onbekend”.",
   " J/TH": " J/TH",
   " MHz": " MHz",

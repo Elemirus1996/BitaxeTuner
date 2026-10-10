@@ -274,8 +274,12 @@ public sealed partial class MinerHub
                 OnBlockFound(s.Config.Name.Length > 0 ? s.Config.Name : host, i.blockFound, Options.Clock?.Invoke() ?? DateTime.Now);
             if (_blockFoundSeen.TryGetValue(host, out seen) && i.blockFound > seen && n.Wants(NotifyCategory.Finds))
             {
+                // 0.9.12 Pool-Konto: der Miner zählt Blöcke des Coins, den der Pool ihm gerade gibt (z. B. DGB)
+                var poolNote = PoolWorkerOf(s) is { } pw
+                    ? L.T(" Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, pw.Mode)
+                    : "";
                 _ = Notify.SendAsync($"block:{host}:{i.blockFound}", L.T("BLOCK GEFUNDEN – {0}", s.Config.Name),
-                    L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound),
+                    L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound) + poolNote,
                     NotifyPriority.Urgent, TimeSpan.FromDays(365), category: NotifyCategory.Finds, host: host);
             }
             _blockFoundSeen[host] = i.blockFound;
