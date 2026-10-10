@@ -135,6 +135,12 @@ public static class WhatsNew
             new("0.9.11", tr.T("Temperatur jedes Chips"),
                 tr.T("Bei Boards mit mehreren Chips (z. B. NerdQAxe, Gamma Hex) zeigt BitaxeTuner jeden Chip einzeln, den heißesten hervorgehoben, mit Verlauf je Chip. Lüfter, Temperaturschutz und Meldungen richten sich nach dem heißesten Chip; Home Assistant und Prometheus bekommen jeden Chip als eigenen Wert."),
                 null),
+            new("0.9.13", tr.T("Pool-Konto: Umtausch in BTC und weitere Coins"),
+                tr.T("Tauscht Mining-Dutch Altcoins automatisch in Bitcoin, zählt jetzt nur die Mining-Gutschrift als Ertrag; der Umtausch wird als Verkauf des Altcoins und die BTC dafür als Anschaffung erfasst – nichts mehr doppelt. Coins aus dem Profit-Wechsel wie WOJAKCOIN (WJK) werden erkannt und mit dem Kurs des Pools in die Steuer übernommen. Worker-Daten kommen jetzt auch im Modus SOLO vollständig an, und die Blockfund-Meldung sagt je Modus (PPS, SOLO, PARTY …), wem der Block gehört."),
+                null),
+            new("0.9.13", tr.T("Pool und Coin je Miner in der Übersicht"),
+                tr.T("Jede Miner-Karte zeigt den Pool als Abzeichen – ein Klick öffnet die Pool-Seite (bei Solo-Pools deine Statistik) – und den Coin, den der Miner gerade schürft. In der Desktop-App steht beides in der Pool-Zeile des Miners."),
+                null),
             new("0.9.12", tr.T("Pool-Konto: Mining-Dutch mit DGB, NMC & Co."),
                 server ? tr.T("Einstellungen → Pool-Konto (auch unter Steuer → Pool-Konto): Mit dem API-Schlüssel deines Mining-Dutch-Kontos zeigt BitaxeTuner je Miner den Coin, den der Pool gerade gibt – auch nach einem Wechsel im Pool-Dashboard –, Guthaben und Gutschriften je Coin. Die Buchungen landen als Zuflüsse in der Steuer: wahlweise die Gutschriften je Tag und Coin (Standard) oder jede Auszahlung; DGB, NMC und andere Merged-Mining-Coins inklusive. Nur lesend.")
                        : tr.T("Einstellungen → Pool-Konto: Mit dem API-Schlüssel deines Mining-Dutch-Kontos zeigt BitaxeTuner je Miner den Coin, den der Pool gerade gibt – auch nach einem Wechsel im Pool-Dashboard –, Guthaben und Gutschriften je Coin. Die Buchungen landen als Zuflüsse in der Steuer: wahlweise die Gutschriften je Tag und Coin (Standard) oder jede Auszahlung; DGB, NMC und andere Merged-Mining-Coins inklusive. Nur lesend."),
