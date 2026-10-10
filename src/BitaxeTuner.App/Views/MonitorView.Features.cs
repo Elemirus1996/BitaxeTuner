@@ -133,7 +133,7 @@ public partial class MonitorView
         var text = _host.Hub.PoolText(s);
         // 0.9.12 Pool-Konto: Coin, den der Pool gerade gibt (Profit-Wechsel im Pool-Dashboard)
         if (_host.Hub.PoolWorkerOf(s) is not { } w) return text;
-        var coin = CoinTypeExtensions.FromSymbolOrName(w.NowMining)?.Symbol() ?? w.NowMining;
+        var coin = _host.Hub.PoolSymbolOfSlug(w.NowMining);
         var pool = L.T("Pool-Konto: {0} · {1}", coin, w.Mode) + (w.MergedMining ? " + " + L.T("Merged Mining") : "");
         return string.IsNullOrEmpty(text) ? pool : text + " · " + pool;
     }
@@ -142,7 +142,7 @@ public partial class MonitorView
     private void ShowPoolId(MinerState s)
     {
         var pool = Core.Monitoring.PoolIdentities.For(s.Info);
-        var coin = (_host.Hub.PoolCoinOf(s) ?? ResolveCoin(s))?.Symbol();
+        var coin = _host.Hub.PoolCoinSymbolOf(s) ?? ResolveCoin(s)?.Symbol();
         PoolIdText.Inlines.Clear();
         if (pool is null && coin is null)
         {
@@ -152,8 +152,8 @@ public partial class MonitorView
         if (pool is not null)
         {
             PoolIdText.Inlines.Add(new System.Windows.Documents.Run(L.T("Pool: ")));
-            var url = pool.Name == "Mining-Dutch" && _host.Hub.PoolCoinOf(s) is { } c && Core.Pools.MiningDutchClient.Slugs.TryGetValue(c, out var slug)
-                ? new Uri($"https://www.mining-dutch.nl/pools/{slug}.php?page=dashboard")
+            var url = pool.Name == "Mining-Dutch" && _host.Hub.PoolCoinSymbolOf(s) is not null && _host.Hub.PoolWorkerOf(s) is { } pw
+                ? new Uri($"https://www.mining-dutch.nl/pools/{Uri.EscapeDataString(pw.NowMining.Trim().ToLowerInvariant())}.php?page=dashboard")
                 : pool.Url;
             if (url is not null)
             {

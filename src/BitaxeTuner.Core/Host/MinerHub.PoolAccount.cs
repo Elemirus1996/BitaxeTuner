@@ -6,8 +6,8 @@ using BitaxeTuner.Core.Tax.Models;
 
 namespace BitaxeTuner.Core.Host;
 
-/// <summary>Zusammenfassung je Coin beim Pool-Konto (Guthaben, Gutschriften, Auszahlungen, Kurs).</summary>
-public sealed record PoolCoinSummary(CoinType Coin, decimal Confirmed, decimal Unconfirmed, decimal Credits24h, decimal Credits7d,
+/// <summary>Zusammenfassung je Coin beim Pool-Konto (Guthaben, Gutschriften, Auszahlungen, Kurs). 0.9.13: je Kürzel.</summary>
+public sealed record PoolCoinSummary(string Symbol, CoinType Coin, decimal Confirmed, decimal Unconfirmed, decimal Credits24h, decimal Credits7d,
     decimal Payouts30d, DateTime? LastCreditUtc, DateTime? LastPayoutUtc, decimal? Price);
 
 /// <summary>Stand des Pool-Kontos für Browser und Desktop.</summary>
@@ -30,7 +30,29 @@ public sealed partial class MinerHub
     private int _poolNewRewards;
     private volatile IReadOnlyList<PoolWorker> _poolWorkers = [];
     private volatile IReadOnlyList<PoolBalance> _poolBalances = [];
-    private readonly Dictionary<CoinType, (DateTime At, decimal? Price, string Currency)> _poolPrices = [];
+    private readonly Dictionary<string, (DateTime At, decimal? Price, string Currency)> _poolPrices = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>0.9.13: Kürzel und Kurs-Rohwert je Coin-Pool (Slug), aus dem Dashboard; höchstens alle 6 h neu.</summary>
+    private readonly Dictionary<string, (DateTime At, PoolCoinInfo Info)> _poolCoinInfo = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Pools, die keine Coins sind (Profit-Wechsel nach Algorithmus).</summary>
+    private static readonly HashSet<string> AlgoPools = new(StringComparer.OrdinalIgnoreCase) { "sha256", "sha256d", "" };
+
+    /// <summary>Coin zu einem Pool-Namen: feste Liste, sonst <see cref="CoinType.Other"/> mit dem Kürzel laut Dashboard.</summary>
+    private (CoinType Coin, string? Code) CoinOfSlug(string slug)
+    {
+        foreach (var (c, s) in MiningDutchClient.Slugs)
+            if (string.Equals(s, slug, StringComparison.OrdinalIgnoreCase)) return (c, null);
+        if (CoinTypeExtensions.FromSymbolOrName(slug) is { } known) return (known, null);
+        return (CoinType.Other, _poolCoinInfo.TryGetValue(slug, out var i) ? i.Info.Currency : slug.ToUpperInvariant());
+    }
+
+    /// <summary>Kürzel eines Pool-Namens (z. B. „wojakcoin“ → „WJK“).</summary>
+    public string PoolSymbolOfSlug(string slug)
+    {
+        var (coin, code) = CoinOfSlug(slug.Trim());
+        return coin.Symbol(code);
+    }
 
     /// <summary>Für Tests: eigener HTTP-Handler und Abstand zwischen den Anfragen.</summary>
     internal Func<string, MiningDutchClient>? PoolClientFactory { get; set; }
@@ -46,20 +68,26 @@ public sealed partial class MinerHub
             List<PoolTransaction> ledger;
             try { ledger = TaxRepository.LoadPoolLedger(); } catch { ledger = []; }
             var now = DateTime.UtcNow;
-            var coins = MiningDutchClient.Slugs.Keys
-                .Select(c =>
+            var balances = _poolBalances;
+            var symbols = MiningDutchClient.Slugs.Keys.Select(c => (Symbol: c.Symbol(), Coin: c))
+                .Concat(balances.Select(b => (b.Symbol, b.Coin)))
+                .Concat(ledger.Select(t => (t.Symbol, t.Coin)))
+                .DistinctBy(x => x.Symbol, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var coins = symbols
+                .Select(x =>
                 {
-                    var own = ledger.Where(t => t.Coin == c).ToList();
-                    var bal = _poolBalances.FirstOrDefault(b => b.Coin == c);
+                    var own = ledger.Where(t => string.Equals(t.Symbol, x.Symbol, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var bal = balances.FirstOrDefault(b => string.Equals(b.Symbol, x.Symbol, StringComparison.OrdinalIgnoreCase));
                     var credits = own.Where(t => t.IsCredit).ToList();
                     var payouts = own.Where(t => t.IsPayout).ToList();
-                    return new PoolCoinSummary(c, bal?.Confirmed ?? 0, bal?.Unconfirmed ?? 0,
+                    return new PoolCoinSummary(x.Symbol, x.Coin, bal?.Confirmed ?? 0, bal?.Unconfirmed ?? 0,
                         credits.Where(t => now - t.TimeUtc <= TimeSpan.FromHours(24)).Sum(t => t.Amount),
                         credits.Where(t => now - t.TimeUtc <= TimeSpan.FromDays(7)).Sum(t => t.Amount),
                         payouts.Where(t => now - t.TimeUtc <= TimeSpan.FromDays(30)).Sum(t => t.Amount),
                         credits.Count > 0 ? credits.Max(t => t.TimeUtc) : null,
                         payouts.Count > 0 ? payouts.Max(t => t.TimeUtc) : null,
-                        _poolPrices.TryGetValue(c, out var p) && p.Currency == cur ? p.Price : null);
+                        _poolPrices.TryGetValue(x.Symbol, out var p) && p.Currency == cur ? p.Price : null);
                 })
                 // Nur Coins mit Guthaben oder Buchungen, Bitcoin immer
                 .Where(s => s.Coin == CoinType.Bitcoin || s.Confirmed + s.Unconfirmed > 0 || s.LastCreditUtc is not null || s.LastPayoutUtc is not null)
@@ -84,8 +112,11 @@ public sealed partial class MinerHub
         return workers.FirstOrDefault(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Coin, den der Pool diesem Miner gerade gibt (null = kein Pool-Konto-Miner oder unbekannt).</summary>
-    public CoinType? PoolCoinOf(MinerState s) => PoolWorkerOf(s) is { } w ? CoinTypeExtensions.FromSymbolOrName(w.NowMining) : null;
+    /// <summary>Coin, den der Pool diesem Miner gerade gibt (null = kein Pool-Konto-Miner; <see cref="CoinType.Other"/> = weiterer Coin).</summary>
+    public CoinType? PoolCoinOf(MinerState s) => PoolWorkerOf(s) is { } w && !AlgoPools.Contains(w.NowMining) ? CoinOfSlug(w.NowMining).Coin : null;
+
+    /// <summary>Kürzel des Coins, den der Pool diesem Miner gerade gibt (auch weitere Coins wie „WJK“).</summary>
+    public string? PoolCoinSymbolOf(MinerState s) => PoolWorkerOf(s) is { } w && !AlgoPools.Contains(w.NowMining) ? PoolSymbolOfSlug(w.NowMining) : null;
 
     /// <summary>Pool-Konto einmal abfragen (Takt und „Jetzt abfragen“). Liefert eine Fehlermeldung oder null.</summary>
     public async Task<string?> PoolAccountTickAsync()
@@ -107,24 +138,35 @@ public sealed partial class MinerHub
             var balances = new List<PoolBalance>();
             var fresh = new List<PoolTransaction>();
             var coinErrors = new List<string>();
-            foreach (var coin in MiningDutchClient.Slugs.Keys)
+            var ledger = TaxRepository.LoadPoolLedger();
+            // 0.9.13: feste Coins + was die Worker gerade schürfen (Profit-Wechsel, z. B. wojakcoin) + was schon im Pool-Buch steht
+            var slugs = MiningDutchClient.Slugs.Values
+                .Concat(workers.Select(w => w.NowMining.Trim().ToLowerInvariant()))
+                .Concat(ledger.Select(t => t.Slug ?? ""))
+                .Where(s => s.Length > 0 && !AlgoPools.Contains(s) && s.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            foreach (var slug in slugs)
             {
                 try
                 {
-                    balances.Add(await client.GetBalanceAsync(coin));
-                    fresh.AddRange(await client.GetTransactionsAsync(coin));
+                    var (coin, _) = CoinOfSlug(slug);
+                    if (coin == CoinType.Other && (!_poolCoinInfo.TryGetValue(slug, out var ci) || DateTime.UtcNow - ci.At > TimeSpan.FromHours(6)))
+                        _poolCoinInfo[slug] = (DateTime.UtcNow, await client.GetCoinInfoAsync(slug));
+                    var (c, code) = CoinOfSlug(slug);
+                    balances.Add(await client.GetBalanceAsync(slug, c, code));
+                    fresh.AddRange(await client.GetTransactionsAsync(slug, c, code));
                 }
                 catch (LocalizedException ex) when (ex.Text != MiningDutchClient.KeyRejected)
                 {
-                    coinErrors.Add($"{coin.Symbol()}: {L.T(ex.Text, ex.Args)}");
+                    coinErrors.Add($"{PoolSymbolOfSlug(slug)}: {L.T(ex.Text, ex.Args)}");
                 }
             }
             _poolBalances = balances;
 
             // Pool-Buch ergänzen: der Pool liefert nur die jüngsten Buchungen – alles einmal Gesehene bleibt erhalten
-            var ledger = TaxRepository.LoadPoolLedger();
-            var known = ledger.Select(t => (t.Coin, t.Id)).ToHashSet();
-            var added = fresh.Where(t => known.Add((t.Coin, t.Id))).ToList();
+            var known = ledger.Select(t => (t.Symbol, t.Id)).ToHashSet();
+            var added = fresh.Where(t => known.Add((t.Symbol, t.Id))).ToList();
             if (added.Count > 0)
             {
                 ledger.AddRange(added);
@@ -133,7 +175,7 @@ public sealed partial class MinerHub
 
             var newRewards = await TaxMonitor.SyncPoolAsync(ledger, cfg.TaxBasis, cfg.TaxImport, fetchPrices: Options.OnlineChecks);
             _poolNewRewards += newRewards;
-            await RefreshPoolPricesAsync(balances.Where(b => b.Confirmed + b.Unconfirmed > 0).Select(b => b.Coin));
+            await RefreshPoolPricesAsync(balances.Where(b => b.Confirmed + b.Unconfirmed > 0 && b.Coin.HasPriceSource()).Select(b => b.Coin));
 
             _poolLastPoll = DateTime.UtcNow;
             _poolError = coinErrors.Count > 0 ? string.Join("; ", coinErrors) : null;
@@ -196,11 +238,12 @@ public sealed partial class MinerHub
         var cur = Currencies.Of(Config).Code;
         foreach (var coin in coins)
         {
-            if (_poolPrices.TryGetValue(coin, out var p) && p.Currency == cur && DateTime.UtcNow - p.At < TimeSpan.FromHours(1)) continue;
+            if (_poolPrices.TryGetValue(coin.Symbol(), out var p) && p.Currency == cur && p.Price is not null && DateTime.UtcNow - p.At < TimeSpan.FromHours(1)) continue;
             try
             {
                 var (quote, _) = await CoinGecko.GetPriceAsync(coin, DateTime.UtcNow, cur);
-                _poolPrices[coin] = (DateTime.UtcNow, quote?.Value, cur);
+                // Ohne Kurs (z. B. CoinGecko-Sperre) beim nächsten Durchlauf erneut versuchen
+                _poolPrices[coin.Symbol()] = (DateTime.UtcNow, quote?.Value, cur);
             }
             catch { /* ohne Kurs nur die Menge */ }
         }

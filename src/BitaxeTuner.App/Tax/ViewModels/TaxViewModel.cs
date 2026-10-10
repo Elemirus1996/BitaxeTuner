@@ -30,7 +30,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
     private List<Disposal> _disposals = new();
     private List<DisposalResult> _results = new();
-    public IEnumerable<CoinType> AvailableCoins { get; } = Enum.GetValues<CoinType>();
+    public IEnumerable<CoinType> AvailableCoins { get; } = Enum.GetValues<CoinType>().Where(c => c != CoinType.Other).ToList();
     /// <summary>0.9.12: Wallets nur für Coins mit Blockchain-Abfrage; Verkäufe für alle Coins.</summary>
     public IEnumerable<CoinType> WalletCoins { get; } = CoinTypeExtensions.WalletCoins;
 
@@ -297,7 +297,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
             // Die gehören in die Liste, aber nicht als 50 Hinweisfenster.
             if (DateTime.UtcNow - reward.ReceivedAtUtc > NotifyWindow) return;
 
-            var text = L.T("{0} {1} auf {2}\n", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel) +
+            var text = L.T("{0} {1} auf {2}\n", reward.Amount.ToString("0.00000000", De), reward.CoinSymbol, reward.WalletLabel) +
                        L.T("Zeitpunkt: {0:g}\n", reward.ReceivedAtUtc.ToLocalTime()) +
                        (reward.ValueIn(Cur.Code) is { } value
                            ? L.T("Wert: {0} (Kurs {1})", Money(value), Money(reward.PriceIn(Cur.Code)!.Value))
@@ -351,7 +351,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedReward is not { } reward) return;
 
         var text = L.T("Eintrag vom {0:g} über ", reward.ReceivedAtLocal) +
-                   L.T("{0} {1} entfernen?\n\n", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol()) +
+                   L.T("{0} {1} entfernen?\n\n", reward.Amount.ToString("0.00000000", De), reward.CoinSymbol) +
                    L.T("Nur für Eingänge, die kein Mining-Ertrag sind. Die Transaktion wird danach dauerhaft ignoriert.");
         if (MessageBox.Show(text, L.T("Eintrag entfernen"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;

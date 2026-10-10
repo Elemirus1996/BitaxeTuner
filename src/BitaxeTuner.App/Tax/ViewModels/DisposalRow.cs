@@ -19,7 +19,7 @@ public sealed class DisposalRow
     public Disposal Disposal => Result.Disposal;
 
     public DateTime SoldAtLocal => Disposal.SoldAtLocal;
-    public string CoinSymbol => Disposal.Coin.Symbol();
+    public string CoinSymbol => Disposal.CoinSymbol;
     public decimal Amount => Disposal.Amount;
     /// <summary>Erlös in der eingestellten Währung (0.9.11); in anderer Währung erfasst → 0, siehe <see cref="Hint"/>.</summary>
     public decimal ProceedsEur => Disposal.ProceedsIn(_currency) ?? 0;

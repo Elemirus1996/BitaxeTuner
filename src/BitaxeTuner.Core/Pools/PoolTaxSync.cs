@@ -29,22 +29,24 @@ public static class PoolTaxSync
         var today = TaxTime.ToTax(nowUtc).Date;
         if (basis == PoolIncomeBasis.Payout)
             return ledger.Where(t => t.IsPayout)
-                .Select(t => New(t.Coin, PayoutPrefix + t.Coin.Symbol() + "-" + t.Id, t.TimeUtc, t.Amount, t.Height,
+                .Select(t => New(t.Coin, t.Code, PayoutPrefix + t.Symbol + "-" + t.Id, t.TimeUtc, t.Amount, t.Height,
                     L.T("Mining-Dutch: Auszahlung an die Wallet")))
                 .ToList();
+        // 0.9.13: je Kürzel – auch Coins außerhalb der festen Liste (z. B. WJK)
         return ledger.Where(t => t.IsCredit)
-            .GroupBy(t => (t.Coin, Day: TaxTime.ToTax(t.TimeUtc).Date))
+            .GroupBy(t => (t.Symbol, Day: TaxTime.ToTax(t.TimeUtc).Date))
             .Where(g => g.Key.Day < today)   // erst abgeschlossene Tage
-            .Select(g => New(g.Key.Coin, CreditPrefix + g.Key.Coin.Symbol() + "-" + g.Key.Day.ToString("yyyy-MM-dd"),
+            .Select(g => New(g.First().Coin, g.First().Code, CreditPrefix + g.Key.Symbol + "-" + g.Key.Day.ToString("yyyy-MM-dd"),
                 g.Max(t => t.TimeUtc), g.Sum(t => t.Amount), null, L.T("Mining-Dutch: {0} Gutschrift(en) an diesem Tag", g.Count())))
             .ToList();
     }
 
-    private static MinedReward New(CoinType coin, string txId, DateTime timeUtc, decimal amount, long? height, string note) => new()
+    private static MinedReward New(CoinType coin, string? code, string txId, DateTime timeUtc, decimal amount, long? height, string note) => new()
     {
         WalletAddressId = WalletId,
         WalletLabel = "Mining-Dutch",
         Coin = coin,
+        CoinCode = coin == CoinType.Other ? code : null,
         TxId = txId,
         ReceivedAtUtc = timeUtc,
         Amount = amount,
@@ -83,7 +85,7 @@ public static class PoolTaxSync
         var byTx = rewards.Where(IsPoolReward).ToDictionary(r => r.TxId, StringComparer.Ordinal);
         foreach (var d in derived)
         {
-            if (ignored.Contains(Tax.Services.TaxLogRepository.TxKey(d.Coin, d.TxId))) continue;
+            if (ignored.Contains(Tax.Services.TaxLogRepository.TxKey(d.CoinSymbol, d.TxId))) continue;
             if (byTx.TryGetValue(d.TxId, out var existing))
             {
                 if (existing.Amount != d.Amount)

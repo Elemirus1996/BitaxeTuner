@@ -14,6 +14,8 @@ public enum CoinType
     Elastos,
     Peercoin,
     Emercoin,
+    /// <summary>0.9.13: beliebiger weiterer Coin (z. B. vom Pool-Konto); Kürzel steht im Eintrag selbst (CoinCode).</summary>
+    Other,
 }
 
 public static class CoinTypeExtensions
@@ -32,14 +34,22 @@ public static class CoinTypeExtensions
         CoinType.Elastos => "ELA",
         CoinType.Peercoin => "PPC",
         CoinType.Emercoin => "EMC",
+        CoinType.Other => "?",
         _ => coin.ToString()
     };
+
+    /// <summary>Kürzel eines Eintrags: bei <see cref="CoinType.Other"/> das gespeicherte Kürzel, sonst das feste.</summary>
+    public static string Symbol(this CoinType coin, string? code) =>
+        coin == CoinType.Other ? (string.IsNullOrWhiteSpace(code) ? "?" : code.Trim().ToUpperInvariant()) : coin.Symbol();
+
+    /// <summary>Hat CoinGecko einen Kurs für den Coin? (Weitere Coins vom Pool bekommen den Kurs aus dem Pool.)</summary>
+    public static bool HasPriceSource(this CoinType coin) => coin != CoinType.Other;
 
     /// <summary>Coin zu einem Kürzel (BTC, DGB …) oder Namen (bitcoin, digibyte …); null = unbekannt.</summary>
     public static CoinType? FromSymbolOrName(string? value)
     {
         var v = (value ?? "").Trim().ToLowerInvariant();
-        foreach (var c in Enum.GetValues<CoinType>())
+        foreach (var c in Enum.GetValues<CoinType>().Where(c => c != CoinType.Other))
             if (v == c.Symbol().ToLowerInvariant() || v == c.ToString().ToLowerInvariant() || v == c.CoinGeckoId()) return c;
         return v switch { "bitcoincash" or "bcash" => CoinType.BitcoinCash, _ => null };
     }

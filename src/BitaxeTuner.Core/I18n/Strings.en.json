@@ -572,6 +572,7 @@
   "Coin": "Coin",
   "Coin je Miner: Einstellungen oder Wallet-Adresse": "Coin per miner: settings or wallet address",
   "Coin laut Pool-Konto · Abrechnung {0}": "Coin according to the pool account · payout scheme {0}",
+  "Coin ungültig.": "Invalid coin.",
   "Coin: {0}": "Coin: {0}",
   "CoinGecko Tagesschnappschuss 00:00 UTC ({0:d}), Rückfallwert": "CoinGecko daily snapshot 00:00 UTC ({0:d}), fallback value",
   "CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)": "CoinGecko time series, price point {0:yyyy-MM-dd HH:mm} UTC ({1} min apart)",

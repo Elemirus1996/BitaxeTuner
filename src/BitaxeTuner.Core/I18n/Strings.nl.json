@@ -572,6 +572,7 @@
   "Coin": "Munt",
   "Coin je Miner: Einstellungen oder Wallet-Adresse": "Munt per miner: instellingen of walletadres",
   "Coin laut Pool-Konto · Abrechnung {0}": "Coin volgens het poolaccount · uitbetalingsschema {0}",
+  "Coin ungültig.": "Ongeldige coin.",
   "Coin: {0}": "Coin: {0}",
   "CoinGecko Tagesschnappschuss 00:00 UTC ({0:d}), Rückfallwert": "CoinGecko dagmomentopname 00:00 UTC ({0:d}), reservewaarde",
   "CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)": "CoinGecko-tijdreeks, koerspunt {0:yyyy-MM-dd HH:mm} UTC ({1} min tussenruimte)",

@@ -111,7 +111,7 @@ public sealed class PoolAccountPanel : StackPanel
         foreach (var c in st.Coins)
         {
             var value = c.Price is { } p ? $" ≈ {((c.Confirmed + c.Unconfirmed) * p).ToString("N2", CultureInfo.CurrentCulture)} {st.Currency}" : "";
-            lines.Add(L.T("{0}: Guthaben {1}{2} · 24 h {3} · 7 Tage {4} · Auszahlungen 30 Tage {5}", c.Coin.Symbol().PadRight(3),
+            lines.Add(L.T("{0}: Guthaben {1}{2} · 24 h {3} · 7 Tage {4} · Auszahlungen 30 Tage {5}", c.Symbol.PadRight(3),
                 Amount(c.Confirmed + c.Unconfirmed), value, Amount(c.Credits24h), Amount(c.Credits7d), Amount(c.Payouts30d)));
         }
         if (st.Workers.Count > 0) lines.Add("");
@@ -119,7 +119,7 @@ public sealed class PoolAccountPanel : StackPanel
         foreach (var w in st.Workers)
         {
             var miner = states.FirstOrDefault(s => _host.Hub.PoolWorkerOf(s) == w)?.Config.Name ?? "–";
-            var coin = CoinTypeExtensions.FromSymbolOrName(w.NowMining)?.Symbol() ?? w.NowMining;
+            var coin = _host.Hub.PoolSymbolOfSlug(w.NowMining);
             lines.Add($"{(w.Alive ? "●" : "○")} {w.Name} → {miner} · {coin}{(w.MergedMining ? " + " + L.T("Merged Mining") : "")} · {w.Mode} · {(w.HashrateHs / 1e12).ToString("0.00", CultureInfo.CurrentCulture)} TH/s");
         }
         _overview.Text = string.Join(Environment.NewLine, lines);

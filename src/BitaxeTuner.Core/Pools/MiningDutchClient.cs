@@ -17,15 +17,26 @@ public sealed record PoolWorker(string Name, bool Alive, double HashrateHs, stri
     public bool IsParty => Mode.Contains("PARTY", StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>Guthaben je Coin beim Pool.</summary>
-public sealed record PoolBalance(CoinType Coin, decimal Confirmed, decimal Unconfirmed);
+/// <summary>Guthaben je Coin beim Pool. <paramref name="Code"/>: Kürzel bei <see cref="CoinType.Other"/> (z. B. „WJK“).</summary>
+public sealed record PoolBalance(CoinType Coin, decimal Confirmed, decimal Unconfirmed, string? Code = null)
+{
+    public string Symbol => Coin.Symbol(Code);
+}
 
-/// <summary>Buchung beim Pool: Gutschrift („Credit“) oder Auszahlung („Debit_AC“, „Debit_MP“ …).</summary>
-public sealed record PoolTransaction(long Id, CoinType Coin, string Type, decimal Amount, DateTime TimeUtc, long? Height)
+/// <summary>
+/// Buchung beim Pool: Gutschrift („Credit“) oder Auszahlung („Debit_AC“, „Debit_MP“ …). 0.9.13: <paramref name="Code"/> =
+/// Kürzel bei <see cref="CoinType.Other"/>, <paramref name="Slug"/> = Pool-Name bei Mining-Dutch (für spätere Abfragen).
+/// </summary>
+public sealed record PoolTransaction(long Id, CoinType Coin, string Type, decimal Amount, DateTime TimeUtc, long? Height,
+    string? Code = null, string? Slug = null)
 {
     public bool IsCredit => Type.Equals("Credit", StringComparison.OrdinalIgnoreCase);
     public bool IsPayout => Type.StartsWith("Debit", StringComparison.OrdinalIgnoreCase);
+    public string Symbol => Coin.Symbol(Code);
 }
+
+/// <summary>Coin-Pool bei Mining-Dutch: Name (Slug), Kürzel laut Dashboard, Kurs-Rohwert aus dem Dashboard.</summary>
+public sealed record PoolCoinInfo(string Slug, string Currency, decimal? ExchangePrice);
 
 /// <summary>
 /// 0.9.12: Pool-Konto bei Mining-Dutch (MPOS-basiert). Abfragen je Coin-Pool:
@@ -68,10 +79,23 @@ public sealed class MiningDutchClient : IDisposable
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner");
     }
 
-    /// <summary>Worker des Kontos (die Liste gilt kontoweit, abgefragt über den Bitcoin-Pool).</summary>
+    /// <summary>
+    /// Worker des Kontos. Die Werte hängen davon ab, über welchen Pool man fragt: der SHA-256-Pool (Profit-Wechsel, auch
+    /// SOLO) liefert die volle Hashrate, der Bitcoin-Pool nur den Anteil dort. 0.9.13: beide abfragen und je Worker den
+    /// Eintrag mit der höheren Hashrate nehmen.
+    /// </summary>
     public async Task<List<PoolWorker>> GetWorkersAsync(CancellationToken ct = default)
     {
-        var data = await GetAsync("bitcoin", "getuserworkers", ct);
+        var merged = new Dictionary<string, PoolWorker>(StringComparer.OrdinalIgnoreCase);
+        foreach (var slug in new[] { "sha256", "bitcoin" })
+            foreach (var w in await GetWorkersFromAsync(slug, ct))
+                if (!merged.TryGetValue(w.Name, out var known) || w.HashrateHs > known.HashrateHs) merged[w.Name] = w;
+        return merged.Values.ToList();
+    }
+
+    private async Task<List<PoolWorker>> GetWorkersFromAsync(string slug, CancellationToken ct)
+    {
+        var data = await GetAsync(slug, "getuserworkers", ct);
         var list = new List<PoolWorker>();
         if (data.TryGetProperty("miners", out var miners) && miners.ValueKind == JsonValueKind.Array)
             foreach (var m in miners.EnumerateArray())
@@ -85,16 +109,32 @@ public sealed class MiningDutchClient : IDisposable
         return list;
     }
 
-    public async Task<PoolBalance> GetBalanceAsync(CoinType coin, CancellationToken ct = default)
+    public Task<PoolBalance> GetBalanceAsync(CoinType coin, CancellationToken ct = default) => GetBalanceAsync(Slug(coin), coin, null, ct);
+
+    /// <summary>Guthaben in einem Coin-Pool (auch Coins außerhalb der festen Liste, dann mit Kürzel).</summary>
+    public async Task<PoolBalance> GetBalanceAsync(string slug, CoinType coin, string? code, CancellationToken ct = default)
     {
-        var data = await GetAsync(Slug(coin), "getuserbalance", ct);
-        return new PoolBalance(coin, Dec(data, "confirmed") ?? 0, Dec(data, "unconfirmed") ?? 0);
+        var data = await GetAsync(slug, "getuserbalance", ct);
+        return new PoolBalance(coin, Dec(data, "confirmed") ?? 0, Dec(data, "unconfirmed") ?? 0, coin == CoinType.Other ? code : null);
+    }
+
+    /// <summary>Kürzel und Kurs-Rohwert eines Coin-Pools (Dashboard).</summary>
+    public async Task<PoolCoinInfo> GetCoinInfoAsync(string slug, CancellationToken ct = default)
+    {
+        var data = await GetAsync(slug, "getdashboarddata", ct);
+        var pool = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("pool", out var p) ? p : default;
+        var info = pool.ValueKind == JsonValueKind.Object && pool.TryGetProperty("info", out var i) ? i : default;
+        var currency = Str(info, "currency").Trim().ToUpperInvariant();
+        return new PoolCoinInfo(slug, currency.Length is > 0 and <= 12 ? currency : slug.ToUpperInvariant(), Dec(pool, "exchangePrice"));
     }
 
     /// <summary>Letzte Buchungen des Coins (der Pool liefert nur die jüngsten Einträge – daher regelmäßig abfragen).</summary>
-    public async Task<List<PoolTransaction>> GetTransactionsAsync(CoinType coin, CancellationToken ct = default)
+    public Task<List<PoolTransaction>> GetTransactionsAsync(CoinType coin, CancellationToken ct = default) =>
+        GetTransactionsAsync(Slug(coin), coin, null, ct);
+
+    public async Task<List<PoolTransaction>> GetTransactionsAsync(string slug, CoinType coin, string? code, CancellationToken ct = default)
     {
-        var data = await GetAsync(Slug(coin), "getusertransactions", ct);
+        var data = await GetAsync(slug, "getusertransactions", ct);
         var list = new List<PoolTransaction>();
         if (data.TryGetProperty("transactions", out var txs) && txs.ValueKind == JsonValueKind.Array)
             foreach (var t in txs.EnumerateArray())
@@ -102,7 +142,8 @@ public sealed class MiningDutchClient : IDisposable
                 if (Num(t, "id") is not { } id || Dec(t, "amount") is not { } amount) continue;
                 if (ParseTime(Str(t, "timestamp")) is not { } time) continue;
                 var height = Num(t, "height") is { } hh && hh > 0 ? (long)hh : (long?)null;
-                list.Add(new PoolTransaction((long)id, coin, Str(t, "type"), Math.Abs(amount), time, height));
+                list.Add(new PoolTransaction((long)id, coin, Str(t, "type"), Math.Abs(amount), time, height,
+                    coin == CoinType.Other ? code : null, slug));
             }
         return list;
     }

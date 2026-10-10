@@ -8,6 +8,12 @@ public class Disposal
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public CoinType Coin { get; set; }
 
+    /// <summary>0.9.13: Kürzel bei <see cref="CoinType.Other"/>; sonst null.</summary>
+    public string? CoinCode { get; set; }
+
+    [JsonIgnore]
+    public string CoinSymbol => Coin.Symbol(CoinCode);
+
     /// <summary>Zeitpunkt der Veräußerung, UTC.</summary>
     public DateTime SoldAtUtc { get; set; }
 

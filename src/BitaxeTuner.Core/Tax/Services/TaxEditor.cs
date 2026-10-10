@@ -8,7 +8,10 @@ namespace BitaxeTuner.Core.Tax.Services;
 /// Beträge (Namen mit „Eur“) in der gerechneten Währung (0.9.11); ProceedsCurrency ist die Währung, in der der Erlös erfasst wurde.
 public sealed record DisposalView(string Id, DateTime SoldAtUtc, CoinType Coin, decimal Amount, decimal ProceedsEur,
     decimal CostBasisEur, decimal TaxableGainEur, decimal TaxFreeAmount, decimal UnmatchedAmount, bool MissingPrice, string Note,
-    string ProceedsCurrency = "EUR", decimal? EnteredProceeds = null, bool OtherCurrency = false);
+    string ProceedsCurrency = "EUR", decimal? EnteredProceeds = null, bool OtherCurrency = false, string? CoinCode = null)
+{
+    public string Symbol => Coin.Symbol(CoinCode);
+}
 
 /// <summary>Jahreswerte wie in der Desktop-App (Zuflüsse; Verkäufe nach § 23 EStG mit Freigrenze), Beträge in Currency.</summary>
 public sealed record TaxYearSummary(int Year, int RewardCount, decimal RewardEur, int RewardsWithoutPrice,
@@ -110,9 +113,13 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
             decimal? value = null;
             if (price.Trim().Length > 0)
             {
-                if (!TryParseEur(price, out var v) || v <= 0 || v > 100_000_000m) throw new LocalizedException("Kurs ungültig.");
-                // Audit N-F1: BTC und BCH lagen nie unter 100 € je Coin, seit es Mining-Erträge zu dokumentieren gibt
-                if (v < MinPlausiblePriceEur)
+                // Audit N-F1 gilt nur für BTC/BCH (nie unter 100 € je Coin; „65.000“ = 65 000). Weitere Coins kosten oft
+                // Bruchteile eines Cents – dort zählt der Punkt als Dezimalzeichen („0.012“).
+                var wallet = reward.Coin.HasWalletSupport();
+                decimal v;
+                if (!(wallet ? TryParseEur(price, out v) : TryParseDecimal(price, out v)) || v <= 0 || v > 100_000_000m)
+                    throw new LocalizedException("Kurs ungültig.");
+                if (wallet && v < MinPlausiblePriceEur)
                     throw new LocalizedException("Kurs {0} {1} je Coin ist unplausibel niedrig – Tausender bitte mit Punkt und Dezimalstellen mit Komma (z. B. 65.000,00).",
                         v.ToString("0.##", L.Culture), cur.Symbol);
                 value = v;
@@ -140,8 +147,12 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
     /// Verkauf erfassen (Uhrzeit 12:00 lokal, damit ein Verkauf am Zuflusstag nicht vor dem Zufluss einsortiert wird).
     /// Ist mehr verkauft als dokumentiert, nur mit <paramref name="allowOversell"/> – sonst Status 409 mit Hinweis.
     /// </summary>
-    public Disposal AddDisposal(CoinType coin, string? date, string? amount, string? proceeds, string? note, bool allowOversell, string currency = "EUR")
+    public Disposal AddDisposal(CoinType coin, string? date, string? amount, string? proceeds, string? note, bool allowOversell, string currency = "EUR",
+        string? coinCode = null)
     {
+        if (coin == CoinType.Other && (string.IsNullOrWhiteSpace(coinCode) || coinCode.Trim().Length > 12))
+            throw new LocalizedException("Coin ungültig.");
+        var symbol = coin.Symbol(coinCode);
         var cur = Config.Currencies.Get(currency);
         if (!DateOnly.TryParseExact(date ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
             || day > DateOnly.FromDateTime(DateTime.Now) || day.Year < 2009)
@@ -152,14 +163,15 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
         var rewards = monitor.LoadRewards();
         var disposals = repository.LoadDisposals();
         HoldingCalculator.Apply(rewards, disposals);
-        var available = rewards.Where(r => r.Coin == coin).Sum(r => r.Remaining);
+        var available = rewards.Where(r => r.CoinSymbol == symbol).Sum(r => r.Remaining);
         if (a > available && !allowOversell)
             throw new LocalizedException("Verkauft werden sollen {0} {1}, dokumentiert sind nur {2} im Bestand. Trotzdem erfassen? Der Überhang wird als „ohne dokumentierten Zufluss“ markiert.",
-                a.ToString("0.00000000", L.Culture), coin.Symbol(), available.ToString("0.00000000", L.Culture)) { Status = 409 };
+                a.ToString("0.00000000", L.Culture), symbol, available.ToString("0.00000000", L.Culture)) { Status = 409 };
 
         var disposal = new Disposal
         {
             Coin = coin,
+            CoinCode = coin == CoinType.Other ? symbol : null,
             SoldAtUtc = TaxTime.FromTax(day.ToDateTime(new TimeOnly(12, 0))),
             Amount = a,
             ProceedsEur = cur.IsEuro ? p : 0,
@@ -199,8 +211,10 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
         var views = results.OrderByDescending(r => r.Disposal.SoldAtUtc).Select(r => new DisposalView(r.Disposal.Id, r.Disposal.SoldAtUtc,
             r.Disposal.Coin, r.Disposal.Amount, r.Disposal.ProceedsIn(cur) ?? 0, r.CostBasisEur, r.TaxableGainEur, r.TaxFreeAmount,
             r.UnmatchedAmount, r.MissingPrice, r.Disposal.Note, r.Disposal.EnteredCurrency,
-            r.Disposal.EnteredCurrency == "EUR" ? r.Disposal.ProceedsEur : r.Disposal.Proceeds, r.OtherCurrency)).ToList();
-        var available = Enum.GetValues<CoinType>().ToDictionary(c => c.Symbol(), c => rewards.Where(r => r.Coin == c).Sum(r => r.Remaining));
+            r.Disposal.EnteredCurrency == "EUR" ? r.Disposal.ProceedsEur : r.Disposal.Proceeds, r.OtherCurrency, r.Disposal.CoinCode)).ToList();
+        // Bestand je Kürzel: alle festen Coins (auch mit 0) plus weitere Coins aus den Zuflüssen
+        var available = Enum.GetValues<CoinType>().Where(c => c != CoinType.Other).ToDictionary(c => c.Symbol(), _ => 0m);
+        foreach (var g in rewards.GroupBy(r => r.CoinSymbol)) available[g.Key] = g.Sum(r => r.Remaining);
         return (rewards.OrderByDescending(r => r.ReceivedAtUtc).ToList(), views, summary, available);
     }
 

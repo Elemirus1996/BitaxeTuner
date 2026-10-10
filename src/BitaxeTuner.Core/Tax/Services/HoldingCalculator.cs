@@ -50,7 +50,7 @@ public static class HoldingCalculator
             var lots = rewards
                 // Audit N-F2: Verkäufe tragen nur ein Datum (gespeichert 12:00) – Zuflüsse desselben Tages gehören dazu,
                 // auch wenn sie am Nachmittag kamen (in Steuerzeit verglichen)
-                .Where(r => r.Coin == d.Coin && r.Remaining > 0 && r.ReceivedAtLocal.Date <= d.SoldAtLocal.Date)
+                .Where(r => r.CoinSymbol == d.CoinSymbol && r.Remaining > 0 && r.ReceivedAtLocal.Date <= d.SoldAtLocal.Date)
                 .OrderBy(r => r.ReceivedAtUtc)
                 .ToList();
 

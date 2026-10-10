@@ -572,6 +572,7 @@
   "Coin": "Moneda",
   "Coin je Miner: Einstellungen oder Wallet-Adresse": "Moneda por minero: ajustes o dirección de wallet",
   "Coin laut Pool-Konto · Abrechnung {0}": "Moneda según la cuenta del pool · esquema de pago {0}",
+  "Coin ungültig.": "Moneda no válida.",
   "Coin: {0}": "Moneda: {0}",
   "CoinGecko Tagesschnappschuss 00:00 UTC ({0:d}), Rückfallwert": "Instantánea diaria de CoinGecko 00:00 UTC ({0:d}), valor de reserva",
   "CoinGecko Zeitreihe, Kurspunkt {0:yyyy-MM-dd HH:mm} UTC ({1} min Abstand)": "Serie temporal de CoinGecko, punto de cotización {0:yyyy-MM-dd HH:mm} UTC ({1} min de distancia)",

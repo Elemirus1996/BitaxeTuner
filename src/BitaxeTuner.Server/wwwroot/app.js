@@ -2696,17 +2696,22 @@ function taxRewardsCard(tv) {
 /** Verkäufe: erfassen (FIFO, Haltefrist), löschen, als CSV exportieren. */
 function taxSalesCard(tv) {
   const cur = tv.currency || { code: 'EUR' };
-  const coin = coinSelect('Bitcoin');
+  // 0.9.13: dazu weitere Coins mit Bestand (z. B. WJK vom Pool-Konto) als „Other:<Kürzel>“
+  const extra = Object.keys(tv.available || {}).filter(sym => !COINS.some(c => c[1] === sym)).map(sym => ['Other:' + sym, sym]);
+  const saleCoins = [...COINS, ...extra];
+  const coin = coinSelect('Bitcoin', false, saleCoins);
   const date = h('input', { type: 'date', value: new Date().toLocaleDateString('sv'), max: new Date().toLocaleDateString('sv'), style: 'width:auto' });
   const amount = h('input', { inputmode: 'decimal', placeholder: t('Menge, z. B. 0,0025'), style: 'width:auto;flex:1 1 130px' });
   const proceeds = h('input', { inputmode: 'decimal', placeholder: t('Erlös in {0}', cur.code), style: 'width:auto;flex:1 1 110px' });
   const note = h('input', { placeholder: t('Notiz (optional)'), maxlength: 200, style: 'width:auto;flex:2 1 160px' });
   const stock = h('p', { class: 'muted small' });
-  const showStock = () => { const sym = COINS.find(c => c[0] === coin.value)[1]; stock.textContent = t('Dokumentierter Bestand: {0} {1}', sat8(tv.available[sym] ?? 0), sym); };
+  const showStock = () => { const sym = saleCoins.find(c => c[0] === coin.value)[1]; stock.textContent = t('Dokumentierter Bestand: {0} {1}', sat8(tv.available[sym] ?? 0), sym); };
   coin.addEventListener('change', showStock);
   showStock();
   const add = async () => {
-    const body = { coin: coin.value, date: date.value, amount: amount.value, proceeds: proceeds.value, note: note.value, allowOversell: false };
+    const other = coin.value.startsWith('Other:');
+    const body = { coin: other ? 'Other' : coin.value, coinCode: other ? coin.value.slice(6) : null, date: date.value, amount: amount.value,
+      proceeds: proceeds.value, note: note.value, allowOversell: false };
     try {
       await api('/tax/disposals', { method: 'POST', body });
     } catch (e) {

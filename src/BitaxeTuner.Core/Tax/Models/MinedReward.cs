@@ -16,12 +16,16 @@ public class MinedReward : INotifyPropertyChanged
     public string WalletAddressId { get; set; } = string.Empty;
     public string WalletLabel { get; set; } = string.Empty;
     public CoinType Coin { get; set; }
+
+    /// <summary>0.9.13: Kürzel bei <see cref="CoinType.Other"/> (z. B. „WOJAK“ vom Pool-Konto); sonst null.</summary>
+    public string? CoinCode { get; set; }
+
     public string TxId { get; set; } = string.Empty;
 
     /// <summary>Blockzeit in UTC.</summary>
     public DateTime ReceivedAtUtc { get; set; }
 
-    /// <summary>Menge in BTC/BCH.</summary>
+    /// <summary>Menge in Coins.</summary>
     public decimal Amount { get; set; }
 
     /// <summary>Blockhöhe, in der der Zufluss bestätigt wurde.</summary>
@@ -161,7 +165,7 @@ public class MinedReward : INotifyPropertyChanged
     public void RefreshStatus() => Raise(nameof(HoldingStatus));
 
     [JsonIgnore]
-    public string CoinSymbol => Coin.Symbol();
+    public string CoinSymbol => Coin.Symbol(CoinCode);
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null)

@@ -94,7 +94,7 @@ public sealed class TaxLogRepository
     /// </summary>
     public HashSet<string> LoadKnownTxKeys()
     {
-        var keys = LoadRewards().Select(r => TxKey(r.Coin, r.TxId)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var keys = LoadRewards().Select(r => TxKey(r.CoinSymbol, r.TxId)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         keys.UnionWith(Load<string>(_ignoredPath));
         return keys;
     }
@@ -103,18 +103,23 @@ public sealed class TaxLogRepository
     public HashSet<string> LoadIgnoredTxKeys() => Load<string>(_ignoredPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>TXID dauerhaft ausschließen, z. B. für einen Eingang, der kein Mining-Ertrag ist.</summary>
-    public void AddIgnored(CoinType coin, string txId)
+    public void AddIgnored(CoinType coin, string txId) => AddIgnored(coin.Symbol(), txId);
+
+    /// <summary>Wie oben, mit Kürzel (auch für weitere Coins vom Pool-Konto).</summary>
+    public void AddIgnored(string symbol, string txId)
     {
         lock (_lock)
         {
             var list = Load<string>(_ignoredPath);
-            var key = TxKey(coin, txId);
+            var key = TxKey(symbol, txId);
             if (!list.Contains(key, StringComparer.OrdinalIgnoreCase)) list.Add(key);
             Save(_ignoredPath, list);
         }
     }
 
-    public static string TxKey(CoinType coin, string txId) => $"{coin.Symbol()}:{txId}";
+    public static string TxKey(CoinType coin, string txId) => TxKey(coin.Symbol(), txId);
+
+    public static string TxKey(string symbol, string txId) => $"{symbol}:{txId}";
 
     // ---------- CSV ----------
 
@@ -146,7 +151,7 @@ public sealed class TaxLogRepository
                 local.ToString("dd.MM.yyyy", de),
                 local.ToString("HH:mm:ss", de),
                 r.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-                r.Coin.Symbol(),
+                r.CoinSymbol,
                 Escape(r.WalletLabel),
                 r.BlockHeight?.ToString(CultureInfo.InvariantCulture) ?? "",
                 r.TxId,
@@ -184,7 +189,7 @@ public sealed class TaxLogRepository
 
             sb.AppendLine(string.Join(';',
                 r.Disposal.SoldAtLocal.ToString("dd.MM.yyyy", de),
-                r.Disposal.Coin.Symbol(),
+                r.Disposal.CoinSymbol,
                 r.Disposal.Amount.ToString("0.00000000", de),
                 (r.Disposal.ProceedsIn(cur)?.ToString("0.00", de) ?? ""),
                 r.CostBasisEur.ToString("0.00", de),

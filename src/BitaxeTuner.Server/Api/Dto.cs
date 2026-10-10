@@ -184,13 +184,13 @@ public static class Dto
             poolLink = admin && !d.IsSimulated && PoolQuickLinks.For(i) is { } pl ? new { name = pl.Pool, url = pl.Url.AbsoluteUri } : null,
             // 0.9.13: Coin des Miners (Pool-Konto, sonst Einstellung/Wallet-Adresse) und Pool mit Link zur Pool-Seite.
             // Der Link kann den Pool-Benutzer (Wallet-Adresse) enthalten – Pool daher nur für Admins
-            coin = (hub.PoolCoinOf(s) ?? MinerHub.ResolveCoin(s))?.Symbol(),
+            coin = hub.PoolCoinSymbolOf(s) ?? MinerHub.ResolveCoin(s)?.Symbol(),
             poolInfo = admin && i is not null && Core.Monitoring.PoolIdentities.For(i) is { } pid
                 ? new { name = pid.Name, url = PoolPage(hub, s, pid)?.AbsoluteUri }
                 : null,
             // 0.9.12 Pool-Konto: Coin, den der Pool diesem Miner gerade gibt (Profit-Wechsel), Abrechnung (PPS), Merged Mining
             poolAccount = hub.PoolWorkerOf(s) is { } pw
-                ? new { coin = Core.Tax.Models.CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, mode = pw.Mode, merged = pw.MergedMining }
+                ? new { coin = hub.PoolSymbolOfSlug(pw.NowMining), mode = pw.Mode, merged = pw.MergedMining }
                 : null,
             automation = d.AutomationStatus,
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
@@ -231,8 +231,8 @@ public static class Dto
     /// <summary>Seite für den Pool-Link: bei Mining-Dutch mit Pool-Konto das Dashboard des gerade geschürften Coins.</summary>
     private static Uri? PoolPage(MinerHub hub, Core.Monitoring.MinerState s, Core.Monitoring.PoolIdentity pid)
     {
-        if (pid.Name == "Mining-Dutch" && hub.PoolCoinOf(s) is { } coin && Core.Pools.MiningDutchClient.Slugs.TryGetValue(coin, out var slug))
-            return new Uri($"https://www.mining-dutch.nl/pools/{slug}.php?page=dashboard");
+        if (pid.Name == "Mining-Dutch" && hub.PoolCoinSymbolOf(s) is not null && hub.PoolWorkerOf(s) is { } w)
+            return new Uri($"https://www.mining-dutch.nl/pools/{Uri.EscapeDataString(w.NowMining.Trim().ToLowerInvariant())}.php?page=dashboard");
         return pid.Url;
     }
 
@@ -260,7 +260,7 @@ public static class Dto
                 name = w.Name,
                 alive = w.Alive,
                 hashrate = R(w.HashrateHs / 1e9),
-                coin = Core.Tax.Models.CoinTypeExtensions.FromSymbolOrName(w.NowMining)?.Symbol() ?? w.NowMining,
+                coin = hub.PoolSymbolOfSlug(w.NowMining),
                 merged = w.MergedMining,
                 mode = w.Mode,
                 lastShare = w.LastShareUtc is { } ls ? new DateTimeOffset(ls) : (DateTimeOffset?)null,
@@ -268,7 +268,7 @@ public static class Dto
             }).ToList(),
             coins = st.Coins.Select(c => new
             {
-                coin = c.Coin.Symbol(),
+                coin = c.Symbol,
                 confirmed = c.Confirmed,
                 unconfirmed = c.Unconfirmed,
                 credits24h = c.Credits24h,

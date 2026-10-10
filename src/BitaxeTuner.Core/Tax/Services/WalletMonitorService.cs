@@ -178,13 +178,14 @@ public sealed class WalletMonitorService : IDisposable
                 {
                     _repository.SavePoolInactive(inactive);
                     _repository.SaveRewards(all);
-                    foreach (var r in added) _knownTxKeys.Add(TaxLogRepository.TxKey(r.Coin, r.TxId));
+                    foreach (var r in added) _knownTxKeys.Add(TaxLogRepository.TxKey(r.CoinSymbol, r.TxId));
                 }
             }
             if (added.Count > 0)
             {
                 // Kurse für die neuesten Einträge gleich holen, ältere holt jeder Durchlauf nach (Rate-Limit)
-                foreach (var r in added.OrderByDescending(r => r.ReceivedAtUtc).Take(fetchPrices ? PriceRetriesPerPoll : 0))
+                foreach (var r in added.Where(r => r.Coin.HasPriceSource() && r.PriceIn("EUR") is null)
+                             .OrderByDescending(r => r.ReceivedAtUtc).Take(fetchPrices ? PriceRetriesPerPoll : 0))
                 {
                     var (quote, failure) = await _prices.GetEurPriceAsync(r.Coin, r.ReceivedAtUtc, ct);
                     if (quote is not null) r.SetPrice("EUR", quote.Value, quote.AtUtc, quote.Source);
@@ -230,8 +231,8 @@ public sealed class WalletMonitorService : IDisposable
             var all = _repository.LoadRewards();
             all.RemoveAll(r => r.Id == reward.Id);
             _repository.SaveRewards(all);
-            _repository.AddIgnored(reward.Coin, reward.TxId);
-            _knownTxKeys.Add(TaxLogRepository.TxKey(reward.Coin, reward.TxId));
+            _repository.AddIgnored(reward.CoinSymbol, reward.TxId);
+            _knownTxKeys.Add(TaxLogRepository.TxKey(reward.CoinSymbol, reward.TxId));
         }
     }
 
@@ -333,7 +334,7 @@ public sealed class WalletMonitorService : IDisposable
         lock (_walletLock)
         {
             pending = _repository.LoadRewards()
-                .Where(r => DateTime.UtcNow - r.ReceivedAtUtc < TimeSpan.FromDays(364))
+                .Where(r => r.Coin.HasPriceSource() && DateTime.UtcNow - r.ReceivedAtUtc < TimeSpan.FromDays(364))
                 .OrderByDescending(r => r.ReceivedAtUtc)
                 .SelectMany(r => currencies.Where(c => r.PriceIn(c) is null && !r.IsManualIn(c)).Select(c => (r, c)))
                 .Take(PriceRetriesPerPoll)

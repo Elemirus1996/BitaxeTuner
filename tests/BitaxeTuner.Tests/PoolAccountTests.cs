@@ -69,11 +69,12 @@ public class PoolAccountTests
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1790000000).UtcDateTime, w.LastShareUtc);
         Assert.False(workers[1].Alive);
         Assert.Null(workers[1].LastShareUtc);
-        Assert.Contains("/pools/bitcoin.php?page=api&action=getuserworkers&api_key=schluessel", pool.Asked[0]);   // kontoweit, Schlüssel ohne Leerzeichen
+        Assert.Contains("/pools/sha256.php?page=api&action=getuserworkers&api_key=schluessel", pool.Asked[0]);    // SHA-256-Pool (Profit-Wechsel, SOLO), Schlüssel ohne Leerzeichen
+        Assert.Contains("/pools/bitcoin.php?page=api&action=getuserworkers", pool.Asked[1]);
 
         var bal = await client.GetBalanceAsync(CoinType.DigiByte);
         Assert.Equal((CoinType.DigiByte, 12.5m, 0.25m), (bal.Coin, bal.Confirmed, bal.Unconfirmed));
-        Assert.Contains("/pools/digibyte.php", pool.Asked[1]);
+        Assert.Contains("/pools/digibyte.php", pool.Asked[2]);
 
         var txs = await client.GetTransactionsAsync(CoinType.DigiByte);
         Assert.Equal(2, txs.Count);                                                         // unlesbarer Betrag fällt weg

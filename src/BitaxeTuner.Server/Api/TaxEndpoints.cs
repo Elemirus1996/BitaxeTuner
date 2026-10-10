@@ -14,7 +14,7 @@ public static class TaxEndpoints
 {
     public sealed record WalletRequest(string? Address, CoinType? Coin, string? Label);
     public sealed record RewardRequest(string? Price, string? Note);
-    public sealed record DisposalRequest(CoinType Coin, string? Date, string? Amount, string? Proceeds, string? Note, bool AllowOversell);
+    public sealed record DisposalRequest(CoinType Coin, string? Date, string? Amount, string? Proceeds, string? Note, bool AllowOversell, string? CoinCode = null);
 
     public static void Map(RouteGroupBuilder g)
     {
@@ -29,13 +29,13 @@ public static class TaxEndpoints
                 wallets = h.TaxMonitor.Wallets,
                 rewards = rewards.Select(r => new
                 {
-                    r.Id, r.ReceivedAtUtc, r.Coin, symbol = r.Coin.Symbol(), r.Amount, r.EurPriceAtReceipt, r.EurValue,
+                    r.Id, r.ReceivedAtUtc, r.Coin, symbol = r.CoinSymbol, r.Amount, r.EurPriceAtReceipt, r.EurValue,
                     price = r.PriceIn(cur.Code), value = r.ValueIn(cur.Code), priceSource = r.SourceIn(cur.Code),
                     manualPrice = r.IsManualIn(cur.Code), r.Note, r.WalletLabel, r.TxId, r.Remaining, r.HoldingStatus, r.TaxFreeFrom,
                 }),
                 disposals = disposals.Select(d => new
                 {
-                    d.Id, d.SoldAtUtc, d.Coin, symbol = d.Coin.Symbol(), d.Amount, d.ProceedsEur, d.CostBasisEur, d.TaxableGainEur,
+                    d.Id, d.SoldAtUtc, d.Coin, symbol = d.Symbol, d.Amount, d.ProceedsEur, d.CostBasisEur, d.TaxableGainEur,
                     d.TaxFreeAmount, d.UnmatchedAmount, d.MissingPrice, d.Note, d.ProceedsCurrency, d.EnteredProceeds, d.OtherCurrency,
                 }),
                 summary,
@@ -126,15 +126,15 @@ public static class TaxEndpoints
 
         g.MapPost("/tax/disposals", async (DisposalRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
-            var d = h.TaxEditor.AddDisposal(req.Coin, req.Date, req.Amount, req.Proceeds, req.Note, req.AllowOversell, Currencies.Of(h.Config).Code);
-            h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Verkauf vom {0:d} ({1}) erfasst.", d.SoldAtLocal, d.Coin.Symbol()));
+            var d = h.TaxEditor.AddDisposal(req.Coin, req.Date, req.Amount, req.Proceeds, req.Note, req.AllowOversell, Currencies.Of(h.Config).Code, req.CoinCode);
+            h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Verkauf vom {0:d} ({1}) erfasst.", d.SoldAtLocal, d.CoinSymbol));
             return new { ok = true, d.Id };
         })));
 
         g.MapDelete("/tax/disposals/{id}", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             var d = h.TaxEditor.RemoveDisposal(id);
-            h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Verkauf vom {0:d} ({1}) gelöscht.", d.SoldAtLocal, d.Coin.Symbol()));
+            h.LogEvent(null, EventCategories.Settings, L.T("Steuer: Verkauf vom {0:d} ({1}) gelöscht.", d.SoldAtLocal, d.CoinSymbol));
             return new { ok = true };
         })));
     }

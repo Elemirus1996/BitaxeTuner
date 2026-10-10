@@ -84,8 +84,8 @@ public sealed partial class MinerHub
 
             var cur = Currencies.Of(Config);
             var eur = reward.ValueIn(cur.Code) is { } v ? $" ≈ {v.ToString("N2", De)} {cur.Symbol}" : "";
-            _ = Notify.SendAsync($"reward:{reward.Coin.Symbol()}:{reward.TxId}", L.T("Zufluss dokumentiert"),
-                L.T("{0} {1} auf {2}{3}", reward.Amount.ToString("0.00000000", De), reward.Coin.Symbol(), reward.WalletLabel, eur),
+            _ = Notify.SendAsync($"reward:{reward.CoinSymbol}:{reward.TxId}", L.T("Zufluss dokumentiert"),
+                L.T("{0} {1} auf {2}{3}", reward.Amount.ToString("0.00000000", De), reward.CoinSymbol, reward.WalletLabel, eur),
                 NotifyPriority.High, TimeSpan.FromDays(365), category: NotifyCategory.Finds);
         };
     }
@@ -276,9 +276,9 @@ public sealed partial class MinerHub
             {
                 // 0.9.12 Pool-Konto: der Miner zählt Blöcke des Coins, den der Pool ihm gerade gibt (z. B. DGB)
                 var poolNote = PoolWorkerOf(s) is not { } pw ? ""
-                    : pw.IsSolo ? L.T(" Coin laut Pool-Konto: {0} (SOLO) – der Block gehört dir (abzüglich Pool-Gebühr); die Belohnung kommt als Gutschrift im Pool-Konto.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining)
-                    : pw.IsParty ? L.T(" Coin laut Pool-Konto: {0} (PARTY) – die Blockbelohnung wird unter den Party-Mitgliedern aufgeteilt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining)
-                    : L.T(" Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.", CoinTypeExtensions.FromSymbolOrName(pw.NowMining)?.Symbol() ?? pw.NowMining, pw.Mode);
+                    : pw.IsSolo ? L.T(" Coin laut Pool-Konto: {0} (SOLO) – der Block gehört dir (abzüglich Pool-Gebühr); die Belohnung kommt als Gutschrift im Pool-Konto.", PoolSymbolOfSlug(pw.NowMining))
+                    : pw.IsParty ? L.T(" Coin laut Pool-Konto: {0} (PARTY) – die Blockbelohnung wird unter den Party-Mitgliedern aufgeteilt.", PoolSymbolOfSlug(pw.NowMining))
+                    : L.T(" Coin laut Pool-Konto: {0} ({1}) – die Blockbelohnung geht an den Pool, deine Gutschrift kommt wie gewohnt.", PoolSymbolOfSlug(pw.NowMining), pw.Mode);
                 _ = Notify.SendAsync($"block:{host}:{i.blockFound}", L.T("BLOCK GEFUNDEN – {0}", s.Config.Name),
                     L.T("Der Miner meldet jetzt {0} gefundene(n) Block/Blöcke.", i.blockFound) + poolNote,
                     NotifyPriority.Urgent, TimeSpan.FromDays(365), category: NotifyCategory.Finds, host: host);
