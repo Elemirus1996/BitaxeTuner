@@ -31,6 +31,7 @@ public sealed class ServerClient : IDisposable
 
     private readonly HttpClient _http;
     private readonly string? _pinned;
+    private readonly bool _injected;   // Tests: In-Memory-Server, langer Client nicht möglich
 
     public ServerClient(string url, string? token, string? pinnedFingerprint = null, TimeSpan? timeout = null)
     {
@@ -52,6 +53,7 @@ public sealed class ServerClient : IDisposable
     internal ServerClient(HttpClient http, string token)
     {
         _http = http;
+        _injected = true;
         BaseUri = http.BaseAddress ?? new Uri("http://localhost/");
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
@@ -112,12 +114,25 @@ public sealed class ServerClient : IDisposable
         await SendAsync(HttpMethod.Post, "api/v1/admin/pause", JsonContent.Create(new { paused }), ct);
 
     /// <summary>Datenarchiv des Servers herunterladen.</summary>
+    /// <remarks>
+    /// Der Server baut das Archiv (history.db über die SQLite-Backup-API) vor der ersten Antwort – bei großem Verlauf deutlich
+    /// länger als das kurze Standard-Timeout von 20 s. Daher eigener Client mit 30 min, gestreamt statt gepuffert.
+    /// </remarks>
     public async Task DownloadExportAsync(Stream target, CancellationToken ct = default)
     {
-        using var response = await _http.GetAsync("api/v1/admin/export", HttpCompletionOption.ResponseHeadersRead, ct);
-        await EnsureAsync(response, ct);
-        await using var s = await response.Content.ReadAsStreamAsync(ct);
-        await s.CopyToAsync(target, ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromMinutes(30));
+        try
+        {
+            using var own = _injected ? null : LongClient();
+            using var response = await (own ?? _http).GetAsync("api/v1/admin/export", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            await EnsureAsync(response, cts.Token);
+            await using var s = await response.Content.ReadAsStreamAsync(cts.Token);
+            await s.CopyToAsync(target, cts.Token);
+        }
+        catch (HttpRequestException ex) { throw Wrap(ex); }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested) { throw new ServerException(L.T("Zeitüberschreitung beim Server."), null, ex); }
+        catch (IOException ex) when (ex.InnerException is System.Net.Sockets.SocketException) { throw new ServerException(ex.Message, null, ex); }
     }
 
     /// <summary>Datenarchiv auf den Server hochladen. <paramref name="replace"/>: vorhandene Serverdaten ersetzen (Server sichert sie vorher).</summary>
@@ -201,14 +216,23 @@ public sealed class ServerClient : IDisposable
     // Lange Übertragungen (history.db) ohne das kurze Standard-Timeout
     private async Task<HttpResponseMessage> SendLongAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        using var longClient = new HttpClient(new SocketsHttpHandler
-        {
-            SslOptions = new SslClientAuthenticationOptions { RemoteCertificateValidationCallback = ValidateCertificate },
-        }) { BaseAddress = BaseUri, Timeout = Timeout.InfiniteTimeSpan };
-        longClient.DefaultRequestHeaders.Authorization = _http.DefaultRequestHeaders.Authorization;
+        using var longClient = LongClient();
         var response = await longClient.SendAsync(request, ct);
         await response.Content.LoadIntoBufferAsync();
         return response;
+    }
+
+    /// <summary>Client ohne Timeout (Grenze setzt der Aufrufer per CancellationToken), gleiche Zertifikatsprüfung und Anmeldung.</summary>
+    private HttpClient LongClient()
+    {
+        var client = new HttpClient(new SocketsHttpHandler
+        {
+            ConnectTimeout = TimeSpan.FromSeconds(10),
+            SslOptions = new SslClientAuthenticationOptions { RemoteCertificateValidationCallback = ValidateCertificate },
+        }) { BaseAddress = BaseUri, Timeout = Timeout.InfiniteTimeSpan };
+        client.DefaultRequestHeaders.Authorization = _http.DefaultRequestHeaders.Authorization;
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner-Desktop");
+        return client;
     }
 
     private ServerException Wrap(HttpRequestException ex) =>

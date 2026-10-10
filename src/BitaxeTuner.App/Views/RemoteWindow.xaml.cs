@@ -64,7 +64,7 @@ public partial class RemoteWindow : Window
             BackupText.Text = L.T("· Sicherung {0:HH:mm} ✓", DateTime.Now);
             BackupText.ToolTip = Path.Combine(Core.Backup.BackupPickup.FolderOf(s), name);
         }
-        catch (Exception ex) when (ex is ServerException or IOException or InvalidDataException or UnauthorizedAccessException)
+        catch (Exception ex)   // läuft per Timer im Hintergrund – nie als Fehlerfenster, nur im Statustext (nächster Versuch nach 30 min)
         {
             BackupText.Text = L.T("· Sicherung fehlgeschlagen");
             BackupText.ToolTip = ex.Message;
