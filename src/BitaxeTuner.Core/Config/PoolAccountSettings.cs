@@ -28,6 +28,12 @@ public sealed class PoolAccountSettings
     /// <summary>Pool-Buchungen als Zuflüsse in die Steuer übernehmen.</summary>
     public bool TaxImport { get; set; } = true;
 
+    /// <summary>
+    /// 0.9.13: Der Pool tauscht Altcoins automatisch in BTC (Mining-Dutch „Auto Exchange“): Altcoin-Abbuchungen sind dann
+    /// Umtausch, die BTC dafür eine Anschaffung – kein zweiter Ertrag.
+    /// </summary>
+    public bool AutoExchange { get; set; } = true;
+
     public void Normalize()
     {
         ApiKey = (ApiKey ?? "").Trim();

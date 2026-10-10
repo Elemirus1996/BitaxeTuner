@@ -203,7 +203,7 @@ public sealed class TaxEditor(WalletMonitorService monitor, TaxLogRepository rep
         var rewards = monitor.LoadRewards();
         var results = HoldingCalculator.Apply(rewards, repository.LoadDisposals(), cur);
         var year = TaxTime.ToTax(now.ToUniversalTime()).Year;
-        var inYear = rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
+        var inYear = rewards.Where(r => r.ReceivedAtLocal.Year == year && !r.IsSwap).ToList();   // Tausch ist kein Ertrag
         var sales = results.Where(r => r.Disposal.SoldAtLocal.Year == year).ToList();
         var summary = new TaxYearSummary(year, inYear.Count, inYear.Sum(r => r.ValueIn(cur) ?? 0), inYear.Count(r => r.ValueIn(cur) is null),
             sales.Count, sales.Sum(r => r.TaxableGainEur), FreeLimitEur, sales.Any(r => r.MissingPrice), sales.Any(r => r.UnmatchedAmount > 0),

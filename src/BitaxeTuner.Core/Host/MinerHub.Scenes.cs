@@ -442,7 +442,7 @@ public sealed partial class MinerHub
             var start = new DateTime(now.Year, now.Month, 1);
             var hosts = ReportMiners().Select(m => m.Host).ToList();
             List<MinedReward> rewards;
-            try { rewards = TaxRepository.LoadRewards(); } catch { rewards = []; }
+            try { rewards = TaxRepository.LoadIncome(); } catch { rewards = []; }
             var bars = new List<DisplayValue>();
             for (var day = start; day <= now.Date; day = day.AddDays(1))
             {

@@ -147,21 +147,33 @@ public sealed class WalletMonitorService : IDisposable
     /// Speicher für die andere Art – sie gehen nicht verloren und kommen beim Wiedereinschalten zurück.
     /// </summary>
     /// <param name="fetchPrices">false: keine Kursabfrage (Tests ohne Netz) – fehlende Kurse holt ein späterer Durchlauf nach.</param>
-    public async Task<int> SyncPoolAsync(IReadOnlyList<PoolTransaction> ledger, PoolIncomeBasis basis, bool import, CancellationToken ct = default,
-        bool fetchPrices = true)
+    public Task<int> SyncPoolAsync(IReadOnlyList<PoolTransaction> ledger, PoolIncomeBasis basis, bool import, CancellationToken ct = default,
+        bool fetchPrices = true) =>
+        SyncPoolAsync(ledger, new PoolSyncOptions(basis, import, false, fetchPrices), ct);
+
+    /// <summary>
+    /// 0.9.13: wie oben, mit automatischem Umtausch in BTC (Umtausch-Verkäufe der Altcoins, BTC als Anschaffung) und
+    /// Kursen vom Pool für Coins ohne CoinGecko-Kurs (<see cref="PoolSyncOptions.PoolPrice"/>, Kurs beim Abruf).
+    /// </summary>
+    public async Task<int> SyncPoolAsync(IReadOnlyList<PoolTransaction> ledger, PoolSyncOptions o, CancellationToken ct = default)
     {
         await _pollLock.WaitAsync(ct);
         try
         {
             List<MinedReward> added;
-            bool changed;
+            List<Disposal> newSales = [];
+            bool changed, salesChanged;
             lock (_walletLock)
             {
                 var all = _repository.LoadRewards();
                 var inactive = _repository.LoadPoolInactive();
-                if (import)
-                    added = PoolTaxSync.Apply(all, inactive, PoolTaxSync.Derive(ledger, basis, DateTime.UtcNow), basis,
+                var disposals = _repository.LoadDisposals();
+                if (o.Import)
+                {
+                    added = PoolTaxSync.Apply(all, inactive, PoolTaxSync.Derive(ledger, o.Basis, DateTime.UtcNow, o.AutoExchange), o.Basis,
                         _repository.LoadIgnoredTxKeys(), out changed);
+                    newSales = PoolTaxSync.ApplySales(disposals, PoolTaxSync.DeriveSwapSales(ledger, o.Basis, o.AutoExchange), out salesChanged);
+                }
                 else
                 {
                     added = [];
@@ -173,19 +185,30 @@ public sealed class WalletMonitorService : IDisposable
                         inactive.Add(r);
                     }
                     changed = parked.Count > 0;
+                    salesChanged = disposals.RemoveAll(PoolTaxSync.IsPoolSale) > 0;
                 }
+                // Coins ohne CoinGecko-Kurs (z. B. WJK): Kurs vom Pool beim Abruf, nie über einen von Hand eingetragenen
+                if (o.PoolPrice is { } pool)
+                    foreach (var r in all.Where(r => PoolTaxSync.IsPoolReward(r) && !r.Coin.HasPriceSource()))
+                        foreach (var cur in new[] { "EUR", CurrentCurrency() }.Distinct())
+                            if (r.PriceIn(cur) is null && !r.IsManualIn(cur) && pool(r.CoinSymbol, cur) is { } p)
+                            {
+                                r.SetPrice(cur, p, DateTime.UtcNow, L.T("Mining-Dutch (Kurs beim Abruf)"));
+                                changed = true;
+                            }
                 if (changed)
                 {
                     _repository.SavePoolInactive(inactive);
                     _repository.SaveRewards(all);
                     foreach (var r in added) _knownTxKeys.Add(TaxLogRepository.TxKey(r.CoinSymbol, r.TxId));
                 }
+                if (salesChanged) _repository.SaveDisposals(disposals);
             }
             if (added.Count > 0)
             {
                 // Kurse für die neuesten Einträge gleich holen, ältere holt jeder Durchlauf nach (Rate-Limit)
                 foreach (var r in added.Where(r => r.Coin.HasPriceSource() && r.PriceIn("EUR") is null)
-                             .OrderByDescending(r => r.ReceivedAtUtc).Take(fetchPrices ? PriceRetriesPerPoll : 0))
+                             .OrderByDescending(r => r.ReceivedAtUtc).Take(o.FetchPrices ? PriceRetriesPerPoll : 0))
                 {
                     var (quote, failure) = await _prices.GetEurPriceAsync(r.Coin, r.ReceivedAtUtc, ct);
                     if (quote is not null) r.SetPrice("EUR", quote.Value, quote.AtUtc, quote.Source);
@@ -197,14 +220,54 @@ public sealed class WalletMonitorService : IDisposable
                 }
                 foreach (var r in added.OrderBy(r => r.ReceivedAtUtc)) NewRewardDetected?.Invoke(r);
             }
+            if (o.Import) await PriceSwapSalesAsync(o, ct);
             // Danach die ganze Liste neu (nachgezogene Mengen, umgeschaltete Art) – ersetzt auch die eben ergänzten Zeilen
-            if (changed) RewardsReloaded?.Invoke();
-            if (import && fetchPrices) await RetryMissingPricesAsync(ct);
+            if (changed || salesChanged) RewardsReloaded?.Invoke();
+            if (o.Import && o.FetchPrices) await RetryMissingPricesAsync(ct);
             return added.Count;
         }
         finally
         {
             _pollLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Erlös der Umtausch-Verkäufe in Euro (Kurs zum Zeitpunkt des Umtauschs; ohne CoinGecko-Kurs der Pool-Kurs beim Abruf).
+    /// Ohne Kurs bleibt der Erlös 0 mit Hinweis, der nächste Durchlauf versucht es erneut.
+    /// </summary>
+    private async Task PriceSwapSalesAsync(PoolSyncOptions o, CancellationToken ct)
+    {
+        List<Disposal> open;
+        lock (_walletLock) open = _repository.LoadDisposals().Where(d => PoolTaxSync.IsPoolSale(d) && d.ProceedsEur == 0).ToList();
+        var priced = new List<Disposal>();
+        foreach (var d in open.Take(PriceRetriesPerPoll))
+        {
+            decimal? price = null;
+            var source = "";
+            if (d.Coin.HasPriceSource() && o.FetchPrices)
+            {
+                var (quote, _) = await _prices.GetEurPriceAsync(d.Coin, d.SoldAtUtc, ct);
+                price = quote?.Value;
+                source = quote?.Source ?? "";
+            }
+            if (price is null && o.PoolPrice?.Invoke(d.CoinSymbol, "EUR") is { } p)
+            {
+                price = p;
+                source = L.T("Mining-Dutch (Kurs beim Abruf)");
+            }
+            if (price is null) continue;
+            d.ProceedsEur = Math.Round(d.Amount * price.Value, 2);
+            d.Note = L.T("Mining-Dutch: automatischer Umtausch in BTC") + " · " + source;
+            priced.Add(d);
+        }
+        if (priced.Count == 0) return;
+        lock (_walletLock)
+        {
+            var all = _repository.LoadDisposals();
+            foreach (var d in priced)
+                if (all.FirstOrDefault(x => x.Id == d.Id) is { } x) { x.ProceedsEur = d.ProceedsEur; x.Note = d.Note; }
+            _repository.SaveDisposals(all);
         }
     }
 
@@ -364,3 +427,8 @@ public sealed class WalletMonitorService : IDisposable
         _pollLock.Dispose();
     }
 }
+
+/// <summary>0.9.13: Optionen für den Abgleich der Pool-Buchungen.</summary>
+/// <param name="PoolPrice">Aktueller Kurs vom Pool je Kürzel und Währung (für Coins ohne CoinGecko-Kurs), null = keiner.</param>
+public sealed record PoolSyncOptions(PoolIncomeBasis Basis, bool Import, bool AutoExchange, bool FetchPrices = true,
+    Func<string, string, decimal?>? PoolPrice = null);

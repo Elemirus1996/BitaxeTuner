@@ -81,6 +81,7 @@ public sealed partial class MinerHub
         {
             if (!Config.Notifications.Wants(NotifyCategory.Finds)) return;
             if (DateTime.UtcNow - reward.ReceivedAtUtc > TimeSpan.FromHours(6)) return; // Erstimport alter Eingänge
+            if (reward.IsSwap) return;                                                  // Umtausch ist kein Ertrag
 
             var cur = Currencies.Of(Config);
             var eur = reward.ValueIn(cur.Code) is { } v ? $" ≈ {v.ToString("N2", De)} {cur.Symbol}" : "";

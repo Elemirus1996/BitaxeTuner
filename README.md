@@ -213,6 +213,14 @@ Anfragen, damit der Pool nicht sperrt):
   als ein Zufluss, sobald der Tag vorbei ist – Standard) oder *Auszahlung an die Wallet* (jede Auszahlung einzeln).
   Beim Umschalten bleiben von Hand eingetragene Kurse erhalten; welche Sicht gilt, bitte mit der Steuerberatung klären.
 
+- **Automatischer Umtausch in BTC** (ab 0.9.13, Haken im Pool-Konto, Standard an): Bei *Gutschrift* zählt nur die
+  Mining-Gutschrift als Ertrag; der Umtausch wird als Verkauf des Altcoins erfasst und die BTC dafür als Anschaffung
+  („Tausch“, kein zweiter Ertrag, aber im Bestand für FIFO und Haltefrist). Bei *Auszahlung* zählen nur die
+  BTC-Auszahlungen an die Wallet.
+- **Weitere Coins** (ab 0.9.13): Coins, die der Pool per Profit-Wechsel schürft (z. B. WOJAKCOIN/WJK), werden automatisch
+  erkannt und in der Steuer mit ihrem Kürzel geführt. Ohne CoinGecko-Kurs gilt der Kurs des Pools beim Abruf (in US-Dollar,
+  umgerechnet); er lässt sich von Hand ändern.
+
 Alle je gesehenen Buchungen bleiben in `tax\pool-ledger.json` (der Pool liefert nur die jüngsten). Wallet-Abfragen über
 die Blockchain gibt es weiter nur für BTC und BCH.
 

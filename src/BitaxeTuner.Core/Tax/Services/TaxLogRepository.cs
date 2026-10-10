@@ -65,6 +65,9 @@ public sealed class TaxLogRepository
 
     public List<MinedReward> LoadRewards() => Load<MinedReward>(_rewardsPath);
 
+    /// <summary>0.9.13: nur Erträge – ohne Anschaffungen durch Tausch (für Berichte, Anzeige und Jahreswerte).</summary>
+    public List<MinedReward> LoadIncome() => LoadRewards().Where(r => !r.IsSwap).ToList();
+
     public void SaveRewards(IEnumerable<MinedReward> rewards) => Save(_rewardsPath, rewards.ToList());
 
     // ---------- Pool-Konto (0.9.12) ----------

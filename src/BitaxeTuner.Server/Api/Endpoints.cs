@@ -33,7 +33,7 @@ public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
 /// <summary>0.9.12 Pool-Konto. ApiKey: null = unverändert, leer = löschen.</summary>
-public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey);
+public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey, bool? AutoExchange = null);
 public sealed record HttpsRequest(bool Enable);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
@@ -997,6 +997,11 @@ public static class Endpoints
             p.IntervalMinutes = req.IntervalMinutes;
             p.TaxBasis = basis;
             p.TaxImport = req.TaxImport;
+            if (req.AutoExchange is { } ax && ax != p.AutoExchange)
+            {
+                changes.Add(ax ? L.T("Pool-Konto: Altcoins werden automatisch in BTC umgetauscht.") : L.T("Pool-Konto: kein automatischer Umtausch in BTC."));
+                p.AutoExchange = ax;
+            }
             if (req.ApiKey is not null) p.ApiKey = req.ApiKey;
             p.Normalize();
             h.Config.Save();

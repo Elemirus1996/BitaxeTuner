@@ -79,6 +79,8 @@ public class PoolAccountTests
         var txs = await client.GetTransactionsAsync(CoinType.DigiByte);
         Assert.Equal(2, txs.Count);                                                         // unlesbarer Betrag fällt weg
         Assert.True(txs[0].IsCredit);
+        Assert.False(txs[0].FromShares);                                                    // ohne Shares: z. B. Umtausch
+        Assert.True(txs[1].FromShares);
         Assert.Equal((101L, 1.5m, 123L), (txs[0].Id, txs[0].Amount, txs[0].Height!.Value));
         Assert.Equal(new DateTime(2026, 7, 1, 10, 0, 0, DateTimeKind.Utc), txs[0].TimeUtc);  // Sommerzeit NL = UTC+2
         Assert.True(txs[1].IsPayout);
@@ -214,6 +216,71 @@ public class PoolAccountTests
         Assert.Equal("md-payout-DGB-3", monitor.LoadRewards().Single().TxId);
         await monitor.SyncPoolAsync(ledger, PoolIncomeBasis.Credit, import: true);   // zurück: Kurs vom Erstimport bleibt
         Assert.Equal(0.01m, monitor.LoadRewards().Single().EurPriceAtReceipt);
+    }
+
+    private static List<PoolTransaction> ExchangeLedger() =>
+    [
+        Tx(1, "Credit", 100m, Day1) with { FromShares = true },                              // DGB aus dem Mining
+        Tx(2, "Credit", 50m, Day1.AddHours(1)) with { FromShares = true },
+        Tx(3, "Debit_AC", 150m, Day1.AddHours(2)) with { FromShares = false },               // DGB → BTC umgetauscht
+        Tx(4, "Credit", 0.00001m, Day1.AddHours(2), CoinType.Bitcoin) with { FromShares = false },   // BTC aus dem Umtausch
+        Tx(5, "Credit", 0.00002m, Day1.AddHours(3), CoinType.Bitcoin) with { FromShares = true },    // BTC aus dem Mining
+        Tx(6, "Debit_AC", 0.00003m, Day1.AddHours(4), CoinType.Bitcoin) with { FromShares = false }, // Auszahlung an die Wallet
+        new(7, CoinType.Other, "Credit", 45m, Day1.AddHours(5), null, "WJK", "wojakcoin", true),    // weiterer Coin vom Pool
+    ];
+
+    [Fact]
+    public void Auto_exchange_counts_mined_credits_once_and_books_the_exchange_as_a_swap()
+    {
+        var now = Day1.AddDays(1).AddHours(2);
+        var credit = PoolTaxSync.Derive(ExchangeLedger(), PoolIncomeBasis.Credit, now, autoExchange: true);
+        var income = credit.Where(r => !r.IsSwap).OrderBy(r => r.TxId).ToList();
+        Assert.Equal(["md-credit-BTC-2026-07-01", "md-credit-DGB-2026-07-01", "md-credit-WJK-2026-07-01"], income.Select(r => r.TxId).ToArray());
+        Assert.Equal(0.00002m, income[0].Amount);                                            // nur BTC aus dem Mining
+        Assert.Equal((CoinType.Other, "WJK", "WJK"), (income[2].Coin, income[2].CoinCode, income[2].CoinSymbol));
+        var swap = credit.Single(r => r.IsSwap);                                             // BTC aus dem Umtausch: Anschaffung
+        Assert.Equal(("md-swapin-BTC-4", 0.00001m), (swap.TxId, swap.Amount));
+        var sale = PoolTaxSync.DeriveSwapSales(ExchangeLedger(), PoolIncomeBasis.Credit, autoExchange: true).Single();
+        Assert.Equal(("md-swapout-DGB-3", CoinType.DigiByte, 150m), (sale.Id, sale.Coin, sale.Amount));
+
+        // Ohne Umtausch-Einstellung (bisheriges Verhalten): alle Gutschriften, keine Verkäufe
+        Assert.Equal(0.00003m, PoolTaxSync.Derive(ExchangeLedger(), PoolIncomeBasis.Credit, now).Single(r => r.CoinSymbol == "BTC").Amount);
+        Assert.Empty(PoolTaxSync.DeriveSwapSales(ExchangeLedger(), PoolIncomeBasis.Credit, autoExchange: false));
+
+        // Auszahlung: nur die BTC-Auszahlung an die Wallet, der Altcoin-Umtausch zählt nicht
+        Assert.Equal("md-payout-BTC-6", PoolTaxSync.Derive(ExchangeLedger(), PoolIncomeBasis.Payout, now, autoExchange: true).Single().TxId);
+        Assert.Empty(PoolTaxSync.DeriveSwapSales(ExchangeLedger(), PoolIncomeBasis.Payout, autoExchange: true));
+    }
+
+    [Fact]
+    public async Task Monitor_books_swaps_prices_pool_coins_and_keeps_swaps_out_of_income()
+    {
+        using var dir = new TempDir();
+        var repo = new TaxLogRepository(dir.Path);
+        using var monitor = new WalletMonitorService(new NoChain(), new FixedPrices(), repo);
+        var day = DateTime.UtcNow.Date.AddDays(-3).AddHours(10);
+        var ledger = ExchangeLedger().Select(t => t with { TimeUtc = day.AddMinutes(t.Id) }).ToList();
+        var o = new PoolSyncOptions(PoolIncomeBasis.Credit, true, true, PoolPrice: (sym, cur) => sym == "WJK" ? 0.002m : null);
+
+        Assert.Equal(4, await monitor.SyncPoolAsync(ledger, o));                            // BTC, DGB, WJK + BTC-Anschaffung
+        var rewards = monitor.LoadRewards();
+        Assert.Equal(0.002m, rewards.Single(r => r.CoinSymbol == "WJK").EurPriceAtReceipt);  // Pool-Kurs (Coin ohne CoinGecko)
+        Assert.True(rewards.Single(r => r.TxId == "md-swapin-BTC-4").IsSwap);
+        var sale = repo.LoadDisposals().Single();
+        Assert.Equal(("md-swapout-DGB-3", 1.5m), (sale.Id, sale.ProceedsEur));                // 150 DGB × 0,01 €
+
+        var editor = new TaxEditor(monitor, repo);
+        var (_, sales, summary, available) = editor.Overview(DateTime.Now);
+        Assert.Equal(3, summary.RewardCount);                                                // Tausch ist kein Ertrag
+        Assert.Equal(0m, available["DGB"]);                                                  // umgetauscht
+        Assert.Equal(45m, available["WJK"]);
+        Assert.Equal(0m, sales.Single().TaxableGainEur);                                     // Erlös = Anschaffung zum Tageskurs
+
+        // Umtausch-Einstellung aus: Verkauf weg, BTC-Anschaffung geparkt, BTC-Gutschrift wieder mit allem
+        await monitor.SyncPoolAsync(ledger, o with { AutoExchange = false });
+        Assert.Empty(repo.LoadDisposals());
+        Assert.DoesNotContain(monitor.LoadRewards(), r => r.IsSwap);
+        Assert.Equal(0.00003m, monitor.LoadRewards().Single(r => r.CoinSymbol == "BTC").Amount);
     }
 
     [Fact]

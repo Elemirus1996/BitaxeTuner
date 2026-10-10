@@ -214,6 +214,14 @@ enter the **API key** (Mining-Dutch: *Edit Account* → *API Key*). It cannot ch
   inflow once the day is over – default) or *payout to the wallet* (every payout individually). Manually entered prices
   are kept when switching; please clarify with your tax advisor which view applies.
 
+- **Automatic exchange into BTC** (from 0.9.13, checkbox in the pool account, on by default): under *credit* only the
+  mining credit counts as income; the exchange is recorded as a sale of the altcoin and the BTC received as an
+  acquisition (“exchange”, no second income, but part of the holdings for FIFO and the holding period). Under *payout*
+  only the BTC payouts to the wallet count.
+- **Further coins** (from 0.9.13): coins the pool mines via profit switching (e.g. WOJAKCOIN/WJK) are detected
+  automatically and kept in the tax section with their symbol. Without a CoinGecko price the pool's price at query time
+  is used (in US dollars, converted); it can be changed by hand.
+
 Every booking ever seen stays in `tax\pool-ledger.json` (the pool only returns the most recent ones). Wallet lookups via
 the blockchain remain available for BTC and BCH only.
 

@@ -27,8 +27,10 @@ public sealed record PoolBalance(CoinType Coin, decimal Confirmed, decimal Uncon
 /// Buchung beim Pool: Gutschrift („Credit“) oder Auszahlung („Debit_AC“, „Debit_MP“ …). 0.9.13: <paramref name="Code"/> =
 /// Kürzel bei <see cref="CoinType.Other"/>, <paramref name="Slug"/> = Pool-Name bei Mining-Dutch (für spätere Abfragen).
 /// </summary>
+/// <param name="FromShares">Gutschrift aus dem Mining (txid enthält die Shares); false = z. B. BTC aus dem automatischen
+/// Umtausch; null = ältere Einträge ohne Angabe.</param>
 public sealed record PoolTransaction(long Id, CoinType Coin, string Type, decimal Amount, DateTime TimeUtc, long? Height,
-    string? Code = null, string? Slug = null)
+    string? Code = null, string? Slug = null, bool? FromShares = null)
 {
     public bool IsCredit => Type.Equals("Credit", StringComparison.OrdinalIgnoreCase);
     public bool IsPayout => Type.StartsWith("Debit", StringComparison.OrdinalIgnoreCase);
@@ -142,8 +144,10 @@ public sealed class MiningDutchClient : IDisposable
                 if (Num(t, "id") is not { } id || Dec(t, "amount") is not { } amount) continue;
                 if (ParseTime(Str(t, "timestamp")) is not { } time) continue;
                 var height = Num(t, "height") is { } hh && hh > 0 ? (long)hh : (long?)null;
+                // Mining-Gutschriften tragen im txid-Feld die Shares ({"shares":…}); Umtausch-Gutschriften nicht
+                var fromShares = Str(t, "txid").Contains("shares", StringComparison.OrdinalIgnoreCase);
                 list.Add(new PoolTransaction((long)id, coin, Str(t, "type"), Math.Abs(amount), time, height,
-                    coin == CoinType.Other ? code : null, slug));
+                    coin == CoinType.Other ? code : null, slug, fromShares));
             }
         return list;
     }

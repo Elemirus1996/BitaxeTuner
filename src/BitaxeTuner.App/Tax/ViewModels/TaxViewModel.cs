@@ -80,7 +80,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
         {
             var year = DateTime.Now.Year;
             var code = Cur.Code;
-            var inYear = Rewards.Where(r => r.ReceivedAtLocal.Year == year).ToList();
+            var inYear = Rewards.Where(r => r.ReceivedAtLocal.Year == year && !r.IsSwap).ToList();   // Tausch ist kein Ertrag
             var sum = inYear.Sum(r => r.ValueIn(code) ?? 0);
             var missing = inYear.Count(r => r.ValueIn(code) is null);
             var text = L.T("{0}: {1} Zuflüsse · {2}", year, inYear.Count, Money(sum));
@@ -295,7 +295,7 @@ public sealed class TaxViewModel : INotifyPropertyChanged, IDisposable
 
             // Beim ersten Abruf einer Adresse kommen bis zu 50 alte Eingänge.
             // Die gehören in die Liste, aber nicht als 50 Hinweisfenster.
-            if (DateTime.UtcNow - reward.ReceivedAtUtc > NotifyWindow) return;
+            if (DateTime.UtcNow - reward.ReceivedAtUtc > NotifyWindow || reward.IsSwap) return;   // Tausch ist kein Ertrag
 
             var text = L.T("{0} {1} auf {2}\n", reward.Amount.ToString("0.00000000", De), reward.CoinSymbol, reward.WalletLabel) +
                        L.T("Zeitpunkt: {0:g}\n", reward.ReceivedAtUtc.ToLocalTime()) +

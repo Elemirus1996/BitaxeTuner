@@ -2682,7 +2682,8 @@ function taxRewardsCard(tv) {
   return h('div', { class: 'card table-wrap' }, h('table', {},
     h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Kurs ({0})', cur.code), t('Wert ({0})', cur.code), t('Rest'), t('Haltefrist'), t('Wallet'), t('Notiz'), ''].map(x => h('th', {}, x)))),
     h('tbody', {}, tv.rewards.map(r => h('tr', {},
-      h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.symbol), h('td', { class: 'num' }, sat8(r.amount)),
+      h('td', {}, time(r.receivedAtUtc)), h('td', {}, r.symbol, r.isSwap ? h('span', { class: 'pill gray', title: t('Anschaffung durch Tausch – kein Ertrag, zählt aber für Bestand und Haltefrist') }, ' ' + t('Tausch')) : null),
+      h('td', { class: 'num' }, sat8(r.amount)),
       h('td', { class: 'num', title: r.priceSource || '' }, r.price != null ? n(r.price, 2) + (r.manualPrice ? ' ✎' : '') : h('span', { class: 'warn' }, t('fehlt'))),
       h('td', { class: 'num' }, r.value != null ? n(r.value, 2) : '–'),
       h('td', { class: 'num' }, r.remaining > 0 ? sat8(r.remaining) : '–'),
@@ -3975,7 +3976,9 @@ function poolAccountCard() {
     const basis = h('select', { style: 'width:auto' }, [['credit', t('Gutschrift beim Pool (je Tag und Coin)')], ['payout', t('Auszahlung an die Wallet')]]
       .map(([v, l]) => h('option', { value: v, selected: p.taxBasis === v }, l)));
     const imp = h('input', { type: 'checkbox', checked: p.taxImport });
-    const values = apiKey => ({ enabled: enabled.checked, intervalMinutes: +interval.value || 10, taxBasis: basis.value, taxImport: imp.checked, apiKey });
+    const ax = h('input', { type: 'checkbox', checked: p.autoExchange });
+    const values = apiKey => ({ enabled: enabled.checked, intervalMinutes: +interval.value || 10, taxBasis: basis.value, taxImport: imp.checked,
+      autoExchange: ax.checked, apiKey });
     const save = async () => {
       if (await run(() => api('/pool-account', { method: 'PUT', body: values(key.value.trim() || null) }), t('Gespeichert.'))) load();
     };
@@ -4013,6 +4016,8 @@ function poolAccountCard() {
         h('div', {}, h('label', {}, t('Abfrage alle … Minuten')), interval),
         h('div', {}, h('label', {}, t('Zufluss für die Steuer')), basis)),
       h('label', { class: 'check' }, imp, ' ', t('Pool-Buchungen als Zuflüsse in die Steuer übernehmen')),
+      h('label', { class: 'check' }, ax, ' ', t('Altcoins werden beim Pool automatisch in BTC umgetauscht')),
+      h('p', { class: 'muted small' }, t('Mit Umtausch zählt bei „Gutschrift“ nur die Mining-Gutschrift als Ertrag; der Umtausch wird als Verkauf des Altcoins erfasst und die BTC dafür als Anschaffung (kein zweiter Ertrag). Bei „Auszahlung“ zählen nur die BTC-Auszahlungen an deine Wallet.')),
       h('p', { class: 'muted small' }, t('Gutschrift: alle Gutschriften eines Coins an einem Tag als ein Zufluss (sobald der Tag vorbei ist). Auszahlung: jede Auszahlung vom Pool an deine Wallet einzeln. Beim Umschalten bleiben von Hand eingetragene Kurse erhalten. Welche Sicht für dich gilt, klärst du am besten mit deiner Steuerberatung.')),
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: save }, t('Speichern')),

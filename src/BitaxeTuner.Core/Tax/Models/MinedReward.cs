@@ -17,8 +17,14 @@ public class MinedReward : INotifyPropertyChanged
     public string WalletLabel { get; set; } = string.Empty;
     public CoinType Coin { get; set; }
 
-    /// <summary>0.9.13: Kürzel bei <see cref="CoinType.Other"/> (z. B. „WOJAK“ vom Pool-Konto); sonst null.</summary>
+    /// <summary>0.9.13: Kürzel bei <see cref="CoinType.Other"/> (z. B. „WJK“ vom Pool-Konto); sonst null.</summary>
     public string? CoinCode { get; set; }
+
+    /// <summary>
+    /// 0.9.13: Anschaffung durch Tausch (z. B. BTC aus dem automatischen Umtausch beim Pool) – zählt für Bestand, FIFO und
+    /// Haltefrist, aber nicht als Ertrag.
+    /// </summary>
+    public bool IsSwap { get; set; }
 
     public string TxId { get; set; } = string.Empty;
 

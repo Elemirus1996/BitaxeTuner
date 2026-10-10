@@ -20,7 +20,7 @@ public sealed partial class MinerHub
     {
         if (History is null) throw new LocalizedException("Verlaufsdatenbank nicht verfügbar.");
         List<Tax.Models.MinedReward> rewards;
-        try { rewards = TaxRepository.LoadRewards(); } catch { rewards = []; }
+        try { rewards = TaxRepository.LoadIncome(); } catch { rewards = []; }
         return PeriodReports.Build(History, Config, ReportMiners(), rewards, period, now);
     }
 
@@ -29,7 +29,7 @@ public sealed partial class MinerHub
     {
         if (History is null) throw new LocalizedException("Verlaufsdatenbank nicht verfügbar.");
         List<Tax.Models.MinedReward> rewards;
-        try { rewards = TaxRepository.LoadRewards(); } catch { rewards = []; }
+        try { rewards = TaxRepository.LoadIncome(); } catch { rewards = []; }
         return PeriodReports.Months(History, Config, ReportMiners(), rewards, year, now);
     }
 

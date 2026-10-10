@@ -3,6 +3,7 @@ using BitaxeTuner.Core.I18n;
 using BitaxeTuner.Core.Monitoring;
 using BitaxeTuner.Core.Pools;
 using BitaxeTuner.Core.Tax.Models;
+using BitaxeTuner.Core.Tax.Services;
 
 namespace BitaxeTuner.Core.Host;
 
@@ -34,6 +35,42 @@ public sealed partial class MinerHub
 
     /// <summary>0.9.13: Kürzel und Kurs-Rohwert je Coin-Pool (Slug), aus dem Dashboard; höchstens alle 6 h neu.</summary>
     private readonly Dictionary<string, (DateTime At, PoolCoinInfo Info)> _poolCoinInfo = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Währung je US-Dollar (Umrechnung des Pool-Kurses, der in USD kommt); höchstens stündlich.</summary>
+    private readonly Dictionary<string, (DateTime At, decimal Rate)> _fiatPerUsd = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Kurs vom Pool für Coins ohne CoinGecko-Kurs: „exchangePrice“ aus dem Dashboard ist ein US-Dollar-Kurs (geprüft an
+    /// DGB: 0,00351 laut Pool, 0,00358 $ laut CoinGecko); 0 = der Pool kennt keinen Kurs.
+    /// </summary>
+    internal decimal? PoolPriceFor(string symbol, string currency)
+    {
+        var usd = _poolCoinInfo.Values.Select(v => v.Info).FirstOrDefault(i => string.Equals(i.Currency, symbol, StringComparison.OrdinalIgnoreCase))?.ExchangePrice;
+        if (usd is not > 0) return null;
+        if (currency.Equals("USD", StringComparison.OrdinalIgnoreCase)) return usd;
+        return _fiatPerUsd.TryGetValue(currency, out var r) ? usd * r.Rate : null;
+    }
+
+    /// <summary>Umrechnung USD → Währung über den Bitcoin-Kurs in beiden Währungen (eine Quelle, keine weitere API).</summary>
+    private async Task RefreshFiatPerUsdAsync(IEnumerable<string> currencies)
+    {
+        if (!Options.OnlineChecks) return;
+        decimal? btcUsd = null;
+        foreach (var cur in currencies.Distinct(StringComparer.OrdinalIgnoreCase).Where(c => !c.Equals("USD", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (_fiatPerUsd.TryGetValue(cur, out var known) && DateTime.UtcNow - known.At < TimeSpan.FromHours(1)) continue;
+            try
+            {
+                btcUsd ??= (await CoinGecko.GetPriceAsync(CoinType.Bitcoin, DateTime.UtcNow, "USD")).Quote?.Value;
+                var btcCur = (await CoinGecko.GetPriceAsync(CoinType.Bitcoin, DateTime.UtcNow, cur)).Quote?.Value;
+                if (btcUsd is > 0 && btcCur is > 0) _fiatPerUsd[cur] = (DateTime.UtcNow, btcCur.Value / btcUsd.Value);
+            }
+            catch { /* ohne Umrechnung kein Pool-Kurs, nächster Versuch beim nächsten Abruf */ }
+        }
+    }
+
+    private PoolSyncOptions PoolSync(PoolAccountSettings cfg) =>
+        new(cfg.TaxBasis, cfg.TaxImport, cfg.AutoExchange, Options.OnlineChecks, PoolPriceFor);
 
     /// <summary>Pools, die keine Coins sind (Profit-Wechsel nach Algorithmus).</summary>
     private static readonly HashSet<string> AlgoPools = new(StringComparer.OrdinalIgnoreCase) { "sha256", "sha256d", "" };
@@ -87,7 +124,7 @@ public sealed partial class MinerHub
                         payouts.Where(t => now - t.TimeUtc <= TimeSpan.FromDays(30)).Sum(t => t.Amount),
                         credits.Count > 0 ? credits.Max(t => t.TimeUtc) : null,
                         payouts.Count > 0 ? payouts.Max(t => t.TimeUtc) : null,
-                        _poolPrices.TryGetValue(x.Symbol, out var p) && p.Currency == cur ? p.Price : null);
+                        _poolPrices.TryGetValue(x.Symbol, out var p) && p.Currency == cur ? p.Price : PoolPriceFor(x.Symbol, cur));
                 })
                 // Nur Coins mit Guthaben oder Buchungen, Bitcoin immer
                 .Where(s => s.Coin == CoinType.Bitcoin || s.Confirmed + s.Unconfirmed > 0 || s.LastCreditUtc is not null || s.LastPayoutUtc is not null)
@@ -167,13 +204,24 @@ public sealed partial class MinerHub
             // Pool-Buch ergänzen: der Pool liefert nur die jüngsten Buchungen – alles einmal Gesehene bleibt erhalten
             var known = ledger.Select(t => (t.Symbol, t.Id)).ToHashSet();
             var added = fresh.Where(t => known.Add((t.Symbol, t.Id))).ToList();
-            if (added.Count > 0)
+            // 0.9.13: ältere Einträge ohne Shares-Angabe ergänzen, sobald der Pool sie noch einmal liefert
+            var byKey = fresh.GroupBy(t => (t.Symbol, t.Id)).ToDictionary(g => g.Key, g => g.First());
+            var upgraded = 0;
+            for (var n = 0; n < ledger.Count; n++)
+                if (ledger[n].FromShares is null && byKey.TryGetValue((ledger[n].Symbol, ledger[n].Id), out var f) && f.FromShares is not null)
+                {
+                    ledger[n] = ledger[n] with { FromShares = f.FromShares, Slug = ledger[n].Slug ?? f.Slug };
+                    upgraded++;
+                }
+            if (added.Count > 0 || upgraded > 0)
             {
                 ledger.AddRange(added);
                 TaxRepository.SavePoolLedger(ledger.OrderBy(t => t.TimeUtc));
             }
 
-            var newRewards = await TaxMonitor.SyncPoolAsync(ledger, cfg.TaxBasis, cfg.TaxImport, fetchPrices: Options.OnlineChecks);
+            if (balances.Any(b => b.Coin == CoinType.Other) || ledger.Any(t => t.Coin == CoinType.Other))
+                await RefreshFiatPerUsdAsync(["EUR", Currencies.Of(Config).Code]);
+            var newRewards = await TaxMonitor.SyncPoolAsync(ledger, PoolSync(cfg));
             _poolNewRewards += newRewards;
             await RefreshPoolPricesAsync(balances.Where(b => b.Confirmed + b.Unconfirmed > 0 && b.Coin.HasPriceSource()).Select(b => b.Coin));
 
@@ -205,7 +253,7 @@ public sealed partial class MinerHub
         try
         {
             var ledger = TaxRepository.LoadPoolLedger();
-            if (ledger.Count > 0) await TaxMonitor.SyncPoolAsync(ledger, cfg.TaxBasis, cfg.TaxImport, fetchPrices: Options.OnlineChecks);
+            if (ledger.Count > 0) await TaxMonitor.SyncPoolAsync(ledger, PoolSync(cfg));
         }
         catch (Exception ex)
         {

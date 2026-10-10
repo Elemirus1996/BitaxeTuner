@@ -31,7 +31,7 @@ public static class TaxEndpoints
                 {
                     r.Id, r.ReceivedAtUtc, r.Coin, symbol = r.CoinSymbol, r.Amount, r.EurPriceAtReceipt, r.EurValue,
                     price = r.PriceIn(cur.Code), value = r.ValueIn(cur.Code), priceSource = r.SourceIn(cur.Code),
-                    manualPrice = r.IsManualIn(cur.Code), r.Note, r.WalletLabel, r.TxId, r.Remaining, r.HoldingStatus, r.TaxFreeFrom,
+                    manualPrice = r.IsManualIn(cur.Code), r.IsSwap, r.Note, r.WalletLabel, r.TxId, r.Remaining, r.HoldingStatus, r.TaxFreeFrom,
                 }),
                 disposals = disposals.Select(d => new
                 {

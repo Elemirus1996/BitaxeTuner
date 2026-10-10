@@ -250,6 +250,7 @@ public static class Dto
             intervalMinutes = cfg.IntervalMinutes,
             taxBasis = cfg.TaxBasis == Core.Pools.PoolIncomeBasis.Payout ? "payout" : "credit",
             taxImport = cfg.TaxImport,
+            autoExchange = cfg.AutoExchange,
             busy = st.Busy,
             lastPoll = st.LastPollUtc is { } lp ? new DateTimeOffset(lp) : (DateTimeOffset?)null,
             error = st.Error,
