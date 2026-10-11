@@ -10,7 +10,8 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Transfer;
 
 /// <summary>Update-Stand des Servers: installierte und neueste Version, ob er sich selbst aktualisieren kann.</summary>
-public sealed record ServerUpdateStatus(string Current, string? Latest, bool CanInstall, string Kind);
+/// <param name="Running">0.9.15: Beschreibung eines laufenden Updates (Version, Auslöser, Schritt), null = keines.</param>
+public sealed record ServerUpdateStatus(string Current, string? Latest, bool CanInstall, string Kind, string? Running = null);
 
 public sealed record ServerInfo(string Name, string Version, int ApiVersion, bool SetupRequired, string Role, bool Paused, int Devices, string? Os);
 
@@ -171,17 +172,41 @@ public sealed class ServerClient : IDisposable
         await SendAsync(HttpMethod.Post, "api/v1/admin/update/check", JsonContent.Create(new { }), ct, TimeSpan.FromMinutes(1));
         var e = await GetJsonAsync("api/v1/admin/update", ct);
         static string? Str(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        string? running = null;
+        if (e.TryGetProperty("running", out var r) && r.ValueKind == JsonValueKind.Object)
+            running = L.T("Update auf {0} läuft (über {1}, Schritt: {2})", Str(r, "version") ?? "?", Str(r, "by") ?? "?", Str(r, "phaseText") ?? "?");
         return new ServerUpdateStatus(Str(e, "current") ?? "", Str(e, "latest"),
-            e.TryGetProperty("canInstall", out var ci) && ci.ValueKind == JsonValueKind.True, Str(e, "kind") ?? "");
+            e.TryGetProperty("canInstall", out var ci) && ci.ValueKind == JsonValueKind.True, Str(e, "kind") ?? "", running);
+    }
+
+    /// <summary>
+    /// 0.9.15: Update-Sperre auf dem Server holen (vor der Sicherung auf den PC). Liefert die Kennung; läuft schon ein Update,
+    /// kommt eine <see cref="ServerException"/> mit dessen Stand. Ältere Server ohne Sperre: null.
+    /// </summary>
+    public async Task<string?> BeginServerUpdateAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var e = await SendAsync(HttpMethod.Post, "api/v1/admin/update/begin", JsonContent.Create(new { }), ct);
+            return e.ValueKind == JsonValueKind.Object && e.TryGetProperty("id", out var id) ? id.GetString() : null;
+        }
+        catch (ServerException ex) when (ex.Status == HttpStatusCode.NotFound) { return null; }
+    }
+
+    /// <summary>Eigene Update-Sperre freigeben (nach einem Fehler vor der Installation).</summary>
+    public async Task EndServerUpdateAsync(string id, string? error, CancellationToken ct = default)
+    {
+        try { await SendAsync(HttpMethod.Post, "api/v1/admin/update/end", JsonContent.Create(new { id, error }), ct); }
+        catch (ServerException) { /* läuft auf dem Server von selbst ab */ }
     }
 
     /// <summary>
     /// Server-Update anstoßen. Ab 0.9.0 sichert der Server vorher selbst (Datenordner, USB/NAS) und meldet einen Fehler,
     /// ohne etwas zu installieren. Liefert die Meldung des Servers; danach startet er neu.
     /// </summary>
-    public async Task<string> InstallServerUpdateAsync(CancellationToken ct = default)
+    public async Task<string> InstallServerUpdateAsync(string? lockId = null, CancellationToken ct = default)
     {
-        var e = await SendAsync(HttpMethod.Post, "api/v1/admin/update/install", JsonContent.Create(new { }), ct, TimeSpan.FromMinutes(15));
+        var e = await SendAsync(HttpMethod.Post, "api/v1/admin/update/install", JsonContent.Create(new { id = lockId }), ct, TimeSpan.FromMinutes(30));
         return e.ValueKind == JsonValueKind.Object && e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
     }
 

@@ -145,6 +145,9 @@ public static class WhatsNew
                 server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
                        : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
                 null),
+            new("0.9.15", tr.T("Nur ein Update gleichzeitig"),
+                tr.T("Wird ein Server-Update gestartet – im Browser, in der Desktop-App oder auf einem zweiten Gerät –, ist der Update-Knopf überall gesperrt, bis es durch ist. Stattdessen zeigen alle Oberflächen, wer es gestartet hat und welcher Schritt läuft (Sicherung, Herunterladen, Installieren, Neustart)."),
+                null),
             new("0.9.15", tr.T("Sicherung schneller"),
                 tr.T("Die Prüfung einer neuen Sicherung entpackt das Archiv nicht mehr, sondern vergleicht beim Lesen die Prüfsummen; die Datenbank wird einmal mit der schnellen Prüfung kontrolliert. Bei großem Verlauf etwa halb so lange – auf dem Raspberry Pi oft mehr. Ein nicht eingesteckter USB-Stick oder ein nicht erreichbares NAS blockiert ein Update nicht mehr, wenn die Sicherung im Datenordner geklappt hat."),
                 tr.T("Sicherung")),

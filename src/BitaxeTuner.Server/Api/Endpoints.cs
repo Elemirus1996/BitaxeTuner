@@ -129,6 +129,16 @@ public static class Endpoints
     /// </summary>
     public static IResult Error(int status, string message, params object?[] args) => new TranslatedError(status, message, args);
 
+    /// <summary>0.9.15 Update-Sperre: Kennung der eigenen Sperre (Browser) und Fehlertext beim Freigeben.</summary>
+    public sealed record UpdateLockRequest(string? Id, string? Error);
+
+    private static string UpdateClient(HttpContext http) =>
+        http.Request.Headers.UserAgent.ToString().Contains("BitaxeTuner-Desktop", StringComparison.Ordinal) ? L.T("Desktop-App") : L.T("Browser");
+
+    private static IResult UpdateBusy(UpdateRun run) =>
+        Error(409, L.N("Update auf {0} läuft bereits (gestartet {1:t} über {2}, Schritt: {3}). Bitte warten, bis der Server neu gestartet ist."),
+            run.Version, run.StartedUtc.ToLocalTime(), run.By, MinerHub.UpdatePhaseText(run.Phase));
+
     private sealed class TranslatedError(int status, string message, object?[] args) : IResult
     {
         public Task ExecuteAsync(HttpContext http)
@@ -1207,7 +1217,7 @@ public static class Endpoints
         // ---------- Betrieb mit der Desktop-App ----------
 
         // Server-Update
-        g.MapGet("/admin/update", (ServerUpdater updater) => Results.Json(new
+        g.MapGet("/admin/update", (ServerUpdater updater, HubService hub) => Results.Json(new
         {
             current = Version,
             kind = ServerUpdater.DetectKind().ToString(),
@@ -1218,6 +1228,10 @@ public static class Endpoints
             lastCheck = updater.LastCheck,
             nextCheck = updater.NextCheck,
             message = updater.LastMessage,
+            // 0.9.15: laufendes Update (Sperre für alle Oberflächen)
+            running = hub.Hub.RunningUpdate is { } run
+                ? new { version = run.Version, by = run.By, started = run.StartedUtc, phase = run.Phase, phaseText = MinerHub.UpdatePhaseText(run.Phase) }
+                : null,
         }));
 
         g.MapPost("/admin/update/check", async (ServerUpdater updater) =>
@@ -1226,17 +1240,47 @@ public static class Endpoints
             return Results.Json(new { available = r.Status == Core.Update.UpdateCheckStatus.UpdateAvailable, latest = r.Update?.Tag, message = r.Message });
         });
 
-        g.MapPost("/admin/update/install", async (ServerUpdater updater, ILogger<ServerUpdater> log, HttpContext http, HubService hub) =>
+        // 0.9.15: Sperre holen, bevor der Browser die (lange) Sicherung startet – andere Geräte sehen dann „läuft bereits“
+        g.MapPost("/admin/update/begin", async (ServerUpdater updater, HttpContext http, HubService hub) =>
+        {
+            if (updater.Latest is null) return Error(400, L.N("Kein Update verfügbar – zuerst nach Updates suchen."));
+            var tag = updater.Latest.Tag;
+            var by = UpdateClient(http);
+            var (started, run) = await hub.RunAsync(h => (h.TryBeginUpdate(tag, by, null, out var r), r));
+            return started ? Results.Json(new { id = run.Id }) : UpdateBusy(run);
+        });
+
+        g.MapPost("/admin/update/end", async (UpdateLockRequest req, HubService hub) =>
+        {
+            await hub.RunAsync(h => { h.EndUpdate(req.Error, req.Id); return 0; });
+            return Results.Json(new { ok = true });
+        });
+
+        g.MapPost("/admin/update/install", async (UpdateLockRequest? req, ServerUpdater updater, ILogger<ServerUpdater> log, HttpContext http, HubService hub) =>
         {
             if (updater.Latest is null) return Error(400, L.N("Kein Update verfügbar – zuerst nach Updates suchen."));
             if (!updater.CanInstall) return Error(400, L.N("Diese Installation aktualisiert sich nicht selbst. Docker: „docker compose pull && docker compose up -d“."));
-            // Erst die Sicherung (Datenordner + USB/NAS) – schlägt sie fehl, sieht der Browser den Grund sofort und es passiert nichts
+            // 0.9.15: nur ein Update gleichzeitig – egal ob aus Browser, Desktop-App oder einem zweiten Gerät
             var tag = updater.Latest.Tag;
-            var backup = await hub.RunAsync(h => h.BackupBeforeUpdateAsync(tag));
+            var by = UpdateClient(http);
+            var (started, running) = await hub.RunAsync(h => (h.TryBeginUpdate(tag, by, req?.Id, out var r), r));
+            if (!started) return UpdateBusy(running);
+            // Erst die Sicherung (Datenordner + USB/NAS) – schlägt sie fehl, sieht der Browser den Grund sofort und es passiert nichts
+            BackupStatus backup;
+            try { backup = await hub.RunAsync(h => h.BackupBeforeUpdateAsync(tag)); }
+            catch (Exception ex)
+            {
+                await hub.RunAsync(h => { h.EndUpdate(ex.Message); return 0; });
+                throw;
+            }
             _ = Task.Run(async () =>
             {
                 try { await updater.InstallAsync(); }
-                catch (Exception ex) { log.LogError(ex, "Update fehlgeschlagen"); }
+                catch (Exception ex)
+                {
+                    log.LogError(ex, "Update fehlgeschlagen");
+                    await hub.RunAsync(h => { h.EndUpdate(ex.Message); return 0; });
+                }
             });
             return Results.Json(new { ok = true, backup = backup.LastFile, message = LangOf(http).T("Sicherung {0} erstellt. Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute).", backup.LastFile) });
         });

@@ -761,7 +761,10 @@ function refreshNotes() {
     text: t('Kurze Einführung in die {0} neuen Funktionen?', s.whatsNew.features.length),
     actions: [h('button', { class: 'btn small primary', onclick: () => { S.whatsNewOpen = true; closePopovers(); location.hash = '#/'; renderOverview(); } }, t('Zeigen')),
       h('button', { class: 'btn small', onclick: async () => { if (await run(() => api('/whatsnew/seen', { method: 'POST', body: {} }))) { s.whatsNew = null; refreshNotes(); } } }, t('Nein danke'))] });
-  if (S.update?.latest) notes.push({ icon: 'download', color: 'var(--info)', title: t('Server-Update {0} verfügbar', S.update.latest), text: t('Installiert: {0}', S.update.current),
+  // 0.9.15: läuft ein Update (egal von wo gestartet), sehen alle Admins den Stand statt eines Update-Knopfs
+  if (s.updateRunning) notes.push({ icon: 'download', color: 'var(--warn)', title: t('Update auf {0} läuft', s.updateRunning.version),
+    text: t('Gestartet {0} über {1} · Schritt: {2}. Bitte nicht erneut starten – der Server startet danach neu.', time(s.updateRunning.started), s.updateRunning.by, s.updateRunning.phaseText) });
+  else if (S.update?.latest) notes.push({ icon: 'download', color: 'var(--info)', title: t('Server-Update {0} verfügbar', S.update.latest), text: t('Installiert: {0}', S.update.current),
     actions: [h('a', { class: 'btn small primary', href: '#/settings/system', onclick: closePopovers }, t('Zum Update'))] });
   if (s.walletConsentNeeded) {
     const answer = async allow => {
@@ -5149,7 +5152,12 @@ function updateCard() {
     WindowsService: t('Windows-Dienst: Installation per Klick (stilles Setup, der Dienst startet neu).'),
     Manual: t('Von Hand gestartet: neues Paket selbst installieren.'),
   };
-  const render = u => fill(body, 
+  let poll = null;
+  const render = u => fill(body,
+    // 0.9.15: Update läuft (von hier oder einem anderen Gerät) – Stand zeigen, kein Knopf, alle 10 s neu laden
+    u.running ? h('div', { class: 'card', style: 'border-color:var(--warn)' },
+      h('b', {}, t('Update auf {0} läuft', u.running.version)),
+      h('p', { class: 'small', style: 'margin:4px 0 0' }, t('Gestartet {0} über {1} · Schritt: {2}. Bitte nicht erneut starten – der Server startet danach neu.', time(u.running.started), u.running.by, u.running.phaseText))) : null,
     h('p', {}, t('Installiert: {0}', u.current) + (u.latest ? t(' · verfügbar: {0}', u.latest) : '') + (u.message ? ` · ${u.message}` : '')),
     h('p', { class: 'muted small' }, t('Zuletzt geprüft: {0} · nächste automatische Prüfung: {1}', u.lastCheck ? time(u.lastCheck) : t('noch nie'),
       u.nextCheck ? time(u.nextCheck) : t('ausgeschaltet'))),
@@ -5157,26 +5165,42 @@ function updateCard() {
     u.notes ? h('div', { class: 'log', style: 'height:auto;max-height:180px' }, u.notes) : null,
     u.latest && u.canInstall ? h('label', { class: 'check' }, download, t('Sicherung vorher auf diesen PC herunterladen')) : null,
     h('div', { class: 'row' },
-      h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/admin/update/check', { method: 'POST', body: {} })); if (r) load(); } }, t('Nach Updates suchen')),
-      u.latest && u.canInstall ? h('button', {
+      u.running ? null : h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/admin/update/check', { method: 'POST', body: {} })); if (r) load(); } }, t('Nach Updates suchen')),
+      u.latest && u.canInstall && !u.running ? h('button', {
         class: 'btn primary', onclick: async () => {
           if (!await confirmBox(t('Server aktualisieren'), t('BitaxeTuner-Server {0} installieren?\n\nVorher wird eine geprüfte Sicherung erstellt (Datenordner und eingerichtete Ziele wie USB-Stick oder NAS) – schlägt sie fehl, wird nichts installiert. Die Datei wird gegen die veröffentlichte SHA-256-Prüfsumme geprüft. Laufende Benchmarks werden gestoppt (Einstellungen wiederhergestellt), danach startet der Server neu. Die Seite verbindet sich anschließend von selbst wieder.', u.latest), t('Installieren'))) return;
           localStorageSet('updateDownload', download.checked ? '1' : '0');
+          // Erst die Sperre: ab jetzt sehen alle anderen Geräte „Update läuft“ (auch während der langen Sicherung)
+          const lock = await run(() => api('/admin/update/begin', { method: 'POST', body: {} }));
+          if (!lock) { load(); return; }
+          load();
+          const release = async error => { try { await api('/admin/update/end', { method: 'POST', body: { id: lock.id, error } }); } catch { /* läuft nach 45 min ab */ } load(); };
           toast(t('Sicherung wird erstellt …'), 'info');
           const b = await run(() => api('/backup/run', { method: 'POST', body: {} }));
-          if (!b) return;
-          if (!b.lastOk || !b.lastFile) { toast(t('Update abgebrochen: Sicherung mit Fehlern – siehe Einstellungen → Sicherung.'), 'error', 15000); return; }
+          if (!b) { await release(t('Sicherung fehlgeschlagen')); return; }
+          // Sicherung im Datenordner genügt – ein fehlender USB-Stick/NAS blockiert das Update nicht (Hinweis kommt per Push)
+          if (!b.lastFile) { await release(t('Sicherung fehlgeschlagen')); toast(t('Update abgebrochen: Sicherung mit Fehlern – siehe Einstellungen → Sicherung.'), 'error', 15000); return; }
           if (download.checked) {
             // Vor dem Neustart herunterladen (in der Desktop-App landet sie im Sicherungsordner der App)
             h('a', { href: `/api/v1/backup/files/${encodeURIComponent(b.lastFile)}`, download: b.lastFile }).click();
             await new Promise(res => setTimeout(res, 4000));
           }
-          const r = await run(() => api('/admin/update/install', { method: 'POST', body: {} }));
+          const r = await run(() => api('/admin/update/install', { method: 'POST', body: { id: lock.id } }));
           if (r) toast(r.message, 'ok', 15000);
+          load();
         },
       }, t('Update {0} installieren', u.latest)) : null));
   const download = h('input', { type: 'checkbox', checked: localStorageGet('updateDownload') !== '0' });
-  const load = () => api('/admin/update').then(u => { S.update = u; render(u); }).catch(e => toast(e.message, 'error'));
+  const load = () => api('/admin/update').then(u => {
+    S.update = u;
+    render(u);
+    clearTimeout(poll);
+    if (u.running && body.isConnected !== false) poll = setTimeout(() => { if (body.isConnected) load(); }, 10000);
+  }).catch(() => {
+    // Während des Neustarts ist der Server kurz weg – weiter versuchen, solange die Karte sichtbar ist
+    clearTimeout(poll);
+    poll = setTimeout(() => { if (body.isConnected) load(); }, 10000);
+  });
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Server-Update')), body);
 }

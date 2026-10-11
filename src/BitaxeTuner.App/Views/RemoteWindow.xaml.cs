@@ -290,14 +290,28 @@ public partial class RemoteWindow : Window
         {
             using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
             var s = await client.CheckServerUpdateAsync();
+            _serverRunning = s.Running;
             _serverUpdate = s.Latest is not null && s.CanInstall && Plain(s.Latest) != Plain(s.Current) ? s : null;
         }
         catch (ServerException) { _serverUpdate = null; }   // ältere/abweichende Server: nur App-Update anbieten
         ShowUpdateButton();
     }
 
+    /// <summary>0.9.15: Läuft auf dem Server schon ein Update (egal von wo), bleibt der Knopf gesperrt.</summary>
+    private string? _serverRunning;
+
     private void ShowUpdateButton()
     {
+        if (_serverRunning is { } busy)
+        {
+            UpdateButton.Content = L.T("Server-Update läuft …");
+            UpdateButton.ToolTip = busy;
+            UpdateButton.IsEnabled = false;
+            UpdateButton.Visibility = Visibility.Visible;
+            return;
+        }
+        UpdateButton.IsEnabled = true;
+        UpdateButton.ToolTip = null;
         UpdateButton.Content = (_update, _serverUpdate) switch
         {
             ({ } u, { } s) => Plain(u.Tag) == Plain(s.Latest) ? L.T("Update {0}: Server + App", u.Tag) : L.T("Updates: Server {0} + App {1}", s.Latest!, u.Tag),
@@ -331,13 +345,24 @@ public partial class RemoteWindow : Window
         if (MessageBox.Show(this, text.ToString(), L.T("Update"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
 
         UpdateButton.IsEnabled = false;
+        string? lockId = null;
+        using var lockClient = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
         try
         {
             using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
 
+            // 0. Update-Sperre auf dem Server: ab jetzt sehen Browser und andere Geräte „Update läuft“
+            if (server is not null) lockId = await client.BeginServerUpdateAsync();
+
             // 1. Sicherung auf den PC (unabhängig von der täglichen Abholung)
             UpdateButton.Content = L.T("Sicherung auf den PC …");
-            var name = await Core.Backup.BackupPickup.RunAsync(client, folder, Math.Clamp(_config.Server.BackupKeep, 1, 365), DateTime.Now);
+            string name;
+            try { name = await Core.Backup.BackupPickup.RunAsync(client, folder, Math.Clamp(_config.Server.BackupKeep, 1, 365), DateTime.Now); }
+            catch (Exception ex)
+            {
+                if (lockId is not null) await lockClient.EndServerUpdateAsync(lockId, ex.Message);
+                throw;
+            }
             BackupText.Text = L.T("· Sicherung {0:HH:mm} ✓", DateTime.Now);
             BackupText.ToolTip = Path.Combine(folder, name);
 
@@ -345,7 +370,7 @@ public partial class RemoteWindow : Window
             {
                 // 2. Server-Update anstoßen, 3. auf die neue Version warten (Neustart dauert ca. 1 Minute)
                 UpdateButton.Content = L.T("Server wird aktualisiert …");
-                await client.InstallServerUpdateAsync();
+                await client.InstallServerUpdateAsync(lockId);
                 var deadline = DateTime.Now.AddMinutes(8);
                 string? running = null;
                 while (DateTime.Now < deadline)

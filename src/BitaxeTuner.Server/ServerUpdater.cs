@@ -151,6 +151,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
             // Nicht ins allgemeine Temp (C:\Windows\Temp, dort könnte ein anderer Benutzer die Datei vor dem Start
             // austauschen), sondern in den Datenordner; unter Windows nur für SYSTEM/Administratoren (Audit S1)
             var work = Path.Combine(settings.DataDirectory, "updates");
+            hub.Hub.SetUpdatePhase("download");
             if (Directory.Exists(work)) Directory.Delete(work, recursive: true);
             if (OperatingSystem.IsWindows()) Security.WindowsAcl.Restrict(work);
             else Directory.CreateDirectory(work, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -159,6 +160,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
             // Vor jedem Update eine geprüfte Sicherung (Datenordner + USB/NAS); schlägt sie fehl, bleibt alles, wie es ist
             await hub.RunAsync(h => h.BackupBeforeUpdateAsync(u.Tag));
+            hub.Hub.SetUpdatePhase("install");
 
             // Laufende Benchmarks sauber beenden (Einstellungen wiederherstellen), Stand sichern
             await hub.RunAsync(async h =>
@@ -179,6 +181,7 @@ public sealed class ServerUpdater(HubService hub, IHostApplicationLifetime lifet
 
             if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
             SwapLinuxVersion(file, u.Version.ToString(3), u.Sha256);
+            hub.Hub.SetUpdatePhase("restart");
             log.LogWarning("Update {Tag} installiert – Neustart durch systemd.", u.Tag);
             lifetime.StopApplication(); // systemd (Restart=always) startet die neue Version
         }

@@ -41,6 +41,10 @@ public static class Dto
             time = now,
             running = hub.IsRunning,
             tempWarn = hub.Config.TempWarn,   // 0.9.14: Temperaturbalken und „warm“ auf den Miner-Karten
+            // 0.9.15: laufendes Server-Update (Sperre) – alle Admin-Oberflächen blenden den Update-Knopf aus
+            updateRunning = role == Role.Admin && hub.RunningUpdate is { } upd
+                ? new { version = upd.Version, by = upd.By, started = upd.StartedUtc, phase = upd.Phase, phaseText = MinerHub.UpdatePhaseText(upd.Phase) }
+                : null,
             // 0.9.14: Ertrag gegen Stromkosten – nur Admin (Erträge) und nicht bei eingeschränkter Ansicht
             profit = role == Role.Admin && !scope.Restricted && hub.Profit(now) is { } pf
                 ? new { pf.Currency, pf.Source, windows = pf.Windows.Select(w => new { w.Key, w.Income, w.Cost, w.Net, w.Kwh, w.Partial }) }
