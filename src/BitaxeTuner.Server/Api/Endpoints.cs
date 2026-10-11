@@ -85,7 +85,7 @@ public static class Endpoints
         req.QuietToHour = Math.Clamp(req.QuietToHour, 0, 23);
         req.Title = string.IsNullOrWhiteSpace(req.Title) ? "BitaxeTuner" : req.Title.Trim()[..Math.Min(40, req.Title.Trim().Length)];
         req.Device = req.Device == "own" ? "own" : "fans";
-        req.PriceCoins = req.PriceCoins is "bch" or "both" ? req.PriceCoins : "btc";
+        req.PriceCoins = req.PriceCoins is "bch" or "both" or "mined" ? req.PriceCoins : "btc";
         req.DailyChart = req.DailyChart is "hashrate" or "power" or "efficiency" or "temp" ? req.DailyChart : "none";
         req.MonthlyChart = req.MonthlyChart is "cost" or "income" or "hashrate" ? req.MonthlyChart : "kwh";
         req.QrUrl = (req.QrUrl ?? "").Trim();

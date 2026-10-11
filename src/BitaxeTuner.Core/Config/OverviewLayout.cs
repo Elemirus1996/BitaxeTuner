@@ -27,14 +27,14 @@ public static class OverviewLayouts
 {
     /// <summary>kpis = die Kennzahlen-Reihe wie bisher; einzelne Kennzahlen gibt es auch als eigene Panels.</summary>
     public static readonly string[] PanelTypes =
-        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit"];
+        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit", "coins"];
 
     public const int MaxPanels = 30;
 
     /// <summary>Standard: genau der bisherige Aufbau.</summary>
     public static OverviewLayout Default() => new()
     {
-        Panels = [new() { Type = "kpis" }, new() { Type = "chart" }, new() { Type = "miners" }, new() { Type = "plugs" }, new() { Type = "soak" }],
+        Panels = [new() { Type = "kpis" }, new() { Type = "chart" }, new() { Type = "coins" }, new() { Type = "miners" }, new() { Type = "plugs" }, new() { Type = "soak" }],
     };
 
     /// <summary>Eingaben aus dem Browser prüfen und begrenzen.</summary>

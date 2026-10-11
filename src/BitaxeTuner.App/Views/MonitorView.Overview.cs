@@ -46,6 +46,7 @@ public partial class MonitorView
     private void RenderMinerCards()
     {
         MinerCards.Children.Clear();
+        var quotes = _host.Hub.CoinQuotes();
         var width = ActualWidth > 0 ? ActualWidth : 1200;
         MinerCards.Columns = Math.Clamp((int)(width / 280), 1, Math.Max(1, _states.Count));
         foreach (var s in _states)
@@ -75,6 +76,16 @@ public partial class MonitorView
                 var pool = i.isUsingFallbackStratum != 0 ? $"{i.fallbackStratumURL} ({L.T("Ersatz-Pool")})" : i.stratumURL;
                 if (!string.IsNullOrWhiteSpace(pool))
                     stack.Children.Add(new TextBlock { Text = pool, Style = (Style)FindResource("TileSub"), Foreground = i.isUsingFallbackStratum != 0 ? Gold : ThemeBrush("MutedTextBrush") });
+                // 0.9.16: geschürfter Coin mit Kurs und Veränderung zum Vortag
+                if (_host.Hub.MinedSymbolOf(s) is var symbol)
+                {
+                    var q = quotes.FirstOrDefault(c => string.Equals(c.Symbol, symbol, StringComparison.OrdinalIgnoreCase));
+                    var line = new TextBlock { Style = (Style)FindResource("TileSub") };
+                    line.Inlines.Add(new System.Windows.Documents.Run(symbol + (q?.Price is { } p ? " · " + CoinPrice(p) : "")));
+                    if (q?.Change24hPercent is { } ch)
+                        line.Inlines.Add(new System.Windows.Documents.Run($"  {(ch >= 0 ? "+" : "")}{ch.ToString("0.0", De)} %") { Foreground = ch >= 0 ? Green : Red });
+                    stack.Children.Add(line);
+                }
             }
             else
             {
@@ -97,4 +108,9 @@ public partial class MonitorView
     }
 
     private static Brush ThemeBrush(string key) => Themes.ThemeManager.Brush(key);
+
+    /// <summary>Kurs mit passender Genauigkeit (BTC 74.000 €, DGB 0,0081 €).</summary>
+    private string CoinPrice(decimal p) =>
+        p.ToString(p >= 100 ? "N0" : p >= 1 ? "N2" : p <= 0 ? "N2" : "0." + new string('0', Math.Clamp(1 - (int)Math.Floor(Math.Log10((double)p)), 2, 8)), De)
+        + " " + Core.Config.Currencies.Of(_config).Symbol;
 }

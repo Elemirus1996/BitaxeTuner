@@ -692,7 +692,33 @@ function poolCoinRow(d) {
     class: 'chip-badge', title: acc ? t('Coin laut Pool-Konto · Abrechnung {0}', acc.mode || '–') + (acc.merged ? ' · ' + t('Merged Mining') : '') : t('Coin'),
   }, h('span', { class: 'badge-dot', style: `background:${COIN_COLORS[coin] || 'var(--muted)'}` }, coin === 'BTC' ? '₿' : coin[0]), h('span', { class: 'chip-text' }, coin + (acc?.merged ? ' + MM' : '')),
     acc?.mode ? h('span', { class: 'muted small' }, ' · ' + acc.mode) : null) : null;
-  return h('div', { class: 'pool-row' }, pool, coinChip);
+  // 0.9.16: Kurs des geschürften Coins mit Veränderung zum Vortag
+  const q = coin && S.status?.coins?.find(c => c.symbol === coin.toUpperCase());
+  const price = q?.price != null ? h('span', { class: 'chip-badge', title: q.source === 'pool' ? t('Kurs laut Pool') : t('Kurs (CoinGecko), Veränderung in 24 Stunden') },
+    h('span', { class: 'chip-text mono' }, coinPrice(q.price)), q.change != null ? h('span', { class: `small ${q.change >= 0 ? 'ok' : 'danger'}` }, ' ' + pct1(q.change)) : null) : null;
+  return h('div', { class: 'pool-row' }, pool, coinChip, price);
+}
+
+/** Kurs mit passender Genauigkeit (BTC 74.000 €, DGB 0,0081 €). */
+function coinPrice(p) {
+  const cur = money().symbol || money().code;
+  // zwei gültige Ziffern bei kleinen Kursen (DGB 0,0081 · WJK 0,00012)
+  const dec = p >= 100 ? 0 : p >= 1 ? 2 : p > 0 ? Math.min(8, Math.max(2, 1 - Math.floor(Math.log10(p)))) : 2;
+  return `${n(p, dec)} ${cur}`;
+}
+const pct1 = v => `${v >= 0 ? '+' : ''}${n(v, 1)} %`;
+
+/** 0.9.16 Panel „Kurse“: alle Coins, die die Miner gerade schürfen – Kurs, 24-h-Veränderung, Verlauf, Anzahl Miner. */
+function coinsCard(coins, currency) {
+  if (!coins?.length) return null;
+  return h('div', { class: 'card stack' },
+    h('h3', { style: 'margin:0' }, t('Kurse der geschürften Coins')),
+    h('div', { class: 'coin-list' }, coins.map(c => h('div', { class: 'coin-row' },
+      h('span', { class: 'badge-dot', style: `background:${COIN_COLORS[c.symbol] || 'var(--muted)'}` }, c.symbol === 'BTC' ? '₿' : c.symbol[0]),
+      h('div', { style: 'min-width:0' }, h('b', {}, c.symbol), h('div', { class: 'muted small' }, t('{0} Miner', c.miners) + (c.source === 'pool' ? ' · ' + t('Kurs laut Pool') : ''))),
+      sparkEl(c.spark || [], c.change == null ? 'var(--muted)' : c.change >= 0 ? 'var(--ok)' : 'var(--danger)'),
+      h('div', { style: 'text-align:right' }, h('div', { class: 'mono' }, c.price == null ? '–' : coinPrice(c.price)),
+        c.change != null ? h('div', { class: `small ${c.change >= 0 ? 'ok' : 'danger'}` }, pct1(c.change)) : h('div', { class: 'muted small' }, '–'))))));
 }
 
 /** Link zur Weboberfläche des Miners (AxeOS) – auf Karten, die selbst Links sind, als <span> wie poolLinkIcon. */
@@ -944,6 +970,7 @@ function renderOverview() {
     soak: () => isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     news: () => newsCard(true),
     profit: () => profitCard(s.profit, tv.currency),
+    coins: () => coinsCard(s.coins, tv.currency),
     text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
   };
   const grid = h('div', { class: `ov-grid${edit ? ' ov-edit' : ''}`, id: 'ovGrid' }, layout.panels.map((p, i) => {
@@ -1112,12 +1139,12 @@ function ovWireMiners() {
 }
 
 /** Standardaufbau der Übersicht (wie OverviewLayouts.Default auf dem Server). */
-const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'miners', 'plugs', 'soak'].map(type => ({ type, colSpan: 12, title: '', text: '' })) };
+const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'coins', 'miners', 'plugs', 'soak'].map(type => ({ type, colSpan: 12, title: '', text: '' })) };
 
 const OVERVIEW_TYPES = () => [['kpis', t('Kennzahlen-Reihe')], ['hashrate', t('Hashrate gesamt')], ['power', t('Leistung')], ['efficiency', t('Effizienz')],
   ['maxtemp', t('Max. Temperatur')], ['price', t('Strompreis')], ['cost', t('Stromkosten')], ['chart', t('Verlauf (Hashrate)')], ['miners', t('Miner')],
   ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')],
-  ['profit', t('Ertrag gegen Stromkosten')]];
+  ['profit', t('Ertrag gegen Stromkosten')], ['coins', t('Kurse der geschürften Coins')]];
 
 /** 0.9.11 Übersicht-Designer: Panels anordnen (Breite im 12er-Raster), dazu die Reihenfolge der Miner. */
 function overviewDesignCard(devices) {
@@ -4123,7 +4150,7 @@ function displaySettingsFields(s) {
       checkInput(s.pages, 'qr', t('QR-Code')),
       checkInput(s.pages, 'news', t('Neuigkeiten'))),
     h('div', { class: 'form' },
-      h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')]])),
+      h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
         ['power', t('Graph: Leistung')], ['efficiency', t('Graph: Effizienz')], ['temp', t('Graph: Temperatur')]])),
       h('div', {}, h('label', {}, t('Monatsbilanz: Balken je Tag')), pageSelect(s, 'monthlyChart', [['kwh', 'kWh'], ['cost', t('Stromkosten')],

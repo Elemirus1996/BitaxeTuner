@@ -151,4 +151,25 @@ public sealed class DisplayPagesTests : IDisposable
         };
         RendersFully(m);
     }
+
+    [Fact]
+    public async Task Price_page_can_show_the_coins_being_mined()
+    {
+        await _hub.PollNowAsync();
+        _config.Display.PriceCoins = "mined";
+        foreach (var sym in new[] { "BTC", "BCH", "DGB", "NMC" }) _hub.SetCoinQuoteForTest(sym, 1000, 2.5);
+        var m = _hub.PreviewScene(DisplayScene.Prices, DateTime.Now);
+        Assert.NotEmpty(m.Coins!);                                            // geschürfte Coins der Simulation
+        RendersFully(m);
+
+        // 2×2-Raster mit vier Coins
+        var now = DateTime.Now;
+        var pts = Enumerable.Range(0, 24).Select(i => new DisplayValue(now.AddHours(-24 + i), 0.0078 + i * 0.00002)).ToList();
+        var four = new List<DisplayCoin> { new("BTC", "Bitcoin (BTC)", 74000, 1.2, pts), new("DGB", "DigiByte (DGB)", 0.0081, -3.4, pts),
+            new("NMC", "Namecoin (NMC)", 1.23, 0.4, pts), new("WJK", "WJK", 0.00012, null, []) };
+        var model = m with { Coins = four, Difficulty = null };
+        RendersFully(model);
+        var dir = Environment.GetEnvironmentVariable("BT_EPAPER_PREVIEW");
+        if (dir is not null) SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(model), Path.Combine(dir, "epaper-coins4.png"));
+    }
 }

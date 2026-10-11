@@ -263,7 +263,8 @@ public sealed partial class MinerHub
                 return model with { Scene = page, Monthly = monthly };
             case DisplayScene.Prices:
                 _ = RefreshMarketAsync(force: false);
-                return model with { Scene = page, Coins = BuildCoins(), Difficulty = Ds.PriceCoins != "bch" ? _difficulty?.Data : null };
+                var coins = BuildCoins();
+                return model with { Scene = page, Coins = coins, Difficulty = coins.Any(c => c.Symbol == "BTC") && coins.Count <= 2 ? _difficulty?.Data : null };
             case DisplayScene.Power:
                 return model with { Scene = page, Power = BuildPower(now) };
             case DisplayScene.Qr:
@@ -371,7 +372,9 @@ public sealed partial class MinerHub
         _ => [CoinType.Bitcoin],
     };
 
-    private List<DisplayCoin> BuildCoins() => DisplayCoins().Select(c =>
+    private List<DisplayCoin> BuildCoins() => Ds.PriceCoins == "mined" ? BuildMinedCoins() : BuildChartCoins(DisplayCoins());
+
+    private List<DisplayCoin> BuildChartCoins(IEnumerable<CoinType> coins) => coins.Select(c =>
     {
         var pts = _coinCharts.TryGetValue(c, out var v) ? v.Points : [];
         double? now = pts.Count > 0 ? pts[^1].Eur : null;
@@ -379,6 +382,30 @@ public sealed partial class MinerHub
         return new DisplayCoin(c.Symbol(), c == CoinType.Bitcoin ? "Bitcoin (BTC)" : "Bitcoin Cash (BCH)", now, change,
             pts.Select(p => new DisplayValue(p.Time, p.Eur)).ToList(), Currencies.Get(_coinChartCurrency).Symbol);
     }).ToList();
+
+    /// <summary>0.9.16: Kurse der Coins, die die Miner gerade schürfen (meistgeschürfte zuerst, höchstens 4).</summary>
+    private List<DisplayCoin> BuildMinedCoins()
+    {
+        var now = DateTime.Now;
+        var unit = Currencies.Of(Config).Symbol;
+        var quotes = CoinQuotes();
+        if (quotes.Count == 0) return BuildChartCoins([CoinType.Bitcoin]);   // kein Miner online: wie bisher BTC
+        return quotes.Take(4).Select(q =>
+        {
+            var name = CoinTypeExtensions.FromSymbolOrName(q.Symbol) is { } ct && ct != CoinType.Other ? $"{CoinName(ct)} ({q.Symbol})" : q.Symbol;
+            // Verlauf gleichmäßig über die letzten 24 Stunden verteilen
+            var pts = q.Spark.Count > 1
+                ? q.Spark.Select((v, i) => new DisplayValue(now.AddHours(-24 + 24.0 * i / (q.Spark.Count - 1)), v)).ToList()
+                : [];
+            return new DisplayCoin(q.Symbol, name, q.Price is { } p ? (double)p : null, q.Change24hPercent, pts, unit);
+        }).ToList();
+    }
+
+    private static string CoinName(CoinType c) => c switch
+    {
+        CoinType.Bitcoin => "Bitcoin", CoinType.BitcoinCash => "Bitcoin Cash", CoinType.DigiByte => "DigiByte", CoinType.Namecoin => "Namecoin",
+        CoinType.Elastos => "Elastos", CoinType.Peercoin => "Peercoin", CoinType.Emercoin => "Emercoin", _ => c.Symbol(),
+    };
 
     /// <summary>Kurse (CoinGecko) und Difficulty (mempool.space) höchstens alle 10 Minuten holen – nur für die Kurs-Seite.</summary>
     private async Task RefreshMarketAsync(bool force)

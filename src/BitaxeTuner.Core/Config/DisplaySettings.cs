@@ -72,7 +72,7 @@ public sealed class DisplaySettings
     /// <summary>Bei jeder regelmäßigen Aktualisierung zur nächsten Seite wechseln (sonst nur per Taste 1).</summary>
     public bool RotatePages { get; set; } = true;
 
-    /// <summary>0.9.7, Seite „Kurs“: "btc", "bch" oder "both". Additiv.</summary>
+    /// <summary>0.9.7, Seite „Kurs“: "btc", "bch" oder "both"; 0.9.16 "mined" = die Coins, die die Miner gerade schürfen (bis 4). Additiv.</summary>
     public string PriceCoins { get; set; } = "btc";
 
     /// <summary>0.9.7, Tagesbilanz: "none" (Minerliste wie bisher), "hashrate", "power", "efficiency" oder "temp" als 24-h-Graph.</summary>

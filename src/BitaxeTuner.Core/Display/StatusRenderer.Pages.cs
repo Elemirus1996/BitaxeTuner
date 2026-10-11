@@ -34,7 +34,11 @@ public sealed record DisplaySensor(string Name, double? Temp, double Warn, bool 
 
 public static partial class StatusRenderer
 {
-    private static string Money(double v, string unit) => v >= 1000 ? $"{N(v, "N0")} {unit}" : $"{N(v, "N2")} {unit}";
+    private static string Money(double v, string unit) => $"{N(v, PriceFormat(v))} {unit}";
+
+    /// <summary>0.9.16: Genauigkeit nach Größe – BTC 74.000, NMC 1,23, DGB 0,0081, WJK 0,000120.</summary>
+    private static string PriceFormat(double v, int extra = 0) =>
+        v >= 1000 ? "N0" : v >= 1 ? "N2" : v <= 0 ? "N2" : "0." + new string('0', Math.Clamp(1 - (int)Math.Floor(Math.Log10(v)) + extra, 2, 8));
 
     private static string Signed(double v, string format) => (v > 0 ? "+" : "") + N(v, format);
 
@@ -102,6 +106,24 @@ public static partial class StatusRenderer
             if (c.Change24h is { } ch)
                 TextRight(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 32, Width - 16, 122, ch < 0 ? Red : Ink);
             LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), line: Red);
+        }
+        else if (coins.Count > 2)
+        {
+            // 0.9.16: bis zu vier Coins im 2×2-Raster (Kurs, Veränderung, kleiner Verlauf)
+            var colW = (Width - 48) / 2f;
+            var rowH = (Height - 70 - 44) / 2f;
+            for (var i = 0; i < Math.Min(4, coins.Count); i++)
+            {
+                var c = coins[i];
+                var x = 16 + (i % 2) * (colW + 16);
+                var y = 70 + (i / 2) * rowH;
+                Text(ctx, Fit(c.Name, Regular.Value.CreateFont(20), colW), Regular.Value.CreateFont(20), x, y + 4, Ink);
+                Text(ctx, Fit(c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value.CreateFont(36), colW * 0.62f), Bold.Value.CreateFont(36), x, y + 28, Ink);
+                if (c.Change24h is { } ch) TextRight(ctx, Signed(ch, "0.0") + " %", Bold.Value, 24, x + colW, y + 36, ch < 0 ? Red : Ink);
+                if (c.Points.Count > 1)
+                    LineChart(ctx, c.Points, new RectangleF(x + 84, y + 78, colW - 104, rowH - 78 - 22), m.Time.AddHours(-24), m.Time,
+                        PriceFormat(c.Points.Max(p => p.Value), 1), TimeSpan.FromHours(6), timeLabels: 2, line: Red);
+            }
         }
         else
         {

@@ -30,6 +30,7 @@ public sealed partial class MinerHub
         // Preise nur abrufen, wenn eine Quelle eingestellt ist (höchstens alle 30 min)
         if (Config.PriceSource.Source != "none") _ = RefreshPricesAsync(now);
         RefreshProfitInputs(now);
+        RefreshCoinQuotes(now);   // 0.9.16: Kurse der gerade geschürften Coins
 
         var list = Devices;
         foreach (var device in list)
