@@ -1542,6 +1542,7 @@
   "Kein Shelly-Gerät (unbekannte Antwort auf /shelly).": "Pas un appareil Shelly (réponse inconnue à /shelly).",
   "Kein Temperaturfühler (DS18B20) erkannt.": "Aucune sonde de température (DS18B20) détectée.",
   "Kein Temperaturfühler eingetragen.": "Aucune sonde de température configurée.",
+  "Kein USB-Stick eingehängt – Stick einstecken (FAT32, exFAT oder ext4, nicht NTFS). Wird er nicht erkannt, im Protokoll nach „USB-Stick“ suchen.": "Aucune clé USB montée – branchez une clé (FAT32, exFAT ou ext4, pas NTFS). Si elle n'est pas reconnue, cherchez « clé USB » dans le journal.",
   "Kein USB-Stick eingesteckt (FAT32, exFAT oder ext4).": "Aucune clé USB branchée (FAT32, exFAT ou ext4).",
   "Kein Update verfügbar – zuerst nach Updates suchen.": "Aucune mise à jour disponible – recherchez d'abord les mises à jour.",
   "Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz.": "Aucune proposition possible – le dernier benchmark n'a aucun réglage stable en dessous de cette fréquence.",

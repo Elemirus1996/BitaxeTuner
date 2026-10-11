@@ -1542,6 +1542,7 @@
   "Kein Shelly-Gerät (unbekannte Antwort auf /shelly).": "No es un dispositivo Shelly (respuesta desconocida a /shelly).",
   "Kein Temperaturfühler (DS18B20) erkannt.": "No se detectó ningún sensor de temperatura (DS18B20).",
   "Kein Temperaturfühler eingetragen.": "No hay ningún sensor de temperatura configurado.",
+  "Kein USB-Stick eingehängt – Stick einstecken (FAT32, exFAT oder ext4, nicht NTFS). Wird er nicht erkannt, im Protokoll nach „USB-Stick“ suchen.": "No hay ninguna memoria USB montada: conecta una (FAT32, exFAT o ext4, no NTFS). Si no se detecta, busca «memoria USB» en el registro.",
   "Kein USB-Stick eingesteckt (FAT32, exFAT oder ext4).": "No hay ninguna memoria USB conectada (FAT32, exFAT o ext4).",
   "Kein Update verfügbar – zuerst nach Updates suchen.": "No hay actualización disponible – busca primero actualizaciones.",
   "Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz.": "No es posible una propuesta – el último benchmark no tiene ningún ajuste estable por debajo de esta frecuencia.",

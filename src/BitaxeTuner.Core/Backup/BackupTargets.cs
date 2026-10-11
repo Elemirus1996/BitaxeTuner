@@ -38,8 +38,21 @@ public sealed class FolderBackupTarget(string name, string path) : IBackupTarget
     public string Name { get; } = name;
     public string Path { get; } = path;
 
+    /// <summary>Einhängepunkt des USB-Sticks auf dem Raspberry Pi (siehe deploy/linux/bitaxetuner-usb-mount.sh).</summary>
+    public const string PiUsbMount = "/media/bitaxetuner-usb";
+
+    /// <summary>0.9.16: Linux – ist unter <paramref name="mountPoint"/> ein Datenträger eingehängt? (/proc/mounts)</summary>
+    public static bool IsMounted(string mountPoint)
+    {
+        try { return File.ReadLines("/proc/mounts").Any(l => l.Split(' ') is [_, var mp, ..] && mp == mountPoint); }
+        catch (IOException) { return true; }   // unbekannt: nicht fälschlich melden
+    }
+
     public async Task UploadAsync(string localFile, string fileName, CancellationToken ct)
     {
+        // Ohne eingehängten Stick läge der Ordner auf der Speicherkarte (für den Dienst schreibgeschützt) – klar melden
+        if (OperatingSystem.IsLinux() && Path.StartsWith(PiUsbMount + "/", StringComparison.Ordinal) && !IsMounted(PiUsbMount))
+            throw new IOException(L.T("Kein USB-Stick eingehängt – Stick einstecken (FAT32, exFAT oder ext4, nicht NTFS). Wird er nicht erkannt, im Protokoll nach „USB-Stick“ suchen."));
         try { Directory.CreateDirectory(Path); }
         catch (UnauthorizedAccessException ex)
         {

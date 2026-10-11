@@ -1542,6 +1542,7 @@
   "Kein Shelly-Gerät (unbekannte Antwort auf /shelly).": "Geen Shelly-apparaat (onbekend antwoord op /shelly).",
   "Kein Temperaturfühler (DS18B20) erkannt.": "Geen temperatuursensor (DS18B20) herkend.",
   "Kein Temperaturfühler eingetragen.": "Geen temperatuursensor ingesteld.",
+  "Kein USB-Stick eingehängt – Stick einstecken (FAT32, exFAT oder ext4, nicht NTFS). Wird er nicht erkannt, im Protokoll nach „USB-Stick“ suchen.": "Geen USB-stick gekoppeld – steek een stick in (FAT32, exFAT of ext4, geen NTFS). Wordt hij niet herkend, zoek in het logboek naar „USB-stick”.",
   "Kein USB-Stick eingesteckt (FAT32, exFAT oder ext4).": "Geen USB-stick aangesloten (FAT32, exFAT of ext4).",
   "Kein Update verfügbar – zuerst nach Updates suchen.": "Geen update beschikbaar – zoek eerst naar updates.",
   "Kein Vorschlag möglich – im letzten Benchmark gibt es keine stabile Einstellung unterhalb dieser Frequenz.": "Geen voorstel mogelijk – de laatste benchmark heeft geen stabiele instelling onder deze frequentie.",
