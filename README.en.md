@@ -97,6 +97,10 @@ Corrections to the English texts are welcome: they all live in
 - **Mining mode comparison** (from 0.9.15): expected value of your hashrate with PPS, PPLNS, solo BTC and solo BCH
   (difficulty, price, block subsidy + estimated fees, adjustable pool fees) with power costs and balance, for solo the
   chance per month; with a pool account your actual earnings of the last 7 days next to it.
+- **Profit automation** (from 0.9.15, device → *Automatic* or group automation, mode *Earnings*): if the electricity price
+  is above the miner's break-even price (earnings per TH ÷ consumption per TH), it switches to the saving preset; full power
+  only again once electricity is the set margin (default 10 %) below. Earnings per TH from the pool account, otherwise the
+  PPS expectation for BTC. Approval required, every change logged.
 - **Miner groups** (e.g. “Community”, “Basement”): filter and totals in the overview (browser), group filter in
   compare, push services for whole groups – new members get alerts and reports automatically.
 - **Group automation** (from 0.9.7, browser → select a group → *Group automation*): one schedule or electricity price

@@ -43,7 +43,7 @@ public sealed partial class MinerHub
 
     /// <summary>Namen der Voreinstellungen, die eine Regel verwendet.</summary>
     private static string[] PresetNames(PresetScheduleRule s) =>
-        (s.Mode == "price" ? new[] { s.CheapPreset, s.ExpensivePreset } : s.Entries.Select(e => e.Preset).Append(s.DefaultPreset).ToArray())
+        (s.UsesPriceLevels ? new[] { s.CheapPreset, s.ExpensivePreset } : s.Entries.Select(e => e.Preset).Append(s.DefaultPreset).ToArray())
             .Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     /// <summary>Freigegeben und seit der Freigabe weder Regel, Mitglieder, Voreinstellungen noch Grenzen geändert?</summary>
@@ -71,7 +71,8 @@ public sealed partial class MinerHub
     public GroupScheduleRule SaveGroupSchedule(string group, PresetScheduleRule schedule)
     {
         if (GroupMembers(group).Count == 0) throw new LocalizedException("Gruppe „{0}“ hat keine Miner.", group);
-        if (schedule.Mode is not ("time" or "price")) schedule.Mode = "time";
+        if (schedule.Mode is not ("time" or "price" or "profit")) schedule.Mode = "time";
+        schedule.ProfitMarginPercent = Math.Clamp(schedule.ProfitMarginPercent, 0, 90);
         schedule.Entries ??= [];
         foreach (var e in schedule.Entries)
         {
@@ -103,7 +104,8 @@ public sealed partial class MinerHub
         var rule = GroupRule(group) ?? throw new LocalizedException("Für „{0}“ ist noch keine Regel gespeichert.", group);
         var s = rule.Schedule;
         var names = PresetNames(s);
-        var body = s.Mode == "price"
+        var body = s.Mode == "profit" ? ProfitRuleText(s, $"„{s.CheapPreset}“", $"„{s.ExpensivePreset}“")
+            : s.Mode == "price"
             ? L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → „{2}“, sonst → „{3}“", Prices.SourceName, s.ThresholdCt, s.CheapPreset, s.ExpensivePreset).Cents(Config)
             : string.Join("\n", s.Entries.Select(e => L.T("{0} {1:00}–{2:00} Uhr → „{3}“", e.DaysText, e.FromHour, e.ToHour, e.Preset))) +
               L.T("\nsonst → {0}", s.DefaultPreset.Length == 0 ? L.T("keine Änderung") : $"„{s.DefaultPreset}“");

@@ -583,7 +583,9 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                     <RadioButton Content="{l:T 'Zeitplan'}" IsChecked="{Binding ScheduleIsTime}" Margin="0,0,16,0"
                                                                  Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
-                                                    <RadioButton Content="{l:T 'Strompreis'}" IsChecked="{Binding ScheduleIsPrice}" Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
+                                                    <RadioButton Content="{l:T 'Strompreis'}" IsChecked="{Binding ScheduleIsPrice}" Foreground="{DynamicResource TextBrush}" GroupName="Mode" Margin="0,0,16,0" />
+                                                    <RadioButton Content="{l:T 'Ertrag'}" IsChecked="{Binding ScheduleIsProfit}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
+                                                                 ToolTip="{l:T 'Sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt'}" />
                                                 </StackPanel>
 
                                                 <StackPanel Visibility="{Binding ScheduleIsTime, Converter={StaticResource BoolToVisibility}}">
@@ -608,17 +610,23 @@
                                                                Text="{l:T 'Erste passende Zeile gilt. „Bis“ ist ausschließlich; 22–6 läuft über Mitternacht (der Morgen zählt zum Vortag).'}" />
                                                 </StackPanel>
 
-                                                <Grid Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid Visibility="{Binding ScheduleUsesLevels, Converter={StaticResource BoolToVisibility}}">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                                                    <TextBlock Text="{l:T 'Schwelle (ct/kWh)'}" Style="{StaticResource FieldLabel}" />
-                                                    <TextBox Grid.Column="1" Text="{Binding Schedule.ThresholdCt}" Style="{StaticResource FieldBox}" />
+                                                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                                    <TextBlock Text="{l:T 'Schwelle (ct/kWh)'}" Style="{StaticResource FieldLabel}" Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBox Grid.Column="1" Text="{Binding Schedule.ThresholdCt}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBlock Text="{l:T 'Abstand zum Break-even (%)'}" Style="{StaticResource FieldLabel}" Visibility="{Binding ScheduleIsProfit, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBox Grid.Column="1" Text="{Binding Schedule.ProfitMarginPercent}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsProfit, Converter={StaticResource BoolToVisibility}}" />
                                                     <TextBlock Grid.Row="1" Text="{l:T 'Günstig (≤ Schwelle) → Voreinstellung'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Schedule.CheapPreset}" Width="130" Margin="0,3" />
                                                     <TextBlock Grid.Row="2" Text="{l:T 'Teuer → Voreinstellung'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Schedule.ExpensivePreset}" Width="130" Margin="0,3" />
                                                     <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                               Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}"
                                                                Text="{l:T 'Preisquelle in Einstellungen → Strompreis. aWATTar liefert den Börsenpreis ohne Netzentgelte/Steuern, Tibber den Endpreis – die Schwelle entsprechend wählen.'}" />
+                                                    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                               Visibility="{Binding ScheduleIsProfit, Converter={StaticResource BoolToVisibility}}"
+                                                               Text="{l:T 'Ertrag: „Günstig“ = volle Leistung, solange der Strom um den Abstand unter dem Break-even-Preis liegt; „Teuer“ = sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt. Ertrag je TH aus dem Pool-Konto, sonst PPS-Erwartung für BTC.'}" />
                                                 </Grid>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">

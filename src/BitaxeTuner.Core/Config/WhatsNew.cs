@@ -145,6 +145,10 @@ public static class WhatsNew
                 server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
                        : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
                 null),
+            new("0.9.15", tr.T("Ertrags-Automatik"),
+                server ? tr.T("Gerät → Automatik → Art „Ertrag“ (auch für Gruppen): Kostet der Strom mehr, als der Miner einbringt, wechselt er auf die sparsame Voreinstellung, und erst deutlich darunter wieder auf volle Leistung. Ertrag je TH aus dem Pool-Konto, sonst die PPS-Erwartung für BTC; mit Freigabe und Protokoll wie jede Automatik.")
+                       : tr.T("Miner → Automatik → „Ertrag“: Kostet der Strom mehr, als der Miner einbringt, wechselt er auf die sparsame Voreinstellung, und erst deutlich darunter wieder auf volle Leistung. Ertrag je TH aus dem Pool-Konto, sonst die PPS-Erwartung für BTC; mit Freigabe und Protokoll wie jede Automatik."),
+                null),
             new("0.9.15", tr.T("Mining-Art-Vergleich"),
                 tr.T("Was bringt deine Hashrate bei PPS, PPLNS, Solo BTC oder Solo BCH? Erwartungswert je Tag und Monat mit Stromkosten und Saldo, für Solo die Chance auf einen Block, dazu mit Pool-Konto dein tatsächlicher Ertrag. Gebühren lassen sich anpassen."),
                 null),

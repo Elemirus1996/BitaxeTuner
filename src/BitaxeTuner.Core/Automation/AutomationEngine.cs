@@ -47,6 +47,12 @@ public sealed class AutomationEngine
 
     public AutomationEngine(PriceService? prices) => _prices = prices;
 
+    /// <summary>
+    /// 0.9.15 Ertrags-Modus: aktuelle Stromkosten und Break-even-Preis je Miner in ct/kWh (null = unbekannt, z. B. ohne Kurs
+    /// oder Difficulty). Vom Hub gesetzt.
+    /// </summary>
+    public Func<string, DateTime, (double CostCt, double BreakEvenCt)?>? Profitability { get; set; }
+
     /// <summary>0.9.11: Einheit des Strompreises in der gewählten Währung (z. B. „ct/kWh“, „p/kWh“).</summary>
     public Func<string> CentPerKwh { get; set; } = () => "ct/kWh";
 
@@ -175,6 +181,20 @@ public sealed class AutomationEngine
             presetName = price <= schedule.ThresholdCt ? schedule.CheapPreset : schedule.ExpensivePreset;
             result.Status += L.T(" · Preis {0} ct/kWh", F(price.Value, "0.0")).Replace("ct/kWh", CentPerKwh());
         }
+        else if (schedule.Mode == "profit")
+        {
+            if (Profitability?.Invoke(host, now) is not { } p)
+            {
+                Notice(result, st, host, ruleName, L.T("Ertrag oder Strompreis gerade unbekannt (Kurs, Difficulty oder Hashrate fehlt) – Voreinstellung bleibt unverändert."));
+                return result;
+            }
+            // Mit Abstand: voll erst deutlich unter Break-even, sparsam sobald darüber; dazwischen bleibt das bisherige Ziel
+            var full = p.BreakEvenCt * (1 - Math.Clamp(schedule.ProfitMarginPercent, 0, 90) / 100);
+            presetName = p.CostCt <= full ? schedule.CheapPreset
+                : p.CostCt > p.BreakEvenCt ? schedule.ExpensivePreset
+                : st.ScheduleTarget ?? schedule.CheapPreset;
+            result.Status += L.T(" · Strom {0} / Break-even {1} ct/kWh", F(p.CostCt, "0.0"), F(p.BreakEvenCt, "0.0")).Replace("ct/kWh", CentPerKwh());
+        }
         else
         {
             presetName = schedule.Entries.FirstOrDefault(e => e.Matches(now))?.Preset ?? schedule.DefaultPreset;
@@ -213,13 +233,14 @@ public sealed class AutomationEngine
         st.LastAction = now;
         result.Action = new AutomationAction(host, ruleName, preset.FrequencyMhz, preset.CoreVoltageMv,
             group is not null ? L.T("Gruppe „{0}“: „{1}“", group, preset.Name)
-            : schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
+            : schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name)
+            : schedule.Mode == "profit" ? L.T("Ertrag: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
         return result;
     }
 
     private static string RuleName(PresetScheduleRule schedule, string? group)
     {
-        var kind = schedule.Mode == "price" ? L.T("Strompreis") : L.T("Zeitplan");
+        var kind = schedule.Mode == "price" ? L.T("Strompreis") : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : L.T("Zeitplan");
         return group is null ? kind : L.T("Gruppe „{0}“ ({1})", group, kind);
     }
 
@@ -238,7 +259,8 @@ public sealed class AutomationEngine
             parts.Add(guardOn
                 ? st.OriginalFrequency is { } o ? L.T("Temperaturschutz aktiv (abgesenkt, ursprünglich {0} MHz)", o) : L.T("Temperaturschutz bereit")
                 : L.T("Temperaturschutz: Freigabe fehlt"));
-        var kind = group is not null ? L.T("Gruppen-Automatik „{0}“", group) : schedule.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan");
+        var kind = group is not null ? L.T("Gruppen-Automatik „{0}“", group) : schedule.Mode == "price" ? L.T("Strompreis-Regel")
+            : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : L.T("Zeitplan");
         if (schedule.Enabled)
             parts.Add(scheduleOn
                 ? L.T("{0} aktiv{1}", kind, (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))

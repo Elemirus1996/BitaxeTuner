@@ -141,6 +141,50 @@ public class AutomationEngineTests
         Assert.Contains(r.Notices, n => n.Message.Contains("außerhalb der Grenzen"));
     }
 
+    [Fact]
+    public void Profit_rule_saves_power_when_electricity_costs_more_than_the_miner_earns()
+    {
+        var now = new DateTime(2026, 10, 12, 12, 0, 0);
+        (double, double)? state = (20, 30);   // Strom 20 ct, Break-even 30 ct
+        var d = Device(x =>
+        {
+            x.Presets = [new("Voll", 750, 1260), new("Spar", 500, 1100)];
+            x.Schedule.Enabled = true; x.Schedule.Mode = "profit"; x.Schedule.ProfitMarginPercent = 10;
+            x.Schedule.CheapPreset = "Voll"; x.Schedule.ExpensivePreset = "Spar";
+        });
+        var oldSignature = d.Schedule.Signature(d.Host);
+        d.Schedule.Approve(d.Host);
+        var engine = new AutomationEngine(null) { Profitability = (_, _) => state };
+
+        // 20 ≤ 27 (30 − 10 %) → volle Leistung
+        var r = engine.Evaluate(d, I(500, 1100, 50), Gamma, now, false, false);
+        Assert.Equal(750, r.Action!.FrequencyMhz);
+        Assert.Contains("Break-even", r.Status);
+
+        // 28 liegt zwischen 27 und 30 → bleibt beim bisherigen Ziel „Voll“, kein Hin und Her
+        state = (28, 30);
+        Assert.Null(engine.Evaluate(d, I(750, 1260, 50), Gamma, now.AddMinutes(20), false, false).Action);
+
+        // 31 > 30 → sparsam
+        state = (31, 30);
+        Assert.Equal(500, engine.Evaluate(d, I(750, 1260, 50), Gamma, now.AddMinutes(40), false, false).Action!.FrequencyMhz);
+
+        // Ohne bekannten Ertrag: nichts tun, nur ein Hinweis
+        state = null;
+        var unknown = engine.Evaluate(d, I(500, 1100, 50), Gamma, now.AddMinutes(60), false, false);
+        Assert.Null(unknown.Action);
+        Assert.Single(unknown.Notices);
+
+        // Abstand gehört zur Freigabe; „time“/„price“ behalten ihre bisherige Prüfsumme
+        d.Schedule.ProfitMarginPercent = 20;
+        Assert.False(d.Schedule.IsApproved(d.Host));
+        d.Schedule.Mode = "price";
+        var priceSig = d.Schedule.Signature(d.Host);
+        d.Schedule.ProfitMarginPercent = 5;
+        Assert.Equal(priceSig, d.Schedule.Signature(d.Host));
+        Assert.NotEqual(oldSignature, priceSig);
+    }
+
     [Theory]
     [InlineData(2026, 9, 26, 23, true)]   // Samstag 23 Uhr, Sa aktiv
     [InlineData(2026, 9, 27, 3, true)]    // Sonntag 3 Uhr gehört zum Samstagabend

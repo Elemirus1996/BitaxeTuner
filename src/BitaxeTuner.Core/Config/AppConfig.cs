@@ -740,7 +740,7 @@ public sealed class ScheduleEntry
 
 public sealed class PresetScheduleRule : AutomationRule
 {
-    /// <summary>"time" (Wochenplan) oder "price" (Strompreis).</summary>
+    /// <summary>"time" (Wochenplan), "price" (Strompreis) oder "profit" (0.9.15: Strom teurer als der Ertrag).</summary>
     public string Mode { get; set; } = "time";
     public List<ScheduleEntry> Entries { get; set; } = [];
     /// <summary>Voreinstellung, wenn kein Eintrag passt (leer = nichts tun).</summary>
@@ -749,10 +749,21 @@ public sealed class PresetScheduleRule : AutomationRule
     public double ThresholdCt { get; set; } = 25;
     public string CheapPreset { get; set; } = "";
     public string ExpensivePreset { get; set; } = "";
+    /// <summary>
+    /// 0.9.15 Ertrags-Modus: volle Leistung (<see cref="CheapPreset"/>) nur, wenn der Strom mindestens so viele Prozent unter
+    /// dem Break-even-Preis liegt; sparsam (<see cref="ExpensivePreset"/>), sobald er darüber liegt. Dazwischen bleibt es, wie es ist.
+    /// </summary>
+    public double ProfitMarginPercent { get; set; } = 10;
 
+    /// <summary>Nutzt die Regel günstig/teuer statt Zeitfenster?</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool UsesPriceLevels => Mode is "price" or "profit";
+
+    // Der Zusatz für „profit“ hängt nur dort an – bestehende Freigaben (time/price) bleiben gültig
     public override string Describe() => FormattableString.Invariant(
         $"schedule|{Mode}|{DefaultPreset}|{ThresholdCt}|{CheapPreset}|{ExpensivePreset}|") +
-        string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour},{e.Preset}")));
+        string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour},{e.Preset}"))) +
+        (Mode == "profit" ? FormattableString.Invariant($"|margin:{ProfitMarginPercent}") : "");
 
     /// <summary>
     /// Nutzt der Zeitplan diese Voreinstellung? Die Freigabe merkt sich nur den Namen – wer eine benutzte Voreinstellung

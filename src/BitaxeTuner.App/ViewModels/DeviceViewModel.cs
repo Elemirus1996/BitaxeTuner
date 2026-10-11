@@ -602,12 +602,28 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public bool ScheduleIsPrice
     {
         get => Schedule.Mode == "price";
-        set { Schedule.Mode = value ? "price" : "time"; OnPropertyChanged(); OnPropertyChanged(nameof(ScheduleIsTime)); }
+        set { if (value) SetScheduleMode("price"); }
     }
     public bool ScheduleIsTime
     {
-        get => !ScheduleIsPrice;
-        set => ScheduleIsPrice = !value;
+        get => Schedule.Mode is not ("price" or "profit");
+        set { if (value) SetScheduleMode("time"); }
+    }
+    /// <summary>0.9.15 Ertrags-Automatik.</summary>
+    public bool ScheduleIsProfit
+    {
+        get => Schedule.Mode == "profit";
+        set { if (value) SetScheduleMode("profit"); }
+    }
+    public bool ScheduleUsesLevels => Schedule.UsesPriceLevels;
+
+    private void SetScheduleMode(string mode)
+    {
+        Schedule.Mode = mode;
+        OnPropertyChanged(nameof(ScheduleIsPrice));
+        OnPropertyChanged(nameof(ScheduleIsTime));
+        OnPropertyChanged(nameof(ScheduleIsProfit));
+        OnPropertyChanged(nameof(ScheduleUsesLevels));
     }
 
     private void LoadAutomation()
@@ -621,6 +637,8 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Schedule));
         OnPropertyChanged(nameof(ScheduleIsPrice));
         OnPropertyChanged(nameof(ScheduleIsTime));
+        OnPropertyChanged(nameof(ScheduleIsProfit));
+        OnPropertyChanged(nameof(ScheduleUsesLevels));
         OnPropertyChanged(nameof(SoakActive));
     }
 

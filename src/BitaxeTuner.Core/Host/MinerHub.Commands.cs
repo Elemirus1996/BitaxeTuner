@@ -130,12 +130,16 @@ public sealed partial class MinerHub
             body = L.T("Strompreis ({0}) ≤ {1:0.##} ct/kWh → {2}\n", Prices.SourceName, s.ThresholdCt, PresetText(device, s.CheapPreset)).Cents(Config) +
                    L.T("sonst → {0}", PresetText(device, s.ExpensivePreset));
         }
+        else if (s.Mode == "profit")
+        {
+            body = ProfitRuleText(s, PresetText(device, s.CheapPreset), PresetText(device, s.ExpensivePreset));
+        }
         else
         {
             body = string.Join("\n", s.Entries.Select(e => L.T("{0} {1:00}–{2:00} Uhr → {3}", e.DaysText, e.FromHour, e.ToHour, PresetText(device, e.Preset)))) +
                    L.T("\nsonst → {0}", (string.IsNullOrWhiteSpace(s.DefaultPreset) ? L.T("keine Änderung") : PresetText(device, s.DefaultPreset)));
         }
-        return L.T("{0} für {1} freigeben?\n\n{2}\n\n", (s.Mode == "price" ? L.T("Strompreis-Regel") : L.T("Zeitplan")), device.Title, body) +
+        return L.T("{0} für {1} freigeben?\n\n{2}\n\n", (s.Mode == "price" ? L.T("Strompreis-Regel") : s.Mode == "profit" ? L.T("Ertrags-Automatik") : L.T("Zeitplan")), device.Title, body) +
                L.T("Zwischen zwei automatischen Änderungen liegen mindestens {0:0} min. ", AutomationEngine.MinGap.TotalMinutes) +
                L.T("Während eines Benchmarks, Dauertests oder abgesenkten Temperaturschutzes pausiert die Regel. ") +
                L.T("Jede Änderung wird protokolliert, im Verlauf markiert und per Push gemeldet.");

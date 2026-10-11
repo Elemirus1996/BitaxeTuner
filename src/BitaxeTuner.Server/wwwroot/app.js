@@ -2265,13 +2265,14 @@ function tabAutomation() {
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Zeitplan / Strompreis')), h('span', { class: `pill ${c.scheduleApproved ? '' : 'gray'}` }, c.scheduleApproved ? t('freigegeben') : t('nicht freigegeben'))),
       checkInput(sched, 'enabled', t('eingeschaltet')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)'))); s.value = sched.mode; return s; })())),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)'))); s.value = sched.mode; return s; })())),
       h('h3', {}, t('Zeitplan')), entries,
       h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: presets[0]?.name || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
         h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
       h('h3', {}, t('Strompreis')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
         h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
+      profitRuleBox(sched),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: () => approve('schedule') }, t('Speichern & freigeben …')))),
     h('div', { class: 'card stack' },
       h('h3', {}, t('Dauertest')),
@@ -2904,14 +2905,24 @@ function groupAutomationCard(g) {
     h('div', { class: 'row' }, nowPreset, h('button', { class: 'btn', onclick: switchNow }, t('Vorschau und umschalten …'))),
     h('h3', {}, t('Regel')),
     checkInput(sched, 'enabled', t('eingeschaltet')),
-    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)'))); s.value = sched.mode || 'time'; return s; })())),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)'))); s.value = sched.mode || 'time'; return s; })())),
     h('h3', {}, t('Zeitplan')), entries,
     h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: names[0] || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
       h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
     h('h3', {}, t('Strompreis')),
     h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
       h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
+    profitRuleBox(sched),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
+}
+
+/** 0.9.15 Ertrags-Automatik: Abstand zum Break-even und Erklärung (gilt mit „günstig →“ und „teuer →“ oben). */
+function profitRuleBox(sched) {
+  if (sched.profitMarginPercent == null) sched.profitMarginPercent = 10;
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('Ertrag')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Abstand zum Break-even (%)')), numInput(sched, 'profitMarginPercent', 1))),
+    h('p', { class: 'muted small' }, t('Ertrag: „Günstig“ = volle Leistung, solange der Strom um den Abstand unter dem Break-even-Preis liegt; „Teuer“ = sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt. Ertrag je TH aus dem Pool-Konto, sonst PPS-Erwartung für BTC.')));
 }
 
 // ---------- Sicherungen ----------
