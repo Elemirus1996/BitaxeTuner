@@ -4971,6 +4971,11 @@ function viewersCard(groups) {
 function backupCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const mb = b => t('{0} MB', n(b / 1024 / 1024, 1));
+  // 0.9.15: Speicher freigeben (Sicherung bzw. vorherigen Stand löschen, mit Bestätigung)
+  const del = async (kind, name, size) => {
+    if (!await confirmBox(t('Endgültig löschen?'), t('{0} ({1}) wird endgültig gelöscht und kann nicht mehr eingespielt werden.', name, mb(size)), t('Löschen'), true)) return;
+    if (await run(() => api(`/backup/${kind}/${encodeURIComponent(name)}`, { method: 'DELETE' }), t('Gelöscht.'))) load();
+  };
   const load = async () => {
     const d = await api('/backup').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
     if (!d) return;
@@ -5036,12 +5041,40 @@ function backupCard() {
               h('td', { class: 'mono small' }, f.name), h('td', { class: 'num' }, mb(f.size)),
               h('td', { class: 'row' },
                 h('a', { class: 'btn small', href: `/api/v1/backup/files/${encodeURIComponent(f.name)}`, download: f.name }, t('Herunterladen')),
-                h('button', { class: 'btn small', onclick: () => restoreBackup(f.name) }, t('Einspielen …'))))))))
+                h('button', { class: 'btn small', onclick: () => restoreBackup(f.name) }, t('Einspielen …')),
+                h('button', { class: 'btn small danger', onclick: () => del('files', f.name, f.size) }, t('Löschen …'))))))))
         : null,
+      storageBox(d.storage, del, mb),
       restoreUploadBox());
   };
   load();
   return h('div', { class: 'card stack' }, h('h2', {}, t('Sicherung')), body);
+}
+
+/** 0.9.15: Speicherplatz des Servers und vorherige Stände (Ordner „backup-…“ nach dem Einspielen) zum Löschen. */
+function storageBox(s, del, mb) {
+  if (!s) return null;
+  const used = s.totalBytes ? (s.totalBytes - s.freeBytes) / s.totalBytes : null;
+  const bar = used == null ? null : h('div', { class: 'storage-bar', title: `${n(used * 100, 0)} %` },
+    h('span', { style: `width:${Math.min(100, used * 100).toFixed(1)}%`, class: s.low ? 'low' : '' }));
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('Speicherplatz')),
+    s.low ? h('p', { class: 'danger small' }, t('Wenig freier Speicher – alte Sicherungen oder vorherige Stände löschen, sonst schlagen Sicherungen und Updates fehl.')) : null,
+    bar,
+    h('div', { class: 'tiles' },
+      tile(t('Frei'), s.freeBytes == null ? '–' : mb(s.freeBytes), s.totalBytes ? t('von {0} ({1})', mb(s.totalBytes), s.drive) : s.drive, s.low ? 'danger' : 'ok'),
+      tile(t('Datenordner gesamt'), mb(s.dataBytes)),
+      tile(t('Verlauf (history.db)'), mb(s.historyBytes)),
+      tile(t('Sicherungen'), mb(s.backupsBytes), t('{0} Dateien', s.backupCount)),
+      tile(t('Vorherige Stände'), mb(s.previousBytes), t('{0} Ordner', s.previous.length))),
+    s.previous.length
+      ? h('div', { class: 'table-wrap' }, h('table', {},
+          h('thead', {}, h('tr', {}, [t('Vorheriger Stand (beim Einspielen angelegt)'), t('Größe'), ''].map(x => h('th', {}, x)))),
+          h('tbody', {}, s.previous.map(p => h('tr', {},
+            h('td', { class: 'mono small' }, p.name), h('td', { class: 'num' }, mb(p.size)),
+            h('td', {}, h('button', { class: 'btn small danger', onclick: () => del('previous', p.name, p.size) }, t('Löschen …'))))))))
+      : null,
+    h('p', { class: 'muted small' }, t('Vorherige Stände sind vollständige Kopien des Datenordners, die beim Einspielen einer Sicherung entstehen. Sie werden nicht automatisch gelöscht.')));
 }
 
 /**

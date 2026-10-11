@@ -323,7 +323,8 @@
                 <WrapPanel>
                     <Button x:Name="BackupNowButton" Content="{l:T 'Jetzt sichern'}" Click="BackupNow_Click" Padding="10,4" Margin="0,0,8,4"/>
                     <Button Content="{l:T 'Sicherungsordner öffnen'}" Click="BackupOpen_Click" Padding="10,4" Margin="0,0,8,4"/>
-                    <Button x:Name="BackupRestoreButton" Content="{l:T 'Sicherung einspielen …'}" Click="BackupRestore_Click" Padding="10,4" Margin="0,0,0,4"/>
+                    <Button x:Name="BackupRestoreButton" Content="{l:T 'Sicherung einspielen …'}" Click="BackupRestore_Click" Padding="10,4" Margin="0,0,8,4"/>
+                    <Button x:Name="StorageButton" Content="{l:T 'Speicherplatz und Aufräumen …'}" Click="Storage_Click" Padding="10,4" Margin="0,0,0,4"/>
                 </WrapPanel>
                 <TextBlock Text="{l:T 'Einspielen: Die Datei wird vollständig geprüft, der jetzige Stand bleibt als Ordner „backup-…“ im Datenordner erhalten, dann startet die App neu. Die Miner selbst werden nicht verändert.'}"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>

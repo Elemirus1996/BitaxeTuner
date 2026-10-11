@@ -95,6 +95,9 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Mining-Art-Vergleich** (ab 0.9.15): Erwartungswert deiner Hashrate bei PPS, PPLNS, Solo BTC und Solo BCH (Difficulty,
   Kurs, Blockprämie + geschätzte Gebühren, Pool-Gebühren einstellbar) mit Stromkosten und Saldo, für Solo die Chance je
   Monat; mit Pool-Konto daneben der tatsächliche Ertrag der letzten 7 Tage.
+- **Speicherplatz** (ab 0.9.15, Einstellungen → *Sicherung*): freier Platz auf dem Datenträger des Servers bzw. PCs,
+  Größe von Verlauf, Sicherungen und vorherigen Ständen (Kopien beim Einspielen einer Sicherung); Sicherungen und vorherige
+  Stände lassen sich nach Bestätigung einzeln löschen (im Protokoll).
 - **Ertrags-Automatik** (ab 0.9.15, Gerät → *Automatik* bzw. Gruppen-Automatik, Art *Ertrag*): Liegt der Strompreis über
   dem Break-even-Preis des Miners (Ertrag je TH ÷ Verbrauch je TH), wechselt er auf die sparsame Voreinstellung; volle
   Leistung erst wieder, wenn der Strom um den eingestellten Abstand (Standard 10 %) darunter liegt. Ertrag je TH aus dem

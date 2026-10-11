@@ -495,3 +495,8 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .dev-hero .hashline .mini-spark { width: 120px; height: 34px; margin-left: 6px; }
 .dev-hero-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; }
 @media (max-width: 960px) { .dev-hero { grid-template-columns: minmax(0, 1fr); } .dev-hero-side { align-items: flex-start; } .dev-hero-side .row { justify-content: flex-start !important; } }
+
+/* 0.9.15 Speicherplatz */
+.storage-bar { height: 10px; border-radius: 999px; background: var(--alt); border: 1px solid var(--border); overflow: hidden; }
+.storage-bar > span { display: block; height: 100%; background: var(--ok); }
+.storage-bar > span.low { background: var(--danger); }

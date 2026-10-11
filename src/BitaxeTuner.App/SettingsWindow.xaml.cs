@@ -104,7 +104,7 @@ public partial class SettingsWindow : Window
         BackupFolderEnabledBox.IsChecked = config.Backup.Folder.Enabled;
         BackupFolderBox.Text = config.Backup.Folder.Path;
         BackupKeepBox.Text = config.Backup.Keep.ToString();
-        BackupNowButton.IsEnabled = BackupRestoreButton.IsEnabled = host is not null;
+        BackupNowButton.IsEnabled = BackupRestoreButton.IsEnabled = StorageButton.IsEnabled = host is not null;
         ShowBackupStatus();
 
         LogErrorsBox.IsChecked = config.LogAlerts.OnErrors;
@@ -517,6 +517,13 @@ public partial class SettingsWindow : Window
     }
 
     private void BackupOpen_Click(object sender, RoutedEventArgs e) => Services.BackupActions.OpenFolder(this, BackupFolderToShow());
+
+    /// <summary>0.9.15: Speicherplatz anzeigen, Sicherungen und vorherige Stände löschen.</summary>
+    private void Storage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_host is null) return;
+        new Views.StorageWindow(_host.Hub) { Owner = this }.ShowDialog();
+    }
 
     private async void BackupRestore_Click(object sender, RoutedEventArgs e) =>
         await Services.BackupActions.RestoreLocalAsync(this, _dataDirectory, BackupFolderToShow());

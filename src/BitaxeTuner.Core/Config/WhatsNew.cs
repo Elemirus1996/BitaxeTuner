@@ -145,6 +145,10 @@ public static class WhatsNew
                 server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
                        : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
                 null),
+            new("0.9.15", tr.T("Speicherplatz und Aufräumen"),
+                server ? tr.T("Einstellungen → Sicherung zeigt, wie viel Platz auf dem Server frei ist und was Verlauf, Sicherungen und vorherige Stände belegen. Sicherungen und vorherige Stände (Kopien beim Einspielen) lassen sich einzeln löschen. Außerdem behoben: Auf dem Raspberry Pi scheiterte die Prüfung einer Sicherung an zu wenig Platz in /tmp.")
+                       : tr.T("Einstellungen → Sicherung → „Speicherplatz und Aufräumen …“: freier Platz, was Verlauf, Sicherungen und vorherige Stände belegen, und Sicherungen bzw. vorherige Stände einzeln löschen."),
+                tr.T("Sicherung")),
             new("0.9.15", tr.T("Ertrags-Automatik"),
                 server ? tr.T("Gerät → Automatik → Art „Ertrag“ (auch für Gruppen): Kostet der Strom mehr, als der Miner einbringt, wechselt er auf die sparsame Voreinstellung, und erst deutlich darunter wieder auf volle Leistung. Ertrag je TH aus dem Pool-Konto, sonst die PPS-Erwartung für BTC; mit Freigabe und Protokoll wie jede Automatik.")
                        : tr.T("Miner → Automatik → „Ertrag“: Kostet der Strom mehr, als der Miner einbringt, wechselt er auf die sparsame Voreinstellung, und erst deutlich darunter wieder auf volle Leistung. Ertrag je TH aus dem Pool-Konto, sonst die PPS-Erwartung für BTC; mit Freigabe und Protokoll wie jede Automatik."),

@@ -1,3 +1,4 @@
+using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Backup;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.I18n;
@@ -34,6 +35,13 @@ public static class BackupEndpoints
         };
     }
 
+    private static object StorageJson(StorageInfo s) => new
+    {
+        drive = s.Drive, totalBytes = s.TotalBytes, freeBytes = s.FreeBytes, dataBytes = s.DataBytes, historyBytes = s.HistoryBytes,
+        backupsBytes = s.BackupsBytes, backupCount = s.BackupCount, previousBytes = s.PreviousBytes, low = MinerHub.StorageLow(s),
+        previous = s.Previous.Select(p => new { name = p.Name, time = p.Time, size = p.Bytes }).ToList(),
+    };
+
     public static void Map(RouteGroupBuilder g)
     {
         g.MapGet("/backup", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
@@ -43,6 +51,20 @@ public static class BackupEndpoints
             status = h.BackupStatus,
             files = h.LocalBackups().Select(f => new { name = f.Name, size = f.Length, time = f.LastWriteTime }).ToList(),
             usb = Usb(),
+            storage = StorageJson(h.Storage()),
+        })));
+
+        // 0.9.15: Speicher freigeben – Sicherungen und vorherige Stände einzeln löschen (Bestätigung im Browser)
+        g.MapDelete("/backup/files/{name}", async (string name, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.DeleteLocalBackup(name, L.T("Browser"));
+            return new { ok = true, storage = StorageJson(h.Storage()) };
+        })));
+
+        g.MapDelete("/backup/previous/{name}", async (string name, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.DeletePreviousState(name, L.T("Browser"));
+            return new { ok = true, storage = StorageJson(h.Storage()) };
         })));
 
         g.MapPut("/backup", async (BackupRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
