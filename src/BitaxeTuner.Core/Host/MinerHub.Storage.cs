@@ -83,6 +83,14 @@ public sealed partial class MinerHub
         _ => table,
     };
 
+    /// <summary>0.9.16: Reste abgebrochener Exporte löschen (beim Start und vor jeder Sicherung) und protokollieren.</summary>
+    public void CleanupStaleExports(TimeSpan minAge)
+    {
+        var (count, bytes) = Transfer.DataArchive.CleanupStaleExports(DataDirectory, minAge);
+        if (count > 0)
+            LogEvent(null, EventCategories.System, L.T("{0} Reste abgebrochener Exporte gelöscht ({1} MB).", count, (bytes / 1048576.0).ToString("0.0", L.Culture)));
+    }
+
     /// <summary>Sicherung im Datenordner löschen (nur Dateien mit dem Namensmuster der Sicherungen).</summary>
     public void DeleteLocalBackup(string name, string by)
     {

@@ -124,6 +124,33 @@ public class TransferTests
         Assert.Contains("history.db", Assert.Throws<InvalidDataException>(() => DataArchive.VerifyArchive(missing)).Message);
     }
 
+
+    [Fact]
+    public void Stale_exports_are_removed_but_fresh_ones_stay()
+    {
+        using var dir = new TempDir();
+        var oldFile = Path.Combine(dir.Path, ".export-aaa.zip");
+        var oldDir = Path.Combine(dir.Path, ".export-bbb");
+        var fresh = Path.Combine(dir.Path, ".export-ccc.zip");
+        File.WriteAllBytes(oldFile, new byte[100]);
+        Directory.CreateDirectory(oldDir);
+        File.WriteAllText(Path.Combine(oldDir, "config.json"), "{\"Token\":\"geheim\"}");
+        File.WriteAllBytes(fresh, new byte[10]);
+        File.WriteAllText(Path.Combine(dir.Path, "config.json"), "{}");
+        var old = DateTime.UtcNow.AddHours(-2);
+        File.SetLastWriteTimeUtc(oldFile, old);
+        Directory.SetLastWriteTimeUtc(oldDir, old);
+
+        var (count, bytes) = DataArchive.CleanupStaleExports(dir.Path, TimeSpan.FromHours(1));
+        Assert.Equal(2, count);
+        Assert.Equal(100 + 18, bytes);
+        Assert.False(File.Exists(oldFile));
+        Assert.False(Directory.Exists(oldDir));
+        Assert.True(File.Exists(fresh));                                   // laufender Export bleibt
+        Assert.True(File.Exists(Path.Combine(dir.Path, "config.json")));
+        Assert.Equal(1, DataArchive.CleanupStaleExports(dir.Path, TimeSpan.Zero).Count);
+    }
+
     [Fact]
     public void Path_traversal_in_archive_is_rejected()
     {

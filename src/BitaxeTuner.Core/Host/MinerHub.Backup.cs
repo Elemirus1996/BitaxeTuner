@@ -95,6 +95,7 @@ public sealed partial class MinerHub
             // Reste einer abgebrochenen Prüfung (z. B. Stromausfall) entfernen
             foreach (var leftover in Directory.EnumerateDirectories(BackupDirectory, ".check-*"))
                 try { Directory.Delete(leftover, true); } catch { /* beim nächsten Mal */ }
+            CleanupStaleExports(TimeSpan.FromHours(1));
             name = BackupNames.For(now);
             tmp = Path.Combine(BackupDirectory, name + ".tmp");
             Config.Save();

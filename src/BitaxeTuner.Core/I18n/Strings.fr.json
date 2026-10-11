@@ -3663,6 +3663,7 @@
   "{0} Panels": "{0} panneaux",
   "{0} Pools · gelb = dein Pool": "{0} pools · jaune = votre pool",
   "{0} Punkte aus der Datenbank": "{0} points de la base de données",
+  "{0} Reste abgebrochener Exporte gelöscht ({1} MB).": "{0} restes d'exports interrompus supprimés ({1} Mo).",
   "{0} T {1} h": "{0} j {1} h",
   "{0} TH/s": "{0} TH/s",
   "{0} TLS": "{0} TLS",

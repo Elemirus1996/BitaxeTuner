@@ -103,6 +103,8 @@ public sealed class HubService : IHostedService, IDisposable
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // 0.9.16: beim Start läuft kein Export – alle Reste abgebrochener Exporte entfernen (Platz, aufgelöste Zugangsdaten)
+        await RunAsync(h => { h.CleanupStaleExports(TimeSpan.Zero); return 0; });
         await _thread.RunAsync(() => Hub.StartAsync());
         _log.LogInformation("Motor gestartet: {Count} Miner, Datenordner {Dir}{Paused}", Hub.Devices.Count, Settings.DataDirectory,
             Hub.IsPaused ? " – PAUSIERT (Desktop-App fragt selbst ab)" : "");

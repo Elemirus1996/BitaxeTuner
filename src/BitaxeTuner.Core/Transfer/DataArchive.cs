@@ -52,6 +52,39 @@ public static class DataArchive
         return p.Equals("config.json", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// 0.9.16: Reste abgebrochener Exporte („.export-…“ als Datei oder Ordner, z. B. nach einem Neustart mitten im Herunterladen)
+    /// löschen – sie belegen Platz und können eine config.json mit aufgelösten Zugangsdaten enthalten. Nur Einträge, die älter
+    /// als <paramref name="minAge"/> sind (laufende Exporte bleiben). Liefert die Zahl der gelöschten Einträge und Bytes.
+    /// </summary>
+    public static (int Count, long Bytes) CleanupStaleExports(string dataDirectory, TimeSpan minAge)
+    {
+        if (!Directory.Exists(dataDirectory)) return (0, 0);
+        var cutoff = DateTime.UtcNow - minAge;
+        int count = 0;
+        long bytes = 0;
+        foreach (var entry in new DirectoryInfo(dataDirectory).EnumerateFileSystemInfos(".export-*"))
+        {
+            try
+            {
+                if (entry.LastWriteTimeUtc > cutoff) continue;
+                if (entry is DirectoryInfo d)
+                {
+                    bytes += d.EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
+                    d.Delete(recursive: true);
+                }
+                else
+                {
+                    bytes += ((FileInfo)entry).Length;
+                    entry.Delete();
+                }
+                count++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* gerade in Benutzung – beim nächsten Mal */ }
+        }
+        return (count, bytes);
+    }
+
     /// <summary>Archiv erstellen. Ist history.db im Prozess geöffnet, <paramref name="openHistory"/> übergeben (Backup über dieselbe Verbindung).</summary>
     /// <param name="source">„backup“ = Sicherung: Tokens bleiben als Verweis (Werte nur in secrets.json, nicht im Archiv).
     /// Sonst Übertragung (Desktop ↔ Server, Pi-Einrichtung): config.json mit aufgelösten Tokens, damit sie mitkommen.</param>
