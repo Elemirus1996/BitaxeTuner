@@ -19,6 +19,8 @@ BitaxeTuner erhöht Frequenz und Kernspannung deines Miners Schritt für Schritt
 wahlweise für **maximale Hashrate**, **beste Effizienz (J/TH)** oder einen **Kompromiss** aus beidem.
 Mehrere Geräte lassen sich **parallel** testen.
 
+<p align="center"><img src="docs/assets/screen-overview.png" alt="Browser-Oberfläche: Kennzahlen, Verlauf und eine Karte je Miner" width="80%"></p>
+
 > ⚠️ **Übertakten auf eigenes Risiko.** Höhere Frequenz und Spannung erhöhen Leistungsaufnahme und Temperatur
 > und können die Hardware beschädigen. Prüfe, ob Netzteil und Kühlung ausreichen.
 
@@ -525,6 +527,23 @@ Umsteigen geht jederzeit in beide Richtungen mit allen Daten (siehe *Umstieg und
 - **Desktop-App** im Modus „Server“: *Betriebsart …* → Server-Adresse (oder *Im Netz suchen*) und ein **API-Token**
   (Server-Oberfläche → Einstellungen → *Desktop-App verbinden*) eintragen, *Verbindung testen*. Die App zeigt dann
   die Oberfläche des Servers an und fragt selbst **keine** Miner ab. Das Token lässt sich jederzeit widerrufen.
+
+### Als App aufs Handy (PWA)
+
+Die Browser-Oberfläche des Servers lässt sich als App installieren – eigenes Symbol, Vollbild, Push direkt aufs Gerät,
+ohne App-Store und ohne Konto. Am einfachsten: im Benutzermenü oben rechts **„Als App installieren …“** – BitaxeTuner
+öffnet dann den Installationsdialog des Browsers oder zeigt die passenden Schritte.
+
+1. **Voraussetzung:** eine Verbindung ohne Zertifikatswarnung. Einmal *Einstellungen → Verbindung → „HTTPS ohne Warnung“*
+   einrichten (kostenloser DuckDNS-Name, Zertifikat von Let's Encrypt) und BitaxeTuner über diesen Namen öffnen. Über die
+   IP-Adresse mit dem selbst signierten Zertifikat erlauben Browser keine Installation.
+2. **Android (Chrome):** Menü ⋮ → *App installieren* bzw. *Zum Startbildschirm hinzufügen*.
+3. **iPhone/iPad (Safari, ab iOS 16.4):** *Teilen → Zum Home-Bildschirm*, danach BitaxeTuner vom Home-Bildschirm öffnen.
+4. **PC (Chrome/Edge):** Symbol *App installieren* in der Adressleiste.
+5. **Push:** in der App *Einstellungen → Push → „Dieses Gerät für Push anmelden …“*.
+
+Die Oberfläche kommt immer frisch vom Server (nur ohne Netz die zuletzt geladene Fassung) – nach einem Update gibt es
+also nie eine veraltete App.
 
 ### Umstieg und Rückweg (Datenübertragung)
 

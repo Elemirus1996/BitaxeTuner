@@ -145,6 +145,9 @@ public static class WhatsNew
                 server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
                        : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
                 null),
+            new("0.9.15", tr.T("Als App aufs Handy"),
+                tr.T("Im Benutzermenü oben rechts öffnet „Als App installieren …“ den Installationsdialog des Browsers bzw. zeigt die Schritte für Android, iPhone und PC – inklusive Hinweis auf „HTTPS ohne Warnung“, das Browser für die Installation verlangen."),
+                null),
             new("0.9.15", tr.T("Nur ein Update gleichzeitig"),
                 tr.T("Wird ein Server-Update gestartet – im Browser, in der Desktop-App oder auf einem zweiten Gerät –, ist der Update-Knopf überall gesperrt, bis es durch ist. Stattdessen zeigen alle Oberflächen, wer es gestartet hat und welcher Schritt läuft (Sicherung, Herunterladen, Installieren, Neustart)."),
                 null),

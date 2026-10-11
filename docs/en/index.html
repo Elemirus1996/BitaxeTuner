@@ -63,6 +63,7 @@
   ul.check { padding: 0; margin: 14px 0 0; list-style: none; }
   ul.check li { padding-left: 26px; position: relative; margin: 7px 0; }
   ul.check li::before { content: "✓"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+  ol.steps { padding-left: 22px; margin: 14px 0 0; } ol.steps li { margin: 7px 0; padding-left: 4px; }
   .steps { counter-reset: s; margin-top: 14px; }
   .steps .card { position: relative; padding-top: 30px; }
   .steps .card::before { counter-increment: s; content: counter(s); position: absolute; top: -14px; left: 22px; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #1b1203; font-weight: 700; display: grid; place-items: center; }
@@ -125,8 +126,9 @@
       <span>Bitaxe &amp; NerdAxe</span>
       <span>No cloud, no account</span>
       <span>Six languages</span>
+      <span>Installable phone app</span>
     </div>
-    <img class="shot-hero" src="../assets/en/screen-overview.png" alt="Overview of the browser interface with three miners, power at the socket and smart plugs" width="1280" height="765">
+    <img class="shot-hero" src="../assets/en/screen-overview.png" alt="Overview of the browser interface: key figures, history and one card per miner" width="1280" height="782">
   </div>
 </header>
 
@@ -146,11 +148,13 @@
       <div class="card"><div class="icon">🔌</div><h3>Smart plugs</h3><p>Shelly, Tasmota and FRITZ!DECT plugs measure the real consumption including power supply and extra fans. Costs – tariff gross or net, optionally with hourly prices from aWATTar or Tibber –, efficiency, earnings vs. power costs and the monthly and annual report (PDF, CSV) use it; extra consumption is reported.</p></div>
       <div class="card"><div class="icon">🧭</div><h3>Many miners at once</h3><p>Find and add miners in your home network, copy pool and fan settings from one miner to others – with preview and backup, never frequency or voltage.</p></div>
       <div class="card"><div class="icon">🏊</div><h3>Pool control</h3><p>Enter pools once as presets and apply them to single or all miners as primary or fallback pool – also on Gamma with AxeOS 2.15 and later. Plus pool switching with automation and notifications from the pool account (payout, worker without shares).</p></div>
-      <div class="card"><div class="icon">💾</div><h3>Backup</h3><p>Daily and before every update a verified backup to a USB stick, network drive or your PC – restored in one click, the previous state is kept. Passwords are never included.</p></div>
+      <div class="card"><div class="icon">💶</div><h3>Earnings &amp; mining mode</h3><p>Profit after power costs for day, week and month; PPS, PPLNS and solo (BTC, BCH) compared with your real hashrate. Optionally the profit automation switches to a saving preset as soon as electricity costs more than the miner earns.</p></div>
+      <div class="card"><div class="icon">📱</div><h3>App on your phone</h3><p>The browser interface installs as an app on Android and iPhone – with its own icon, full screen and push straight to the device, no third-party app and no account.</p></div>
+      <div class="card"><div class="icon">💾</div><h3>Backup</h3><p>Daily and before every update a verified backup to a USB stick, network drive or your PC – restored in one click, the previous state is kept. Free space at a glance, old backups can be deleted one by one. Passwords are never included.</p></div>
       <div class="card"><div class="icon">📋</div><h3>Log</h3><p>Who set which frequency and voltage when? Benchmarks, soak tests, automation, fan control and connections – kept for at least 30 days, filterable, as CSV.</p></div>
       <div class="card"><div class="icon">📊</div><h3>Compare &amp; report</h3><p>All miners side by side with filters and best values; as a printable report with the values and charts you choose – with a “cooling” preset, ideal for a question in the community.</p></div>
       <div class="card"><div class="icon">🌀</div><h3>Fans under control</h3><p>Set the miner fan to automatic with a target temperature and minimum speed (as in AxeOS) or to a fixed value – within the model's limits and with confirmation.</p></div>
-      <div class="card"><div class="icon">🔄</div><h3>One-click updates</h3><p>Update server and Windows app together: backup first, then the server, then the app – if a step fails, everything stays as it was.</p></div>
+      <div class="card"><div class="icon">🔄</div><h3>One-click updates</h3><p>Update server and Windows app together: backup first, then the server, then the app – if a step fails, everything stays as it was. While an update runs, the button is locked on every device.</p></div>
       <div class="card"><div class="icon">🧾</div><h3>Tax overview</h3><p>Income with EUR rate, sales with holding period (FIFO) and CSV export – according to German tax law (§ 23 EStG), editable on the PC and in the browser.</p></div>
       <div class="card"><div class="icon">🗂️</div><h3>Groups &amp; group automation</h3><p>Organise miners in groups (basement, office …), a view-only PIN per group and a schedule that switches a whole group between presets – immediately at the push of a button if you like.</p></div>
       <div class="card"><div class="icon">🖥️</div><h3>Kiosk &amp; wall tablet</h3><p>Full screen without menu for a tablet on the wall. In the kiosk designer you style colours, animations and the arrangement of the panels yourself – each kiosk link with its own design.</p></div>
@@ -200,6 +204,42 @@
         <tr><th scope="row" style="font-weight:500">Prepare Raspberry Pi, SSH terminal</th><td class="y" aria-label="yes">✓</td><td class="n" aria-label="no">–</td><td class="y" aria-label="yes">✓</td></tr>
       </tbody>
     </table></div>
+  </div>
+</section>
+
+<section id="phone">
+  <div class="wrap split">
+    <div>
+      <h2>As an app on your phone</h2>
+      <p class="sub" style="margin-bottom:12px">The server's interface is an installable web app: its own icon, full screen, push straight to the device – no app store, no account.</p>
+      <ol class="steps">
+        <li>Set up “HTTPS without warning” once (Settings → Connection, free DuckDNS name with a Let's Encrypt certificate) and open BitaxeTuner via that name</li>
+        <li><b>Android (Chrome):</b> menu ⋮ → “Install app”</li>
+        <li><b>iPhone/iPad (Safari, iOS 16.4+):</b> Share → “Add to Home Screen”, then open it from the home screen</li>
+        <li>In the app, Settings → Push → “Register this device for push …” – messages arrive end-to-end encrypted</li>
+        <li>Or simply tap “Install as app …” in the user menu at the top right – BitaxeTuner shows the right steps</li>
+      </ol>
+    </div>
+    <img class="shot" src="../assets/en/screen-mobile.png" alt="BitaxeTuner as an app on a phone: key figures, history and miner cards" style="max-width:320px;justify-self:center">
+  </div>
+</section>
+
+<section id="pools" class="alt">
+  <div class="wrap split">
+    <div>
+      <h2>Pools and earnings at a glance</h2>
+      <p class="sub" style="margin-bottom:12px">Which pool runs reliably, which mining mode pays off – and when does electricity cost more than the miner earns?</p>
+      <ul class="check">
+        <li>Pool presets: enter once, apply to single or all miners – also on Gamma with AxeOS 2.15 and later</li>
+        <li>Pool comparison: rejected shares, response time, outages and earnings per TH for 24 hours, 7 or 30 days</li>
+        <li>Mining mode comparison: PPS, PPLNS, solo BTC and solo BCH with your hashrate, power costs and solo chance</li>
+        <li>Profit automation with approval: saving preset whenever mining doesn't pay right now</li>
+      </ul>
+    </div>
+    <div style="display:grid;gap:14px">
+      <img class="shot" src="../assets/en/screen-poolcompare.png" alt="Pool comparison: rejected shares, response time, availability and outages per pool">
+      <img class="shot" src="../assets/en/screen-miningmodes.png" alt="Mining mode comparison: PPS, PPLNS, solo BTC and solo BCH with earnings, power costs and solo chance">
+    </div>
   </div>
 </section>
 

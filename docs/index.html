@@ -63,6 +63,7 @@
   ul.check { padding: 0; margin: 14px 0 0; list-style: none; }
   ul.check li { padding-left: 26px; position: relative; margin: 7px 0; }
   ul.check li::before { content: "✓"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+  ol.steps { padding-left: 22px; margin: 14px 0 0; } ol.steps li { margin: 7px 0; padding-left: 4px; }
   .steps { counter-reset: s; margin-top: 14px; }
   .steps .card { position: relative; padding-top: 30px; }
   .steps .card::before { counter-increment: s; content: counter(s); position: absolute; top: -14px; left: 22px; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #1b1203; font-weight: 700; display: grid; place-items: center; }
@@ -124,9 +125,10 @@
       <span>Windows, Raspberry Pi, Docker</span>
       <span>Bitaxe &amp; NerdAxe</span>
       <span>Keine Cloud, keine Anmeldung</span>
-      <span>Deutsch &amp; Englisch</span>
+      <span>Sechs Sprachen</span>
+      <span>Als App aufs Handy</span>
     </div>
-    <img class="shot-hero" src="assets/screen-overview.png" alt="Übersicht der Browser-Oberfläche mit drei Minern, Leistung an der Steckdose und Smart Plugs" width="1280" height="782">
+    <img class="shot-hero" src="assets/screen-overview.png" alt="Übersicht der Browser-Oberfläche: Kennzahlen, Verlauf und eine Karte je Miner" width="1280" height="782">
   </div>
 </header>
 
@@ -146,11 +148,13 @@
       <div class="card"><div class="icon">🔌</div><h3>Smart Plugs</h3><p>Shelly-, Tasmota- und FRITZ!DECT-Steckdosen messen den echten Verbrauch inklusive Netzteil und Zusatzlüftern. Kosten – Tarif brutto oder netto, auf Wunsch mit Stundenpreisen von aWATTar oder Tibber –, Effizienz, Ertrag gegen Stromkosten sowie Monats- und Jahresbericht (PDF, CSV) rechnen damit; Mehrverbrauch wird gemeldet.</p></div>
       <div class="card"><div class="icon">🧭</div><h3>Mehrere Miner auf einmal</h3><p>Miner im Heimnetz suchen und hinzufügen, Pool und Lüfter von einem Miner auf andere übertragen – mit Vorschau und Sicherung, Frequenz und Spannung nie.</p></div>
       <div class="card"><div class="icon">🏊</div><h3>Pool-Steuerung</h3><p>Pools einmal als Vorlage eintragen und auf einzelne oder alle Miner als Haupt- oder Ersatz-Pool übertragen – auch auf Gamma mit AxeOS ab 2.15. Dazu Pool-Umschaltung mit Automatik und Meldungen vom Pool-Konto (Auszahlung, Worker ohne Shares).</p></div>
-      <div class="card"><div class="icon">💾</div><h3>Sicherung</h3><p>Täglich und vor jedem Update eine geprüfte Sicherung auf USB-Stick, Netzlaufwerk oder deinen PC – mit einem Klick wieder eingespielt, der vorherige Stand bleibt erhalten. Passwörter werden nie mitgesichert.</p></div>
+      <div class="card"><div class="icon">💶</div><h3>Ertrag &amp; Mining-Art</h3><p>Gewinn nach Stromkosten für Tag, Woche und Monat; Vergleich von PPS, PPLNS und Solo (BTC, BCH) mit deiner echten Hashrate. Auf Wunsch schaltet die Ertrags-Automatik auf eine sparsame Einstellung, sobald der Strom mehr kostet, als der Miner einbringt.</p></div>
+      <div class="card"><div class="icon">📱</div><h3>Als App aufs Handy</h3><p>Die Browser-Oberfläche lässt sich auf Android und iPhone als App installieren – mit eigenem Symbol, Vollbild und Push direkt aufs Gerät, ohne Fremd-App und ohne Konto.</p></div>
+      <div class="card"><div class="icon">💾</div><h3>Sicherung</h3><p>Täglich und vor jedem Update eine geprüfte Sicherung auf USB-Stick, Netzlaufwerk oder deinen PC – mit einem Klick wieder eingespielt, der vorherige Stand bleibt erhalten. Freier Speicher im Blick, alte Sicherungen einzeln löschbar. Passwörter werden nie mitgesichert.</p></div>
       <div class="card"><div class="icon">📋</div><h3>Protokoll</h3><p>Wer hat wann welche Frequenz und Spannung gesetzt? Benchmarks, Dauertests, Automatik, Lüfterregelung und Verbindungen – mindestens 30 Tage gespeichert, filterbar, als CSV.</p></div>
       <div class="card"><div class="icon">📊</div><h3>Vergleich &amp; Bericht</h3><p>Alle Miner nebeneinander mit Filtern und Bestwerten; als druckbarer Bericht mit frei wählbaren Werten und Diagrammen – mit Vorauswahl „Kühlung“, ideal für eine Frage in der Community.</p></div>
       <div class="card"><div class="icon">🌀</div><h3>Lüfter im Griff</h3><p>Lüfter des Miners auf Automatik mit Zieltemperatur und Mindestdrehzahl (wie in AxeOS) oder festen Wert stellen – innerhalb der Grenzen des Modells und mit Bestätigung.</p></div>
-      <div class="card"><div class="icon">🔄</div><h3>Updates mit einem Klick</h3><p>Server und Windows-App gemeinsam aktualisieren: erst Sicherung, dann Server, dann App – schlägt ein Schritt fehl, bleibt alles, wie es war.</p></div>
+      <div class="card"><div class="icon">🔄</div><h3>Updates mit einem Klick</h3><p>Server und Windows-App gemeinsam aktualisieren: erst Sicherung, dann Server, dann App – schlägt ein Schritt fehl, bleibt alles, wie es war. Läuft ein Update, ist der Knopf auf allen Geräten gesperrt.</p></div>
       <div class="card"><div class="icon">🧾</div><h3>Steuer-Übersicht</h3><p>Zuflüsse mit Euro-Kurs, Verkäufe mit Haltefrist (FIFO) und CSV-Export – nach deutschem Steuerrecht (§ 23 EStG), am PC und im Browser bearbeitbar.</p></div>
       <div class="card"><div class="icon">🗂️</div><h3>Gruppen &amp; Gruppen-Automatik</h3><p>Miner in Gruppen ordnen (Keller, Büro …), eigene Nur-Ansehen-PIN je Gruppe und ein Zeitplan, der eine ganze Gruppe zwischen Voreinstellungen umschaltet – auf Wunsch per Knopf sofort.</p></div>
       <div class="card"><div class="icon">🖥️</div><h3>Kiosk &amp; Wand-Tablet</h3><p>Vollbild ohne Menü für ein Tablet an der Wand. Im Kiosk-Designer gestaltest du Farben, Animationen und die Anordnung der Panels selbst – je Kiosk-Link ein eigenes Design.</p></div>
@@ -200,6 +204,42 @@
         <tr><th scope="row" style="font-weight:500">Raspberry Pi vorbereiten, SSH-Terminal</th><td class="y" aria-label="ja">✓</td><td class="n" aria-label="nein">–</td><td class="y" aria-label="ja">✓</td></tr>
       </tbody>
     </table></div>
+  </div>
+</section>
+
+<section id="handy">
+  <div class="wrap split">
+    <div>
+      <h2>Als App aufs Handy</h2>
+      <p class="sub" style="margin-bottom:12px">Die Oberfläche des Servers ist eine installierbare Web-App: eigenes Symbol, Vollbild, Push direkt aufs Gerät – ohne App-Store, ohne Konto.</p>
+      <ol class="steps">
+        <li>Einmal „HTTPS ohne Warnung“ einrichten (Einstellungen → Verbindung, kostenloser DuckDNS-Name mit Zertifikat von Let's Encrypt) und BitaxeTuner über diesen Namen öffnen</li>
+        <li><b>Android (Chrome):</b> Menü ⋮ → „App installieren“</li>
+        <li><b>iPhone/iPad (Safari, ab iOS 16.4):</b> Teilen → „Zum Home-Bildschirm“, danach vom Home-Bildschirm öffnen</li>
+        <li>In der App unter Einstellungen → Push „Dieses Gerät für Push anmelden …“ – Meldungen kommen Ende-zu-Ende verschlüsselt an</li>
+        <li>Oder einfach im Benutzermenü oben rechts auf „Als App installieren …“ tippen – BitaxeTuner zeigt die passenden Schritte</li>
+      </ol>
+    </div>
+    <img class="shot" src="assets/screen-mobile.png" alt="BitaxeTuner als App auf dem Handy: Kennzahlen, Verlauf und Miner-Karten" style="max-width:320px;justify-self:center">
+  </div>
+</section>
+
+<section id="pools" class="alt">
+  <div class="wrap split">
+    <div>
+      <h2>Pools und Ertrag im Blick</h2>
+      <p class="sub" style="margin-bottom:12px">Welcher Pool läuft zuverlässig, welche Mining-Art lohnt sich – und wann kostet der Strom mehr, als der Miner einbringt?</p>
+      <ul class="check">
+        <li>Pool-Vorlagen: einmal eintragen, auf einzelne oder alle Miner übertragen – auch auf Gamma mit AxeOS ab 2.15</li>
+        <li>Pool-Vergleich: abgelehnte Shares, Antwortzeit, Ausfälle und Ertrag je TH für 24 Stunden, 7 oder 30 Tage</li>
+        <li>Mining-Art-Vergleich: PPS, PPLNS, Solo BTC und Solo BCH mit deiner Hashrate, Stromkosten und Solo-Chance</li>
+        <li>Ertrags-Automatik mit Freigabe: sparsame Voreinstellung, sobald sich Mining gerade nicht lohnt</li>
+      </ul>
+    </div>
+    <div style="display:grid;gap:14px">
+      <img class="shot" src="assets/screen-poolcompare.png" alt="Pool-Vergleich: abgelehnte Shares, Antwortzeit, Erreichbarkeit und Ausfälle je Pool">
+      <img class="shot" src="assets/screen-miningmodes.png" alt="Mining-Art-Vergleich: PPS, PPLNS, Solo BTC und Solo BCH mit Ertrag, Stromkosten und Solo-Chance">
+    </div>
   </div>
 </section>
 

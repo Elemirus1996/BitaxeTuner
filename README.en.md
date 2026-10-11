@@ -21,6 +21,8 @@ Several devices can be tested **in parallel**.
 > ⚠️ **Overclocking at your own risk.** Higher frequency and voltage increase power draw and temperature
 > and can damage the hardware. Check that your power supply and cooling are sufficient.
 
+<p align="center"><img src="docs/assets/en/screen-overview.png" alt="Browser interface: key figures, history and one card per miner" width="80%"></p>
+
 ## Language
 
 The desktop app, the browser interface, push notifications, the daily report, the e-paper display and Home Assistant
@@ -519,6 +521,23 @@ You can switch in both directions at any time with all your data (see *Switching
 - **Desktop app** in “Server” mode: *Mode …* → server address (or *Search network*) and an **API token**
   (server interface → Settings → *Connect desktop app*), then *Test connection*. The app then shows the server's
   interface and polls **no** miners itself. The token can be revoked at any time.
+
+### As an app on your phone (PWA)
+
+The server's browser interface can be installed as an app – its own icon, full screen, push straight to the device, no
+app store and no account. Easiest: **“Install as app …”** in the user menu at the top right – BitaxeTuner then opens the
+browser's install dialog or shows the right steps.
+
+1. **Requirement:** a connection without certificate warning. Set up *Settings → Connection → “HTTPS without warning”* once
+   (free DuckDNS name, Let's Encrypt certificate) and open BitaxeTuner via that name. Via the IP address with the
+   self-signed certificate, browsers don't allow installing.
+2. **Android (Chrome):** menu ⋮ → *Install app* or *Add to Home screen*.
+3. **iPhone/iPad (Safari, iOS 16.4+):** *Share → Add to Home Screen*, then open BitaxeTuner from the home screen.
+4. **PC (Chrome/Edge):** *Install app* icon in the address bar.
+5. **Push:** in the app *Settings → Push → “Register this device for push …”*.
+
+The interface always comes fresh from the server (only without network the last loaded version) – so after an update
+there is never an outdated app.
 
 ### Switching and switching back (data transfer)
 

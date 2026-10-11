@@ -6,6 +6,11 @@
 const S = { role: 'None', csrf: null, status: null, info: null, es: null, logEs: null, detail: null, route: null, chartRange: '1h' };
 // 0.9.12 installierbare App: Service Worker nur in sicherem Kontext (gültiges HTTPS oder localhost)
 if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+// 0.9.15: „Als App installieren“ – Chrome/Edge/Android liefern ein Installationsereignis, Safari (iPhone) nicht
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvent = e; });
+window.addEventListener('appinstalled', () => { installEvent = null; });
+const runningAsApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 /** 0.9.11: eine Währung für alles – Zeichen und Untereinheit für Strompreise kommen mit dem Status. */
 const money = () => S.status?.money || { code: 'EUR', symbol: '€', cent: 'ct' };
 const cents = s => money().code === 'EUR' ? s : s.replaceAll('ct/kWh', money().cent + '/kWh');
@@ -208,6 +213,8 @@ function applyStaticTexts() {
   $('#langLabel').textContent = t('Sprache');
   $('#lookLabel').textContent = t('Darstellung …');
   $('#logoutLabel').textContent = t('Abmelden');
+  $('#installLabel').textContent = t('Als App installieren …');
+  $('#installApp').hidden = runningAsApp();
   $('#collapseLabel').textContent = t('Einklappen');
   $('#collapse').title = t('Seitenleiste ein-/ausklappen');
   $('#bellTitle').textContent = t('Hinweise');
@@ -312,6 +319,43 @@ function toast(text, kind = 'info', ms = 6000) {
   setTimeout(() => tv.remove(), ms);
 }
 
+/**
+ * 0.9.15: Browser-Oberfläche als App aufs Handy/den PC. Mit Installationsereignis (Chrome, Edge, Android) direkt der Dialog
+ * des Browsers, sonst eine Anleitung passend zum Gerät – und der Hinweis auf „HTTPS ohne Warnung“, wenn der Browser die
+ * Seite (selbst signiertes Zertifikat, IP-Adresse) nicht als App zulässt.
+ */
+async function installApp() {
+  closePopovers();
+  if (installEvent) {
+    const e = installEvent;
+    installEvent = null;
+    e.prompt();
+    const choice = await e.userChoice.catch(() => null);
+    if (choice?.outcome === 'accepted') toast(t('App wird installiert – du findest sie auf dem Startbildschirm.'), 'ok', 8000);
+    return;
+  }
+  const registered = window.isSecureContext && 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration().catch(() => null);
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const step = (...x) => h('li', {}, ...x);
+  const body = h('div', { class: 'stack' },
+    registered ? null : h('div', { class: 'card', style: 'border-color:var(--warn)' },
+      h('b', {}, t('Zuerst: Verbindung ohne Zertifikatswarnung')),
+      h('p', { class: 'small', style: 'margin:4px 0 0' }, t('Browser installieren eine Seite nur als App, wenn das Zertifikat gültig ist. Richte unter Einstellungen → Verbindung „HTTPS ohne Warnung“ ein (kostenloser DuckDNS-Name, Zertifikat von Let\'s Encrypt) und öffne BitaxeTuner danach über diesen Namen.')),
+      isAdmin() ? h('a', { class: 'btn small', href: '#/settings/system', style: 'margin-top:6px', onclick: () => $('#dialog').close() }, t('Zu Einstellungen → Verbindung')) : null),
+    ios
+      ? h('ol', { class: 'small', style: 'margin:0;padding-left:20px' },
+          step(t('Seite in Safari öffnen (ab iOS 16.4 geht es auch in Chrome oder Edge über „Teilen“).')),
+          step(t('Unten auf „Teilen“ tippen (Quadrat mit Pfeil nach oben).')),
+          step(t('„Zum Home-Bildschirm“ wählen und „Hinzufügen“ tippen.')),
+          step(t('BitaxeTuner ab jetzt über das Symbol auf dem Home-Bildschirm öffnen – nur dort funktioniert Push auf dem iPhone (ab iOS 16.4).')))
+      : h('ol', { class: 'small', style: 'margin:0;padding-left:20px' },
+          step(t('Android (Chrome): Menü ⋮ oben rechts → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.')),
+          step(t('PC (Chrome oder Edge): Symbol „App installieren“ rechts in der Adressleiste bzw. Menü → „Apps“ → „BitaxeTuner installieren“.')),
+          step(t('Firefox auf dem PC kann keine Apps installieren – dort einfach als Lesezeichen speichern.'))),
+    h('p', { class: 'muted small' }, t('Danach öffnet sich BitaxeTuner wie eine eigene App mit Symbol und ohne Adressleiste. Für Meldungen aufs Gerät in der App unter Einstellungen → Push „Dieses Gerät für Push anmelden …“ wählen.')));
+  await confirmBox(t('Als App installieren'), body, t('OK'));
+}
+
 /** Bestätigung mit Text (z. B. alter → neuer Wert vom Server). */
 function confirmBox(title, body, okLabel = t('Bestätigen'), danger = false) {
   const dlg = $('#dialog');
@@ -351,6 +395,7 @@ async function boot() {
     $('#shell').classList.toggle('mini', mini);
     localStorageSet('sideMini', mini ? '1' : '0');
   });
+  $('#installApp').addEventListener('click', () => installApp());
   $('#logout').addEventListener('click', async () => {
     await run(() => api('/logout', { method: 'POST' }));
     S.role = 'None'; S.csrf = null;
@@ -3866,17 +3911,18 @@ function miningModesCard() {
       h('p', { class: 'muted small' }, t('Gerechnet mit {0} Minern online ({1}), Strom {2} W.', d.miners, hashParts(d.hashrateGh).join(' '), n(d.powerW, 0))
         + (d.btcPrice != null ? ' BTC ' + money(d.btcPrice) + '.' : '') + (d.bchPrice != null ? ' BCH ' + money(d.bchPrice) + '.' : '')),
       h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, [t('Mining-Art'), t('Coins/Tag'), t('Ertrag/Tag'), t('Ertrag/Monat'), t('Strom/Tag'), t('Saldo/Tag'), t('Solo-Chance')].map(x => h('th', {}, x)))),
+        h('thead', {}, h('tr', {}, [t('Mining-Art'), t('Coins/Tag'), t('Ertrag/Tag'), t('Ertrag/Monat'), t('Strom/Tag'), t('Saldo/Tag')].map(x => h('th', {}, x)))),
         h('tbody', {}, d.rows.map(r => h('tr', {},
-          h('td', {}, h('b', {}, names[r.key]?.[0] || r.key), h('div', { class: 'muted small' }, names[r.key]?.[1] || '')),
+          h('td', { style: 'white-space:normal;min-width:220px' }, h('b', {}, names[r.key]?.[0] || r.key), h('div', { class: 'muted small' }, names[r.key]?.[1] || ''),
+            // Solo: Chance auf einen Block direkt unter dem Namen (eigene Spalte wäre auf schmalen Fenstern abgeschnitten)
+            r.chancePerMonth == null ? null : h('div', { class: 'small warn' }, t('Solo-Chance') + ': ' + t('{0} % pro Monat', n(r.chancePerMonth * 100, r.chancePerMonth < 0.01 ? 3 : 2)) + ' · ' +
+              t('Ø alle {0} Jahre', n(r.expectedYears, r.expectedYears < 10 ? 1 : 0)))),
           h('td', { class: 'num mono' }, r.coinPerDay == null ? '–' : `${n(r.coinPerDay, 8)} ${r.coin}`),
           h('td', { class: 'num' }, money(r.incomePerDay)),
           h('td', { class: 'num' }, r.incomePerDay == null ? '–' : money(r.incomePerDay * 30.44)),
           h('td', { class: 'num' }, money(r.costPerDay)),
           h('td', { class: `num ${r.netPerDay == null ? '' : r.netPerDay >= 0 ? 'ok' : 'danger'}`, style: 'font-weight:600' },
-            r.netPerDay == null ? '–' : (r.netPerDay >= 0 ? '+' : '') + money(r.netPerDay), r.netPerDay === bestNet && !r.key.startsWith('solo') && r.key !== 'actual' ? h('span', { class: 'ok', title: t('bester planbarer Wert') }, ' ★') : null),
-          h('td', { class: 'num small' }, r.chancePerMonth == null ? '' : [t('{0} % pro Monat', n(r.chancePerMonth * 100, r.chancePerMonth < 0.01 ? 3 : 2)), h('br'),
-            t('Ø alle {0} Jahre', n(r.expectedYears, r.expectedYears < 10 ? 1 : 0))])))))),
+            r.netPerDay == null ? '–' : (r.netPerDay >= 0 ? '+' : '') + money(r.netPerDay), r.netPerDay === bestNet && !r.key.startsWith('solo') && r.key !== 'actual' ? h('span', { class: 'ok', title: t('bester planbarer Wert') }, ' ★') : null)))))),
       h('details', {}, h('summary', { class: 'small' }, t('Annahmen anpassen')),
         h('div', { class: 'form' },
           input('pps', t('Gebühr PPS (%)'), 0.1), input('pplns', t('Gebühr PPLNS (%)'), 0.1), input('solo', t('Gebühr Solo-Pool (%)'), 0.1),
