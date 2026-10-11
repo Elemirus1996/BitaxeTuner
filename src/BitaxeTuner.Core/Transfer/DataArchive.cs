@@ -85,7 +85,8 @@ public static class DataArchive
             else if (File.Exists(db)) BackupFile(db, copy);
             if (File.Exists(copy))
             {
-                var (ok, rows) = HistoryStore.Verify(copy);
+                // Sicherungen: frisch per VACUUM INTO neu aufgebaute Kopie – quick_check genügt (0.9.15, Tempo auf dem Pi)
+                var (ok, rows) = HistoryStore.Verify(copy, quick: source == "backup");
                 if (!ok) throw new IOException(L.T("history.db ist nicht konsistent (integrity_check) – Übertragung abgebrochen."));
                 manifest.HistoryRows = rows;
                 Add(zip, manifest, "history.db", copy);
@@ -134,6 +135,52 @@ public static class DataArchive
         src.Open();
         dst.Open();
         src.BackupDatabase(dst);
+    }
+
+    /// <summary>
+    /// 0.9.15: Archiv prüfen, ohne es zu entpacken – jede Datei wird beim Lesen gegen Größe und SHA-256 aus dem Manifest
+    /// geprüft, dazu Vollständigkeit und erlaubte Pfade. Für frisch erstellte Sicherungen: history.db wurde vor dem Packen
+    /// geprüft, die Prüfsumme belegt, dass genau diese Bytes im Archiv stehen. Spart auf dem Pi das Schreiben und erneute
+    /// Prüfen der ganzen Datenbank. Wirft <see cref="InvalidDataException"/> bei jeder Abweichung.
+    /// </summary>
+    public static ArchiveManifest VerifyArchive(Stream archive)
+    {
+        using var zip = new ZipArchive(archive, ZipArchiveMode.Read, leaveOpen: true);
+        var manifestEntry = zip.GetEntry(ManifestName) ?? throw new InvalidDataException(L.T("Kein BitaxeTuner-Datenarchiv (manifest.json fehlt)."));
+        ArchiveManifest manifest;
+        using (var s = manifestEntry.Open())
+            manifest = JsonSerializer.Deserialize<ArchiveManifest>(s) ?? throw new InvalidDataException(L.T("manifest.json ist leer."));
+        if (manifest.Format != 1) throw new InvalidDataException(L.T("Archivformat {0} wird nicht unterstützt – bitte beide Seiten aktualisieren.", manifest.Format));
+
+        var expected = manifest.Files.ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var buffer = new byte[81920];
+        foreach (var entry in zip.Entries)
+        {
+            if (entry.FullName == ManifestName || entry.FullName.EndsWith('/')) continue;
+            if (!entry.FullName.StartsWith(DataPrefix, StringComparison.Ordinal))
+                throw new InvalidDataException(L.T("Unerwarteter Eintrag im Archiv: {0}", entry.FullName));
+            var relative = entry.FullName[DataPrefix.Length..];
+            if (!expected.TryGetValue(relative, out var info)) throw new InvalidDataException(L.T("Datei nicht im Manifest: {0}", relative));
+            if (relative != "history.db" && !IsTransferable(relative)) throw new InvalidDataException(L.T("Datei darf nicht übertragen werden: {0}", relative));
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            long bytes = 0;
+            using (var input = entry.Open())
+            {
+                int read;
+                while ((read = input.Read(buffer)) > 0)
+                {
+                    sha.AppendData(buffer, 0, read);
+                    bytes += read;
+                }
+            }
+            if (bytes != info.Size || Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant() != info.Sha256)
+                throw new InvalidDataException(L.T("Prüfsumme stimmt nicht: {0}", relative));
+            seen.Add(relative);
+        }
+        var missing = expected.Keys.Where(k => !seen.Contains(k)).ToList();
+        if (missing.Count > 0) throw new InvalidDataException(L.T("Im Archiv fehlen: ") + string.Join(", ", missing));
+        return manifest;
     }
 
     /// <summary>

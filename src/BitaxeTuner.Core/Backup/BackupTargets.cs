@@ -40,7 +40,12 @@ public sealed class FolderBackupTarget(string name, string path) : IBackupTarget
 
     public async Task UploadAsync(string localFile, string fileName, CancellationToken ct)
     {
-        Directory.CreateDirectory(Path);
+        try { Directory.CreateDirectory(Path); }
+        catch (UnauthorizedAccessException ex)
+        {
+            // Pi: Ist kein Stick eingehängt, liegt der Ordner auf der (für den Dienst schreibgeschützten) Speicherkarte
+            throw new IOException(L.T("Kein Schreibrecht in {0} – ist der USB-Stick eingesteckt und mit FAT32, exFAT oder ext4 formatiert (nicht NTFS)?", Path), ex);
+        }
         var target = System.IO.Path.Combine(Path, fileName);
         var tmp = target + ".tmp";
         await using (var src = File.OpenRead(localFile))

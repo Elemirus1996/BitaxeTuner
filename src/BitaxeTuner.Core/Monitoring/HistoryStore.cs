@@ -759,12 +759,15 @@ public sealed class HistoryStore : IDisposable
     }
 
     /// <summary>PRAGMA integrity_check einer beliebigen Datenbankdatei (nur lesend).</summary>
-    public static (bool Ok, Dictionary<string, long> Rows) Verify(string file)
+    /// <param name="quick">0.9.15: <c>quick_check</c> statt <c>integrity_check</c> – erkennt beschädigte Seiten und Datensätze,
+    /// prüft aber nicht jeden Index gegen die Tabelle. Auf großen Datenbanken (Pi, SD-Karte) ein Vielfaches schneller.</param>
+    public static (bool Ok, Dictionary<string, long> Rows) Verify(string file, bool quick = false)
     {
         using var db = new SqliteConnection($"Data Source={file};Mode=ReadOnly;Pooling=False");
         db.Open();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "PRAGMA integrity_check;";
+        cmd.CommandText = quick ? "PRAGMA quick_check;" : "PRAGMA integrity_check;";
+        cmd.CommandTimeout = 0;
         var ok = string.Equals(cmd.ExecuteScalar() as string, "ok", StringComparison.OrdinalIgnoreCase);
         return (ok, CountRows(db));
     }

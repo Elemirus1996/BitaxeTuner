@@ -52,16 +52,36 @@ public class BackupTests
         Assert.Single(hub.LocalBackups());
         var log = hub.History!.QueryEvents(DateTime.Now.AddHours(-1), DateTime.Now.AddMinutes(1), host: "");
         Assert.Contains(log, e => e.Message.Contains("v9.9.9") && e.Message.Contains(first.LastFile!));
+    }
 
-        // Ziel nicht beschreibbar (eine Datei statt eines Ordners): Update wird abgebrochen, Meldung geht raus
-        File.WriteAllText(usb.File("kein-ordner"), "x");
-        hub.Config.Backup.Folder.Path = usb.File("kein-ordner");
-        var failed = await hub.RunBackupAsync(DateTime.Now);                                 // schlägt am Ziel fehl …
-        Assert.False(failed.LastOk);
-        // … wird nicht wiederverwendet, die neue Sicherung schlägt ebenfalls fehl → kein Update
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => hub.BackupBeforeUpdateAsync("v9.9.10"));
+    [Fact]
+    public async Task Missing_extra_target_does_not_block_the_update_but_a_failed_local_backup_does()
+    {
+        // 0.9.15: Zusatzziel nicht beschreibbar (z. B. kein USB-Stick) – Sicherung im Datenordner genügt, Hinweis geht raus
+        using var dir = new TempDir();
+        using var usb = new TempDir();
+        var sent = new List<string>();
+        using (var hub = Hub(dir, sent))
+        {
+            await hub.PollNowAsync();
+            File.WriteAllText(usb.File("kein-ordner"), "x");
+            hub.Config.Backup.Folder = new BackupFolderTarget { Enabled = true, Path = usb.File("kein-ordner") };
+            var status = await hub.BackupBeforeUpdateAsync("v9.9.10");
+            Assert.False(status.LastOk);
+            Assert.NotNull(status.LastFile);
+            Assert.Single(hub.LocalBackups());
+            Assert.Contains("update-backup-target:v9.9.10", sent);
+        }
+
+        // Sicherung im Datenordner selbst unmöglich → Update abgebrochen
+        using var dir2 = new TempDir();
+        var sent2 = new List<string>();
+        using var hub2 = Hub(dir2, sent2);
+        await hub2.PollNowAsync();
+        File.WriteAllText(hub2.BackupDirectory, "kein Ordner");
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => hub2.BackupBeforeUpdateAsync("v9.9.11"));
         Assert.Contains("Update abgebrochen", ex.Message);
-        Assert.Contains("update-backup:v9.9.10", sent);
+        Assert.Contains("update-backup:v9.9.11", sent2);
     }
 
     [Fact]

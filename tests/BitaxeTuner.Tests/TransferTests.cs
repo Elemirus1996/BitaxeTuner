@@ -95,6 +95,36 @@ public class TransferTests
     }
 
     [Fact]
+    public void VerifyArchive_checks_hashes_without_extracting()
+    {
+        using var src = new TempDir();
+        FillDataDirectory(src.Path);
+        using var zip = Archive(src.Path);
+        Assert.Equal(50, DataArchive.VerifyArchive(zip).HistoryRows["samples"]);
+
+        // Inhalt geändert → Prüfsumme
+        zip.Position = 0;
+        var tampered = new MemoryStream();
+        zip.CopyTo(tampered);
+        using (var a = new ZipArchive(tampered, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            a.GetEntry("data/tuning/lauf.json")!.Delete();
+            using var w = new StreamWriter(a.CreateEntry("data/tuning/lauf.json").Open());
+            w.Write("{\"a\":2}");
+        }
+        tampered.Position = 0;
+        Assert.Contains("Prüfsumme", Assert.Throws<InvalidDataException>(() => DataArchive.VerifyArchive(tampered)).Message);
+
+        // Datei fehlt → unvollständig
+        zip.Position = 0;
+        var missing = new MemoryStream();
+        zip.CopyTo(missing);
+        using (var a = new ZipArchive(missing, ZipArchiveMode.Update, leaveOpen: true)) a.GetEntry("data/history.db")!.Delete();
+        missing.Position = 0;
+        Assert.Contains("history.db", Assert.Throws<InvalidDataException>(() => DataArchive.VerifyArchive(missing)).Message);
+    }
+
+    [Fact]
     public void Path_traversal_in_archive_is_rejected()
     {
         using var staging = new TempDir();

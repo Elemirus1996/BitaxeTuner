@@ -104,19 +104,11 @@ public sealed partial class MinerHub
             var manifest = await Task.Run(() =>
             {
                 using (var fs = File.Create(tmp)) DataArchive.Create(dir, history, fs, "backup", version);
-                // Einmal vollständig prüfen, bevor die Datei als Sicherung gilt – entpackt neben der Sicherung, nicht in /tmp:
-                // auf dem Raspberry Pi liegt /tmp im RAM (tmpfs) und ist für history.db oft zu klein („No space left on device“)
-                var staging = Path.Combine(BackupDirectory, ".check-" + Guid.NewGuid().ToString("N"));
-                try
-                {
-                    using var check = File.OpenRead(tmp);
-                    return DataArchive.ExtractAndVerify(check, staging);
-                }
-                finally
-                {
-                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                    try { Directory.Delete(staging, true); } catch { /* egal */ }
-                }
+                // Einmal prüfen, bevor die Datei als Sicherung gilt: jede Datei gegen Größe und SHA-256 des Manifests, beim Lesen
+                // aus dem Archiv. history.db wurde vor dem Packen geprüft (quick_check). 0.9.15: kein Entpacken mehr – das sparte
+                // auf dem Pi das Schreiben der ganzen Datenbank (und scheiterte früher an einem kleinen /tmp).
+                using var check = File.OpenRead(tmp);
+                return DataArchive.VerifyArchive(check);
             }, ct);
             var local = Path.Combine(BackupDirectory, name);
             File.Move(tmp, local);
@@ -167,18 +159,29 @@ public sealed partial class MinerHub
     }
 
     /// <summary>
-    /// Sicherung vor einem Update (Datenordner und alle eingerichteten Ziele wie USB-Stick/NAS). Eine erfolgreiche Sicherung
-    /// der letzten 15 Minuten wird wiederverwendet. Schlägt sie fehl, wird eine Ausnahme geworfen – das Update unterbleibt.
+    /// Sicherung vor einem Update (Datenordner und alle eingerichteten Ziele wie USB-Stick/NAS). Eine Sicherung der letzten
+    /// 15 Minuten wird wiederverwendet. Scheitert die geprüfte Sicherung im Datenordner, wird eine Ausnahme geworfen – das
+    /// Update unterbleibt. 0.9.15: Ist nur ein zusätzliches Ziel nicht erreichbar (z. B. kein USB-Stick eingesteckt), läuft
+    /// das Update mit der Sicherung im Datenordner weiter; das fehlende Ziel wird gemeldet.
     /// </summary>
     public async Task<BackupStatus> BackupBeforeUpdateAsync(string version)
     {
         var last = BackupStatus;
-        if (last is { LastOk: true, LastRun: { } at, LastFile: not null } && DateTime.Now - at < TimeSpan.FromMinutes(15))
+        if (last is { LastRun: { } at, LastFile: not null } && DateTime.Now - at < TimeSpan.FromMinutes(15))
         {
             LogEvent(null, EventCategories.System, L.T("Update {0}: Sicherung von {1:t} wird verwendet ({2}).", version, at, last.LastFile));
             return last;
         }
         var status = await RunBackupAsync(DateTime.Now);
+        if (status.LastOk != true && status.LastFile is not null)
+        {
+            var missing = string.Join("; ", status.Targets.Where(t => !t.Ok).Select(t => $"{t.Target}: {t.Message}"));
+            LogEvent(null, EventCategories.System, L.T("Update {0}: Sicherung im Datenordner erstellt ({1}), weiteres Ziel nicht erreichbar – Update läuft weiter: {2}", version, status.LastFile, missing));
+            SendAlert(new Alert($"update-backup-target:{version}", L.T("Sicherung nur im Datenordner"),
+                L.T("Vor dem Update auf {0} wurde die Sicherung im Datenordner erstellt und geprüft, ein weiteres Ziel war nicht erreichbar: {1}", version, missing),
+                NotifyPriority.Normal, TimeSpan.FromHours(1), NotifyCategory.Maintenance));
+            return status;
+        }
         if (status.LastOk != true)
         {
             var reason = string.Join("; ", status.Targets.Where(t => !t.Ok).Select(t => $"{t.Target}: {t.Message}"));
