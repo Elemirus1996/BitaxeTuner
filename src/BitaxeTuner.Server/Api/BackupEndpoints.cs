@@ -40,6 +40,7 @@ public static class BackupEndpoints
         drive = s.Drive, totalBytes = s.TotalBytes, freeBytes = s.FreeBytes, dataBytes = s.DataBytes, historyBytes = s.HistoryBytes,
         backupsBytes = s.BackupsBytes, backupCount = s.BackupCount, previousBytes = s.PreviousBytes, low = MinerHub.StorageLow(s),
         previous = s.Previous.Select(p => new { name = p.Name, time = p.Time, size = p.Bytes }).ToList(),
+        tables = (s.Tables ?? []).Take(8).Select(t => new { name = t.Name, label = MinerHub.TableLabel(t.Name), rows = t.Rows, size = t.Bytes }).ToList(),
     };
 
     public static void Map(RouteGroupBuilder g)

@@ -54,4 +54,17 @@ public sealed class StorageTests : IDisposable
         Assert.Empty(after.Previous);
         Assert.Throws<LocalizedException>(() => _hub.DeleteLocalBackup(backup, "Test"));   // schon weg
     }
+
+    [Fact]
+    public void Table_sizes_list_rows_and_bytes()
+    {
+        using var store = new BitaxeTuner.Core.Monitoring.HistoryStore(Path.Combine(_dir.Path, "t.db"));
+        var t0 = new DateTime(2026, 10, 1, 0, 0, 0);
+        for (var i = 0; i < 500; i++) store.AddSample("A", t0.AddMinutes(i), 1000, 50, 15, true);
+        var sizes = store.TableSizes();
+        var samples = sizes.Single(t => t.Name == "samples");
+        Assert.Equal(500, samples.Rows);
+        Assert.True(samples.Bytes is null or > 0);
+        Assert.Equal("samples", sizes[0].Name);                              // größte zuerst
+    }
 }

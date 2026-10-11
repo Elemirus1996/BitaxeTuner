@@ -12,7 +12,8 @@ public sealed record PreviousState(string Name, DateTime Time, long Bytes);
 /// <param name="TotalBytes">Größe des Datenträgers (null = nicht ermittelbar).</param>
 /// <param name="FreeBytes">Freier Platz (für den Dienst nutzbar).</param>
 public sealed record StorageInfo(string Drive, long? TotalBytes, long? FreeBytes, long DataBytes, long HistoryBytes,
-    long BackupsBytes, int BackupCount, long PreviousBytes, IReadOnlyList<PreviousState> Previous);
+    long BackupsBytes, int BackupCount, long PreviousBytes, IReadOnlyList<PreviousState> Previous,
+    IReadOnlyList<HistoryStore.TableSize>? Tables = null);
 
 /// <summary>
 /// 0.9.15: Speicherübersicht und Aufräumen. Sicherungen im Datenordner und vorherige Stände („backup-…“-Ordner) lassen sich
@@ -56,10 +57,31 @@ public sealed partial class MinerHub
         long? total = null, free = null;
         try { if (drive is not null) { total = drive.TotalSize; free = drive.AvailableFreeSpace; } }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* unbekannt */ }
+        // 0.9.16: was in history.db Platz belegt (größte Tabellen zuerst)
+        IReadOnlyList<HistoryStore.TableSize>? tables = null;
+        try { tables = History?.TableSizes(); } catch { /* nur Anzeige */ }
         return new StorageInfo(drive?.Name ?? Path.GetPathRoot(full) ?? full, total, free,
             Directory.Exists(full) ? DirectorySize(new DirectoryInfo(full)) : 0, history,
-            backups.Sum(f => f.Length), backups.Count, previous.Sum(p => p.Bytes), previous);
+            backups.Sum(f => f.Length), backups.Count, previous.Sum(p => p.Bytes), previous, tables);
     }
+
+    /// <summary>Verständlicher Name einer Verlaufstabelle (Browser und Desktop gleich).</summary>
+    public static string TableLabel(string table) => table switch
+    {
+        "samples" => L.T("Minutenwerte der Miner"),
+        "chip_temps" => L.T("Temperatur je Chip"),
+        "miner_log" => L.T("Gespeicherte Miner-Logs"),
+        "events" => L.T("Protokoll"),
+        "plug_samples" => L.T("Messwerte der Steckdosen"),
+        "health_samples" => L.T("Werte der Gesundheits-Frühwarnung"),
+        "pool_samples" => L.T("Werte für den Pool-Vergleich"),
+        "tuning_events" => L.T("Tuning-Änderungen"),
+        "period_reports" => L.T("Monatsberichte"),
+        "prices" => L.T("Strompreise"),
+        "soak_results" => L.T("Dauertests"),
+        "best_diff" => L.T("Best-Diff-Rekorde"),
+        _ => table,
+    };
 
     /// <summary>Sicherung im Datenordner löschen (nur Dateien mit dem Namensmuster der Sicherungen).</summary>
     public void DeleteLocalBackup(string name, string by)

@@ -24,7 +24,8 @@ function h(tag, props, ...kids) {
   for (const [k, v] of Object.entries(props || {})) {
     if (v == null || v === false) continue;
     if (k === 'class') el.className = v;
-    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    // 0.9.16: Handler über eine Tabelle am Element – so kann morph() sie auf ein bestehendes Element übertragen
+    else if (k.startsWith('on') && typeof v === 'function') { const type = k.slice(2); (el.__on ||= {})[type] = v; el.addEventListener(type, onDispatch); }
     else if (k === 'style') el.style.cssText = v;
     else if ((k === 'value' || k === 'checked' || k === 'disabled' || k === 'selected') ) el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
@@ -36,8 +37,51 @@ function h(tag, props, ...kids) {
   return el;
 }
 const mount = (...nodes) => { const app = $('#app'); app.replaceChildren(...nodes); };
+
+function onDispatch(e) { const f = this.__on?.[e.type]; if (f) return f.call(this, e); }
+
+/**
+ * 0.9.16: Seite neu zeichnen, ohne sie zu ersetzen – die neue Fassung wird nur in die bestehende übertragen, wo sich etwas
+ * geändert hat (Text, Attribute, Elemente). Kein Flackern, Scrollposition, aufgeklappte Bereiche, Fokus und laufende
+ * Animationen bleiben. Ist auf der Seite gerade eine andere Ansicht (data-view), wird normal ersetzt.
+ */
+function remount(root) {
+  const app = $('#app');
+  const cur = app.firstElementChild;
+  if (app.childElementCount === 1 && cur?.dataset.view && cur.dataset.view === root.dataset.view) morph(cur, root);
+  else app.replaceChildren(root);
+}
+
+/** Bestehenden Knoten a an die neue Fassung b angleichen. Liefert den Knoten, der jetzt im Dokument steht. */
+function morph(a, b) {
+  if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName) { a.replaceWith(b); return b; }
+  if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return a; }
+  const focused = a === document.activeElement;
+  // Attribute angleichen; was der Nutzer aufgeklappt hat (details open), bleibt offen
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name) && !(name === 'open' && a.tagName === 'DETAILS')) a.removeAttribute(name);
+  for (const { name, value } of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  if (!focused) {
+    if ('value' in b && a.value !== b.value && a.tagName !== 'BUTTON' && a.tagName !== 'LI') a.value = b.value;
+    if ('checked' in b && a.checked !== b.checked) a.checked = b.checked;
+  }
+  // Handler der neuen Fassung übernehmen
+  a.__on = b.__on;
+  for (const type of Object.keys(b.__on || {})) a.addEventListener(type, onDispatch);
+  // Später nachgeladene Inhalte (fill) und Zeichnungen (Canvas) der neuen Fassung landen über __live im Dokument
+  b.__live = a;
+  if (a.tagName === 'CANVAS') return a;
+  if (focused && (a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return a;
+  const kids = [...b.childNodes];
+  kids.forEach((k, i) => {
+    const old = a.childNodes[i];
+    if (old) morph(old, k);
+    else a.appendChild(k);
+  });
+  while (a.childNodes.length > kids.length) a.lastChild.remove();
+  return a;
+}
 /** Inhalt ersetzen; leere Teile (null/false) und verschachtelte Listen wie bei h(). */
-const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false).map(k => k instanceof Node ? k : String(k)));
+const fill = (el, ...kids) => (el.__live || el).replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false).map(k => k instanceof Node ? k : String(k)));
 
 // ---------- Sprache ----------
 // Der deutsche Text ist der Schlüssel; die Tabelle der gewählten Sprache kommt vom Server (/api/v1/i18n/{lang}).
@@ -911,7 +955,8 @@ function renderOverview() {
       p.title && p.type !== 'news' ? h('h3', { class: 'ov-title' }, p.title) : null, content);
   }));
 
-  mount(h('div', { class: 'stack' },
+  // 0.9.16: Live-Aktualisierung ohne Neuaufbau (morph); der Bearbeitungsmodus wird wie bisher ersetzt
+  remount(h('div', { class: 'stack', 'data-view': edit ? 'overview-edit-' + Date.now() : 'overview' },
     // Hinweise sind in der Glocke; hier bleibt nur, was den Betrieb betrifft
     s.whatsNew && S.whatsNewOpen ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
@@ -1387,6 +1432,7 @@ function soakBatchCard(devices) {
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 function drawChart(canvas, series, markers, opts = {}) {
+  canvas = canvas.__live || canvas;   // 0.9.16: nach morph() steht das bisherige Canvas im Dokument
   requestAnimationFrame(() => {
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth, hgt = canvas.clientHeight;
@@ -5119,6 +5165,12 @@ function storageBox(s, del, mb) {
       tile(t('Verlauf (history.db)'), mb(s.historyBytes)),
       tile(t('Sicherungen'), mb(s.backupsBytes), t('{0} Dateien', s.backupCount)),
       tile(t('Vorherige Stände'), mb(s.previousBytes), t('{0} Ordner', s.previous.length))),
+    // 0.9.16: was in history.db Platz belegt
+    s.tables?.length ? h('details', {}, h('summary', { class: 'small' }, t('Was belegt den Verlauf (history.db)?')),
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Inhalt'), t('Zeilen'), t('Größe')].map(x => h('th', {}, x)))),
+        h('tbody', {}, s.tables.map(x => h('tr', {}, h('td', {}, x.label), h('td', { class: 'num' }, n(x.rows, 0)),
+          h('td', { class: 'num' }, x.size == null ? '–' : mb(x.size)))))))) : null,
     s.previous.length
       ? h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('Vorheriger Stand (beim Einspielen angelegt)'), t('Größe'), ''].map(x => h('th', {}, x)))),

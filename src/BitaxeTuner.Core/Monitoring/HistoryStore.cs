@@ -677,6 +677,44 @@ public sealed class HistoryStore : IDisposable
         return list;
     }
 
+    /// <summary>0.9.16: Tabelle der Verlaufsdatenbank mit Zeilenzahl und – wenn SQLite es kann (dbstat) – Größe in Bytes.</summary>
+    public sealed record TableSize(string Name, long Rows, long? Bytes);
+
+    /// <summary>Größte Tabellen zuerst (Speicherübersicht). Nur lesend.</summary>
+    public List<TableSize> TableSizes()
+    {
+        lock (_lock)
+        {
+            FlushPlugSamples();
+            var names = new List<string>();
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) names.Add(r.GetString(0));
+            }
+            // Seitengröße je Tabelle inkl. ihrer Indizes (dbstat ist nicht in jeder SQLite-Ausgabe vorhanden)
+            Dictionary<string, long>? bytes = null;
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = "SELECT m.tbl_name, SUM(s.pgsize) FROM dbstat s JOIN sqlite_master m ON m.name = s.name GROUP BY m.tbl_name;";
+                using var r = cmd.ExecuteReader();
+                bytes = [];
+                while (r.Read()) bytes[r.GetString(0)] = r.GetInt64(1);
+            }
+            catch (SqliteException) { bytes = null; }
+            var list = new List<TableSize>();
+            foreach (var n in names)
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = $"SELECT COUNT(*) FROM \"{n.Replace("\"", "\"\"")}\";";
+                list.Add(new TableSize(n, (long)cmd.ExecuteScalar()!, bytes?.GetValueOrDefault(n)));
+            }
+            return list.OrderByDescending(t => t.Bytes ?? 0).ThenByDescending(t => t.Rows).ToList();
+        }
+    }
+
     /// <summary>Mittelwerte der Online-Minuten im Zeitfenster; null wenn keine Daten.</summary>
     public WindowAverage? Average(string host, DateTime from, DateTime to)
     {

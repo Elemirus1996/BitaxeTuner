@@ -57,6 +57,15 @@ public sealed class StorageWindow : Window
         _body.Children.Add(Text(L.T("Datenordner gesamt") + ": " + Mb(s.DataBytes) + " · " + L.T("Verlauf (history.db)") + ": " + Mb(s.HistoryBytes) +
                                 " · " + L.T("Sicherungen") + ": " + Mb(s.BackupsBytes) + " · " + L.T("Vorherige Stände") + ": " + Mb(s.PreviousBytes), muted: true));
 
+        // 0.9.16: was in history.db Platz belegt
+        if (s.Tables is { Count: > 0 } tables)
+        {
+            _body.Children.Add(Text(L.T("Was belegt den Verlauf (history.db)?"), bold: true));
+            foreach (var t in tables.Take(8))
+                _body.Children.Add(Text($"{MinerHub.TableLabel(t.Name)}: {t.Rows.ToString("N0", L.Culture)} " + L.T("Zeilen") +
+                                        (t.Bytes is { } b ? " · " + Mb(b) : ""), muted: true));
+        }
+
         _body.Children.Add(Text(L.T("Sicherung im Datenordner"), bold: true));
         var files = _hub.LocalBackups();
         if (files.Count == 0) _body.Children.Add(Text(L.T("keine"), muted: true));
