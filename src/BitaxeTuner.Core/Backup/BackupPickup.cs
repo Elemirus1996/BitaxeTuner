@@ -24,7 +24,8 @@ public static class BackupPickup
         Directory.CreateDirectory(folder);
         var name = BackupNames.For(now);
         var tmp = Path.Combine(folder, name + ".tmp");
-        var staging = Path.Combine(Path.GetTempPath(), "bt-pickup-" + Guid.NewGuid().ToString("N"));
+        // Prüfordner neben der Sicherung (gleicher Datenträger mit genug Platz, nicht das Temp-Verzeichnis)
+        var staging = Path.Combine(folder, ".check-" + Guid.NewGuid().ToString("N"));
         try
         {
             await using (var fs = File.Create(tmp)) await client.DownloadExportAsync(fs, ct);

@@ -31,6 +31,7 @@ public sealed partial class MinerHub
     private int _poolNewRewards;
     private volatile IReadOnlyList<PoolWorker> _poolWorkers = [];
     private volatile IReadOnlyList<PoolBalance> _poolBalances = [];
+    private int _poolBookingsSinceLog;
     private readonly Dictionary<string, (DateTime At, decimal? Price, string Currency)> _poolPrices = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>0.9.13: Kürzel und Kurs-Rohwert je Coin-Pool (Slug), aus dem Dashboard; höchstens alle 6 h neu.</summary>
@@ -237,8 +238,14 @@ public sealed partial class MinerHub
             _poolError = coinErrors.Count > 0 ? string.Join("; ", coinErrors) : null;
             if (hadError is not null && _poolError is null)
                 LogEvent(null, EventCategories.Connection, L.T("Pool-Konto wieder erreichbar."));
-            if (added.Count > 0 || newRewards > 0)
-                LogEvent(null, EventCategories.Other, L.T("Pool-Konto: {0} neue Buchung(en), {1} neue(r) Zufluss/Zuflüsse für die Steuer.", added.Count, newRewards));
+            // Gutschriften kommen mehrmals pro Stunde, Zuflüsse entstehen meist einmal am Tag – nur dann protokollieren
+            // (mit allen Buchungen seit dem letzten Eintrag), sonst füllt jede Abfrage das Protokoll
+            _poolBookingsSinceLog += added.Count;
+            if (newRewards > 0)
+            {
+                LogEvent(null, EventCategories.Other, L.T("Pool-Konto: {0} neue Buchung(en), {1} neue(r) Zufluss/Zuflüsse für die Steuer.", _poolBookingsSinceLog, newRewards));
+                _poolBookingsSinceLog = 0;
+            }
             return _poolError;
         }
         catch (Exception ex)

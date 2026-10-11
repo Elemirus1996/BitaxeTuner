@@ -92,6 +92,9 @@ public sealed partial class MinerHub
         try
         {
             Directory.CreateDirectory(BackupDirectory);
+            // Reste einer abgebrochenen Prüfung (z. B. Stromausfall) entfernen
+            foreach (var leftover in Directory.EnumerateDirectories(BackupDirectory, ".check-*"))
+                try { Directory.Delete(leftover, true); } catch { /* beim nächsten Mal */ }
             name = BackupNames.For(now);
             tmp = Path.Combine(BackupDirectory, name + ".tmp");
             Config.Save();
@@ -101,8 +104,9 @@ public sealed partial class MinerHub
             var manifest = await Task.Run(() =>
             {
                 using (var fs = File.Create(tmp)) DataArchive.Create(dir, history, fs, "backup", version);
-                // Einmal vollständig prüfen, bevor die Datei als Sicherung gilt
-                var staging = Path.Combine(Path.GetTempPath(), "bt-backup-check-" + Guid.NewGuid().ToString("N"));
+                // Einmal vollständig prüfen, bevor die Datei als Sicherung gilt – entpackt neben der Sicherung, nicht in /tmp:
+                // auf dem Raspberry Pi liegt /tmp im RAM (tmpfs) und ist für history.db oft zu klein („No space left on device“)
+                var staging = Path.Combine(BackupDirectory, ".check-" + Guid.NewGuid().ToString("N"));
                 try
                 {
                     using var check = File.OpenRead(tmp);
