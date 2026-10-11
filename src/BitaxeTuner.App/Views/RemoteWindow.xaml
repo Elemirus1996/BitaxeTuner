@@ -12,24 +12,34 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Kopfzeile: Betriebsart und App-Updates (die Bedienung der Miner steckt in der Server-Oberfläche darunter) -->
-        <Border Background="{DynamicResource HeaderBrush}" Padding="14,8">
+        <!-- Kopfzeile (0.9.14 wie die Browser-Oberfläche): links Server und Stand, rechts Aktionen ohne Rahmen; nur „Update“ hervorgehoben -->
+        <Border Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="12,6">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <TextBlock Text="{l:T 'Betriebsart: Server'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock x:Name="ServerText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="VersionText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="BackupText" Foreground="#9CA3AF" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <Button x:Name="UpdateButton" Click="Update_Click" Style="{StaticResource PrimaryButton}" Margin="14,0,0,0" Padding="10,2" Visibility="Collapsed" />
-                    <Button x:Name="HttpsButton" Click="Https_Click" Margin="10,0,0,0" Padding="10,2" Visibility="Collapsed"
+                    <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,3">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource OkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="{l:T 'Betriebsart: Server'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ServerText" Foreground="{DynamicResource MutedTextBrush}" FontFamily="Cascadia Mono, Consolas" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="VersionText" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="BackupText" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    <Button x:Name="UpdateButton" Click="Update_Click" Style="{StaticResource PrimaryButton}" Margin="14,0,0,0" Padding="12,4" Visibility="Collapsed" />
+                    <Button x:Name="HttpsButton" Click="Https_Click" Margin="10,0,0,0" Padding="10,4" Visibility="Collapsed"
                             Content="{l:T 'Unverschlüsselt (HTTP) – auf HTTPS umstellen …'}"
                             ToolTip="{l:T 'Passwort, Token und Sitzung gehen im Heimnetz bisher unverschlüsselt. Mit HTTPS sind sie verschlüsselt.'}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="{l:T 'Neu laden'}" Click="Reload_Click" />
-                    <Button Content="{l:T 'Im Browser öffnen'}" Click="OpenBrowser_Click" />
-                    <Button x:Name="BackupButton" Content="{l:T 'Sicherungen ▾'}" Click="Backup_Click"
+                    <Button Click="Reload_Click" Style="{StaticResource GhostButton}" ToolTip="{l:T 'Neu laden'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Neu laden'}" /></StackPanel>
+                    </Button>
+                    <Button Click="OpenBrowser_Click" Style="{StaticResource GhostButton}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Im Browser öffnen'}" /></StackPanel>
+                    </Button>
+                    <Button x:Name="BackupButton" Click="Backup_Click" Style="{StaticResource GhostButton}"
                             ToolTip="{l:T 'Sicherungen auf diesem PC: holen, Ordner öffnen, auf den Server einspielen'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Sicherungen ▾'}" /></StackPanel>
                         <Button.ContextMenu>
                             <ContextMenu>
                                 <MenuItem x:Name="PickupNowItem" Header="{l:T 'Jetzt eine Sicherung auf diesen PC holen'}" Click="PickupNow_Click" />
@@ -41,9 +51,13 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <Button Content="{l:T 'SSH-Terminal'}" Click="Ssh_Click"
-                            ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" />
-                    <Button Content="{l:T 'Betriebsart …'}" Click="Mode_Click" Style="{StaticResource PrimaryButton}" Margin="0" />
+                    <Button Click="Ssh_Click" Style="{StaticResource GhostButton}"
+                            ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'SSH-Terminal'}" /></StackPanel>
+                    </Button>
+                    <Button Click="Mode_Click" Margin="6,0,0,0" Padding="10,5">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8AB;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Betriebsart …'}" /></StackPanel>
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>

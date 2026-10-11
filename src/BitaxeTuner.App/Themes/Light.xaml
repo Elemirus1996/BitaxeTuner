@@ -1,29 +1,34 @@
 <!-- Helles Design (Farben aus BitaxeTuner). Gleiche Schlüssel wie Dark.xaml. -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="WindowBrush" Color="#F3F4F6" />
-    <SolidColorBrush x:Key="HeaderBrush" Color="#111827" />
+    <SolidColorBrush x:Key="WindowBrush" Color="#EEF1F5" />
+    <SolidColorBrush x:Key="HeaderBrush" Color="#141A23" />
     <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="CardBorderBrush" Color="#E5E7EB" />
-    <SolidColorBrush x:Key="FieldBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="HoverBrush" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#DDE3EB" />
+    <SolidColorBrush x:Key="FieldBrush" Color="#F6F8FB" />
+    <SolidColorBrush x:Key="HoverBrush" Color="#F1F4F8" />
     <SolidColorBrush x:Key="SelectedBrush" Color="#FEF3E2" />
     <SolidColorBrush x:Key="ButtonBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="AltRowBrush" Color="#F9FAFB" />
-    <SolidColorBrush x:Key="TextBrush" Color="#111827" />
-    <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7280" />
+    <SolidColorBrush x:Key="AltRowBrush" Color="#F6F8FB" />
+    <SolidColorBrush x:Key="TextBrush" Color="#141A23" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#5E6B7E" />
     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#475569" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#F7931A" />
-    <SolidColorBrush x:Key="AccentDarkBrush" Color="#C96F00" />
-    <SolidColorBrush x:Key="AccentSoftBrush" Color="#FEF3E2" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
-    <SolidColorBrush x:Key="OkBrush" Color="#16A34A" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#E07F05" />
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#B86500" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#FCEBD5" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#D64545" />
+    <SolidColorBrush x:Key="OkBrush" Color="#12A06C" />
     <SolidColorBrush x:Key="WarnBrush" Color="#B7791F" />
-    <SolidColorBrush x:Key="InfoBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="InfoBrush" Color="#2F6FE0" />
     <SolidColorBrush x:Key="IdleBrush" Color="#9CA3AF" />
-    <SolidColorBrush x:Key="SaveBrush" Color="#16A34A" />
-    <SolidColorBrush x:Key="TempBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="SaveBrush" Color="#12A06C" />
+    <SolidColorBrush x:Key="TempBrush" Color="#2F6FE0" />
     <SolidColorBrush x:Key="MarkerBrush" Color="#C96F00" />
+
+    <!-- 0.9.14: wie die Browser-Oberfläche -->
+    <SolidColorBrush x:Key="AccentInkBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SideBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="FaintTextBrush" Color="#8C97A8" />
 
     <!-- Diagrammfarben -->
     <Color x:Key="ChartHashColor">#0F9F6E</Color>

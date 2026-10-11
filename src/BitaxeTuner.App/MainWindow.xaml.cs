@@ -28,6 +28,44 @@ public partial class MainWindow : Window
 
     private MainViewModel Vm => (MainViewModel)DataContext;
 
+    // ---------- 0.9.14: Miner in der Seitenleiste per Ziehen sortieren (gilt überall wie im Browser) ----------
+
+    private Point _dragStart;
+    private NavItem? _dragItem;
+
+    private void WireMinerDrag()
+    {
+        NavList.AllowDrop = true;
+        NavList.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            _dragStart = e.GetPosition(null);
+            _dragItem = (e.OriginalSource as FrameworkElement)?.DataContext as NavItem;
+        };
+        NavList.PreviewMouseMove += (_, e) =>
+        {
+            if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _dragItem is not { Kind: NavKind.Device } item) return;
+            var d = e.GetPosition(null) - _dragStart;
+            if (Math.Abs(d.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+            _dragItem = null;
+            DragDrop.DoDragDrop(NavList, item, DragDropEffects.Move);
+        };
+        NavList.DragOver += (_, e) =>
+        {
+            var target = (e.OriginalSource as FrameworkElement)?.DataContext as NavItem;
+            e.Effects = e.Data.GetData(typeof(NavItem)) is NavItem && target is { Kind: NavKind.Device } ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        };
+        NavList.Drop += (_, e) =>
+        {
+            if (e.Data.GetData(typeof(NavItem)) is not NavItem { Host: { } src }) return;
+            if ((e.OriginalSource as FrameworkElement)?.DataContext is not NavItem { Kind: NavKind.Device, Host: { } dst } || src == dst) return;
+            var hosts = Vm.NavItems.Where(n => n.Kind == NavKind.Device && n.Host is not null).Select(n => n.Host!).ToList();
+            hosts.Remove(src);
+            hosts.Insert(Math.Max(0, hosts.IndexOf(dst) + (Vm.NavItems.ToList().FindIndex(n => n.Host == src) < Vm.NavItems.ToList().FindIndex(n => n.Host == dst) ? 1 : 0)), src);
+            Vm.Host.Hub.ReorderDevices(hosts, L.T("Desktop"));
+        };
+    }
+
     public void Initialize(MainViewModel vm)
     {
         DataContext = vm;
@@ -40,6 +78,8 @@ public partial class MainWindow : Window
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;
         _ = vm.CheckForUpdateAsync();
         UpdateSshButton();
+        WireMinerDrag();
+        ThemeManager.ApplyAppearance(vm.Host.Config.Appearance);
         // Einführung „Erste Schritte“: automatisch nur, solange noch kein Miner eingetragen ist
         var config = vm.Host.Config;
         var version = MainViewModel.CurrentVersion.ToString(3);

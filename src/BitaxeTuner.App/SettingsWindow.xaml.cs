@@ -90,6 +90,9 @@ public partial class SettingsWindow : Window
                           L.T("Feste IP ist zuverlässiger.");
 
         SelectByTag(ThemeBox, config.Theme);
+        SelectByTag(BackdropBox, config.Appearance.Background);
+        VeilSlider.Value = config.Appearance.Veil;
+        AnimationsBox.IsChecked = config.Appearance.Animations;
         SelectByTag(LanguageBox, config.Language);
         RestartAfterApplyBox.IsChecked = config.RestartAfterApply;
         WalletConsentBox.IsChecked = config.WalletLookupConsent == true;
@@ -414,6 +417,12 @@ public partial class SettingsWindow : Window
         _config.WalletPollMinutes = walletInterval;
         _config.StartMinimized = MinimizedBox.IsChecked == true;
         _config.Theme = SelectedTag(ThemeBox) ?? "dark";
+        // 0.9.14: Darstellung (gleiche Einstellung wie „Als Standard für alle übernehmen“ im Browser)
+        _config.Appearance.Background = SelectedTag(BackdropBox) ?? "gradient";
+        _config.Appearance.Veil = (int)VeilSlider.Value;
+        _config.Appearance.Animations = AnimationsBox.IsChecked == true;
+        _config.Appearance.Normalize();
+        Themes.ThemeManager.ApplyAppearance(_config.Appearance);
         _config.Language = SelectedTag(LanguageBox) ?? "auto";
         _config.RestartAfterApply = RestartAfterApplyBox.IsChecked == true;
         // nur speichern, wenn geändert – „noch nicht gefragt“ bleibt sonst erhalten

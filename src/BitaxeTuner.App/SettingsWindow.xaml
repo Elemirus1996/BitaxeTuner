@@ -246,6 +246,21 @@
                             <ComboBoxItem Content="{l:T 'Dunkel'}" Tag="dark"/>
                             <ComboBoxItem Content="{l:T 'Hell'}" Tag="light"/>
                         </ComboBox>
+                        <TextBlock Text="{l:T 'HINTERGRUND'}" Style="{StaticResource Label}" Margin="0,10,0,0"/>
+                        <ComboBox x:Name="BackdropBox" Width="160" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="{l:T 'Einfarbig'}" Tag="solid"/>
+                            <ComboBoxItem Content="{l:T 'Verlauf'}" Tag="gradient"/>
+                            <ComboBoxItem Content="{l:T 'Verlauf, bewegt'}" Tag="aurora"/>
+                            <ComboBoxItem Content="{l:T 'Waben'}" Tag="hex"/>
+                            <ComboBoxItem Content="{l:T 'Platine'}" Tag="circuit"/>
+                            <ComboBoxItem Content="{l:T 'Punkte'}" Tag="dots"/>
+                        </ComboBox>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="{l:T 'Abdunkeln'}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Slider x:Name="VeilSlider" Minimum="0" Maximum="80" Width="110" TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <CheckBox x:Name="AnimationsBox" Content="{l:T 'Animationen'}" Margin="0,6,0,0"
+                                  ToolTip="{l:T 'Bewegter Verlauf; gilt als Standard auch für die Browser-Oberfläche.'}"/>
                         <TextBlock Text="{l:T 'SPRACHE / LANGUAGE'}" Style="{StaticResource Label}" Margin="0,10,0,0"/>
                         <ComboBox x:Name="LanguageBox" Width="160" HorizontalAlignment="Left">
                             <ComboBoxItem Content="{l:T 'Automatisch (Windows)'}" Tag="auto"/>

@@ -11,6 +11,8 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <!-- 0.9.14: Fenster-Hintergrund, wird von ThemeManager.ApplyAppearance ersetzt -->
+            <SolidColorBrush x:Key="BackdropBrush" Color="#0D1117" />
             <local:NullToVisibilityConverter x:Key="NullToVisibility" />
             <local:NumberConverter x:Key="Num" />
             <local:OutcomeToBrushConverter x:Key="OutcomeBrush" />
@@ -35,8 +37,8 @@
                 <Setter Property="Background" Value="{DynamicResource CardBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="8" />
-                <Setter Property="Padding" Value="14" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="16" />
                 <Setter Property="Margin" Value="0,0,0,12" />
             </Style>
 
@@ -46,7 +48,9 @@
             </Style>
 
             <Style TargetType="Button">
-                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Padding" Value="12,7" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
                 <Setter Property="Margin" Value="0,0,8,0" />
                 <Setter Property="Background" Value="{DynamicResource ButtonBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
@@ -56,12 +60,17 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MutedTextBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="RenderTransform">
+                                        <Setter.Value><TranslateTransform Y="1" /></Setter.Value>
+                                    </Setter>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -75,15 +84,114 @@
             <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{DynamicResource AccentInkBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
+            <!-- 0.9.14: Gefahr als Umriss (wie im Browser), nicht als rote Fläche -->
             <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <!-- 0.9.14: Knopf ohne Rahmen (Kopfzeile, Werkzeuge) -->
+            <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                <Setter Property="Padding" Value="10,6" />
+                <Setter Property="Margin" Value="0,0,2,0" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 0.9.14: Eintrag der Seitenleiste (Symbol + Text, ganze Breite) -->
+            <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="Padding" Value="10,7" />
+                <Setter Property="Margin" Value="0,1" />
+            </Style>
+
+            <!-- 0.9.14: schmale Bildlaufleisten im Design (statt der hellen Windows-Standardleisten) -->
+            <Style x:Key="ScrollThumb" TargetType="Thumb">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border x:Name="T" Background="{DynamicResource CardBorderBrush}" CornerRadius="4" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="T" Property="Background" Value="{DynamicResource MutedTextBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="ScrollPage" TargetType="RepeatButton">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style TargetType="ScrollBar">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Background" Value="Transparent" />
+                <Style.Triggers>
+                    <Trigger Property="Orientation" Value="Vertical">
+                        <Setter Property="Width" Value="10" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ScrollBar">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="2">
+                                        <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageUpCommand" /></Track.DecreaseRepeatButton>
+                                        <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" /></Track.Thumb>
+                                        <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageDownCommand" /></Track.IncreaseRepeatButton>
+                                    </Track>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                    <Trigger Property="Orientation" Value="Horizontal">
+                        <Setter Property="Height" Value="10" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ScrollBar">
+                                    <Track x:Name="PART_Track" Margin="2">
+                                        <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageLeftCommand" /></Track.DecreaseRepeatButton>
+                                        <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" /></Track.Thumb>
+                                        <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageRightCommand" /></Track.IncreaseRepeatButton>
+                                    </Track>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Symbole aus der Windows-Symbolschrift (Windows 11: Segoe Fluent Icons, Windows 10: Segoe MDL2 Assets) -->
+            <Style x:Key="Glyph" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,0,10,0" />
+            </Style>
+
+            <Style x:Key="NavGroup" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="10,14,0,4" />
             </Style>
 
             <Style x:Key="LinkButton" TargetType="Button">

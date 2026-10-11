@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:BitaxeTuner.App.Controls"
         xmlns:views="clr-namespace:BitaxeTuner.App.Views"
         Title="BitaxeTuner" Icon="Assets/app.ico" Height="920" Width="1400" MinWidth="1000" MinHeight="640"
-        Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" FontSize="13"
+        Background="{DynamicResource BackdropBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
         WindowStartupLocation="CenterScreen" Closing="OnClosing">
     <Grid>
         <Grid.RowDefinitions>
@@ -15,51 +15,38 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Kopfzeile -->
-        <Border Background="{DynamicResource HeaderBrush}" Padding="18,12">
+        <!-- Kopfzeile (0.9.14): Marke und Updates links, rechts nur das Nötigste – Werkzeuge stehen in der Seitenleiste -->
+        <Border Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="6" Width="30" Height="30" Margin="0,0,10,0">
-                        <TextBlock Text="₿" Foreground="White" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="9" Width="32" Height="32" Margin="0,0,10,0">
+                        <TextBlock Text="₿" Foreground="{DynamicResource AccentInkBrush}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <TextBlock Text="BitaxeTuner" Foreground="White" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding VersionText}" Foreground="#9CA3AF" Margin="8,4,0,0" VerticalAlignment="Center"
+                    <TextBlock Text="BitaxeTuner" Foreground="White" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding VersionText}" Foreground="#8592A6" FontFamily="Cascadia Mono, Consolas" FontSize="12" Margin="8,3,0,0" VerticalAlignment="Center"
                                ToolTip="{l:T 'Copyright © 2026 BitaxeTuner contributors · Freie Software unter der GNU GPL v3.0, ohne jede Gewähr · Quelltext, Lizenz (LICENSE.txt) und Drittanbieter-Hinweise (THIRD-PARTY-NOTICES.txt) im Programmordner und auf github.com/Elemirus1996/BitaxeTuner'}" />
                     <Button Content="{Binding UpdateText}" Command="{Binding InstallUpdateCommand}" Style="{StaticResource PrimaryButton}"
-                            Margin="14,0,6,0" Padding="10,3" VerticalAlignment="Center"
+                            Margin="14,0,6,0" Padding="12,4" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}}" />
                     <Button Content="{l:T 'Was ist neu?'}" Command="{Binding OpenUpdateCommand}" Style="{StaticResource LinkButton}"
-                            Foreground="#9CA3AF" Margin="0,4,0,0" VerticalAlignment="Center"
+                            Foreground="#8592A6" Margin="0,4,0,0" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}}" />
                     <Button Content="{l:T 'Nach Updates suchen'}" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource LinkButton}"
-                            Foreground="#9CA3AF" Margin="14,4,0,0" VerticalAlignment="Center"
+                            Foreground="#8592A6" Margin="14,4,0,0" VerticalAlignment="Center"
                             Visibility="{Binding UpdateText, Converter={StaticResource NullToVisibility}, ConverterParameter=invert}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="{l:T 'Einstellungen'}" Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" />
-                    <Button x:Name="SshButton" Content="{l:T 'SSH-Terminal'}" Click="OnSshClick" Visibility="Collapsed"
-                            ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" />
-                    <Button Content="{l:T 'Betriebsart …'}" Click="OnModeClick"
-                            ToolTip="{l:T 'Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb'}" />
-                    <Button Content="{l:T 'Dauertest …'}" Click="OnSoakBatchClick"
-                            ToolTip="{l:T 'Dauertest für mehrere Miner auf einmal starten oder alle abbrechen'}" />
-                    <Button Content="{l:T 'Einstellungen übertragen …'}" Click="OnCopySettingsClick"
-                            ToolTip="{l:T 'Pool und Lüfter eines Miners auf andere übernehmen (ohne Frequenz/Spannung)'}" />
-                    <Button Content="{l:T 'Pool …'}" Click="OnPoolSwitchClick"
-                            ToolTip="{l:T 'Pool umschalten (je Miner oder Gruppe) und Pool-Automatik: Ersatz-Pool nach Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares'}" />
-                    <Button Content="{l:T 'Bericht …'}" Click="OnReportClick"
-                            ToolTip="{l:T 'Monats- und Jahresbericht: Energie, Kosten, Verfügbarkeit, Zuflüsse (Drucken/PDF, CSV)'}" />
-                    <Button Content="{l:T 'Protokoll …'}" Click="OnJournalClick"
-                            ToolTip="{l:T 'Dauerhaftes Protokoll: Frequenz/Spannung, Benchmark, Lüfter, Verbindungen (mindestens 30 Tage, filterbar)'}" />
-                    <Button Content="{l:T 'Smart Plugs …'}" Click="OnSmartPlugsClick"
-                            ToolTip="{l:T 'Shelly-Steckdosen für den echten Verbrauch an der Steckdose (nur messen, nie schalten)'}" />
-                    <Button Content="{l:T 'Profile bearbeiten'}" Click="OnProfilesClick" />
-                    <Button Content="{l:T 'Datenordner öffnen'}" Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" />
-                    <Button Content="{l:T 'Hilfe'}" Click="OnHelpClick"
-                            ToolTip="{l:T 'Anleitung, Erklärung des Protokolls und der Miner-Logs, häufige Fragen'}" />
-                    <Button Content="GitHub" Command="{Binding OpenProjectPageCommand}" />
-                    <Button Content="{l:T 'Lizenz'}" Click="OnLicenseClick" ToolTip="{l:T 'Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten'}" />
-                    <Button Content="{l:T '■ Alle stoppen'}" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="0" />
+                    <Button Click="OnModeClick" Style="{StaticResource GhostButton}" Foreground="#C9D3E3"
+                            ToolTip="{l:T 'Lokal (dieser PC) oder BitaxeTuner-Server (Raspberry Pi / Windows-Dienst / Docker) für 24/7-Betrieb'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8AB;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Betriebsart …'}" /></StackPanel>
+                    </Button>
+                    <Button Click="OnHelpClick" Style="{StaticResource GhostButton}" Foreground="#C9D3E3"
+                            ToolTip="{l:T 'Anleitung, Erklärung des Protokolls und der Miner-Logs, häufige Fragen'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE897;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Hilfe'}" /></StackPanel>
+                    </Button>
+                    <Button Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" Foreground="{DynamicResource AccentInkBrush}" /><TextBlock Text="{l:T 'Einstellungen'}" /></StackPanel>
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -71,12 +58,14 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Geräteliste: Gesamt · Miner · Netzwerk · Steuer (eine gemeinsame Liste aus config.json) -->
-            <Border Style="{StaticResource Card}" Margin="0">
+            <!-- Seitenleiste (0.9.14): Übersicht und Miner, Werkzeuge, System – eine gemeinsame Liste aus config.json -->
+            <Border Background="{DynamicResource SideBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="8">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="{l:T 'Geräte'}" Style="{StaticResource SectionTitle}" />
+                    <TextBlock DockPanel.Dock="Top" Text="{l:T 'ÜBERSICHT &amp; MINER'}" Style="{StaticResource NavGroup}" Margin="10,4,0,4" />
 
-                    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                        <Expander Header="{l:T 'Gerät hinzufügen'}" Foreground="{DynamicResource TextBrush}" Margin="6,4,6,4">
+                            <StackPanel Margin="0,6,0,0">
                         <TextBlock Text="{l:T 'Neues Gerät'}" Style="{StaticResource Muted}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="{l:T 'Name (optional)'}" />
                         <DockPanel Margin="0,0,0,6">
@@ -88,6 +77,44 @@
                         <Button Content="{l:T 'Netzwerk durchsuchen'}" Command="{Binding ScanNetworkCommand}" Margin="0,0,0,6" />
                         <ProgressBar Value="{Binding ScanProgress}" Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,6" />
                         <Button Content="{l:T 'Ausgewähltes Gerät entfernen'}" Command="{Binding RemoveDeviceCommand}" />
+                            </StackPanel>
+                        </Expander>
+                        <TextBlock Text="{l:T 'WERKZEUGE'}" Style="{StaticResource NavGroup}" />
+                        <Button Click="OnSoakBatchClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Dauertest für mehrere Miner auf einmal starten oder alle abbrechen'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Dauertest …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnCopySettingsClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Pool und Lüfter eines Miners auf andere übernehmen (ohne Frequenz/Spannung)'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Einstellungen übertragen …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnPoolSwitchClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Pool umschalten (je Miner oder Gruppe) und Pool-Automatik: Ersatz-Pool nach Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81E;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Pool …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnReportClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Monats- und Jahresbericht: Energie, Kosten, Verfügbarkeit, Zuflüsse (Drucken/PDF, CSV)'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9F9;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Bericht …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnJournalClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Dauerhaftes Protokoll: Frequenz/Spannung, Benchmark, Lüfter, Verbindungen (mindestens 30 Tage, filterbar)'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FD;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Protokoll …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnSmartPlugsClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Shelly-Steckdosen für den echten Verbrauch an der Steckdose (nur messen, nie schalten)'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE945;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Smart Plugs …'}" /></StackPanel>
+                        </Button>
+                        <Button Click="OnProfilesClick" Style="{StaticResource NavButton}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D5;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Profile bearbeiten'}" /></StackPanel>
+                        </Button>
+                        <TextBlock Text="{l:T 'SYSTEM'}" Style="{StaticResource NavGroup}" />
+                        <Button x:Name="SshButton" Click="OnSshClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'SSH-Terminal'}" /></StackPanel>
+                        </Button>
+                        <Button Command="{Binding OpenDataDirectoryCommand}" ToolTip="{Binding DataDirectory}" Style="{StaticResource NavButton}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Datenordner öffnen'}" /></StackPanel>
+                        </Button>
+                        <Button Command="{Binding OpenProjectPageCommand}" Style="{StaticResource NavButton}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" Style="{StaticResource Glyph}" /><TextBlock Text="GitHub" /></StackPanel>
+                        </Button>
+                        <Button Click="OnLicenseClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Lizenz, Gewährleistung und Hinweise zu enthaltenen Komponenten'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Lizenz'}" /></StackPanel>
+                        </Button>
+                        <Button Content="{l:T '■ Alle stoppen'}" Command="{Binding StopAllCommand}" Style="{StaticResource DangerButton}" Margin="4,10,4,2" />
                     </StackPanel>
 
                     <ListBox x:Name="NavList" ItemsSource="{Binding NavItems}" SelectedItem="{Binding SelectedNav}"
