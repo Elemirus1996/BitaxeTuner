@@ -37,6 +37,14 @@ public sealed class SmartPlugConfig
     /// <summary>Hosts der Miner an diesem Plug (Rolle "miners").</summary>
     public List<string> Miners { get; set; } = [];
 
+    /// <summary>0.9.14: Gerätetyp – "shelly" (Standard, bisher einziger), "tasmota" oder "fritz" (FRITZ!DECT über die FRITZ!Box).</summary>
+    public string Type { get; set; } = "shelly";
+
+    /// <summary>0.9.14: AIN der FRITZ!DECT-Steckdose (Host ist dann die FRITZ!Box); sonst leer.</summary>
+    public string Ain { get; set; } = "";
+
+    public static readonly string[] Types = ["shelly", "tasmota", "fritz"];
+
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];
 
     public static readonly string[] Roles = ["miners", "other", "total"];

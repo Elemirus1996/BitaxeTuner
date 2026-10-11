@@ -96,7 +96,7 @@ const icon = (id, size) => {
 /** Hauptnavigation: [Gruppe, [[Ansicht, Text, Symbol, nur Admin]]]. */
 const NAV = () => [
   [t('Überwachen'), [['overview', t('Übersicht'), 'grid'], ['compare', t('Vergleich'), 'cols'], ['reports', t('Berichte'), 'chart', true], ['journal', t('Protokoll'), 'list', true]]],
-  [t('Hardware'), [['fans', t('Lüfter & Anzeige'), 'fan']]],
+  [t('Hardware'), [['fans', t('Lüfter & Anzeige'), 'fan'], ['pools', t('Pools'), 'layers', true]]],
   [t('Finanzen'), [['tax', t('Steuer'), 'coins', true]]],
   [t('System'), [['settings', t('Einstellungen'), 'gear', true], ['help', t('Hilfe'), 'help']]],
 ];
@@ -551,6 +551,7 @@ function route() {
   if (view === 'compare') return renderCompare();
   if (view === 'help') return renderHelp();
   if (view === 'fans') return renderFans();
+  if (view === 'pools' && isAdmin()) return renderPools();
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'reports' && isAdmin()) return renderReports();
   if (view === 'journal' && isAdmin()) return renderJournal();
@@ -732,6 +733,25 @@ function minerCard(d, tempWarn) {
   return card;
 }
 
+/** 0.9.14: Ertrag gegen Stromkosten für 24 h, 7 Tage, 30 Tage und den laufenden Monat. */
+function profitCard(p, currency) {
+  if (!p) return isAdmin() ? h('div', { class: 'card muted small' }, t('Ertrag gegen Stromkosten: noch keine Daten.')) : null;
+  const names = { '24h': t('24 Stunden'), '7d': t('7 Tage'), '30d': t('30 Tage'), month: t('Dieser Monat') };
+  const money = v => v == null ? '–' : `${n(v, 2)} ${currency}`;
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Zeitraum'), t('Ertrag'), t('Strom'), t('kWh'), t('Saldo')].map(x => h('th', {}, x)))),
+      h('tbody', {}, p.windows.map(w => h('tr', {},
+        h('td', {}, names[w.key] || w.key),
+        h('td', { class: 'num' }, money(w.income), w.partial ? h('span', { class: 'muted', title: t('ohne Coins ohne Kurs') }, ' *') : null),
+        h('td', { class: 'num' }, money(w.cost)),
+        h('td', { class: 'num' }, n(w.kwh, 1)),
+        h('td', { class: `num ${w.net == null ? '' : w.net >= 0 ? 'ok' : 'danger'}`, style: 'font-weight:600' }, w.net == null ? '–' : `${w.net >= 0 ? '+' : ''}${money(w.net)}`)))))),
+    h('p', { class: 'muted small' }, p.source === 'pool'
+      ? t('Ertrag: Mining-Gutschriften beim Pool, bewertet mit dem aktuellen Kurs (Schätzung). Strom: gemessen bzw. aus der AxeOS-Leistung mit deinem Strompreis.')
+      : t('Ertrag: dokumentierte Zuflüsse aus dem Steuer-Bereich (Kurs zum Zeitpunkt des Zuflusses). Strom: gemessen bzw. aus der AxeOS-Leistung mit deinem Strompreis.')));
+}
+
 /** Hinweis-Zentrale füllen (läuft bei jedem Status, auf jeder Seite). */
 function refreshNotes() {
   const s = S.status;
@@ -808,11 +828,20 @@ function renderOverview() {
       { color: tv.maxTemp != null && tv.maxTemp >= tempWarn ? 'var(--warn)' : 'var(--muted)', cls: tv.maxTemp != null && tv.maxTemp >= tempWarn ? 'warn' : '' }),
     price: () => s.price ? kpiTile(t('Strompreis'), 'plug', cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source, { color: 'var(--muted)' }) : null,
     cost: () => tv.costPerDay != null ? kpiTile(t('Stromkosten'), 'euro', `${n(tv.costPerDay, 2)} ${tv.currency}`, t('pro Tag beim aktuellen Verbrauch'), { color: 'var(--muted)' }) : null,
+    // 0.9.14: Ertrag gegen Stromkosten der letzten 24 h (nur wenn ein Ertrag bekannt ist)
+    profit: () => {
+      const w = s.profit?.windows?.find(x => x.key === '24h');
+      if (!w || w.income == null || (w.income === 0 && s.profit.source === 'tax')) return null;
+      const good = w.net >= 0;
+      return kpiTile(t('Gewinn (24 h)'), 'coins', `${w.net >= 0 ? '+' : ''}${n(w.net, 2)} ${tv.currency}`,
+        t('Ertrag {0} − Strom {1}', n(w.income, 2), n(w.cost, 2)) + (w.partial ? ' · ' + t('ohne Coins ohne Kurs') : ''),
+        { color: good ? 'var(--ok)' : 'var(--danger)', cls: good ? 'ok' : 'danger' });
+    },
   };
   let chartShown = false;
   const panels = {
     ...tiles,
-    kpis: () => h('div', { class: 'tiles' }, ['hashrate', 'power', 'efficiency', 'maxtemp', 'price'].map(k => tiles[k]())),
+    kpis: () => h('div', { class: 'tiles' }, ['hashrate', 'power', 'efficiency', 'maxtemp', 'profit', 'price'].map(k => tiles[k]())),
     // Ansicht-Zugang mit Gruppen: kein Gesamtverlauf über alle Miner (der Server liefert ihn dann nicht)
     chart: () => { if (S.viewGroups?.length) return null; chartShown = true; return h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', { style: 'margin:0' }, t('Hashrate gesamt')), h('span', { class: 'pill gray' }, 'live')), h('div', { class: 'chart' }, chart)); },
     miners: () => h('div', { class: 'stack' },
@@ -822,6 +851,7 @@ function renderOverview() {
     plugs: () => s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     soak: () => isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     news: () => newsCard(true),
+    profit: () => profitCard(s.profit, tv.currency),
     text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
   };
   const grid = h('div', { class: `ov-grid${edit ? ' ov-edit' : ''}`, id: 'ovGrid' }, layout.panels.map((p, i) => {
@@ -993,7 +1023,8 @@ const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'miners', 'plugs', 'soak'].
 
 const OVERVIEW_TYPES = () => [['kpis', t('Kennzahlen-Reihe')], ['hashrate', t('Hashrate gesamt')], ['power', t('Leistung')], ['efficiency', t('Effizienz')],
   ['maxtemp', t('Max. Temperatur')], ['price', t('Strompreis')], ['cost', t('Stromkosten')], ['chart', t('Verlauf (Hashrate)')], ['miners', t('Miner')],
-  ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')]];
+  ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')],
+  ['profit', t('Ertrag gegen Stromkosten')]];
 
 /** 0.9.11 Übersicht-Designer: Panels anordnen (Breite im 12er-Raster), dazu die Reihenfolge der Miner. */
 function overviewDesignCard(devices) {
@@ -1671,15 +1702,20 @@ function renderDevice() {
   const d = S.detail.summary;
   const tab = TABS().some(tv => tv[0] === S.route.tab && (!tv[2] || isAdmin())) ? S.route.tab : 'live';
   S.route.tab = tab;
+  // 0.9.14: Kopf wie die Miner-Karte – Status, Name, große Hashrate mit Verlauf, Pool/Coin, Aktionen
   mount(h('div', { id: 'device-page', class: 'stack' },
-    h('div', { class: 'titlebar' },
-      h('span', { id: 'dev-dot', class: `dot ${dotClass(d)}` }),
-      h('h2', {}, d.name),
-      h('span', { class: 'muted' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · ')),
-      h('span', { class: 'spacer' }),
-      isAdmin() ? maintenanceToggle(d) : d.maintenanceMode ? h('span', { class: 'pill gray' }, '🔧 ' + maintText(d)) : null,
-      d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
-      h('span', { class: 'pill' }, S.detail.profile.name)),
+    h('div', { class: 'card dev-hero', id: 'dev-hero' },
+      h('div', { class: 'dev-hero-who' },
+        h('span', { id: 'dev-dot', class: `dot ${dotClass(d)}` }),
+        h('div', { style: 'min-width:0' }, h('h2', { style: 'margin:0' }, d.name),
+          h('div', { class: 'muted small' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · ')))),
+      h('div', { id: 'dev-hash', class: 'dev-hero-hash' }, devHeroHash(d)),
+      h('div', { class: 'dev-hero-side' },
+        poolCoinRow(d),
+        h('div', { class: 'row', style: 'justify-content:flex-end' },
+          isAdmin() ? maintenanceToggle(d) : d.maintenanceMode ? h('span', { class: 'pill gray' }, '🔧 ' + maintText(d)) : null,
+          d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
+          h('span', { class: 'pill', title: t('Geräteprofil') }, S.detail.profile.name)))),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
     h('div', { class: 'tabs' }, TABS().filter(tv => !tv[2] || isAdmin()).map(([k, label]) =>
       h('a', { href: `#/device/${d.id}/${k}`, class: k === tab ? 'active' : null }, label))),
@@ -1919,11 +1955,22 @@ function chipTile(temps) {
     h('div', { class: 'sub' }, t('°C · Chip {0} am wärmsten', temps.indexOf(max) + 1)));
 }
 
+/** Große Hashrate mit Verlauf für den Kopf der Geräteseite. */
+function devHeroHash(d) {
+  if (!d.online) return h('div', { class: d.maintenance ? 'warn' : 'danger', style: 'font-weight:500' }, d.maintenance ? t('Wartung/Neustart …') : (d.error || 'offline'));
+  const [hv, hu] = hashParts(d.hashrate);
+  return h('div', { class: 'hashline' },
+    h('span', { class: 'big', 'data-tw': 'dh-' + d.id, 'data-to': hu === 'TH/s' ? d.hashrate / 1000 : d.hashrate, 'data-dec': hu === 'TH/s' ? 2 : 0 }, hv),
+    h('span', { class: 'unit' }, hu), sparkEl((d.history || []).map(p => p[1]), 'var(--ok)'));
+}
+
 function updateDeviceLive() {
   const d = S.status?.devices.find(x => x.id === S.route.id);
   if (!d) return;
   const dot = $('#dev-dot');
   if (dot) dot.className = `dot ${dotClass(d)}`;
+  const hero = $('#dev-hash');
+  if (hero) { fill(hero, devHeroHash(d)); tweenNumbers(hero); }
   const tiles = $('#live-tiles');
   if (tiles) fill(tiles, ...liveTiles(d));
   if (d.benchmark) updateBenchmark(d.benchmark);
@@ -3640,6 +3687,145 @@ function updateFanTable() {
   if (box && S.status) fill(box, ...fanRows(S.status.fans));
 }
 
+// ---------- 0.9.14 Pool-Steuerung ----------
+
+/** Pool-Vorlagen anlegen/bearbeiten und als Haupt- bzw. Ersatz-Pool auf Miner übertragen (Vorschau alt → neu). */
+async function renderPools() {
+  mount(h('p', { class: 'muted' }, t('Lade …')));
+  const data = await run(() => api('/pool-presets'));
+  if (!data) return;
+  let presets = data.presets.map(p => ({ ...p }));
+  const passwords = {};
+  const clearPw = new Set();
+  let dirty = false;
+  const touch = () => { dirty = true; saveBtn.classList.add('primary'); };
+  const workerModes = [['keep', t('Worker des Miners behalten')], ['name', t('Minername als Worker')], ['none', t('Benutzer genau so übernehmen')]];
+  const tlsModes = [[0, t('aus')], [1, 'TLS'], [2, t('TLS (eigenes Zertifikat)')]];
+  const select = (opts, value, on) => { const s = h('select', { onchange: e => on(e.target.value) }, opts.map(([v, l]) => h('option', { value: v }, l))); s.value = String(value); return s; };
+
+  const list = h('div', { class: 'stack' });
+  const drawPresets = () => fill(list, presets.length ? presets.map((p, i) => h('div', { class: 'card stack' },
+    h('div', { class: 'row' }, h('b', { style: 'flex:1' }, p.name || p.url || t('Neue Vorlage')),
+      h('button', { class: 'btn small danger', onclick: () => { presets.splice(i, 1); touch(); drawPresets(); drawAssign(); } }, t('Entfernen'))),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Name')), h('input', { value: p.name || '', placeholder: t('z. B. Solo oder PPS'), oninput: e => { p.name = e.target.value; touch(); } })),
+      h('div', {}, h('label', {}, t('Pool-Adresse (stratum+tcp://… geht auch)')), h('input', { value: p.url || '', class: 'mono', placeholder: 'stratum.example.org', oninput: e => { p.url = e.target.value.trim(); touch(); } })),
+      h('div', {}, h('label', {}, t('Port')), h('input', { type: 'number', min: 1, max: 65535, value: p.port, oninput: e => { p.port = +e.target.value; touch(); } })),
+      h('div', {}, h('label', {}, t('Benutzer (Wallet-Adresse oder Pool-Konto)')), h('input', { value: p.user || '', class: 'mono', oninput: e => { p.user = e.target.value.trim(); touch(); } })),
+      h('div', {}, h('label', {}, t('Worker-Name')), select(workerModes, p.worker || 'keep', v => { p.worker = v; touch(); })),
+      h('div', {}, h('label', {}, t('Passwort')), h('input', {
+        type: 'password', autocomplete: 'new-password',
+        placeholder: p.hasPassword ? t('gespeichert – leer lassen = unverändert') : t('leer = Passwort auf dem Miner bleibt'),
+        oninput: e => { passwords[p.id || i] = e.target.value; touch(); },
+      })),
+      h('div', {}, h('label', {}, 'TLS'), select(tlsModes, p.tls || 0, v => { p.tls = +v; touch(); })),
+      h('div', {}, h('label', {}, t('Notiz')), h('input', { value: p.notes || '', oninput: e => { p.notes = e.target.value; touch(); } }))),
+    p.hasPassword ? h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: e => { e.target.checked ? clearPw.add(p.id) : clearPw.delete(p.id); touch(); } }), ' ', t('Gespeichertes Passwort löschen')) : null))
+    : h('p', { class: 'muted small' }, t('Noch keine Vorlage. Lege eine an oder übernimm die Pools eines Miners.')));
+
+  const save = async () => {
+    const body = { presets: presets.map((p, i) => ({ id: p.id || '', name: p.name, url: p.url, port: +p.port || 3333, user: p.user, worker: p.worker || 'keep',
+      tls: +p.tls || 0, notes: p.notes || '', password: passwords[p.id || i] || null, clearPassword: clearPw.has(p.id) })) };
+    const r = await run(() => api('/pool-presets', { method: 'PUT', body }), t('Pool-Vorlagen gespeichert.'));
+    if (!r) return false;
+    presets = r.presets.map(p => ({ ...p }));
+    Object.keys(passwords).forEach(k => delete passwords[k]);
+    clearPw.clear();
+    dirty = false;
+    saveBtn.classList.remove('primary');
+    drawPresets(); drawAssign();
+    return true;
+  };
+  const saveBtn = h('button', { class: 'btn', onclick: save }, t('Vorlagen speichern'));
+  const fromMiner = select([['', t('Pools eines Miners übernehmen …')], ...data.devices.map(d => [d.id, d.name])], '', async id => {
+    if (!id) return;
+    const r = await run(() => api(`/pool-presets/from-device/${id}`, { method: 'POST', body: {} }));
+    fromMiner.value = '';
+    if (!r) return;
+    const known = new Set(presets.map(p => `${(p.url || '').toLowerCase()}:${p.port}|${p.user}`));
+    const add = r.presets.filter(p => !known.has(`${p.url.toLowerCase()}:${p.port}|${p.user}`)).map(p => ({ ...p, id: '' }));
+    presets.push(...add);
+    if (add.length) touch();
+    toast(add.length ? t('{0} Vorlagen übernommen – Namen prüfen und speichern.', add.length) : t('Diese Pools gibt es schon als Vorlage.'), add.length ? 'ok' : 'info');
+    drawPresets(); drawAssign();
+  });
+  fromMiner.style.cssText = 'width:auto;max-width:320px';
+
+  // Zuordnung: je Miner Haupt- und Ersatz-Pool aus den (gespeicherten) Vorlagen
+  const choice = {};
+  data.devices.forEach(d => { choice[d.id] = { primary: '', fallback: '' }; });
+  const current = {};
+  const assignBox = h('div', { class: 'stack' });
+  const presetOpts = () => [['', t('– unverändert –')], ...presets.filter(p => p.id).map(p => [p.id, p.name])];
+  const currentText = d => {
+    const c = current[d.id];
+    if (c === undefined) return h('span', { class: 'muted small' }, t('Lade …'));
+    if (c === null) return h('span', { class: 'muted small' }, t('nicht erreichbar'));
+    const row = (label, p) => h('div', { class: 'small' }, h('span', { class: 'muted' }, label + ': '), p ? h('span', { class: 'mono' }, p.text) : '–',
+      p?.active ? h('span', { class: 'pill', style: 'margin-left:6px' }, t('aktiv')) : null);
+    return h('div', {}, row(t('Haupt'), c.pools.find(p => p.primary)), row(t('Ersatz'), c.pools.find(p => p.secondary)));
+  };
+  const drawAssign = () => {
+    const opts = presetOpts();
+    const all = (key) => select(opts, '', v => { data.devices.forEach(d => { choice[d.id][key] = v; }); drawAssign(); });
+    fill(assignBox,
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Miner'), t('Aktuell'), t('Haupt-Pool'), t('Ersatz-Pool')].map(x => h('th', {}, x)))),
+        h('tbody', {},
+          h('tr', { class: 'muted' }, h('td', {}, h('i', {}, t('alle Miner'))), h('td', {}), h('td', {}, all('primary')), h('td', {}, all('fallback'))),
+          data.devices.map(d => h('tr', {},
+            h('td', { style: 'white-space:nowrap' }, h('span', { class: `dot ${d.online ? 'on' : 'off'}`, style: 'display:inline-block;width:8px;height:8px;margin-right:8px;vertical-align:middle' }), d.name),
+            h('td', {}, currentText(d)),
+            h('td', {}, select(opts, choice[d.id].primary, v => { choice[d.id].primary = v; })),
+            h('td', {}, select(opts, choice[d.id].fallback, v => { choice[d.id].fallback = v; }))))))),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: transfer }, t('Vorschau und übertragen …'))));
+  };
+  const loadCurrent = () => data.devices.forEach(async d => {
+    try { current[d.id] = await api(`/devices/${d.id}/pools`); } catch { current[d.id] = null; }
+    drawAssign();
+  });
+  const transfer = async () => {
+    if (dirty && !(await save())) return;
+    const items = data.devices.map(d => ({ id: d.id, primary: choice[d.id].primary || null, fallback: choice[d.id].fallback || null }))
+      .filter(i => i.primary || i.fallback);
+    if (!items.length) { toast(t('Bitte für mindestens einen Miner eine Vorlage wählen.'), 'info'); return; }
+    const pv = await run(() => api('/pool-presets/preview', { method: 'POST', body: { items } }));
+    if (!pv) return;
+    const todo = pv.items.filter(i => !i.skip);
+    const body = h('div', { class: 'stack' }, pv.items.map(i => h('div', {},
+      h('b', {}, i.name), i.skip ? h('div', { class: 'muted small' }, t('übersprungen – {0}', i.skip))
+        : h('ul', { class: 'small', style: 'margin:4px 0 0 18px;padding:0' }, i.changes.map(c => h('li', {}, `${c.label}: `, h('span', { class: 'mono' }, `${c.old} → ${c.new}`)))))),
+      h('p', { class: 'muted small' }, t('Vorher wird eine Sicherung angelegt. Danach startet der Miner neu (Frequenz und Spannung bleiben). Alles wird protokolliert.')));
+    if (!todo.length) { await confirmBox(t('Nichts zu übertragen'), body, t('OK')); return; }
+    if (!(await confirmBox(t('Pools auf {0} Miner übertragen?', todo.length), body, t('Übertragen')))) return;
+    const r = await run(() => api('/pool-presets/apply', { method: 'POST', body: { items: items.filter(i => todo.some(x => x.id === i.id)) } }));
+    if (!r) return;
+    const ok = r.items.filter(i => !i.skip).length;
+    toast(t('Pools übertragen: {0} von {1} Minern. Sie starten jetzt neu.', ok, r.items.length), ok === r.items.length ? 'ok' : 'error', 10000);
+    r.items.filter(i => i.skip).forEach(i => toast(`${i.name}: ${i.skip}`, 'error', 12000));
+    data.devices.forEach(d => { choice[d.id] = { primary: '', fallback: '' }; delete current[d.id]; });
+    drawAssign();
+    setTimeout(loadCurrent, 15000);   // nach dem Neustart neu lesen
+  };
+
+  drawPresets();
+  drawAssign();
+  loadCurrent();
+  mount(h('div', { class: 'stack' },
+    h('div', { class: 'card stack' },
+      h('h2', {}, t('Pool-Vorlagen')),
+      h('p', { class: 'muted small' }, t('Trage hier deine Pools einmal ein und übertrage sie dann auf einzelne oder alle Miner – als Haupt- oder Ersatz-Pool. Funktioniert mit AxeOS ab 2.15 (Gamma, Pool-Liste) und älterer Firmware.')),
+      list,
+      h('div', { class: 'row', style: 'flex-wrap:wrap' },
+        h('button', { class: 'btn', onclick: () => { presets.push({ id: '', name: '', url: '', port: 3333, user: '', worker: 'keep', tls: 0, notes: '' }); touch(); drawPresets(); } }, t('Vorlage hinzufügen')),
+        fromMiner, h('span', { class: 'spacer', style: 'flex:1' }), saveBtn)),
+    h('div', { class: 'card stack' },
+      h('h2', {}, t('Auf Miner übertragen')),
+      h('p', { class: 'muted small' }, t('Wähle je Miner die Vorlage für Haupt- und Ersatz-Pool. „unverändert“ lässt den Eintrag, wie er ist. Der Worker-Name richtet sich nach der Vorlage.')),
+      assignBox),
+    h('p', { class: 'muted small' }, t('Umschalten zwischen Haupt- und Ersatz-Pool sowie die Pool-Automatik findest du beim Miner unter „Automatik“ und bei den Gruppen.'))));
+}
+
 async function renderFans() {
   mount(h('p', { class: 'muted' }, t('Lade …')));
   const data = await run(() => api('/fans'));
@@ -4203,10 +4389,32 @@ function plugsCard() {
         oninput: e => { passwords[p.id] = e.target.value; },
       });
       const probe = async () => {
-        const r = await run(() => api('/plugs/probe', { method: 'POST', body: { host: p.host, user: p.user, password: passwords[p.id] || null, id: p.id, channel: p.channel } }));
-        if (r) toast(t('{0} (Gen {1}): {2} W', r.model, r.generation, n(r.powerW, 1)), 'ok', 8000);
+        const r = await run(() => api('/plugs/probe', { method: 'POST', body: { host: p.host, user: p.user, password: passwords[p.id] || null, id: p.id, channel: p.channel, type: p.type || 'shelly', ain: p.ain || '' } }));
+        if (r) toast(r.generation ? t('{0} (Gen {1}): {2} W', r.model, r.generation, n(r.powerW, 1)) : t('{0}: {1} W', r.model, n(r.powerW, 1)), 'ok', 8000);
         if (r?.hint) toast(r.hint, 'info', 15000);
       };
+      // 0.9.14: Gerätetyp – Shelly, Tasmota oder FRITZ!DECT (über die FRITZ!Box)
+      p.type = p.type || 'shelly';
+      const ainBox = h('div', {}, h('label', {}, t('AIN der Steckdose')), h('input', { value: p.ain || '', placeholder: '11657 0123456', class: 'mono', oninput: e => { p.ain = e.target.value; } }));
+      const hostLabel = h('label', {});
+      const userLabel = h('label', {});
+      const typeHint = h('p', { class: 'muted small' });
+      const userInput = h('input', { value: p.user, oninput: e => { p.user = e.target.value; } });
+      const channelBox = h('div', {}, h('label', {}, t('Kanal')), numInput(p, 'channel'));
+      const applyType = () => {
+        ainBox.hidden = p.type !== 'fritz';
+        channelBox.hidden = p.type === 'fritz';   // FRITZ!DECT: die AIN bestimmt die Steckdose
+        userInput.value = p.user || '';
+        hostLabel.textContent = p.type === 'fritz' ? t('Adresse der FRITZ!Box (z. B. fritz.box)') : t('Adresse (IP oder Name, „sim“ = Simulation)');
+        userLabel.textContent = p.type === 'shelly' ? t('Benutzer (bei Gen2+ immer admin)') : p.type === 'fritz' ? t('FRITZ!Box-Benutzer (leer = zuletzt angemeldeter)') : t('Benutzer (Tasmota: admin)');
+        typeHint.textContent = p.type === 'tasmota' ? t('Tasmota schickt Benutzer und Passwort unverschlüsselt im Heimnetz mit – am besten ohne Web-Passwort oder in einem eigenen WLAN.')
+          : p.type === 'fritz' ? t('Liest Leistung und Zählerstand über die FRITZ!Box (Smart Home). Der Benutzer braucht das Recht „Smart Home“.') : '';
+        typeHint.hidden = !typeHint.textContent;
+      };
+      const type = h('select', { onchange: e => { p.type = e.target.value; if (p.type === 'fritz' && (!p.user || p.user === 'admin')) p.user = ''; applyType(); } },
+        [['shelly', 'Shelly'], ['tasmota', 'Tasmota'], ['fritz', 'FRITZ!DECT']].map(([v, l]) => h('option', { value: v }, l)));
+      type.value = p.type;
+      applyType();
       return h('div', { class: 'card stack' },
         h('div', { class: 'row' }, h('b', { style: 'flex:1' }, p.name || t('Smart Plug')),
           st ? h('span', { class: `small ${st.online ? 'ok' : 'danger'}` }, st.online ? t('{0} W', n(st.powerW, 1)) + (st.model ? ` · ${st.model}` : '') : (st.error || 'offline')) : null,
@@ -4214,19 +4422,22 @@ function plugsCard() {
           h('button', { class: 'btn small danger', onclick: () => { s.items.splice(i, 1); if (p.id) clear.add(p.id); draw(); } }, t('Entfernen'))),
         h('div', { class: 'form' },
           h('div', {}, h('label', {}, t('Name')), h('input', { value: p.name, oninput: e => { p.name = e.target.value; } })),
-          h('div', {}, h('label', {}, t('Adresse (IP oder Name, „sim“ = Simulation)')), h('input', { value: p.host, placeholder: '192.168.1.60', oninput: e => { p.host = e.target.value.trim(); } })),
-          h('div', {}, h('label', {}, t('Kanal')), numInput(p, 'channel')),
-          h('div', {}, h('label', {}, t('Benutzer (bei Gen2+ immer admin)')), h('input', { value: p.user, oninput: e => { p.user = e.target.value; } })),
+          h('div', {}, h('label', {}, t('Typ')), type),
+          h('div', {}, hostLabel, h('input', { value: p.host, placeholder: '192.168.1.60', oninput: e => { p.host = e.target.value.trim(); } })),
+          ainBox,
+          channelBox,
+          h('div', {}, userLabel, userInput),
           h('div', {}, h('label', {}, t('Passwort')), pw),
           h('div', {}, h('label', {}, t('Rolle')), role)),
+        typeHint,
         minerBox);
     }) : h('p', { class: 'muted small' }, t('Noch kein Smart Plug eingerichtet.')));
     draw();
     fill(body,
-      h('p', { class: 'muted small' }, t('Shelly-Steckdosen mit Leistungsmessung (Gen1, Plus/Pro/Gen3) messen den echten Verbrauch inklusive Netzteil und Zusatzlüftern. BitaxeTuner liest nur – geschaltet wird nie.')),
+      h('p', { class: 'muted small' }, t('Steckdosen mit Leistungsmessung (Shelly, Tasmota, FRITZ!DECT) messen den echten Verbrauch inklusive Netzteil und Zusatzlüftern. BitaxeTuner liest nur – geschaltet wird nie.')),
       list,
       h('div', { class: 'row' },
-        h('button', { class: 'btn', onclick: () => { s.items.push({ id: '', name: t('Smart Plug'), host: '', channel: 0, user: 'admin', role: 'miners', miners: [] }); draw(); } }, t('Plug hinzufügen'))),
+        h('button', { class: 'btn', onclick: () => { s.items.push({ id: '', name: t('Smart Plug'), host: '', channel: 0, user: 'admin', role: 'miners', miners: [], type: 'shelly', ain: '' }); draw(); } }, t('Plug hinzufügen'))),
       checkInput(s, 'useForCosts', t('Kosten, Tagesbericht und Gesamteffizienz mit den Werten an der Steckdose rechnen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('abfragen alle (s)')), numInput(s, 'intervalSeconds'))),
       h('div', { class: 'row' },
@@ -4515,8 +4726,9 @@ function poolAccountCard() {
       .map(([v, l]) => h('option', { value: v, selected: p.taxBasis === v }, l)));
     const imp = h('input', { type: 'checkbox', checked: p.taxImport });
     const ax = h('input', { type: 'checkbox', checked: p.autoExchange });
+    const ncs = h('input', { type: 'checkbox', checked: p.notifyCoinSwitch });
     const values = apiKey => ({ enabled: enabled.checked, intervalMinutes: +interval.value || 10, taxBasis: basis.value, taxImport: imp.checked,
-      autoExchange: ax.checked, apiKey });
+      autoExchange: ax.checked, notifyCoinSwitch: ncs.checked, apiKey });
     const save = async () => {
       if (await run(() => api('/pool-account', { method: 'PUT', body: values(key.value.trim() || null) }), t('Gespeichert.'))) load();
     };
@@ -4555,6 +4767,8 @@ function poolAccountCard() {
         h('div', {}, h('label', {}, t('Zufluss für die Steuer')), basis)),
       h('label', { class: 'check' }, imp, ' ', t('Pool-Buchungen als Zuflüsse in die Steuer übernehmen')),
       h('label', { class: 'check' }, ax, ' ', t('Altcoins werden beim Pool automatisch in BTC umgetauscht')),
+      h('label', { class: 'check' }, ncs, ' ', t('Push, wenn der Pool einem Miner einen anderen Coin gibt')),
+      h('p', { class: 'muted small' }, t('Auszahlungen und Worker ohne Shares (obwohl der Miner läuft) meldet BitaxeTuner unter „Pool“ – je Push-Dienst abwählbar.')),
       h('p', { class: 'muted small' }, t('Mit Umtausch zählt bei „Gutschrift“ nur die Mining-Gutschrift als Ertrag; der Umtausch wird als Verkauf des Altcoins erfasst und die BTC dafür als Anschaffung (kein zweiter Ertrag). Bei „Auszahlung“ zählen nur die BTC-Auszahlungen an deine Wallet.')),
       h('p', { class: 'muted small' }, t('Gutschrift: alle Gutschriften eines Coins an einem Tag als ein Zufluss (sobald der Tag vorbei ist). Auszahlung: jede Auszahlung vom Pool an deine Wallet einzeln. Beim Umschalten bleiben von Hand eingetragene Kurse erhalten. Welche Sicht für dich gilt, klärst du am besten mit deiner Steuerberatung.')),
       h('div', { class: 'row' },

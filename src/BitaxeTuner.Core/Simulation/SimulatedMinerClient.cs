@@ -205,21 +205,45 @@ public sealed class SimulatedMinerClient : IMinerClient
         return node.ToJsonString();
     }
 
+    /// <summary>Zuletzt gesendeter PATCH (für Tests).</summary>
+    public IReadOnlyDictionary<string, object>? LastPatch { get; private set; }
+
+    /// <summary>Pool-Einträge (Adresse, Port, Benutzer) für Tests.</summary>
+    public IReadOnlyList<(string Url, int Port, string User)> PoolEntries { get { lock (_lock) return _pools.ToList(); } }
+
     public Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default)
     {
         lock (_lock)
         {
+            LastPatch = values;
             if (values.TryGetValue("frequency", out var f)) _frequency = Convert.ToInt32(f);
             if (values.TryGetValue("coreVoltage", out var v)) _voltage = Convert.ToInt32(v);
             if (values.TryGetValue("autofanspeed", out var a)) _autoFan = Convert.ToInt32(a);
             if (values.TryGetValue("manualFanSpeed", out var m)) _fanPercent = Convert.ToInt32(m);
             if (values.TryGetValue("primaryPoolIndex", out var pi)) _primaryPool = Convert.ToInt32(pi);
             if (values.TryGetValue("secondaryPoolIndex", out var si)) _secondaryPool = Convert.ToInt32(si);
+            if (values.TryGetValue("pools", out var pl) && pl is System.Text.Json.Nodes.JsonArray arr)
+            {
+                // ESP-Miner ab 2.15: Einträge je id ersetzen
+                foreach (var e in arr.OfType<System.Text.Json.Nodes.JsonObject>())
+                {
+                    var id = (int)e["id"]!;
+                    while (_pools.Count <= id) _pools.Add(("", 3333, ""));
+                    _pools[id] = ((string)e["stratumURL"]!, (int)e["stratumPort"]!, (string)e["stratumUser"]!);
+                }
+            }
             if (values.TryGetValue("stratumURL", out var su))
             {
                 // alte Firmware: Felder tauschen – im Simulator heißt das: Indizes tauschen, wenn die Adresse passt
                 var idx = _pools.FindIndex(p => p.Url == (string)su);
                 if (idx >= 0) { _secondaryPool = _primaryPool; _primaryPool = idx; }
+                else
+                {
+                    // alte Firmware: neue Werte für den Haupt-Pool
+                    var (u, p, us) = _pools[_primaryPool];
+                    _pools[_primaryPool] = ((string)su, values.TryGetValue("stratumPort", out var sp) ? Convert.ToInt32(sp) : p,
+                        values.TryGetValue("stratumUser", out var su2) ? (string)su2 : us);
+                }
             }
         }
         return Task.CompletedTask;

@@ -24,6 +24,7 @@ public sealed class PoolAccountPanel : StackPanel
     private readonly ComboBox _basis = new() { Width = 320, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly CheckBox _import = new() { Content = L.T("Pool-Buchungen als Zuflüsse in die Steuer übernehmen"), Margin = new Thickness(0, 6, 0, 4) };
     private readonly CheckBox _autoExchange = new() { Content = L.T("Altcoins werden beim Pool automatisch in BTC umgetauscht"), Margin = new Thickness(0, 2, 0, 4) };
+    private readonly CheckBox _coinSwitch = new() { Content = L.T("Push, wenn der Pool einem Miner einen anderen Coin gibt"), Margin = new Thickness(0, 2, 0, 4) };
     private readonly CheckBox _clearKey = new() { Content = L.T("Schlüssel löschen"), Margin = new Thickness(0, 4, 0, 0) };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
     private readonly TextBlock _overview = new() { TextWrapping = TextWrapping.Wrap, FontFamily = new System.Windows.Media.FontFamily("Consolas"), Margin = new Thickness(0, 6, 0, 0) };
@@ -49,6 +50,7 @@ public sealed class PoolAccountPanel : StackPanel
         _basis.SelectedIndex = cfg.TaxBasis == PoolIncomeBasis.Payout ? 1 : 0;
         _import.IsChecked = cfg.TaxImport;
         _autoExchange.IsChecked = cfg.AutoExchange;
+        _coinSwitch.IsChecked = cfg.NotifyCoinSwitch;
         _clearKey.Visibility = cfg.ApiKey.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         _key.ToolTip = cfg.ApiKey.Length > 0 ? L.T("gespeichert – leer lassen, um ihn zu behalten") : L.T("API-Schlüssel aus „Edit Account“");
 
@@ -71,6 +73,7 @@ public sealed class PoolAccountPanel : StackPanel
         Children.Add(_basis);
         Children.Add(_import);
         Children.Add(_autoExchange);
+        Children.Add(_coinSwitch);
         Children.Add(basisHint);
         Children.Add(_refresh);
         Children.Add(_status);
@@ -154,6 +157,7 @@ public sealed class PoolAccountPanel : StackPanel
         p.IntervalMinutes = int.TryParse(_interval.Text.Trim(), out var m) ? m : p.IntervalMinutes;
         p.TaxBasis = basis;
         p.TaxImport = import;
+        p.NotifyCoinSwitch = _coinSwitch.IsChecked == true;
         var ax = _autoExchange.IsChecked == true;
         if (p.AutoExchange != ax)
         {

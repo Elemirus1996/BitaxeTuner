@@ -141,7 +141,7 @@ public sealed partial class MinerHub
     private IPlugClient PlugClient(SmartPlugConfig plug)
     {
         var password = Secrets.Get(SmartPlugConfig.SecretKey(plug.Id));
-        var key = $"{plug.Host}|{plug.User}|{password?.GetHashCode()}";
+        var key = $"{plug.Type}|{plug.Host}|{plug.Ain}|{plug.User}|{password?.GetHashCode()}";
         if (_plugClients.TryGetValue(plug.Id, out var c) && c.Key == key) return c.Client;
         ClosePlug(plug.Id);
         var client = PlugClientFactory?.Invoke(plug)
@@ -152,7 +152,7 @@ public sealed partial class MinerHub
                              "total" => MinerPowerSum(Devices.Select(d => d.Host)),
                              _ => 6,
                          })
-                         : new ShellyClient(plug.Host, plug.User, password));
+                         : PlugClients.Create(plug.Type, plug.Host, plug.User, password, plug.Ain));
         _plugClients[plug.Id] = (client, key);
         return client;
     }

@@ -18,6 +18,9 @@ public sealed class AppConfig
     /// <summary>0.9.11: automatische Pool-Umschaltung für Miner-Gruppen. Additiv.</summary>
     public List<GroupPoolRule> GroupPoolRules { get; set; } = [];
 
+    /// <summary>0.9.14 Pool-Steuerung: Pool-Vorlagen zum Übertragen auf Miner. Additiv; Passwörter in secrets.json.</summary>
+    public List<PoolPreset> PoolPresets { get; set; } = [];
+
     /// <summary>0.9.8: Zeitzone für Haltefrist und Datumsangaben im Steuer-Bereich (Audit F5). Additiv.</summary>
     public string TaxTimeZone { get; set; } = Tax.TaxTime.DefaultZone;
 

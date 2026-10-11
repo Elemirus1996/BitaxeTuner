@@ -3,6 +3,7 @@ using BitaxeTuner.Core.Api;
 using BitaxeTuner.Core.Automation;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
+using BitaxeTuner.Core.Pools;
 using BitaxeTuner.Core.Storage;
 using BitaxeTuner.Core.I18n;
 
@@ -296,13 +297,23 @@ public sealed partial class MinerHub
 
         var rest = changes.Where(c => c.Field is not "frequency" and not "coreVoltage")
                           .ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value));
-        if (rest.Count > 0) await device.Connection.PatchSettingsAsync(rest);
+        if (rest.Count > 0) await PatchPoolAwareAsync(device, rest);
 
         var restart = Config.RestartAfterApply || changes.Any(c => c.Group == SettingGroup.Pool);
         if (restart) await device.Connection.RestartAsync();
 
         device.AddLog(L.T("Wiederhergestellt ({0}): ", snapshot.DisplayText) +
                       string.Join(", ", changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")), EventCategories.Settings);
+    }
+
+    /// <summary>
+    /// PATCH mit Pool-Feldern: ESP-Miner ab 2.15 (Gamma …) ignoriert stratumURL/fallbackStratum* – dort über die Pool-Liste
+    /// schreiben (<see cref="PoolWrite"/>). Ohne Pool-Felder bzw. bei alter Firmware unverändert.
+    /// </summary>
+    private static async Task PatchPoolAwareAsync(HubDevice device, Dictionary<string, object> patch)
+    {
+        if (PoolWrite.HasLegacyPoolFields(patch)) patch = PoolWrite.Adapt(await device.Connection.GetRawInfoAsync(), patch);
+        await device.Connection.PatchSettingsAsync(patch);
     }
 
     // ---------- Einstellungen auf mehrere Miner übertragen ----------
@@ -343,7 +354,7 @@ public sealed partial class MinerHub
             try
             {
                 await TryAutoBackupAsync(p.Device, L.T("vor Übernahme von {0}", source.Title));
-                await p.Device.Connection.PatchSettingsAsync(p.Changes.ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value)));
+                await PatchPoolAwareAsync(p.Device, p.Changes.ToDictionary(c => c.Field, c => SettingsSnapshots.ToPatchValue(c.Value)));
                 if (Config.RestartAfterApply || p.Changes.Any(c => c.Group == SettingGroup.Pool)) await p.Device.Connection.RestartAsync();
                 p.Device.AddLog(L.T("Einstellungen übernommen von {0}: ", source.Title) +
                                 string.Join(", ", p.Changes.Select(c => $"{c.Label} {c.Current} → {c.Saved}")), EventCategories.Settings);

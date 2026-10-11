@@ -11,6 +11,30 @@ public static class PoolEndpoints
 {
     public sealed record PoolRequest(string? Target, bool MakeHome, PoolSwitchRule? Rule, string? Group);
 
+    /// <summary>0.9.14: Vorlage aus dem Browser. Password null = unverändert, ClearPassword = löschen.</summary>
+    public sealed record PoolPresetDto(string? Id, string? Name, string? Url, int Port, string? User, string? Worker, int Tls, string? Notes,
+        string? Password, bool ClearPassword);
+
+    public sealed record PoolPresetsRequest(List<PoolPresetDto>? Presets);
+
+    public sealed record PoolAssignDto(string Id, string? Primary, string? Fallback);
+
+    public sealed record PoolAssignRequest(List<PoolAssignDto>? Items);
+
+    private static object PresetJson(PoolPreset p) => new
+    {
+        p.Id, p.Name, p.Url, p.Port, p.User, p.Worker, p.Tls, p.Notes, hasPassword = p.Password.Length > 0,
+    };
+
+    private static List<PoolAssignment> Assignments(MinerHub h, PoolAssignRequest req) =>
+        (req.Items ?? []).Select(i => new PoolAssignment(Device(h, i.Id).Host, i.Primary, i.Fallback)).ToList();
+
+    private static object AssignItems(IEnumerable<PoolAssignItem> items) => items.Select(i => new
+    {
+        id = Dto.DeviceId(i.Device.Host), name = i.Device.Title, skip = i.Skip,
+        changes = i.Changes.Select(c => new { label = c.Label, old = c.Old, @new = c.New }).ToList(),
+    }).ToList();
+
     private static HubDevice Device(MinerHub h, string id) =>
         Dto.Find(h, id) ?? throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
@@ -80,6 +104,43 @@ public static class PoolEndpoints
             h.ApprovePoolRule(Device(h, id));
             return new { ok = true };
         })));
+
+        // ---------- 0.9.14 Pool-Steuerung: Vorlagen ----------
+
+        g.MapGet("/pool-presets", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            presets = h.Config.PoolPresets.Select(PresetJson).ToList(),
+            devices = h.Devices.Select(d => new { id = Dto.DeviceId(d.Host), name = d.Title, online = d.State.Online, homePool = d.Config.HomePool }).ToList(),
+        })));
+
+        g.MapPut("/pool-presets", async (PoolPresetsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var list = (req.Presets ?? []).Select(p =>
+            {
+                var old = h.PoolPresetById(p.Id);
+                return new PoolPreset
+                {
+                    Id = p.Id ?? "", Name = p.Name ?? "", Url = p.Url ?? "", Port = p.Port, User = p.User ?? "",
+                    Worker = p.Worker ?? "keep", Tls = p.Tls, Notes = p.Notes ?? "",
+                    Password = p.ClearPassword ? "" : p.Password ?? old?.Password ?? "",
+                };
+            }).ToList();
+            h.SavePoolPresets(list, L.T("Browser"));
+            return new { ok = true, presets = h.Config.PoolPresets.Select(PresetJson).ToList() };
+        })));
+
+        g.MapPost("/pool-presets/from-device/{id}", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+            new { presets = (await h.PoolPresetsFromDeviceAsync(Device(h, id))).Select(PresetJson).ToList() })));
+
+        g.MapPost("/pool-presets/preview", async (PoolAssignRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var list = new List<PoolAssignItem>();
+            foreach (var a in Assignments(h, req)) list.Add(await h.PoolAssignPreviewAsync(h.Device(a.Host)!, a));
+            return new { items = AssignItems(list) };
+        })));
+
+        g.MapPost("/pool-presets/apply", async (PoolAssignRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+            new { items = AssignItems(await h.ApplyPoolAssignmentsAsync(Assignments(h, req), L.T("Browser"))) })));
 
         // ---------- Gruppen ----------
 

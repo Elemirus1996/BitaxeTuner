@@ -71,6 +71,8 @@ public partial class MainWindow : Window
         DataContext = vm;
         _monitor.Initialize(vm.Host);
         _monitor.SummaryChanged += vm.ApplySummary;
+        // 0.9.14: Karte in der Gesamtansicht angeklickt → Miner in der Seitenleiste wählen
+        _monitor.MinerRequested += host => NavList.SelectedItem = vm.NavItems.FirstOrDefault(n => string.Equals(n.Host, host, StringComparison.OrdinalIgnoreCase)) ?? NavList.SelectedItem;
         vm.Host.Polled += vm.OnPolled;
         vm.Host.Polled += () => AskWalletConsent(vm);
         vm.Rebuild();
@@ -291,6 +293,9 @@ public partial class MainWindow : Window
 
     private void OnPoolSwitchClick(object sender, RoutedEventArgs e) =>
         new Views.PoolSwitchWindow(Vm.Host, Vm.SelectedDevice?.Device) { Owner = this }.Show();
+
+    private void OnPoolPresetsClick(object sender, RoutedEventArgs e) =>
+        new Views.PoolPresetsWindow(Vm.Host) { Owner = this }.Show();
 
     private void OnReportClick(object sender, RoutedEventArgs e) =>
         new ReportWindow(Vm.Host) { Owner = this }.ShowDialog();

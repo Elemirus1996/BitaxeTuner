@@ -9,9 +9,9 @@ namespace BitaxeTuner.Server.Api;
 
 public sealed record PlugsRequest(SmartPlugSettings Settings, Dictionary<string, string>? Passwords, string[]? ClearPasswords);
 
-public sealed record PlugProbeRequest(string Host, string? User, string? Password, string? Id, int Channel);
+public sealed record PlugProbeRequest(string Host, string? User, string? Password, string? Id, int Channel, string? Type = null, string? Ain = null);
 
-/// <summary>Smart Plugs (Shelly): Einstellungen (Passwörter nur schreibbar), Status, Verbindungstest. Nur Admin.</summary>
+/// <summary>Smart Plugs (Shelly, ab 0.9.14 auch Tasmota und FRITZ!DECT): Einstellungen (Passwörter nur schreibbar), Status, Verbindungstest. Nur Admin.</summary>
 public static class PlugEndpoints
 {
     public static object Status(MinerHub h) => new
@@ -53,7 +53,7 @@ public static class PlugEndpoints
                 : req.Password;
             if (SimulatedPlugClient.IsSimAddress(req.Host))
                 return Results.Json(new { ok = true, generation = 2, model = L.N("Simulation"), authRequired = false, powerW = 12.5 });
-            using var client = new ShellyClient(req.Host, req.User, stored);
+            using var client = PlugClients.Create(req.Type, req.Host, req.User, stored, req.Ain);
             try
             {
                 var id2 = await client.IdentifyAsync();
@@ -83,6 +83,10 @@ public static class PlugEndpoints
             p.Host = (p.Host ?? "").Trim();
             p.User = string.IsNullOrWhiteSpace(p.User) ? "admin" : p.User.Trim();
             p.Channel = Math.Clamp(p.Channel, 0, 3);
+            p.Type = SmartPlugConfig.Types.Contains(p.Type) ? p.Type : "shelly";
+            p.Ain = new string((p.Ain ?? "").Where(char.IsLetterOrDigit).ToArray());
+            if (p.Type == "fritz" && p.Ain.Length == 0 && !SimulatedPlugClient.IsSimAddress(p.Host))
+                throw new LocalizedException("FRITZ!DECT: AIN der Steckdose eintragen (steht auf dem Gerät bzw. in der FRITZ!Box unter Smart Home).");
             if (!SmartPlugConfig.Roles.Contains(p.Role)) throw new LocalizedException("Unbekannte Rolle: {0}", p.Role);
             p.Miners = p.Role == "miners"
                 ? (p.Miners ?? []).Where(m => h.Device(m) is not null).Distinct(StringComparer.OrdinalIgnoreCase).ToList()

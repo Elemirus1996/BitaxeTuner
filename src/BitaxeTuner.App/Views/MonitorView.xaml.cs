@@ -279,6 +279,7 @@ public partial class MonitorView : UserControl
         var tax = _mode == MonitorMode.Tax;
 
         NetworkPanel.Visibility = network ? Visibility.Visible : Visibility.Collapsed;
+        if (network || tax) OverviewExtras.Visibility = Visibility.Collapsed;
         TaxView.Visibility = tax ? Visibility.Visible : Visibility.Collapsed;
         MinerPanel.Visibility = network || tax ? Visibility.Collapsed : Visibility.Visible;
 
@@ -297,6 +298,7 @@ public partial class MonitorView : UserControl
         var state = SelectedState();
         if (state is null) RenderAggregate();
         else RenderSingle(state);
+        RenderOverviewExtras(state is null);
     }
 
     private void SetTile(TextBlock label, TextBlock value, TextBlock sub,

@@ -71,17 +71,26 @@ Corrections to the English texts are welcome: they all live in
 
 - **Electricity tariff** gross or net (with VAT rate); optionally **hourly prices** from aWATTar (exchange price +
   surcharge) or Tibber (final price).
-- **Smart plugs** (Shelly Gen1, Plus/Pro/Gen3 with power metering): real consumption at the socket including power
+- **Smart plugs** (Shelly Gen1, Plus/Pro/Gen3, Tasmota and FRITZ!DECT via the FRITZ!Box – each with power metering):
+  real consumption at the socket including power
   supply and extra fans, history against AxeOS, notice on failure or rising extra consumption. Read-only –
   **never switched**.
 - **Monthly and annual report**: availability, avg hashrate/temperature/power, J/TH, kWh, electricity cost and
   income – as CSV or printable page (PDF), optional monthly push.
+- **Earnings vs. power costs** (from 0.9.14): tile “Profit (24 h)” and a panel with 24 h, 7 and 30 days and the current
+  month, a line in the daily report, the balance in the monthly report. With a pool account the pool credits count
+  (current price – an estimate), otherwise the documented income from the tax section.
 
 ### Many miners
 
 - **Automatic device discovery** (network scan in desktop and browser) and matching **device profiles** with sensible limits.
 - **Copy settings**: take over one miner's pool/fallback and fan settings to others – preview old → new, backup of
-  each miner first, worker names are kept, frequency and voltage are never copied.
+  each miner first, worker names are kept, frequency and voltage are never copied. From 0.9.14 this also works with
+  AxeOS 2.15 and later (e.g. Gamma), which only accepts pools via its pool list.
+- **Pool control** (from 0.9.14, browser *Pools*, desktop *Pool control …*): enter pools once as a preset (address,
+  wallet or account, worker name, password, TLS) or take them over from a miner, then apply them to single or all miners
+  as primary or fallback pool – preview old → new, backup first, restart afterwards, everything logged. Worker name: keep
+  the miner's, use the miner name, or exactly as in the preset; passwords are kept in `secrets.json`.
 - **Miner groups** (e.g. “Community”, “Basement”): filter and totals in the overview (browser), group filter in
   compare, push services for whole groups – new members get alerts and reports automatically.
 - **Group automation** (from 0.9.7, browser → select a group → *Group automation*): one schedule or electricity price
@@ -179,12 +188,17 @@ leave out electricity cost, income, advisor recommendations, best diff record, t
   price use the fixed electricity price.
 - With **smart plugs**, the consumption at the socket counts instead of the AxeOS power (can be switched off).
 
-### Smart plugs (Shelly)
+### Smart plugs (Shelly, Tasmota, FRITZ!DECT)
 
 *Settings → Smart plugs* (desktop and browser; in the desktop app *Smart plugs …* also jumps there):
 
-1. **Add plug**, enter the IP address (or name) – home-network addresses only. Channel 0 for sockets.
-   Protected Shellys: user (Gen2+ always `admin`) and password; the password is kept in `secrets.json`.
+1. **Add plug**, choose the **type** (Shelly, Tasmota or FRITZ!DECT) and enter the IP address (or name) – home-network
+   addresses only. Channel 0 for sockets. Protected Shellys: user (Gen2+ always `admin`) and password; the password is
+   kept in `secrets.json`.
+   - *Tasmota*: address of the plug; with a web password user `admin` and the password (Tasmota sends both unencrypted in
+     the home network).
+   - *FRITZ!DECT* (e.g. FRITZ!DECT 200/210): address of the FRITZ!Box (`fritz.box`), the plug's **AIN** (printed on the
+     device or shown in the FRITZ!Box under *Smart Home*) and a FRITZ!Box user with the *Smart Home* permission.
 2. **Test** shows model, generation and current power – even before saving.
 3. Choose the **role**:
    - *powers miners* – the ticked miners are behind this plug; with several, it is split by AxeOS share,
@@ -194,7 +208,7 @@ leave out electricity cost, income, advisor recommendations, best diff record, t
    the history socket vs. AxeOS.
 
 Supported: Shelly Gen1 (`/status`, e.g. Plug S) and Gen2+/Gen3 (RPC `Shelly.GetStatus`, e.g. Plus Plug S, PM Mini,
-Pro EM-50). Push when a plug has not responded for 5 min or the extra consumption rises clearly compared with the
+Pro EM-50), Tasmota with energy metering (`Status 8`) and FRITZ!DECT via the FRITZ!Box AHA interface. Push when a plug has not responded for 5 min or the extra consumption rises clearly compared with the
 previous week (e.g. an ageing power supply). Home Assistant gets power and energy per plug (energy dashboard).
 **BitaxeTuner never switches the plugs** – not even when the server itself is behind a plug.
 
@@ -221,6 +235,10 @@ enter the **API key** (Mining-Dutch: *Edit Account* → *API Key*). It cannot ch
 - **Further coins** (from 0.9.13): coins the pool mines via profit switching (e.g. WOJAKCOIN/WJK) are detected
   automatically and kept in the tax section with their symbol. Without a CoinGecko price the pool's price at query time
   is used (in US dollars, converted); it can be changed by hand.
+
+- **Notifications** (from 0.9.14, notification type *Pool*, can be deselected per push service): every payout from the
+  pool and workers that no longer submit shares to the pool although the miner is running (after two polls in a row);
+  optionally every coin switch by the pool.
 
 Every booking ever seen stays in `tax\pool-ledger.json` (the pool only returns the most recent ones). Wallet lookups via
 the blockchain remain available for BTC and BCH only.

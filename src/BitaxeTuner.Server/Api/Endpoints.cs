@@ -35,7 +35,8 @@ public sealed record MetricsRequest(bool Enabled);
 /// <summary>0.9.14 Darstellung als Standard für alle Browser.</summary>
 public sealed record AppearanceRequest(string? Bg, int Veil, bool Anim, bool Numbers, bool Hover, bool Party);
 /// <summary>0.9.12 Pool-Konto. ApiKey: null = unverändert, leer = löschen.</summary>
-public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey, bool? AutoExchange = null);
+public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey, bool? AutoExchange = null,
+    bool? NotifyCoinSwitch = null);
 public sealed record HttpsRequest(bool Enable);
 public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
@@ -1015,6 +1016,7 @@ public static class Endpoints
             p.IntervalMinutes = req.IntervalMinutes;
             p.TaxBasis = basis;
             p.TaxImport = req.TaxImport;
+            if (req.NotifyCoinSwitch is { } ncs) p.NotifyCoinSwitch = ncs;
             if (req.AutoExchange is { } ax && ax != p.AutoExchange)
             {
                 changes.Add(ax ? L.T("Pool-Konto: Altcoins werden automatisch in BTC umgetauscht.") : L.T("Pool-Konto: kein automatischer Umtausch in BTC."));

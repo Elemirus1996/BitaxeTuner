@@ -17,7 +17,8 @@ public sealed class SmartPlugsPanel : StackPanel
     private sealed class Row
     {
         public required SmartPlugConfig Plug { get; init; }
-        public required TextBox Name, Host, Channel, User;
+        public required TextBox Name, Host, Channel, User, Ain;
+        public required ComboBox Type;
         public required PasswordBox Password;
         public required ComboBox Role;
         public required List<(CheckBox Box, string Host)> Miners;
@@ -72,6 +73,7 @@ public sealed class SmartPlugsPanel : StackPanel
     private static SmartPlugConfig Copy(SmartPlugConfig p) => new()
     {
         Id = p.Id, Name = p.Name, Host = p.Host, Channel = p.Channel, User = p.User, Role = p.Role, Miners = [.. p.Miners],
+        Type = p.Type, Ain = p.Ain,
     };
 
     private void ShowEmptyHint()
@@ -96,12 +98,18 @@ public sealed class SmartPlugsPanel : StackPanel
             Password = new PasswordBox { ToolTip = hasPassword ? L.T("gespeichert – leer lassen = unverändert") : L.T("Passwort (falls nötig)") },
             Role = new ComboBox { DisplayMemberPath = "Label", SelectedValuePath = "Value" },
             Miners = [],
+            // 0.9.14: Gerätetyp und AIN (FRITZ!DECT)
+            Type = new ComboBox { DisplayMemberPath = "Label", SelectedValuePath = "Value" },
+            Ain = new TextBox { Text = plug.Ain, ToolTip = L.T("AIN der Steckdose") },
         };
+        row.Type.ItemsSource = new[] { new { Value = "shelly", Label = "Shelly" }, new { Value = "tasmota", Label = "Tasmota" }, new { Value = "fritz", Label = "FRITZ!DECT" } };
+        row.Type.SelectedValue = string.IsNullOrEmpty(plug.Type) ? "shelly" : plug.Type;
         row.Role.ItemsSource = Roles.Select(r => new { r.Value, r.Label }).ToList();
         row.Role.SelectedValue = plug.Role;
 
         var grid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
         for (var c = 0; c < 3; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition());
         grid.RowDefinitions.Add(new RowDefinition());
         grid.RowDefinitions.Add(new RowDefinition());
         void Cell(int r, int c, string label, FrameworkElement input)
@@ -121,6 +129,11 @@ public sealed class SmartPlugsPanel : StackPanel
         Cell(1, 0, L.T("Benutzer (bei Gen2+ immer admin)"), row.User);
         Cell(1, 1, L.T("Passwort"), row.Password);
         Cell(1, 2, L.T("Kanal"), row.Channel);
+        Cell(2, 0, L.T("Typ"), row.Type);
+        Cell(2, 1, L.T("AIN der Steckdose"), row.Ain);
+        void UpdateType() => ((FrameworkElement)row.Ain.Parent).Visibility = (row.Type.SelectedValue as string) == "fritz" ? Visibility.Visible : Visibility.Collapsed;
+        row.Type.SelectionChanged += (_, _) => UpdateType();
+        UpdateType();
 
         var miners = new WrapPanel();
         foreach (var d in _host.Hub.Devices)
@@ -174,8 +187,10 @@ public sealed class SmartPlugsPanel : StackPanel
         Name = string.IsNullOrWhiteSpace(r.Name.Text) ? L.T("Smart Plug") : r.Name.Text.Trim(),
         Host = r.Host.Text.Trim(),
         Channel = int.TryParse(r.Channel.Text, out var ch) ? Math.Clamp(ch, 0, 3) : 0,
-        User = string.IsNullOrWhiteSpace(r.User.Text) ? "admin" : r.User.Text.Trim(),
+        User = string.IsNullOrWhiteSpace(r.User.Text) ? ((r.Type.SelectedValue as string) == "fritz" ? "" : "admin") : r.User.Text.Trim(),
         Role = r.Role.SelectedValue as string ?? "miners",
+        Type = r.Type.SelectedValue as string ?? "shelly",
+        Ain = new string(r.Ain.Text.Where(char.IsLetterOrDigit).ToArray()),
         Miners = (r.Role.SelectedValue as string) == "miners" ? r.Miners.Where(m => m.Box.IsChecked == true).Select(m => m.Host).ToList() : [],
     };
 
@@ -187,10 +202,12 @@ public sealed class SmartPlugsPanel : StackPanel
             IsEnabled = false;
             if (!SimulatedPlugClient.IsSimAddress(p.Host)) ShellyClient.BaseUri(p.Host);
             var password = row.Password.Password.Length > 0 ? row.Password.Password : _host.Hub.Secrets.Get(SmartPlugConfig.SecretKey(p.Id));
-            using IPlugClient client = SimulatedPlugClient.IsSimAddress(p.Host) ? new SimulatedPlugClient(() => 20) : new ShellyClient(p.Host, p.User, password);
+            using IPlugClient client = SimulatedPlugClient.IsSimAddress(p.Host) ? new SimulatedPlugClient(() => 20) : PlugClients.Create(p.Type, p.Host, p.User, password, p.Ain);
             var id = await client.IdentifyAsync();
             var r = await client.ReadAsync(p.Channel);
-            statusText.Text = L.T("{0} (Gen {1}): {2} W", id.Model, id.Generation, r.PowerW.ToString("0.0", L.Culture)) +
+            statusText.Text = (id.Generation > 0
+                    ? L.T("{0} (Gen {1}): {2} W", id.Model, id.Generation, r.PowerW.ToString("0.0", L.Culture))
+                    : L.T("{0}: {1} W", id.Model, r.PowerW.ToString("0.0", L.Culture))) +
                               (id.InsecureAuth ? "\n" + PlugIdentity.InsecureAuthHint : "");
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
@@ -208,6 +225,8 @@ public sealed class SmartPlugsPanel : StackPanel
         {
             foreach (var p in items.Where(p => !SimulatedPlugClient.IsSimAddress(p.Host))) ShellyClient.BaseUri(p.Host);
             if (items.Count(p => p.Role == "total") > 1) throw new LocalizedException("Höchstens ein Plug als Gesamtmessung.");
+            if (items.Any(p => p.Type == "fritz" && p.Ain.Length == 0 && !SimulatedPlugClient.IsSimAddress(p.Host)))
+                throw new LocalizedException("FRITZ!DECT: AIN der Steckdose eintragen (steht auf dem Gerät bzw. in der FRITZ!Box unter Smart Home).");
             return null;
         }
         catch (LocalizedException ex)

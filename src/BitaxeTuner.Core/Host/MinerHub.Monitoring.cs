@@ -341,6 +341,8 @@ public sealed partial class MinerHub
                 var cacheKey = string.Join(",", own.Select(m => m.Host)) + "|" + string.Join(",", ReportParts.All.Where(t.ReportIncludes));
                 if (cache.TryGetValue(cacheKey, out var cached)) return cached;
                 var text = DailyReport.Build(History!, Config, own, now, t.ReportIncludes).Message;
+                // 0.9.14: Ertrag gegen Stromkosten der letzten 24 h – nur für Ziele mit allen Minern (die Summe gilt für alle)
+                if (t.ReportIncludes(ReportParts.Income) && own.Count == miners.Count && ProfitLine(now) is { } pl) text += "\n" + pl;
                 var ownTips = t.ReportIncludes(ReportParts.Tips) ? tips.Where(x => own.Any(m => m.Host == x.Host)).Select(x => x.Line).ToList() : [];
                 if (ownTips.Count > 0) text += "\n\n" + string.Join("\n", ownTips) + L.T("\n(Anwenden nur nach Bestätigung: Vergleich → Empfehlungen)");
                 return cache[cacheKey] = text;

@@ -35,7 +35,7 @@
     </UserControl.Resources>
 
     <ScrollViewer x:Name="Scroller" Margin="10" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid MinHeight="1000" Height="{Binding ViewportHeight, ElementName=Scroller}">
+    <Grid MinHeight="1100" Height="{Binding ViewportHeight, ElementName=Scroller}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -69,6 +69,7 @@
                     <!-- Miner-Ansicht -->
                     <Grid x:Name="MinerPanel">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -176,8 +177,23 @@
                             </Border>
                         </UniformGrid>
 
+                        <!-- 0.9.14: Gesamtansicht – Gewinn und eine Karte je Miner (Klick wählt den Miner) -->
+                        <StackPanel Grid.Row="1" x:Name="OverviewExtras" Visibility="Collapsed">
+                            <Border x:Name="ProfitTile" Style="{StaticResource Tile}" Visibility="Collapsed">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Left" MinWidth="190" Margin="0,0,16,0">
+                                        <TextBlock x:Name="ProfitLabel" Text="{l:T 'GEWINN (24 H)'}" Style="{StaticResource TileLabel}"/>
+                                        <TextBlock x:Name="ProfitValue" Text="–" Style="{StaticResource TileValue}"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="ProfitSub" Text="" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                </DockPanel>
+                            </Border>
+                            <UniformGrid x:Name="MinerCards" Columns="4"/>
+                        </StackPanel>
+
                         <!-- Wallet -->
-                        <Border Grid.Row="1" Style="{StaticResource Tile}">
+                        <Border Grid.Row="2" Style="{StaticResource Tile}">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Left" Width="270" Margin="0,0,12,0">
                                     <TextBlock x:Name="WalletBoxLabel" Text="{l:T 'WALLET-ADRESSE (leer = aus Stratum-User)'}"
@@ -212,7 +228,7 @@
                         </Border>
 
                         <!-- Charts -->
-                        <Grid Grid.Row="2">
+                        <Grid Grid.Row="3">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
@@ -243,7 +259,7 @@
                             </Border>
                         </Grid>
 
-                        <Border Grid.Row="3" Style="{StaticResource Tile}">
+                        <Border Grid.Row="4" Style="{StaticResource Tile}">
                             <StackPanel>
                                 <TextBlock x:Name="PoolIdText" FontSize="11" Margin="0,0,0,3" Visibility="Collapsed"
                                            TextTrimming="CharacterEllipsis"/>

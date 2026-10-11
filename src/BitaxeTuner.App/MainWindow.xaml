@@ -89,6 +89,9 @@
                         <Button Click="OnPoolSwitchClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Pool umschalten (je Miner oder Gruppe) und Pool-Automatik: Ersatz-Pool nach Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares'}">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81E;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Pool …'}" /></StackPanel>
                         </Button>
+                        <Button Click="OnPoolPresetsClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Pool-Vorlagen anlegen und als Haupt- oder Ersatz-Pool auf Miner übertragen'}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F1;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Pool-Steuerung …'}" /></StackPanel>
+                        </Button>
                         <Button Click="OnReportClick" Style="{StaticResource NavButton}" ToolTip="{l:T 'Monats- und Jahresbericht: Energie, Kosten, Verfügbarkeit, Zuflüsse (Drucken/PDF, CSV)'}">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9F9;" Style="{StaticResource Glyph}" /><TextBlock Text="{l:T 'Bericht …'}" /></StackPanel>
                         </Button>

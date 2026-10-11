@@ -370,4 +370,54 @@ public class PoolAccountTests
         Assert.Equal(2, hub.TaxRepository.LoadPoolLedger().Count);
         Assert.Equal(L.T(MiningDutchClient.KeyRejected), hub.PoolAccount.Error);
     }
+
+    [Fact]
+    public async Task Hub_reports_new_payouts_once_and_dead_workers_after_two_rounds()
+    {
+        using var dir = new TempDir();
+        var gamma = BitaxeTuner.Core.Profiles.ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var config = new AppConfig { Notifications = { Provider = "ntfy", NtfyTopic = "t" } };
+        config.Devices.Add(new DeviceConfig { Name = "Werkbank", Host = "10.0.7.1" });
+        config.PoolAccount.Enabled = true;
+        config.PoolAccount.ApiKey = "k";
+        config.PoolAccount.NotifyCoinSwitch = true;
+        var day = DateTime.UtcNow.AddHours(-2);
+        var payouts = new List<string> { $$$"""{"id":"1","type":"Debit_AC","amount":"0.001","timestamp":"{{{PoolTime(day)}}}"}""" };
+        var alive = 1;
+        var coin = "digibyte";
+        var pool = new FakePool(url =>
+            url.Contains("getuserworkers")
+                ? (HttpStatusCode.OK, $$$$"""{"getuserworkers":{"data":{"miners":[{"username":"worker","nowMining":"{{{{coin}}}}","mergedMining":0,"mode":"PPS","alive":{{{{alive}}}},"hashrate":1100000000000,"lastshare":0}]}}}""")
+            : url.Contains("getuserbalance") ? (HttpStatusCode.OK, """{"getuserbalance":{"data":{"confirmed":"0","unconfirmed":"0"}}}""")
+            : (HttpStatusCode.OK, url.Contains("/bitcoin.php") ? $$$$"""{"getusertransactions":{"data":{"transactions":[{{{{string.Join(",", payouts)}}}}]}}}""" : """{"getusertransactions":{"data":{"transactions":[]}}}"""));
+        using var hub = new BitaxeTuner.Core.Host.MinerHub(config, new BitaxeTuner.Core.Host.MinerHubOptions
+        {
+            DataDirectory = dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new BitaxeTuner.Core.Simulation.SimulatedMinerClient(gamma, seed: 3, address: h),
+        })
+        { PoolClientFactory = key => new MiningDutchClient(key, pool, TimeSpan.Zero) };
+        var sent = new List<string>();
+        hub.Notify.TransportOverride = (_, _, _) => Task.CompletedTask;
+        hub.Notify.Sending += (key, _, _, _) => { lock (sent) sent.Add(key); };
+        await hub.PollNowAsync();
+        var state = hub.Polling.States.Single();
+        state.Info!.stratumURL = "stratum+tcp://sha256.mining-dutch.nl";
+        state.Info.stratumUser = "konto.worker";
+
+        await hub.PoolAccountTickAsync();                                            // erste Abfrage: alte Auszahlung nicht melden
+        Assert.DoesNotContain(sent, k => k.StartsWith("pool-payout"));
+
+        payouts.Add($$$"""{"id":"2","type":"Debit_AC","amount":"0.002","timestamp":"{{{PoolTime(day.AddMinutes(30))}}}"}""");
+        alive = 0;
+        coin = "wojakcoin";
+        await hub.PoolAccountTickAsync();
+        Assert.Single(sent, k => k.StartsWith("pool-payout:BTC:2"));
+        Assert.DoesNotContain(sent, k => k.StartsWith("pool-dead"));                 // erst nach zwei Abfragen in Folge
+        Assert.Contains(sent, k => k.StartsWith("pool-coin:10.0.7.1"));              // Coin-Wechsel (eingeschaltet)
+
+        await hub.PoolAccountTickAsync();
+        Assert.Single(sent, k => k.StartsWith("pool-dead:10.0.7.1"));
+        Assert.Single(sent, k => k.StartsWith("pool-payout"));                       // nichts doppelt
+    }
 }

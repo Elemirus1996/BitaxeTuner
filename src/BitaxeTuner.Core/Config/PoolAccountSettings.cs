@@ -34,6 +34,9 @@ public sealed class PoolAccountSettings
     /// </summary>
     public bool AutoExchange { get; set; } = true;
 
+    /// <summary>0.9.14: Push, wenn der Pool einem Worker einen anderen Coin gibt (Profit-Wechsel) – standardmäßig aus, da häufig.</summary>
+    public bool NotifyCoinSwitch { get; set; }
+
     public void Normalize()
     {
         ApiKey = (ApiKey ?? "").Trim();

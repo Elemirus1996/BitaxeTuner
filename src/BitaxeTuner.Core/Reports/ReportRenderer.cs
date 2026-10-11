@@ -45,6 +45,8 @@ public static class ReportRenderer
             Line(L.T("Zuflüsse"), L.T("Anzahl"), L.T("Menge"), L.T("Wert ({0})", Config.Currencies.Get(r.IncomeCode).Code), L.T("ohne Kurs"));
             foreach (var i in r.Income)
                 Line(i.Coin, i.Count.ToString(C), i.Amount.ToString("0.00000000", C), i.Eur.ToString("0.00", C), i.EurMissing.ToString(C));
+            // 0.9.14: Ertrag gegen Stromkosten
+            Line(L.T("Saldo (Zuflüsse − Stromkosten, {0})", r.IncomeSymbol), (r.IncomeEur - (decimal)r.Energy.Cost).ToString("0.00", C));
         }
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
     }
@@ -85,6 +87,7 @@ public static class ReportRenderer
         Tile(L.T("Stromkosten"), r.Energy.Cost.ToString("0.00", C) + " " + r.Currency);
         Tile(L.T("Ø Strompreis"), r.Energy.AvgCt is { } ct ? ct.ToString("0.0", C) + " " + Config.Currencies.Get(r.IncomeCode).CentPerKwh : "–");
         if (r.Income.Count > 0) Tile(L.T("Zuflüsse"), r.IncomeEur.ToString("0.00", C) + " " + r.IncomeSymbol);
+        if (r.Income.Count > 0) Tile(L.T("Saldo"), (r.IncomeEur - (decimal)r.Energy.Cost).ToString("+0.00;-0.00", C) + " " + r.IncomeSymbol);
         sb.Append("</div>");
         if (r.Energy.DynamicHours > 0)
             sb.Append($"<div class=\"muted\">{E(L.T("{0} von {1} Stunden mit Stundenpreis der Strompreis-Quelle, sonst fester Preis.", r.Energy.DynamicHours, r.Energy.Hours))}</div>");

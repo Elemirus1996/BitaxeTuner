@@ -24,11 +24,11 @@ public static class ConfigSecrets
         "BlockchairApiKey", "CoinGeckoApiKey", "NtfyTopic", "TelegramBotToken", "DiscordWebhookUrl",
         "PushoverUserKey", "PushoverAppToken", "WebhookUrl", "TibberToken",
     ];
-    // Außerdem: Server.Token (Desktop-App), WebView.PinHash (Ansicht-PIN, Audit S6) und PoolAccount.ApiKey (0.9.12)
+    // Außerdem: Server.Token (Desktop-App), WebView.PinHash (Ansicht-PIN, Audit S6), PoolAccount.ApiKey (0.9.12) und PoolPresets[].Password (0.9.14)
 
     private static bool IsSecret(string name, string? parent) =>
         Names.Contains(name) || (name == "Token" && parent == "Server") || (name == "PinHash" && parent == "WebView")
-        || (name == "ApiKey" && parent == "PoolAccount");
+        || (name == "ApiKey" && parent == "PoolAccount") || (name == "Password" && parent == "PoolPresets");
 
     /// <summary>
     /// Geheimnisse in <paramref name="root"/> durch Verweise ersetzen und in secrets.json ablegen. Erst wird secrets.json

@@ -41,6 +41,10 @@ public static class Dto
             time = now,
             running = hub.IsRunning,
             tempWarn = hub.Config.TempWarn,   // 0.9.14: Temperaturbalken und „warm“ auf den Miner-Karten
+            // 0.9.14: Ertrag gegen Stromkosten – nur Admin (Erträge) und nicht bei eingeschränkter Ansicht
+            profit = role == Role.Admin && !scope.Restricted && hub.Profit(now) is { } pf
+                ? new { pf.Currency, pf.Source, windows = pf.Windows.Select(w => new { w.Key, w.Income, w.Cost, w.Net, w.Kwh, w.Partial }) }
+                : null,
             look = new   // 0.9.14: Darstellung als Standard für alle Browser (eigene Werte je Browser haben Vorrang)
             {
                 bg = hub.Config.Appearance.Background,
@@ -261,6 +265,7 @@ public static class Dto
             taxBasis = cfg.TaxBasis == Core.Pools.PoolIncomeBasis.Payout ? "payout" : "credit",
             taxImport = cfg.TaxImport,
             autoExchange = cfg.AutoExchange,
+            notifyCoinSwitch = cfg.NotifyCoinSwitch,
             busy = st.Busy,
             lastPoll = st.LastPollUtc is { } lp ? new DateTimeOffset(lp) : (DateTimeOffset?)null,
             error = st.Error,
