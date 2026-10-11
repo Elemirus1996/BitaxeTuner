@@ -14,7 +14,7 @@ public static class PoolEndpoints
 
     /// <summary>0.9.14: Vorlage aus dem Browser. Password null = unverändert, ClearPassword = löschen.</summary>
     public sealed record PoolPresetDto(string? Id, string? Name, string? Url, int Port, string? User, string? Worker, int Tls, string? Notes,
-        string? Password, bool ClearPassword);
+        string? Password, bool ClearPassword, bool? DecodeCoinbase = null);
 
     public sealed record PoolPresetsRequest(List<PoolPresetDto>? Presets);
 
@@ -24,7 +24,7 @@ public static class PoolEndpoints
 
     private static object PresetJson(PoolPreset p) => new
     {
-        p.Id, p.Name, p.Url, p.Port, p.User, p.Worker, p.Tls, p.Notes, hasPassword = p.Password.Length > 0,
+        p.Id, p.Name, p.Url, p.Port, p.User, p.Worker, p.Tls, p.Notes, p.DecodeCoinbase, hasPassword = p.Password.Length > 0,
     };
 
     private static List<PoolAssignment> Assignments(MinerHub h, PoolAssignRequest req) =>
@@ -163,7 +163,7 @@ public static class PoolEndpoints
                 return new PoolPreset
                 {
                     Id = p.Id ?? "", Name = p.Name ?? "", Url = p.Url ?? "", Port = p.Port, User = p.User ?? "",
-                    Worker = p.Worker ?? "keep", Tls = p.Tls, Notes = p.Notes ?? "",
+                    Worker = p.Worker ?? "keep", Tls = p.Tls, Notes = p.Notes ?? "", DecodeCoinbase = p.DecodeCoinbase,
                     Password = p.ClearPassword ? "" : p.Password ?? old?.Password ?? "",
                 };
             }).ToList();

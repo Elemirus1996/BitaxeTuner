@@ -3778,13 +3778,16 @@ async function renderPools() {
         oninput: e => { passwords[p.id || i] = e.target.value; touch(); },
       })),
       h('div', {}, h('label', {}, 'TLS'), select(tlsModes, p.tls || 0, v => { p.tls = +v; touch(); })),
+      h('div', {}, h('label', { title: t('Der Miner entschlüsselt die Coinbase-Transaktion des Pools und zeigt in AxeOS, an welche Adresse die Blockbelohnung ginge – wichtige Kontrolle bei Solo-Pools.') }, t('Coinbase entschlüsseln')),
+        select([['', t('– unverändert –')], ['true', t('an')], ['false', t('aus')]], p.decodeCoinbase == null ? '' : String(p.decodeCoinbase),
+          v => { p.decodeCoinbase = v === '' ? null : v === 'true'; touch(); })),
       h('div', {}, h('label', {}, t('Notiz')), h('input', { value: p.notes || '', oninput: e => { p.notes = e.target.value; touch(); } }))),
     p.hasPassword ? h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: e => { e.target.checked ? clearPw.add(p.id) : clearPw.delete(p.id); touch(); } }), ' ', t('Gespeichertes Passwort löschen')) : null))
     : h('p', { class: 'muted small' }, t('Noch keine Vorlage. Lege eine an oder übernimm die Pools eines Miners.')));
 
   const save = async () => {
     const body = { presets: presets.map((p, i) => ({ id: p.id || '', name: p.name, url: p.url, port: +p.port || 3333, user: p.user, worker: p.worker || 'keep',
-      tls: +p.tls || 0, notes: p.notes || '', password: passwords[p.id || i] || null, clearPassword: clearPw.has(p.id) })) };
+      tls: +p.tls || 0, notes: p.notes || '', decodeCoinbase: p.decodeCoinbase ?? null, password: passwords[p.id || i] || null, clearPassword: clearPw.has(p.id) })) };
     const r = await run(() => api('/pool-presets', { method: 'PUT', body }), t('Pool-Vorlagen gespeichert.'));
     if (!r) return false;
     presets = r.presets.map(p => ({ ...p }));

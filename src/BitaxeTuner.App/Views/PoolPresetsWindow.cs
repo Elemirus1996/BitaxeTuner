@@ -182,6 +182,13 @@ public sealed class PoolPresetsWindow : Window
             tls.SelectionChanged += (_, _) => { preset.Tls = tls.SelectedIndex; _dirty = true; };
             Put(Field("TLS", tls), 1, 2);
             Put(Field(L.T("Notiz"), Box(preset.Notes, v => preset.Notes = v)), 1, 3);
+            // 0.9.15 Coinbase entschlüsseln (AxeOS „Decode Coinbase“)
+            grid.RowDefinitions.Add(new RowDefinition());
+            var coinbase = new ComboBox { ToolTip = L.T("Der Miner entschlüsselt die Coinbase-Transaktion des Pools und zeigt in AxeOS, an welche Adresse die Blockbelohnung ginge – wichtige Kontrolle bei Solo-Pools.") };
+            foreach (var (value, label) in new (bool?, string)[] { (null, L.T("– unverändert –")), (true, L.T("an")), (false, L.T("aus")) })
+                coinbase.Items.Add(new ComboBoxItem { Content = label, Tag = value, IsSelected = value == preset.DecodeCoinbase });
+            coinbase.SelectionChanged += (_, _) => { preset.DecodeCoinbase = (bool?)((ComboBoxItem)coinbase.SelectedItem).Tag; _dirty = true; };
+            Put(Field(L.T("Coinbase entschlüsseln"), coinbase), 2, 0);
 
             var head = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
             var remove = Btn(L.T("Entfernen"), () => { _presets.Remove(preset); _dirty = true; DrawPresets(); return Task.CompletedTask; });

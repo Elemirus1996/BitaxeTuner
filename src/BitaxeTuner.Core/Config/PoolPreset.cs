@@ -19,6 +19,12 @@ public sealed class PoolPreset
     public string Password { get; set; } = "";
     /// <summary>ESP-Miner „stratumTLS“: 0 = aus, 1 = TLS, 2 = TLS mit eigenem Zertifikat. Nur Firmware, die das Feld kennt.</summary>
     public int Tls { get; set; }
+    /// <summary>
+    /// 0.9.15 ESP-Miner „stratumDecodeCoinbase“ (AxeOS „Decode Coinbase“): Der Miner entschlüsselt die Coinbase-Transaktion des
+    /// Pools und zeigt, an welche Adresse die Blockbelohnung ginge – wichtige Kontrolle bei Solo-Pools.
+    /// null = auf dem Miner unverändert lassen. Nur Firmware, die das Feld kennt.
+    /// </summary>
+    public bool? DecodeCoinbase { get; set; }
     public string Notes { get; set; } = "";
 
     public static readonly string[] WorkerModes = ["keep", "name", "none"];

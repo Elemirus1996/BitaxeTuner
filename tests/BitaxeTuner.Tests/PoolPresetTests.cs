@@ -100,4 +100,25 @@ public sealed class PoolPresetTests : IDisposable
         Assert.False(patch.ContainsKey("fallbackStratumURL"));      // Ersatz-Pool bleibt
         Assert.Equal("solo.example.org", _sims[d.Host].PoolEntries[0].Url);
     }
+
+    [Fact]
+    public async Task Decode_coinbase_alone_is_previewed_and_written()
+    {
+        Assert.True(await _hub.PollNowAsync());
+        SavePresets();
+        var d = _hub.Device("10.0.0.51")!;
+        var a = new PoolAssignment(d.Host, "solo", null);
+        await _hub.ApplyPoolAssignmentsAsync([a], "Test");                 // Pool ist jetzt gesetzt
+
+        var presets = _hub.Config.PoolPresets.Select(p => p.Clone()).ToList();
+        presets.Single(p => p.Id == "solo").DecodeCoinbase = false;
+        _hub.SavePoolPresets(presets, "Test");
+        var preview = await _hub.PoolAssignPreviewAsync(d, a);
+        Assert.Null(preview.Skip);
+        var change = Assert.Single(preview.Changes);                         // nur Coinbase, Adresse bleibt gleich
+        Assert.Contains("Coinbase", change.Label);
+        await _hub.ApplyPoolAssignmentsAsync([a], "Test");
+        var entry = Assert.IsType<JsonArray>(_sims[d.Host].LastPatch!["pools"]).OfType<JsonObject>().Single();
+        Assert.False((bool)entry["stratumDecodeCoinbase"]!);
+    }
 }

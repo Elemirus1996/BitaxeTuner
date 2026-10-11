@@ -10,9 +10,9 @@ namespace BitaxeTuner.Core.Pools;
 /// </summary>
 public static class PoolWrite
 {
-    // Adresse, Port, Benutzer, Passwort, TLS – im alten Format je Haupt- und Ersatz-Pool
-    private static readonly string[] Primary = ["stratumURL", "stratumPort", "stratumUser", "stratumPassword", "stratumTLS"];
-    private static readonly string[] Fallback = ["fallbackStratumURL", "fallbackStratumPort", "fallbackStratumUser", "fallbackStratumPassword", "fallbackStratumTLS"];
+    // Adresse, Port, Benutzer, Passwort, TLS, Coinbase entschlüsseln – im alten Format je Haupt- und Ersatz-Pool
+    private static readonly string[] Primary = ["stratumURL", "stratumPort", "stratumUser", "stratumPassword", "stratumTLS", "stratumDecodeCoinbase"];
+    private static readonly string[] Fallback = ["fallbackStratumURL", "fallbackStratumPort", "fallbackStratumUser", "fallbackStratumPassword", "fallbackStratumTLS", "fallbackStratumDecodeCoinbase"];
 
     /// <summary>Enthält der PATCH Pool-Felder im alten Format?</summary>
     public static bool HasLegacyPoolFields(IReadOnlyDictionary<string, object> patch) =>
@@ -26,8 +26,8 @@ public static class PoolWrite
         var root = JsonNode.Parse(currentRawInfo) as JsonObject;
         if (root?["pools"] is not JsonArray list || root["primaryPoolIndex"] is null)
         {
-            // alte Firmware/NerdQAxe: Felder bleiben; TLS nur, wenn die Firmware es kennt
-            foreach (var k in new[] { Primary[4], Fallback[4] })
+            // alte Firmware/NerdQAxe: Felder bleiben; TLS und Coinbase nur, wenn die Firmware sie kennt
+            foreach (var k in new[] { Primary[4], Fallback[4], Primary[5], Fallback[5] })
                 if (root is null || !root.ContainsKey(k)) result.Remove(k);
             return result;
         }
@@ -56,6 +56,7 @@ public static class PoolWrite
             // ohne neues Passwort „*****“: die Firmware behält das gespeicherte
             entry["stratumPassword"] = result.Remove(keys[3], out var pw) && pw.ToString() is { Length: > 0 } p ? p : "*****";
             if (result.Remove(keys[4], out var tls)) entry["stratumTLS"] = Convert.ToInt32(tls, System.Globalization.CultureInfo.InvariantCulture);
+            if (result.Remove(keys[5], out var decode)) entry["stratumDecodeCoinbase"] = decode is bool b ? b : Convert.ToInt32(decode, System.Globalization.CultureInfo.InvariantCulture) != 0;
             if (Str(entry["stratumURL"]).Length == 0 || Str(entry["stratumUser"]).Length == 0)
                 throw new InvalidOperationException(I18n.L.T("Pool-Adresse und Benutzer dürfen nicht leer sein."));
             if (entry["stratumPort"] is null) entry["stratumPort"] = 3333;

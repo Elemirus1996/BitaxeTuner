@@ -72,4 +72,19 @@ public class PoolWriteTests
     {
         Assert.Throws<InvalidOperationException>(() => PoolWrite.Adapt(Indexed, new Dictionary<string, object> { ["stratumUser"] = "" }));
     }
+
+    [Fact]
+    public void Decode_coinbase_goes_into_the_pool_entry_or_only_to_firmware_that_knows_it()
+    {
+        var patch = PoolWrite.Adapt(Indexed, new Dictionary<string, object> { ["stratumDecodeCoinbase"] = false });
+        var entry = Assert.IsType<JsonArray>(patch["pools"]).OfType<JsonObject>().Single();
+        Assert.Equal(1, (int)entry["id"]!);
+        Assert.False((bool)entry["stratumDecodeCoinbase"]!);
+        Assert.Equal("a.example", (string)entry["stratumURL"]!);              // Rest des Eintrags bleibt
+
+        const string legacyWith = """{"stratumURL":"a.example","stratumPort":3333,"stratumUser":"w.1","stratumDecodeCoinbase":true}""";
+        Assert.Equal(false, PoolWrite.Adapt(legacyWith, new Dictionary<string, object> { ["stratumDecodeCoinbase"] = false })["stratumDecodeCoinbase"]);
+        const string legacyWithout = """{"stratumURL":"a.example","stratumPort":3333,"stratumUser":"w.1"}""";
+        Assert.Empty(PoolWrite.Adapt(legacyWithout, new Dictionary<string, object> { ["stratumDecodeCoinbase"] = false }));
+    }
 }

@@ -145,6 +145,9 @@ public static class WhatsNew
                 server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
                        : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
                 null),
+            new("0.9.15", tr.T("Coinbase entschlüsseln in den Pool-Vorlagen"),
+                tr.T("Pool-Vorlagen können jetzt auch „Coinbase entschlüsseln“ (AxeOS „Decode Coinbase“) an- oder ausschalten. Der Miner zeigt dann in AxeOS, an welche Adresse die Blockbelohnung ginge – wichtige Kontrolle bei Solo-Pools. Auch einzeln übertragbar, mit Vorschau alt → neu."),
+                null),
             new("0.9.15", tr.T("Als App aufs Handy"),
                 tr.T("Im Benutzermenü oben rechts öffnet „Als App installieren …“ den Installationsdialog des Browsers bzw. zeigt die Schritte für Android, iPhone und PC – inklusive Hinweis auf „HTTPS ohne Warnung“, das Browser für die Installation verlangen."),
                 null),

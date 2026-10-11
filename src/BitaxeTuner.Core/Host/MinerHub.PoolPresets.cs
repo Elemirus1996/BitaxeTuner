@@ -122,6 +122,12 @@ public sealed partial class MinerHub
                     changed = true;
                 }
                 if (preset.Password.Length > 0 && changed) changes.Add(new PoolAssignChange(L.T("{0}-Passwort", label), "•••", L.T("aus der Vorlage")));
+                // 0.9.15 Coinbase entschlüsseln – eigenständig, auch wenn sonst alles gleich ist
+                if (preset.DecodeCoinbase is { } want && CurrentDecodeCoinbase(root, layout, current, prefix) is { } now && now != want)
+                {
+                    changes.Add(new PoolAssignChange(L.T("{0} Coinbase entschlüsseln", label), now ? L.T("an") : L.T("aus"), want ? L.T("an") : L.T("aus")));
+                    patch[prefix + "DecodeCoinbase"] = want;
+                }
                 if (!changed) return;
                 patch[prefix + "URL"] = preset.Url;
                 patch[prefix + "Port"] = preset.Port;
@@ -144,6 +150,16 @@ public sealed partial class MinerHub
               ?? JsonValue.Create(0)
             : root[prefix + "TLS"];
         return node is JsonValue v ? v.TryGetValue<int>(out var i) ? i : v.TryGetValue<bool>(out var b) ? (b ? 1 : 0) : 0 : null;
+    }
+
+    /// <summary>„Coinbase entschlüsseln“ des Pools (null = Firmware kennt das Feld nicht).</summary>
+    private static bool? CurrentDecodeCoinbase(JsonObject root, PoolLayout layout, PoolSlot? slot, string prefix)
+    {
+        JsonNode? node = layout.Indexed
+            ? (root["pools"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault(e => slot is not null && (int?)e["id"] == slot.Index)?["stratumDecodeCoinbase"]
+            : root[prefix + "DecodeCoinbase"];
+        if (node is not JsonValue v) return layout.Indexed && slot is not null ? true : null;   // ESP-Miner-Standard: an
+        return v.TryGetValue<bool>(out var b) ? b : v.TryGetValue<int>(out var i) ? i != 0 : null;
     }
 
     private static string TlsText(int tls) => tls switch { 0 => L.T("aus"), 1 => "TLS", _ => L.T("TLS (eigenes Zertifikat)") };
