@@ -89,6 +89,12 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
   Miner als Haupt- bzw. Ersatz-Pool übertragen – Vorschau alt → neu, vorher Sicherung, danach Neustart, alles im
   Protokoll. Worker-Name wahlweise vom Miner behalten, Minername oder genau wie in der Vorlage; Passwörter liegen in
   `secrets.json`.
+- **Pool-Vergleich** (ab 0.9.15, gleiche Seite bzw. gleiches Fenster): alle 10 Minuten je Miner gesammelt – je Pool
+  abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto
+  Ertrag je TH und Tag; 24 Stunden, 7 oder 30 Tage.
+- **Mining-Art-Vergleich** (ab 0.9.15): Erwartungswert deiner Hashrate bei PPS, PPLNS, Solo BTC und Solo BCH (Difficulty,
+  Kurs, Blockprämie + geschätzte Gebühren, Pool-Gebühren einstellbar) mit Stromkosten und Saldo, für Solo die Chance je
+  Monat; mit Pool-Konto daneben der tatsächliche Ertrag der letzten 7 Tage.
 - **Miner-Gruppen** (z. B. „Community“, „Keller“): Filter und Summen in der Übersicht (Browser), Gruppenfilter im
   Vergleich, Push-Dienste für ganze Gruppen – neue Mitglieder bekommen Meldungen und Berichte automatisch.
 - **Gruppen-Automatik** (ab 0.9.7, Browser → Gruppe wählen → *Gruppen-Automatik*): ein Zeitplan oder eine

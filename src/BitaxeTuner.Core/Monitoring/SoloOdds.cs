@@ -29,9 +29,15 @@ public sealed class SoloOddsService
     private static readonly TimeSpan CacheTime = TimeSpan.FromHours(1);
 
     private readonly BlockchairBlockchainService _blockchair;
+    private readonly Func<CancellationToken, Task<double?>>? _btcFallback;
     private readonly Dictionary<CoinType, (DateTime Fetched, double? Value)> _difficulty = new();
 
-    public SoloOddsService(BlockchairBlockchainService blockchair) => _blockchair = blockchair;
+    /// <param name="btcFallback">0.9.15: Ausweichquelle für die BTC-Difficulty (mempool.space), wenn Blockchair nicht antwortet.</param>
+    public SoloOddsService(BlockchairBlockchainService blockchair, Func<CancellationToken, Task<double?>>? btcFallback = null)
+    {
+        _blockchair = blockchair;
+        _btcFallback = btcFallback;
+    }
 
     public async Task RefreshAsync(CancellationToken ct = default)
     {
@@ -39,13 +45,19 @@ public sealed class SoloOddsService
         {
             lock (_difficulty)
             {
-                if (_difficulty.TryGetValue(coin, out var e) && e.Value.HasValue && DateTime.UtcNow - e.Fetched < CacheTime)
+                // Fehlschlag (z. B. Blockchair-Sperre 430) erst nach 10 min erneut versuchen
+                if (_difficulty.TryGetValue(coin, out var e) && DateTime.UtcNow - e.Fetched < (e.Value.HasValue ? CacheTime : TimeSpan.FromMinutes(10)))
                     continue;
             }
 
             double? value = null;
             try { value = await _blockchair.GetDifficultyAsync(coin, ct); }
             catch { /* bleibt null, nächster Versuch beim nächsten Durchlauf */ }
+            if (value is null && coin == CoinType.Bitcoin && _btcFallback is not null)
+            {
+                try { value = await _btcFallback(ct); }
+                catch { /* beide Quellen nicht erreichbar */ }
+            }
 
             lock (_difficulty) _difficulty[coin] = (DateTime.UtcNow, value);
         }

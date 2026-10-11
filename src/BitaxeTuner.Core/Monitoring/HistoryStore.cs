@@ -183,6 +183,22 @@ public sealed class HistoryStore : IDisposable
                 PRIMARY KEY (host, ts)
             );
             """);
+        // 0.9.15: Pool-Vergleich – alle 10 min je Miner: aktiver Pool, Haupt-Pool, Ersatz aktiv, Share-Zähler,
+        // Antwortzeit, Hashrate (rein additiv, Aufbewahrung wie der Verlauf)
+        Execute("""
+            CREATE TABLE IF NOT EXISTS pool_samples (
+                host        TEXT    NOT NULL,
+                ts          INTEGER NOT NULL,
+                pool        TEXT    NOT NULL,
+                primary_pool TEXT   NOT NULL,
+                fallback    INTEGER NOT NULL,
+                accepted    REAL    NOT NULL,
+                rejected    REAL    NOT NULL,
+                response_ms REAL,
+                hashrate    REAL    NOT NULL,
+                PRIMARY KEY (host, ts)
+            );
+            """);
         // 0.9.0: dauerhaftes Protokoll (Tuning, Benchmark, Lüfter, Verbindung …) – rein additiv
         Execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -288,6 +304,55 @@ public sealed class HistoryStore : IDisposable
             cmd.Parameters.AddWithValue("$r", rejected);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>0.9.15 Pool-Vergleich: ein Wert je Miner und 10 Minuten (Pool „url:port“ in Kleinbuchstaben).</summary>
+    public sealed record PoolSample(string Host, DateTime Time, string Pool, string PrimaryPool, bool Fallback,
+        double Accepted, double Rejected, double? ResponseMs, double Hashrate);
+
+    public void AddPoolSample(string host, DateTime time, string pool, string primaryPool, bool fallback,
+        double accepted, double rejected, double? responseMs, double hashrate)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 600 * 600;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR REPLACE INTO pool_samples (host, ts, pool, primary_pool, fallback, accepted, rejected, response_ms, hashrate)
+                VALUES ($h, $ts, $p, $pp, $f, $a, $r, $ms, $hr);
+                """;
+            cmd.Parameters.AddWithValue("$h", host);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$p", pool);
+            cmd.Parameters.AddWithValue("$pp", primaryPool);
+            cmd.Parameters.AddWithValue("$f", fallback ? 1 : 0);
+            cmd.Parameters.AddWithValue("$a", accepted);
+            cmd.Parameters.AddWithValue("$r", rejected);
+            cmd.Parameters.AddWithValue("$ms", responseMs is { } ms ? ms : DBNull.Value);
+            cmd.Parameters.AddWithValue("$hr", hashrate);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Pool-Werte aller Miner im Zeitraum, nach Miner und Zeit sortiert.</summary>
+    public List<PoolSample> QueryPoolSamples(DateTime from, DateTime to)
+    {
+        var list = new List<PoolSample>();
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT host, ts, pool, primary_pool, fallback, accepted, rejected, response_ms, hashrate FROM pool_samples
+                WHERE ts >= $from AND ts < $to ORDER BY host, ts;
+                """;
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new PoolSample(r.GetString(0), DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(1)).LocalDateTime, r.GetString(2),
+                    r.GetString(3), r.GetInt64(4) != 0, r.GetDouble(5), r.GetDouble(6), r.IsDBNull(7) ? null : r.GetDouble(7), r.GetDouble(8)));
+        }
+        return list;
     }
 
     public List<HealthSample> QueryHealth(string host, DateTime from, DateTime to)
@@ -953,7 +1018,7 @@ public sealed class HistoryStore : IDisposable
             FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
-                              " DELETE FROM chip_temps WHERE ts < $cutoff;" +
+                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist

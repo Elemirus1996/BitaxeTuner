@@ -19,6 +19,10 @@ public sealed class PoolPresetsWindow : Window
     private readonly HashSet<PoolPreset> _clearPassword = new();
     private readonly StackPanel _list = new();
     private readonly StackPanel _assign = new();
+    private readonly StackPanel _compare = new();
+    private readonly ComboBox _range = new() { MinWidth = 140 };
+    private readonly StackPanel _modes = new();
+    private readonly TextBox _ppsFee = new() { Width = 60 }, _pplnsFee = new() { Width = 60 }, _soloFee = new() { Width = 60 }, _btcFees = new() { Width = 70 };
     private readonly Dictionary<string, (ComboBox Primary, ComboBox Fallback, TextBlock Current)> _rows = new(StringComparer.OrdinalIgnoreCase);
     private bool _dirty;
 
@@ -70,6 +74,35 @@ public sealed class PoolPresetsWindow : Window
         root.Children.Add(Heading(L.T("Auf Miner übertragen")));
         root.Children.Add(Text(L.T("Wähle je Miner die Vorlage für Haupt- und Ersatz-Pool. „unverändert“ lässt den Eintrag, wie er ist. Der Worker-Name richtet sich nach der Vorlage."), true));
         root.Children.Add(_assign);
+
+        // 0.9.15 Pool-Vergleich
+        var cmpHead = new DockPanel { Margin = new Thickness(0, 10, 0, 4) };
+        foreach (var (key, label) in new[] { ("24h", L.T("24 Stunden")), ("7d", L.T("7 Tage")), ("30d", L.T("30 Tage")) })
+            _range.Items.Add(new ComboBoxItem { Content = label, Tag = key, IsSelected = key == "7d" });
+        _range.SelectionChanged += (_, _) => DrawComparison();
+        DockPanel.SetDock(_range, Dock.Right);
+        cmpHead.Children.Add(_range);
+        var cmpTitle = Heading(L.T("Pool-Vergleich"));
+        cmpTitle.Margin = new Thickness(0);
+        cmpHead.Children.Add(cmpTitle);
+        root.Children.Add(cmpHead);
+        root.Children.Add(_compare);
+        DrawComparison();
+
+        // 0.9.15 Mining-Art-Vergleich
+        root.Children.Add(Heading(L.T("Mining-Art-Vergleich")));
+        var defaults = new Core.Monitoring.MiningModeAssumptions();
+        _ppsFee.Text = defaults.PpsFeePercent.ToString(L.Culture);
+        _pplnsFee.Text = defaults.PplnsFeePercent.ToString(L.Culture);
+        _soloFee.Text = defaults.SoloFeePercent.ToString(L.Culture);
+        _btcFees.Text = defaults.BtcFeesPerBlock.ToString(L.Culture);
+        var assumptions = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+        foreach (var (label, box) in new[] { (L.T("Gebühr PPS (%)"), _ppsFee), (L.T("Gebühr PPLNS (%)"), _pplnsFee), (L.T("Gebühr Solo-Pool (%)"), _soloFee), (L.T("Transaktionsgebühren je BTC-Block"), _btcFees) })
+            assumptions.Children.Add(Field(label, box));
+        assumptions.Children.Add(Btn(L.T("Neu rechnen"), DrawModesAsync));
+        root.Children.Add(assumptions);
+        root.Children.Add(_modes);
+        Loaded += async (_, _) => await DrawModesAsync();
         root.Children.Add(Text(L.T("Umschalten zwischen Haupt- und Ersatz-Pool sowie die Pool-Automatik findest du unter „Pool …“."), true));
 
         Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -222,6 +255,113 @@ public sealed class PoolPresetsWindow : Window
         }
     }
 
+    // ---------- Pool-Vergleich ----------
+
+    private void DrawComparison()
+    {
+        _compare.Children.Clear();
+        var result = Hub.PoolComparisonFor((_range.SelectedItem as ComboBoxItem)?.Tag as string, DateTime.Now);
+        if (result.Rows.Count == 0)
+        {
+            _compare.Children.Add(Text(L.T("Noch keine Werte – BitaxeTuner sammelt sie alle 10 Minuten je Miner."), true));
+            return;
+        }
+        var c = L.Culture;
+        string Pct(double? v) => v is { } x ? x.ToString(x < 10 ? "0.00" : "0.0", c) + " %" : "–";
+        string Hours(double h) => h > 0 ? h.ToString("0.0", c) + " h" : "–";
+        var headers = new[] { L.T("Pool"), L.T("Miner"), L.T("Stunden"), L.T("abgelehnt"), L.T("Antwort"), L.T("erreichbar als Haupt-Pool"), L.T("Ausfall"), L.T("als Ersatz"), L.T("Ø Hashrate"), L.T("Ertrag/TH/Tag") };
+        var grid = new Grid();
+        for (var i = 0; i <= headers.Length; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = i == headers.Length ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
+        var row = 0;
+        void Cell(string text, int col, bool head = false, System.Windows.Media.Brush? brush = null)
+        {
+            var t = new TextBlock { Text = text, Margin = new Thickness(0, 2, 12, 2), FontWeight = head ? FontWeights.SemiBold : FontWeights.Normal, TextTrimming = TextTrimming.CharacterEllipsis };
+            if (col == 0 && !head) t.FontFamily = new System.Windows.Media.FontFamily("Consolas");
+            if (brush is not null) t.Foreground = brush;
+            if (head) t.TextWrapping = TextWrapping.Wrap;
+            Grid.SetRow(t, row);
+            Grid.SetColumn(t, col);
+            grid.Children.Add(t);
+        }
+        grid.RowDefinitions.Add(new RowDefinition());
+        for (var i = 0; i < headers.Length; i++) Cell(headers[i], i, head: true);
+        var warn = Themes.ThemeManager.Brush("WarnBrush");
+        foreach (var r in result.Rows)
+        {
+            row++;
+            grid.RowDefinitions.Add(new RowDefinition());
+            Cell(r.Pool, 0);
+            Cell(r.Miners.ToString(c), 1);
+            Cell(r.Hours.ToString("0.0", c), 2);
+            Cell(Pct(r.RejectPercent), 3, brush: r.RejectPercent > 1 ? warn : null);
+            Cell(r.ResponseMs is { } ms ? ms.ToString("0", c) + " ms" : "–", 4);
+            Cell(Pct(r.AvailabilityPercent), 5, brush: r.AvailabilityPercent < 99 ? warn : null);
+            Cell(Hours(r.OutageHours), 6);
+            Cell(Hours(r.FallbackHours), 7);
+            Cell(r.AvgHashrateGh is { } gh ? (gh >= 1000 ? (gh / 1000).ToString("0.00", c) + " TH/s" : gh.ToString("0", c) + " GH/s") : "–", 8);
+            Cell(r.IncomePerThDay is { } inc ? inc.ToString("0.00", c) + " " + result.Currency : "–", 9);
+        }
+        _compare.Children.Add(grid);
+        _compare.Children.Add(Text(L.T("„abgelehnt“ aus den Share-Zählern der Miner, „Antwort“ wie in AxeOS. „Ausfall“: Zeit, in der der Miner wegen dieses Haupt-Pools auf den Ersatz-Pool ausweichen musste. Ertrag je TH nur mit Pool-Konto.") +
+            (result.IncomeShared ? " " + L.T("Mining-Dutch: Der Ertrag des Kontos ist nach Hashrate auf alle Mining-Dutch-Ports verteilt.") : ""), true));
+    }
+
+    // ---------- Mining-Art-Vergleich ----------
+
+    private async Task DrawModesAsync()
+    {
+        var c = L.Culture;
+        double Num(TextBox b, double fallback) => double.TryParse(b.Text, System.Globalization.NumberStyles.Float, c, out var v) && v >= 0 ? v : fallback;
+        var d = new Core.Monitoring.MiningModeAssumptions();
+        var a = new Core.Monitoring.MiningModeAssumptions(Math.Min(50, Num(_ppsFee, d.PpsFeePercent)), Math.Min(50, Num(_pplnsFee, d.PplnsFeePercent)),
+            Math.Min(50, Num(_soloFee, d.SoloFeePercent)), Math.Min(10, Num(_btcFees, d.BtcFeesPerBlock)), d.BchFeesPerBlock);
+        _modes.Children.Clear();
+        _modes.Children.Add(Text(L.T("Lade …"), true));
+        MiningModesResult r;
+        try { r = await Hub.MiningModesAsync(a, DateTime.Now); }
+        catch (Exception ex) { _modes.Children.Clear(); _modes.Children.Add(Text(ex.Message, true)); return; }
+        _modes.Children.Clear();
+        string Money(decimal? v) => v is { } x ? x.ToString("0.00", c) + " " + r.Currency : "–";
+        var hash = r.HashrateGh >= 1000 ? (r.HashrateGh / 1000).ToString("0.00", c) + " TH/s" : r.HashrateGh.ToString("0", c) + " GH/s";
+        _modes.Children.Add(Text(L.T("Gerechnet mit {0} Minern online ({1}), Strom {2} W.", r.Miners, hash, r.PowerW.ToString("0", c)), true));
+        var names = new Dictionary<string, string>
+        {
+            ["pps"] = L.T("PPS / FPPS"), ["pplns"] = L.T("PPLNS / PROP"), ["solo-btc"] = L.T("Solo BTC"), ["solo-bch"] = L.T("Solo BCH"),
+            ["actual"] = L.T("Dein Pool-Konto (Ist)"),
+        };
+        var headers = new[] { L.T("Mining-Art"), L.T("Coins/Tag"), L.T("Ertrag/Tag"), L.T("Ertrag/Monat"), L.T("Strom/Tag"), L.T("Saldo/Tag"), L.T("Solo-Chance") };
+        var grid = new Grid();
+        for (var i = 0; i <= headers.Length; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = i == headers.Length ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
+        var row = 0;
+        void Cell(string text, int col, bool head = false, System.Windows.Media.Brush? brush = null)
+        {
+            var t = new TextBlock { Text = text, Margin = new Thickness(0, 2, 14, 2), FontWeight = head ? FontWeights.SemiBold : FontWeights.Normal };
+            if (brush is not null) t.Foreground = brush;
+            Grid.SetRow(t, row);
+            Grid.SetColumn(t, col);
+            grid.Children.Add(t);
+        }
+        grid.RowDefinitions.Add(new RowDefinition());
+        for (var i = 0; i < headers.Length; i++) Cell(headers[i], i, head: true);
+        var ok = Themes.ThemeManager.Brush("OkBrush");
+        var bad = Themes.ThemeManager.Brush("DangerBrush");
+        foreach (var m in r.Rows)
+        {
+            row++;
+            grid.RowDefinitions.Add(new RowDefinition());
+            Cell(names.GetValueOrDefault(m.Key, m.Key), 0);
+            Cell(m.CoinPerDay is { } coins ? coins.ToString("0.00000000", c) + " " + m.Coin : "–", 1);
+            Cell(Money(m.IncomePerDay), 2);
+            Cell(Money(m.IncomePerDay * 30.44m), 3);
+            Cell(Money(m.CostPerDay), 4);
+            Cell(m.NetPerDay is { } net ? (net >= 0 ? "+" : "") + Money(net) : "–", 5, brush: m.NetPerDay is { } n2 ? (n2 >= 0 ? ok : bad) : null);
+            Cell(m.ChancePerMonth is { } ch ? L.T("{0} % pro Monat", (ch * 100).ToString(ch < 0.01 ? "0.000" : "0.00", c)) + " · " +
+                L.T("Ø alle {0} Jahre", m.ExpectedYears!.Value.ToString(m.ExpectedYears < 10 ? "0.0" : "0", c)) : "", 6);
+        }
+        _modes.Children.Add(grid);
+        _modes.Children.Add(Text(L.T("Erwartungswerte aus Hashrate, aktueller Difficulty und Kurs (Blockprämie 3,125 + geschätzte Gebühren). Langfristig bringen PPS, PPLNS und Solo im Mittel fast dasselbe – sie unterscheiden sich in Gebühr und Schwankung. Solo zahlt nur, wenn du selbst einen Block findest. Keine Anlageberatung."), true));
+    }
+
     // ---------- Übertragen ----------
 
     private ComboBox PresetChoice()
@@ -239,9 +379,10 @@ public sealed class PoolPresetsWindow : Window
         _rows.Clear();
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 260 });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var r = 0;
         void Add(UIElement e, int col) { Grid.SetRow(e, r); Grid.SetColumn(e, col); grid.Children.Add(e); }
         grid.RowDefinitions.Add(new RowDefinition());

@@ -1,6 +1,7 @@
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.I18n;
+using BitaxeTuner.Core.Monitoring;
 
 namespace BitaxeTuner.Server.Api;
 
@@ -104,6 +105,47 @@ public static class PoolEndpoints
             h.ApprovePoolRule(Device(h, id));
             return new { ok = true };
         })));
+
+        // ---------- 0.9.15 Pool-Vergleich ----------
+
+        g.MapGet("/pool-comparison", async (string? range, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var r = h.PoolComparisonFor(range, DateTime.Now);
+            return new
+            {
+                range = r.Range, currency = r.Currency, incomeShared = r.IncomeShared,
+                rows = r.Rows.Select(x => new
+                {
+                    pool = x.Pool, miners = x.Miners, hours = x.Hours, rejectPercent = x.RejectPercent, responseMs = x.ResponseMs,
+                    outageHours = x.OutageHours, availabilityPercent = x.AvailabilityPercent, fallbackHours = x.FallbackHours,
+                    avgHashrateGh = x.AvgHashrateGh, incomePerThDay = x.IncomePerThDay,
+                }).ToList(),
+            };
+        })));
+
+        // ---------- 0.9.15 Mining-Art-Vergleich ----------
+
+        g.MapGet("/mining-modes", async (double? pps, double? pplns, double? solo, double? btcFees, double? bchFees, HubService hub) =>
+        {
+            var d = new MiningModeAssumptions();
+            var a = new MiningModeAssumptions(Math.Clamp(pps ?? d.PpsFeePercent, 0, 50), Math.Clamp(pplns ?? d.PplnsFeePercent, 0, 50),
+                Math.Clamp(solo ?? d.SoloFeePercent, 0, 50), Math.Clamp(btcFees ?? d.BtcFeesPerBlock, 0, 10), Math.Clamp(bchFees ?? d.BchFeesPerBlock, 0, 10));
+            return Results.Json(await hub.RunAsync(async h =>
+            {
+                var r = await h.MiningModesAsync(a, DateTime.Now);
+                return new
+                {
+                    hashrateGh = r.HashrateGh, miners = r.Miners, currency = r.Currency, costPerDay = r.CostPerDay, powerW = r.PowerW,
+                    btcDifficulty = r.BtcDifficulty, bchDifficulty = r.BchDifficulty, btcPrice = r.BtcPrice, bchPrice = r.BchPrice,
+                    assumptions = new { pps = a.PpsFeePercent, pplns = a.PplnsFeePercent, solo = a.SoloFeePercent, btcFees = a.BtcFeesPerBlock, bchFees = a.BchFeesPerBlock },
+                    rows = r.Rows.Select(x => new
+                    {
+                        key = x.Key, coin = x.Coin, coinPerDay = x.CoinPerDay, incomePerDay = x.IncomePerDay, costPerDay = x.CostPerDay,
+                        netPerDay = x.NetPerDay, chancePerMonth = x.ChancePerMonth, expectedYears = x.ExpectedYears,
+                    }).ToList(),
+                };
+            }));
+        });
 
         // ---------- 0.9.14 Pool-Steuerung: Vorlagen ----------
 

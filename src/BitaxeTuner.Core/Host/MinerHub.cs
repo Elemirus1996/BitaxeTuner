@@ -125,7 +125,7 @@ public sealed partial class MinerHub : IDisposable
         WalletClient = new WalletClient();
         WalletClient.UseBlockchairForBch(Blockchair);
         NetworkClient = new NetworkClient();
-        Odds = new SoloOddsService(Blockchair);
+        Odds = new SoloOddsService(Blockchair, ct => NetworkClient.GetCurrentDifficultyAsync(ct));
         Tax.TaxTime.Configure(config.TaxTimeZone);
         TaxRepository = new TaxLogRepository(explicitDir is null ? null : Path.Combine(explicitDir, "tax"));
         TaxMonitor = new WalletMonitorService(Blockchair, CoinGecko, TaxRepository) { Currency = () => Currencies.Of(Config).Code };

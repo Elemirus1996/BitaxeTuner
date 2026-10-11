@@ -67,6 +67,20 @@ public sealed class NetworkClient : IDisposable
         return ParseDifficulty(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
     }
 
+    /// <summary>0.9.15: aktuelle BTC-Difficulty (Ausweichquelle, wenn Blockchair sperrt).</summary>
+    public async Task<double?> GetCurrentDifficultyAsync(CancellationToken ct)
+    {
+        using var resp = await MempoolLimit.GetAsync(_http, $"{Base}/v1/mining/hashrate/3d", ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        return ParseCurrentDifficulty(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+    }
+
+    public static double? ParseCurrentDifficulty(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.TryGetProperty("currentDifficulty", out var v) && v.TryGetDouble(out var d) && d > 0 ? d : null;
+    }
+
     public static DifficultyDto ParseDifficulty(string json)
     {
         using var doc = JsonDocument.Parse(json);

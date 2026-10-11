@@ -91,6 +91,12 @@ Corrections to the English texts are welcome: they all live in
   wallet or account, worker name, password, TLS) or take them over from a miner, then apply them to single or all miners
   as primary or fallback pool – preview old → new, backup first, restart afterwards, everything logged. Worker name: keep
   the miner's, use the miner name, or exactly as in the preset; passwords are kept in `secrets.json`.
+- **Pool comparison** (from 0.9.15, same page or window): collected every 10 minutes per miner – per pool rejected
+  shares, response time, availability as primary pool, outage time, use as fallback pool and, with a pool account,
+  earnings per TH and day; 24 hours, 7 or 30 days.
+- **Mining mode comparison** (from 0.9.15): expected value of your hashrate with PPS, PPLNS, solo BTC and solo BCH
+  (difficulty, price, block subsidy + estimated fees, adjustable pool fees) with power costs and balance, for solo the
+  chance per month; with a pool account your actual earnings of the last 7 days next to it.
 - **Miner groups** (e.g. “Community”, “Basement”): filter and totals in the overview (browser), group filter in
   compare, push services for whole groups – new members get alerts and reports automatically.
 - **Group automation** (from 0.9.7, browser → select a group → *Group automation*): one schedule or electricity price

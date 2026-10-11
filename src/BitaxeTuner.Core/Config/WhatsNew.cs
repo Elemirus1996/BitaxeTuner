@@ -141,6 +141,13 @@ public static class WhatsNew
             new("0.9.13", tr.T("Pool und Coin je Miner in der Übersicht"),
                 tr.T("Jede Miner-Karte zeigt den Pool als Abzeichen – ein Klick öffnet die Pool-Seite (bei Solo-Pools deine Statistik) – und den Coin, den der Miner gerade schürft. In der Desktop-App steht beides in der Pool-Zeile des Miners."),
                 null),
+            new("0.9.15", tr.T("Pool-Vergleich"),
+                server ? tr.T("Seite „Pools“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage, Bestwerte mit ★.")
+                       : tr.T("Fenster „Pool-Steuerung …“: Alle Pools, auf denen deine Miner liefen, nebeneinander – abgelehnte Shares, Antwortzeit, Erreichbarkeit als Haupt-Pool, Ausfallzeit, Einsatz als Ersatz-Pool und mit Pool-Konto der Ertrag je TH. Für 24 Stunden, 7 oder 30 Tage."),
+                null),
+            new("0.9.15", tr.T("Mining-Art-Vergleich"),
+                tr.T("Was bringt deine Hashrate bei PPS, PPLNS, Solo BTC oder Solo BCH? Erwartungswert je Tag und Monat mit Stromkosten und Saldo, für Solo die Chance auf einen Block, dazu mit Pool-Konto dein tatsächlicher Ertrag. Gebühren lassen sich anpassen."),
+                null),
             new("0.9.14", tr.T("Neue Oberfläche"),
                 server ? tr.T("Seitenleiste links, Miner als Karten mit großer Hashrate und Verlauf, Geräteseite mit Kopf wie die Karte, Einstellungen in Bereichen mit Speichern-Leiste. Hintergrund, Animationen und Farben stellst du unter Einstellungen → Darstellung ein; die Übersicht ordnest du per Ziehen und Ablegen.")
                        : tr.T("Neues Design mit Seitenleiste und Hintergründen zur Wahl (Einstellungen → Programm und Tuning → Design). Die Gesamtansicht zeigt jetzt unter den Kennzahlen eine Karte je Miner – ein Klick öffnet den Miner."),

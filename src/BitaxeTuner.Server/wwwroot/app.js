@@ -3823,7 +3823,92 @@ async function renderPools() {
       h('h2', {}, t('Auf Miner übertragen')),
       h('p', { class: 'muted small' }, t('Wähle je Miner die Vorlage für Haupt- und Ersatz-Pool. „unverändert“ lässt den Eintrag, wie er ist. Der Worker-Name richtet sich nach der Vorlage.')),
       assignBox),
+    poolComparisonCard(),
+    miningModesCard(),
     h('p', { class: 'muted small' }, t('Umschalten zwischen Haupt- und Ersatz-Pool sowie die Pool-Automatik findest du beim Miner unter „Automatik“ und bei den Gruppen.'))));
+}
+
+/** 0.9.15 Mining-Art-Vergleich: PPS, PPLNS, Solo BTC/BCH und der Ist-Wert des Pool-Kontos für die aktuelle Hashrate. */
+function miningModesCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted small' }, t('Lade …')));
+  let a = {};
+  try { a = JSON.parse(localStorageGet('miningModes') || '{}') || {}; } catch { a = {}; }
+  const names = {
+    pps: [t('PPS / FPPS'), t('fester Betrag je Share – jeden Tag fast gleich')],
+    pplns: [t('PPLNS / PROP'), t('Anteil an den Blöcken des Pools – schwankt mit dessen Glück')],
+    'solo-btc': [t('Solo BTC'), t('ganzer Block oder nichts')],
+    'solo-bch': [t('Solo BCH'), t('ganzer Block oder nichts – kleineres Netz, mehr Chancen')],
+    actual: [t('Dein Pool-Konto (Ist)'), t('Ø Gutschriften der letzten 7 Tage zum aktuellen Kurs, inklusive Merged Mining')],
+  };
+  const load = async () => {
+    const q = new URLSearchParams(Object.entries(a).filter(([, v]) => v !== '' && v != null)).toString();
+    const d = await run(() => api('/mining-modes' + (q ? '?' + q : '')));
+    if (!d) return;
+    const money = v => v == null ? '–' : `${n(v, 2)} ${d.currency}`;
+    const input = (key, label, step, suffix) => h('div', {}, h('label', {}, label),
+      h('input', { type: 'number', min: 0, step, value: d.assumptions[key], onchange: e => { a[key] = e.target.value; localStorageSet('miningModes', JSON.stringify(a)); load(); } }), suffix ? h('span', { class: 'muted small' }, suffix) : null);
+    const bestNet = Math.max(...d.rows.filter(r => r.key !== 'actual' && !r.key.startsWith('solo') && r.netPerDay != null).map(r => r.netPerDay), -Infinity);
+    fill(body,
+      h('p', { class: 'muted small' }, t('Gerechnet mit {0} Minern online ({1}), Strom {2} W.', d.miners, hashParts(d.hashrateGh).join(' '), n(d.powerW, 0))
+        + (d.btcPrice != null ? ' BTC ' + money(d.btcPrice) + '.' : '') + (d.bchPrice != null ? ' BCH ' + money(d.bchPrice) + '.' : '')),
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Mining-Art'), t('Coins/Tag'), t('Ertrag/Tag'), t('Ertrag/Monat'), t('Strom/Tag'), t('Saldo/Tag'), t('Solo-Chance')].map(x => h('th', {}, x)))),
+        h('tbody', {}, d.rows.map(r => h('tr', {},
+          h('td', {}, h('b', {}, names[r.key]?.[0] || r.key), h('div', { class: 'muted small' }, names[r.key]?.[1] || '')),
+          h('td', { class: 'num mono' }, r.coinPerDay == null ? '–' : `${n(r.coinPerDay, 8)} ${r.coin}`),
+          h('td', { class: 'num' }, money(r.incomePerDay)),
+          h('td', { class: 'num' }, r.incomePerDay == null ? '–' : money(r.incomePerDay * 30.44)),
+          h('td', { class: 'num' }, money(r.costPerDay)),
+          h('td', { class: `num ${r.netPerDay == null ? '' : r.netPerDay >= 0 ? 'ok' : 'danger'}`, style: 'font-weight:600' },
+            r.netPerDay == null ? '–' : (r.netPerDay >= 0 ? '+' : '') + money(r.netPerDay), r.netPerDay === bestNet && !r.key.startsWith('solo') && r.key !== 'actual' ? h('span', { class: 'ok', title: t('bester planbarer Wert') }, ' ★') : null),
+          h('td', { class: 'num small' }, r.chancePerMonth == null ? '' : [t('{0} % pro Monat', n(r.chancePerMonth * 100, r.chancePerMonth < 0.01 ? 3 : 2)), h('br'),
+            t('Ø alle {0} Jahre', n(r.expectedYears, r.expectedYears < 10 ? 1 : 0))])))))),
+      h('details', {}, h('summary', { class: 'small' }, t('Annahmen anpassen')),
+        h('div', { class: 'form' },
+          input('pps', t('Gebühr PPS (%)'), 0.1), input('pplns', t('Gebühr PPLNS (%)'), 0.1), input('solo', t('Gebühr Solo-Pool (%)'), 0.1),
+          input('btcFees', t('Transaktionsgebühren je BTC-Block'), 0.01, 'BTC'), input('bchFees', t('Transaktionsgebühren je BCH-Block'), 0.001, 'BCH'))),
+      h('p', { class: 'muted small' }, t('Erwartungswerte aus Hashrate, aktueller Difficulty und Kurs (Blockprämie 3,125 + geschätzte Gebühren). Langfristig bringen PPS, PPLNS und Solo im Mittel fast dasselbe – sie unterscheiden sich in Gebühr und Schwankung. Solo zahlt nur, wenn du selbst einen Block findest. Keine Anlageberatung.')));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', { style: 'margin:0' }, t('Mining-Art-Vergleich')), body);
+}
+
+/** 0.9.15 Pool-Vergleich: je Pool abgelehnte Shares, Antwortzeit, Ausfälle, Einsatz als Ersatz-Pool, Ertrag je TH. */
+function poolComparisonCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted small' }, t('Lade …')));
+  let range = localStorageGet('poolCmpRange') || '7d';
+  const ranges = [['24h', t('24 Stunden')], ['7d', t('7 Tage')], ['30d', t('30 Tage')]];
+  const seg = h('div', { class: 'seg' });
+  const load = async () => {
+    fill(seg, ranges.map(([v, l]) => h('button', { type: 'button', class: v === range ? 'on' : '', onclick: () => { range = v; localStorageSet('poolCmpRange', v); load(); } }, l)));
+    const d = await run(() => api('/pool-comparison?range=' + range));
+    if (!d) return;
+    if (!d.rows.length) { fill(body, h('p', { class: 'muted small' }, t('Noch keine Werte – BitaxeTuner sammelt sie alle 10 Minuten je Miner.'))); return; }
+    const pct = v => v == null ? '–' : `${n(v, v < 10 ? 2 : 1)} %`;
+    // Bestwerte hervorheben: wenig Ablehnung, schnelle Antwort, hohe Erreichbarkeit
+    const best = (key, low) => { const v = d.rows.map(r => r[key]).filter(x => x != null); return v.length > 1 ? (low ? Math.min(...v) : Math.max(...v)) : null; };
+    const bRej = best('rejectPercent', true), bMs = best('responseMs', true), bAv = best('availabilityPercent', false), bInc = best('incomePerThDay', false);
+    const star = (v, b) => v != null && v === b ? h('span', { class: 'ok', title: t('bester Wert') }, ' ★') : null;
+    fill(body,
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Pool'), t('Miner'), t('Stunden'), t('abgelehnt'), t('Antwort'), t('erreichbar als Haupt-Pool'), t('Ausfall'), t('als Ersatz'), t('Ø Hashrate'), t('Ertrag/TH/Tag')]
+          .map(x => h('th', {}, x)))),
+        h('tbody', {}, d.rows.map(r => h('tr', {},
+          h('td', { class: 'mono' }, r.pool),
+          h('td', { class: 'num' }, r.miners),
+          h('td', { class: 'num' }, n(r.hours, 1)),
+          h('td', { class: `num ${r.rejectPercent > 1 ? 'warn' : ''}` }, pct(r.rejectPercent), star(r.rejectPercent, bRej)),
+          h('td', { class: 'num' }, r.responseMs == null ? '–' : `${n(r.responseMs, 0)} ms`, star(r.responseMs, bMs)),
+          h('td', { class: `num ${r.availabilityPercent != null && r.availabilityPercent < 99 ? 'warn' : ''}` }, pct(r.availabilityPercent), star(r.availabilityPercent, bAv)),
+          h('td', { class: 'num' }, r.outageHours ? `${n(r.outageHours, 1)} h` : '–'),
+          h('td', { class: 'num' }, r.fallbackHours ? `${n(r.fallbackHours, 1)} h` : '–'),
+          h('td', { class: 'num' }, r.avgHashrateGh == null ? '–' : hashParts(r.avgHashrateGh).join(' ')),
+          h('td', { class: 'num' }, r.incomePerThDay == null ? '–' : `${n(r.incomePerThDay, 2)} ${d.currency}`, star(r.incomePerThDay, bInc))))))),
+      h('p', { class: 'muted small' }, t('„abgelehnt“ aus den Share-Zählern der Miner, „Antwort“ wie in AxeOS. „Ausfall“: Zeit, in der der Miner wegen dieses Haupt-Pools auf den Ersatz-Pool ausweichen musste. Ertrag je TH nur mit Pool-Konto.')
+        + (d.incomeShared ? ' ' + t('Mining-Dutch: Der Ertrag des Kontos ist nach Hashrate auf alle Mining-Dutch-Ports verteilt.') : '')));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('div', { class: 'row' }, h('h2', { style: 'flex:1;margin:0' }, t('Pool-Vergleich')), seg), body);
 }
 
 async function renderFans() {

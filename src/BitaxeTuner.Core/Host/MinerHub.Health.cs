@@ -22,6 +22,7 @@ public sealed partial class MinerHub
             _lastHealthWrite[host] = now;
             try { History.AddHealthSample(host, now, i.fanrpm, i.fanspeed, i.vrTemp, i.sharesAccepted, i.sharesRejected); }
             catch { /* nicht kritisch */ }
+            RecordPoolSample(host, i, now);
         }
     }
 
