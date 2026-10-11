@@ -19,6 +19,7 @@ public static class StaticUi
         [".ico"] = "image/x-icon",
         [".json"] = "application/json; charset=utf-8",
         [".webmanifest"] = "application/manifest+json",
+        [".woff2"] = "font/woff2",
     };
 
     public static void Map(WebApplication app)

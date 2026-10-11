@@ -101,6 +101,7 @@ public sealed partial class MinerHub
             if (x.Config.Settings.BlockFoundScreen) x.UserRequested = true;
         }
         _ = RefreshNetworkAsync(force: true);
+        RaiseBlockFound(miner, count);
     }
 
     /// <summary>Neuer Best-Diff-Rekord eines Miners (nicht der Ersteintrag).</summary>

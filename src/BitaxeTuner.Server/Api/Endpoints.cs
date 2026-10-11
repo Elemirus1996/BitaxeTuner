@@ -32,6 +32,8 @@ public sealed record DeviceRequest(string? Name, string? Host, string? WalletAdd
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
+/// <summary>0.9.14 Darstellung als Standard für alle Browser.</summary>
+public sealed record AppearanceRequest(string? Bg, int Veil, bool Anim, bool Numbers, bool Hover, bool Party);
 /// <summary>0.9.12 Pool-Konto. ApiKey: null = unverändert, leer = löschen.</summary>
 public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey, bool? AutoExchange = null);
 public sealed record HttpsRequest(bool Enable);
@@ -948,6 +950,22 @@ public static class Endpoints
             restart.Schedule(req.Enable ? "HTTPS eingeschaltet" : "HTTPS ausgeschaltet");
             return Results.Json(new { ok = true, restarting = true, fingerprint, port = settings.Port });
         });
+
+        // 0.9.14: Darstellung als Standard für alle Browser und die Desktop-App
+        g.MapPut("/appearance", async (AppearanceRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var a = h.Config.Appearance;
+            a.Background = req.Bg ?? a.Background;
+            a.Veil = req.Veil;
+            a.Animations = req.Anim;
+            a.SmoothNumbers = req.Numbers;
+            a.HoverLift = req.Hover;
+            a.BlockParty = req.Party;
+            a.Normalize();
+            h.Config.Save();
+            h.LogEvent(null, EventCategories.Settings, L.T("Darstellung als Standard für alle Browser gespeichert."));
+            return new { ok = true };
+        })));
 
         // Prometheus-Export: ein-/ausschalten, Token erzeugen (wird nur einmal angezeigt)
         g.MapGet("/metrics/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => new

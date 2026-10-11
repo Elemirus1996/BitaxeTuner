@@ -40,6 +40,16 @@ public static class Dto
         {
             time = now,
             running = hub.IsRunning,
+            tempWarn = hub.Config.TempWarn,   // 0.9.14: Temperaturbalken und „warm“ auf den Miner-Karten
+            look = new   // 0.9.14: Darstellung als Standard für alle Browser (eigene Werte je Browser haben Vorrang)
+            {
+                bg = hub.Config.Appearance.Background,
+                veil = hub.Config.Appearance.Veil,
+                anim = hub.Config.Appearance.Animations,
+                numbers = hub.Config.Appearance.SmoothNumbers,
+                hover = hub.Config.Appearance.HoverLift,
+                party = hub.Config.Appearance.BlockParty,
+            },
             totals = new
             {
                 hashrate = hash,

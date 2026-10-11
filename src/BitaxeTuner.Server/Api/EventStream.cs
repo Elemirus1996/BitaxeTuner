@@ -17,6 +17,7 @@ namespace BitaxeTuner.Server.Api;
 /// <item><c>benchmark</c> – Fortschritt eines Benchmarks</item>
 /// <item><c>tuning</c> – protokollierte Frequenz-/Spannungsänderung</item>
 /// <item><c>message</c> – Statuszeile, <c>notification</c> – versendete Push-Meldung (nur Admin)</item>
+/// <item><c>block</c> – ein Miner meldet einen gefundenen Block (0.9.14, Feier in der Oberfläche)</item>
 /// <item><c>log</c> – Protokollzeile eines Geräts (nur Admin)</item>
 /// </list>
 /// </summary>
@@ -55,6 +56,7 @@ public sealed class EventStream : IDisposable
         Action<string, string, string, NotifyPriority> sent = (_, title, text, prio) =>
             Publish("notification", new { title, text, priority = prio.ToString(), time = DateTime.Now }, Role.Admin);
         Action devices = () => SubscribeLogs(h);
+        Action<string, int> block = (miner, count) => Publish("block", new { miner, count }, Role.Viewer);
 
         h.Polled += polled;
         h.DeviceChanged += changed;
@@ -64,6 +66,7 @@ public sealed class EventStream : IDisposable
         h.TuningApplied += tuning;
         h.Notify.Sending += sent;
         h.DevicesChanged += devices;
+        h.BlockFound += block;
         _logSubscribed.Clear();
         SubscribeLogs(h);
         _unsubscribe.Add(() =>
@@ -76,6 +79,7 @@ public sealed class EventStream : IDisposable
             h.TuningApplied -= tuning;
             h.Notify.Sending -= sent;
             h.DevicesChanged -= devices;
+            h.BlockFound -= block;
         });
     }
 

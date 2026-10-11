@@ -202,6 +202,10 @@ public sealed partial class MinerHub : IDisposable
     /// <summary>Nach jeder Abfragerunde, nachdem Verlauf, Meldungen, Watchdog und Automatik gelaufen sind.</summary>
     public event Action? Polled;
 
+    /// <summary>0.9.14: Ein Miner meldet einen gefundenen Block (Name, Zähler) – für die Feier in der Oberfläche.</summary>
+    public event Action<string, int>? BlockFound;
+    internal void RaiseBlockFound(string miner, int count) => BlockFound?.Invoke(miner, count);
+
     /// <summary>Protokollierte Tuning-Änderung (kann auf einem Pool-Thread kommen).</summary>
     public event Action<TuningEvent>? TuningApplied;
 

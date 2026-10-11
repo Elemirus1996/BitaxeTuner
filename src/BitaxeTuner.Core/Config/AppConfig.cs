@@ -168,6 +168,9 @@ public sealed class AppConfig
     /// <summary>0.9.12: Pool-Konto (Mining-Dutch) – Coin je Miner, Guthaben, Buchungen für die Steuer. Additiv, standardmäßig aus.</summary>
     public PoolAccountSettings PoolAccount { get; set; } = new();
 
+    /// <summary>0.9.14: Darstellung (Hintergrund, Animationen) als Standard für alle Browser und die Desktop-App.</summary>
+    public AppearanceSettings Appearance { get; set; } = new();
+
     // --- Altlasten aus Version 1, nur zum Migrieren ---
     public string? Host { get; set; }
     public string? WalletAddress { get; set; }
@@ -225,6 +228,8 @@ public sealed class AppConfig
         cfg.LastSeenPayoutTxid = null;
         cfg.PoolAccount ??= new();
         cfg.PoolAccount.Normalize();
+        cfg.Appearance ??= new();
+        cfg.Appearance.Normalize();
 
         return cfg;
     }

@@ -80,20 +80,147 @@ async function loadLanguage(serverDefault) {
   applyStaticTexts();
 }
 
+// ---------- 0.9.14 App-Rahmen: Seitenleiste, Kopf, Leiste unten (Handy) ----------
+
+/** Symbol aus dem Sprite in index.html (gestaltet nach Lucide, ISC). */
+const icon = (id, size) => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'i');
+  if (size) { svg.style.width = size + 'px'; svg.style.height = size + 'px'; }
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', '#i-' + id);
+  svg.appendChild(use);
+  return svg;
+};
+
+/** Hauptnavigation: [Gruppe, [[Ansicht, Text, Symbol, nur Admin]]]. */
+const NAV = () => [
+  [t('Überwachen'), [['overview', t('Übersicht'), 'grid'], ['compare', t('Vergleich'), 'cols'], ['reports', t('Berichte'), 'chart', true], ['journal', t('Protokoll'), 'list', true]]],
+  [t('Hardware'), [['fans', t('Lüfter & Anzeige'), 'fan']]],
+  [t('Finanzen'), [['tax', t('Steuer'), 'coins', true]]],
+  [t('System'), [['settings', t('Einstellungen'), 'gear', true], ['help', t('Hilfe'), 'help']]],
+];
+const navHref = v => v === 'overview' ? '#/' : `#/${v}`;
+
+function renderNav() {
+  const admin = isAdmin();
+  const groups = NAV().map(([g, items]) => [g, items.filter(x => !x[3] || admin)]).filter(([, items]) => items.length);
+  $('#nav').replaceChildren(...groups.flatMap(([g, items]) => [h('div', { class: 'nav-grp' }, g),
+    ...items.map(([v, label, ic]) => h('a', { href: navHref(v), 'data-nav': v, title: label }, icon(ic), h('span', {}, label)))]));
+  // Handy: vier feste Ziele und „Mehr“ (alle übrigen als Blatt)
+  const quick = [['overview', t('Übersicht'), 'grid'], ['compare', t('Vergleich'), 'cols'], ['fans', t('Lüfter'), 'fan'],
+    admin ? ['settings', t('Einstellungen'), 'gear'] : ['help', t('Hilfe'), 'help']];
+  $('#tabbar').replaceChildren(...quick.map(([v, label, ic]) => h('a', { href: navHref(v), 'data-nav': v }, icon(ic), h('span', {}, label))),
+    h('button', { type: 'button', onclick: e => { e.stopPropagation(); toggleMore(); } }, icon('more'), h('span', {}, t('Mehr'))));
+  markNav();
+}
+
+function markNav() {
+  const view = S.route?.view === 'device' || S.route?.view === 'groups' || S.route?.view === 'plug' ? 'overview' : S.route?.view || 'overview';
+  document.querySelectorAll('#nav a, #tabbar a').forEach(a => a.classList.toggle('active', a.dataset.nav === view));
+  const hit = NAV().map(([g, items]) => [g, items.find(x => x[0] === view)]).find(([, x]) => x);
+  $('#crumb').textContent = hit ? hit[0] : '';
+  $('#pageTitle').textContent = S.route?.view === 'device' ? (summaryOf(S.route.id)?.name || t('Miner'))
+    : S.route?.view === 'groups' ? t('Gruppe') : hit ? hit[1][1] : 'BitaxeTuner';
+}
+
+/** Handy „Mehr“: alle Ziele als Blatt (Popover). */
+function toggleMore() {
+  let m = $('#moreMenu');
+  if (m) { m.remove(); return; }
+  closePopovers();
+  const admin = isAdmin();
+  m = h('div', { class: 'popover', id: 'moreMenu', style: 'position:fixed;top:auto;bottom:72px' },
+    ...NAV().flatMap(([g, items]) => [h('h4', {}, g), ...items.filter(x => !x[3] || admin).map(([v, label, ic]) =>
+      h('a', { class: 'pop-row', href: navHref(v), onclick: () => m.remove() }, icon(ic), label))]));
+  document.body.appendChild(m);
+}
+
+function closePopovers() {
+  $('#bellMenu').hidden = true;
+  $('#userMenu').hidden = true;
+  $('#moreMenu')?.remove();
+}
+
+/** Rahmen für angemeldete Nutzer zeigen bzw. (Anmeldung, Einrichtung) ausblenden. */
+function showChrome(on) {
+  $('#shell').classList.toggle('bare', !on);
+  $('#shell').classList.toggle('mini', on && localStorageGet('sideMini') === '1');
+  $('#side').hidden = !on;
+  $('#tabbar').hidden = !on;
+  $('#onlineChip').hidden = !on;
+  $('#userBtn').hidden = !on;
+  $('#bell').hidden = !on || !isAdmin();
+  if (!on) { closePopovers(); $('#crumb').textContent = ''; $('#pageTitle').textContent = 'BitaxeTuner'; }
+}
+
+/** Blockfund feiern: Konfetti (abschaltbar unter Darstellung, aus bei „Bewegung reduzieren“) und Meldung. */
+function celebrate(text) {
+  toast(text, 'ok', 15000);
+  const look = lookNow();
+  if (!look.party || !look.anim || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = $('#confetti'), ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ['#F7931A', '#FFD08A', '#3FCF9A', '#6EA8FE', '#FFFFFF'];
+  const ps = Array.from({ length: 180 }, () => ({ x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 15, vy: Math.random() * -13 - 4,
+    r: Math.random() * 6 + 3, c: cols[Math.random() * cols.length | 0], a: Math.random() * 6 }));
+  let f = 0;
+  const tick = () => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => { p.vy += .35; p.x += p.vx; p.y += p.vy; p.a += .2; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = p.c; ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); ctx.restore(); });
+    if (++f < 150) requestAnimationFrame(tick); else ctx.clearRect(0, 0, cv.width, cv.height);
+  };
+  tick();
+}
+
+/** Hinweis-Zentrale (Glocke): Updates, Einrichtungshinweise, Zustimmungen – statt gestapelter Banner. */
+function setNotes(notes) {
+  S.notes = notes;
+  const n = notes.length;
+  $('#bellCount').hidden = n === 0;
+  $('#bellCount').textContent = String(n);
+  $('#bellList').replaceChildren(...(n ? notes.map(x => h('div', { class: 'note' },
+    h('span', { class: 'ic', style: x.color ? `background:color-mix(in srgb, ${x.color} 15%, transparent);color:${x.color}` : '' }, icon(x.icon || 'bell')),
+    h('div', {}, h('b', {}, x.title), x.text ? h('span', {}, x.text) : null, x.actions?.length ? h('div', { class: 'acts' }, x.actions) : null)))
+    : [h('p', { class: 'muted small', style: 'padding:6px 10px' }, t('Keine Hinweise.'))]));
+}
+
+/** Darstellung (je Browser; Server-Standard folgt): Hintergrund, Abdunkeln, Animationen. */
+const LOOK_DEFAULT = { bg: 'gradient', veil: 0, anim: true, numbers: true, hover: true, party: true };
+function lookNow() {
+  try { return { ...LOOK_DEFAULT, ...(S.lookServer || {}), ...JSON.parse(localStorageGet('look') || '{}') }; } catch { return { ...LOOK_DEFAULT }; }
+}
+function applyLook(look = lookNow()) {
+  const b = $('#backdrop');
+  b.className = look.bg === 'image' && !look.image ? 'solid' : look.bg;
+  b.style.backgroundImage = look.bg === 'image' && look.image ? `url(${JSON.stringify(look.image)})` : '';
+  b.style.setProperty('--veil', String((look.veil || 0) / 100));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.body.classList.toggle('anim', !!look.anim && !reduce);
+  document.body.classList.toggle('hover-lift', !!look.hover);
+}
+
 /** Feste Texte aus index.html. */
 function applyStaticTexts() {
-  const nav = { overview: t('Übersicht'), compare: t('Vergleich'), fans: t('Lüfter & Anzeige'), tax: t('Steuer'), reports: t('Berichte'), journal: t('Protokoll'), settings: t('Einstellungen'), help: t('Hilfe') };
-  for (const [k, v] of Object.entries(nav)) { const a = $(`[data-nav="${k}"]`); if (a) a.textContent = v; }
   $('#live').title = t('Live-Verbindung');
   $('#theme').title = t('Hell/Dunkel');
-  $('#theme').setAttribute('aria-label', t('Hell/Dunkel umschalten'));
-  $('#logout').textContent = t('Abmelden');
+  $('#themeLabel').textContent = t('Hell/Dunkel');
+  $('#langLabel').textContent = t('Sprache');
+  $('#lookLabel').textContent = t('Darstellung …');
+  $('#logoutLabel').textContent = t('Abmelden');
+  $('#collapseLabel').textContent = t('Einklappen');
+  $('#collapse').title = t('Seitenleiste ein-/ausklappen');
+  $('#bellTitle').textContent = t('Hinweise');
+  $('#bell').title = t('Hinweise');
+  $('#bell').setAttribute('aria-label', t('Hinweise'));
+  $('#userBtn').setAttribute('aria-label', t('Benutzer-Menü'));
   $('#dialog [value="cancel"]').textContent = t('Abbrechen');
+  applyTheme(localStorageGet('theme'));   // Zustandstext in der eben geladenen Sprache
   // Auswahl: Kürzel im Kopf, ausgeklappt der Name jeder Sprache in ihr selbst
   const lang = $('#lang');
   lang.replaceChildren(...LANGS.map(l => h('option', { value: l, title: LANG_NAMES[l] }, l.toUpperCase() + ' – ' + LANG_NAMES[l])));
   lang.value = LANG;
-  lang.options[lang.selectedIndex].textContent = LANG.toUpperCase();
+  lang.options[lang.selectedIndex].textContent = LANG_NAMES[LANG];
   lang.title = LANG_NAMES[LANG];
   lang.setAttribute('aria-label', t('Sprache wechseln'));
 }
@@ -204,10 +331,25 @@ function confirmBox(title, body, okLabel = t('Bestätigen'), danger = false) {
 
 async function boot() {
   applyTheme(localStorageGet('theme'));
-  $('#theme').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  applyLook();
+  $('#theme').addEventListener('click', e => {
+    e.stopPropagation();
+    // Wie System → Hell → Dunkel → Wie System
+    const cur = localStorageGet('theme');
+    const next = cur === 'light' ? 'dark' : cur === 'dark' ? '' : 'light';
     localStorageSet('theme', next);
     applyTheme(next);
+  });
+  $('#bell').addEventListener('click', e => { e.stopPropagation(); const open = $('#bellMenu').hidden; closePopovers(); $('#bellMenu').hidden = !open; });
+  $('#userBtn').addEventListener('click', e => { e.stopPropagation(); const open = $('#userMenu').hidden; closePopovers(); $('#userMenu').hidden = !open; });
+  $('#userMenu').addEventListener('click', e => { if (e.target.closest('a')) closePopovers(); else e.stopPropagation(); });
+  $('#bellMenu').addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', closePopovers);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopovers(); });
+  $('#collapse').addEventListener('click', () => {
+    const mini = !$('#shell').classList.contains('mini');
+    $('#shell').classList.toggle('mini', mini);
+    localStorageSet('sideMini', mini ? '1' : '0');
   });
   $('#logout').addEventListener('click', async () => {
     await run(() => api('/logout', { method: 'POST' }));
@@ -216,7 +358,7 @@ async function boot() {
     renderLogin();
   });
   $('#lang').addEventListener('change', switchLanguage);
-  window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => { closePopovers(); route(); });
 
   // Kiosk-Link: Schlüssel merken und sofort aus der Adresszeile entfernen
   const kiosk = location.hash.match(/^#\/kiosk\?k=([A-Za-z0-9_-]+)/);
@@ -237,10 +379,12 @@ function localStorageSet(k, v) { try { localStorage.setItem('bt.' + k, v); } cat
 function applyTheme(tv) {
   if (tv === 'light' || tv === 'dark') document.documentElement.dataset.theme = tv;
   else delete document.documentElement.dataset.theme;
+  const st = $('#themeState');
+  if (st) st.textContent = tv === 'light' ? t('Hell') : tv === 'dark' ? t('Dunkel') : t('Wie System');
 }
 
 function renderSetup() {
-  $('#nav').hidden = true;
+  showChrome(false);
   const code = h('input', { autocomplete: 'one-time-code', placeholder: '1234-5678-9012' });
   const pw = h('input', { type: 'password', autocomplete: 'new-password' });
   const pw2 = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -261,8 +405,7 @@ function renderSetup() {
 }
 
 function renderLogin() {
-  $('#nav').hidden = true;
-  $('#logout').hidden = true;
+  showChrome(false);
   $('#role').textContent = '';
   const pw = h('input', { type: 'password', autocomplete: 'current-password' });
   const submit = async e => {
@@ -281,15 +424,17 @@ function renderLogin() {
 }
 
 function started() {
-  $('#nav').hidden = false;
-  $('#logout').hidden = false;
+  showChrome(true);
+  renderNav();
   // Ansicht-Zugang mit Gruppen: in der Kopfzeile sichtbar, welche Gruppen freigegeben sind
   $('#role').textContent = isAdmin() ? 'Admin' : S.viewGroups?.length ? t('Nur ansehen: {0}', S.viewGroups.join(', ')) : t('Nur ansehen');
+  $('#roleName').textContent = isAdmin() ? 'Admin' : t('Nur ansehen');
+  $('#userTitle').textContent = $('#role').textContent;
   document.querySelectorAll('[data-admin]').forEach(e => { e.hidden = !isAdmin(); });
   startEvents();
   route();
   if (isAdmin()) refreshUpdateInfo();
-  if (isAdmin()) api('/admin/https').then(r => { S.https = r; }).catch(() => {});
+  if (isAdmin()) api('/admin/https').then(r => { S.https = r; refreshNotes(); }).catch(() => {});
 }
 
 /** Update-Stand für den Hinweis in der Übersicht – höchstens alle 30 min vom Server holen (Übersicht zeichnet oft neu). */
@@ -300,6 +445,7 @@ async function refreshUpdateInfo() {
     const u = await api('/admin/update');
     const changed = (S.update?.latest ?? null) !== (u.latest ?? null);
     S.update = u;
+    refreshNotes();
     if (changed && S.route?.view === 'overview' && S.status) renderOverview();
   } catch { /* Hinweis ist nur Komfort */ }
   updateTimer = setTimeout(refreshUpdateInfo, 30 * 60 * 1000);
@@ -332,6 +478,7 @@ function startEvents() {
     if (S.route?.view === 'device' && S.route.id === d.id) reloadDetailSoon();
   });
   es.addEventListener('notification', e => { const d = JSON.parse(e.data); toast(`${d.title}: ${d.text}`, d.priority === 'Urgent' || d.priority === 'High' ? 'error' : 'info', 10000); });
+  es.addEventListener('block', e => { const d = JSON.parse(e.data); celebrate(t('Block gefunden – {0}', d.miner)); });
   es.addEventListener('reload', () => { toast(t('Daten wurden übernommen – lade neu …')); setTimeout(() => location.reload(), 1500); });
   es.addEventListener('message', e => { const d = JSON.parse(e.data); $('#statusline').textContent = d.text; });
 }
@@ -352,8 +499,11 @@ function onStatus() {
   const s = S.status;
   if (!s) return;
   $('#statusline').textContent = t('{0}/{1} online · {2} · {3} W · Stand {4}', s.totals.online, s.totals.count, hash(s.totals.hashrate), n(s.totals.power, 1), new Date(s.time).toLocaleTimeString(LOCALE));
+  $('#onlineTxt').textContent = t('{0}/{1} online', s.totals.online, s.totals.count);
+  refreshNotes();
+  if (s.look && JSON.stringify(s.look) !== JSON.stringify(S.lookServer)) { S.lookServer = s.look; applyLook(); }
   const v = S.route?.view;
-  if (v === 'overview') renderOverview();
+  if (v === 'overview') { if (!S.ovEdit) renderOverview(); }
   else if (v === 'compare') updateCompare();
   else if (v === 'device') updateDeviceLive();
   else if (v === 'fans') updateFanTable();
@@ -366,11 +516,18 @@ function route() {
   if (S.role === 'None') return;
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const view = (parts[0] || 'overview').split('?')[0];
+  if (S.settingsDirty && view !== 'settings') {
+    const back = '#/settings/' + (S.route?.sec || '');
+    confirmBox(t('Ungespeicherte Änderungen'), t('Die geänderten Einstellungen sind noch nicht gespeichert. Trotzdem verlassen?'), t('Verwerfen')).then(ok => {
+      if (ok) { S.settingsDirty = false; route(); } else location.hash = back;
+    });
+    return;
+  }
   document.body.classList.toggle('kiosk-mode', view === 'kiosk');
   S.logEs?.close(); S.logEs = null;
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === view));
   if (view === 'device' && parts[1]) {
     S.route = { view, id: parts[1], tab: parts[2] || 'live' };
+    markNav();
     return loadDevice(true);
   }
   if (view === 'groups' && isAdmin()) {
@@ -382,6 +539,7 @@ function route() {
     return renderPlug();
   }
   S.route = { view };
+  markNav();
   if (view === 'kiosk') {
     S.route.design = new URLSearchParams(location.hash.split('?')[1] || '').get('design') || '';
     return renderKiosk();
@@ -396,8 +554,9 @@ function route() {
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'reports' && isAdmin()) return renderReports();
   if (view === 'journal' && isAdmin()) return renderJournal();
-  if (view === 'settings' && isAdmin()) return renderSettings();
+  if (view === 'settings' && isAdmin()) { S.route.sec = parts[1] || S.route.sec; return renderSettings(); }
   S.route = { view: 'overview' };
+  markNav();
   if (S.status) renderOverview(); else api('/status').then(s => { S.status = s; renderOverview(); });
 }
 
@@ -486,10 +645,131 @@ function walletConsentBanner() {
       h('button', { class: 'btn', onclick: () => answer(false) }, t('Nein danke'))));
 }
 
+/** Hashrate als Zahl und Einheit (große Anzeige). */
+function hashParts(gh) {
+  if (gh == null) return ['–', ''];
+  return gh >= 1000 ? [n(gh / 1000, 2), 'TH/s'] : [n(gh, 0), 'GH/s'];
+}
+
+/** Mini-Verlauf als SVG (Fläche, Linie, Endpunkt) – Farbe als CSS-Wert (auch var(--…)). */
+function sparkEl(vals, color, cls = 'mini-spark') {
+  const el = h('span', { class: cls });
+  const v = (vals || []).filter(x => x != null && !Number.isNaN(x));
+  if (v.length < 2) return el;
+  const w = 200, ht = 34, pad = 3, max = Math.max(...v), min = Math.min(...v), span = max - min || 1;
+  const pts = v.map((x, i) => [i / (v.length - 1) * w, ht - pad - (x - min) / span * (ht - pad * 2)]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none" aria-hidden="true"><path d="${line} L${w} ${ht} L0 ${ht} Z" style="fill:${color};fill-opacity:.16"/>`
+    + `<path d="${line}" style="fill:none;stroke:${color};stroke-width:1.6" vector-effect="non-scaling-stroke"/>`
+    + `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6" style="fill:${color}"/></svg>`;
+  return el;
+}
+
+/** Live-Zahlen weich auf den neuen Wert zählen (Darstellung → „Live-Zahlen weich zählen“). */
+const TWEEN_FROM = new Map();
+function tweenNumbers(root) {
+  const look = lookNow();
+  const animate = look.anim && look.numbers && document.body.classList.contains('anim');
+  root.querySelectorAll('[data-tw]').forEach(el => {
+    const key = el.dataset.tw, to = parseFloat(el.dataset.to), dec = +el.dataset.dec || 0;
+    const from = TWEEN_FROM.get(key);
+    TWEEN_FROM.set(key, to);
+    if (!animate || from == null || Number.isNaN(to) || Math.abs(from - to) < 1e-9) return;
+    const t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / 700), x = from + (to - from) * (1 - Math.pow(1 - k, 3));
+      el.textContent = n(x, dec);
+      if (k < 1 && el.isConnected) requestAnimationFrame(step);
+    };
+    el.textContent = n(from, dec);
+    requestAnimationFrame(step);
+  });
+}
+
+/** Kachel mit Symbol und optionalem Mini-Verlauf. */
+function kpiTile(label, ic, value, sub, opts = {}) {
+  return h('div', { class: 'tile' },
+    h('div', { class: 'label' }, h('span', { class: 'ic', style: opts.color ? `color:${opts.color}` : '' }, icon(ic, 16)), label),
+    h('div', { class: `value ${opts.cls || ''}` }, value),
+    sub ? h('div', { class: 'sub' }, sub) : null,
+    opts.spark ? h('div', { class: 'spark' }, sparkEl(opts.spark, opts.color || 'var(--ok)', '')) : null);
+}
+
+/** Miner-Karte (0.9.14): Status-Rand, große Hashrate mit Verlauf, drei Werte, Pool/Coin, Zusatzzeilen. */
+function minerCard(d, tempWarn) {
+  const [hv, hu] = hashParts(d.hashrate);
+  const hot = d.online && d.temp != null && d.temp >= tempWarn;
+  const st = !d.online ? (d.maintenance ? 'st-maint' : 'st-off') : hot || d.fan?.stalled ? 'st-warn' : '';
+  const tPct = d.temp != null ? Math.max(0, Math.min(100, (d.temp - 35) / Math.max(5, tempWarn + 5 - 35) * 100)) : 0;
+  const stateText = !d.online ? (d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart/Tuning …')) : (d.error || 'offline'))
+    : hot ? t('warm') : t('online');
+  const card = h('a', { class: `card device ${st}`, href: `#/device/${d.id}`, 'data-id': d.id },
+    h('div', { class: 'head' }, h('span', { class: `dot ${dotClass(d)}` }),
+      h('div', { class: 'who' }, h('b', {}, d.name), h('div', { class: 'model' }, [d.model, stateText].filter(Boolean).join(' · '))),
+      d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
+      d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
+      d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
+      d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
+      webUiIcon(d),
+      d.poolInfo ? null : poolLinkIcon(d)),
+    d.online
+      ? h('div', { class: 'hashline' }, h('span', { class: 'big', 'data-tw': 'h-' + d.id, 'data-to': hu === 'TH/s' ? d.hashrate / 1000 : d.hashrate, 'data-dec': hu === 'TH/s' ? 2 : 0 }, hv),
+          h('span', { class: 'unit' }, hu), sparkEl((d.history || []).map(p => p[1]), hot ? 'var(--warn)' : 'var(--ok)'))
+      : h('div', { class: d.maintenance ? 'warn' : 'danger', style: 'font-weight:500' }, stateText),
+    d.online ? h('div', { class: 'stats3' },
+      h('div', { class: 'stat' }, h('span', {}, d.chipTemps?.length > 1 ? t('ASIC max.') : t('ASIC')), h('b', {}, t('{0} °C', n(d.temp, 1))),
+        h('div', { class: 'tbar' }, h('i', { style: `width:${tPct}%;background:${hot ? 'var(--warn)' : 'var(--ok)'}` }))),
+      h('div', { class: 'stat' }, h('span', {}, d.wallPower != null ? t('Steckdose') : t('Leistung')), h('b', {}, t('{0} W', n(d.wallPower ?? d.power, 1)))),
+      h('div', { class: 'stat' }, h('span', {}, t('Effizienz')), h('b', {}, d.efficiency ? t('{0} J/TH', n(d.efficiency, 1)) : '–'))) : null,
+    d.online ? h('div', { class: 'small muted' }, t('VR {0} °C · {1} MHz / {2} mV · Laufzeit {3}', n(d.vrTemp, 0), d.frequency ?? '–', d.voltage ?? '–', dur(d.uptimeSeconds))) : null,
+    poolCoinRow(d),
+    d.automation ? h('div', { class: 'small muted' }, d.automation) : null,
+    d.benchmark?.running ? h('div', { class: 'progress' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
+    d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}` },
+      t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? t(' · {0} U/min', d.fan.rpm) : '', d.fan.stalled ? t(' · steht!') : '')) : null,
+    d.suggestion ? h('div', { class: 'small warn' }, t('Vorschlag offen: {0} MHz / {1} mV', d.suggestion.frequencyMhz, d.suggestion.coreVoltageMv)) : null);
+  return card;
+}
+
+/** Hinweis-Zentrale füllen (läuft bei jedem Status, auf jeder Seite). */
+function refreshNotes() {
+  const s = S.status;
+  if (!s || !isAdmin()) { setNotes([]); return; }
+  const notes = [];
+  if (s.whatsNew && !S.whatsNewOpen) notes.push({ icon: 'gift', title: t('BitaxeTuner {0} ist installiert', s.whatsNew.version),
+    text: t('Kurze Einführung in die {0} neuen Funktionen?', s.whatsNew.features.length),
+    actions: [h('button', { class: 'btn small primary', onclick: () => { S.whatsNewOpen = true; closePopovers(); location.hash = '#/'; renderOverview(); } }, t('Zeigen')),
+      h('button', { class: 'btn small', onclick: async () => { if (await run(() => api('/whatsnew/seen', { method: 'POST', body: {} }))) { s.whatsNew = null; refreshNotes(); } } }, t('Nein danke'))] });
+  if (S.update?.latest) notes.push({ icon: 'download', color: 'var(--info)', title: t('Server-Update {0} verfügbar', S.update.latest), text: t('Installiert: {0}', S.update.current),
+    actions: [h('a', { class: 'btn small primary', href: '#/settings/system', onclick: closePopovers }, t('Zum Update'))] });
+  if (s.walletConsentNeeded) {
+    const answer = async allow => {
+      if (await run(() => api('/wallet-consent', { method: 'POST', body: { allow } }), allow ? t('Wallet-Abfrage erlaubt.') : t('Keine Wallet-Abfrage.'))) { s.walletConsentNeeded = false; refreshNotes(); }
+    };
+    notes.push({ icon: 'wallet', color: 'var(--warn)', title: t('Wallet-Guthaben abfragen?'),
+      text: t('Deine Miner melden eine Wallet-Adresse im Pool-Benutzer. Soll BitaxeTuner Guthaben und Eingänge dieser Adressen bei mempool.space (BTC) bzw. Blockchair (BCH) abfragen? Dabei sehen diese Dienste die Adresse und deine IP-Adresse. Ohne Zustimmung wird nichts abgefragt; ändern kannst du das jederzeit in den Einstellungen.'),
+      actions: [h('button', { class: 'btn small primary', onclick: () => answer(true) }, t('Erlauben')), h('button', { class: 'btn small', onclick: () => answer(false) }, t('Nein danke'))] });
+  }
+  if (S.https && !S.https.enabled && S.https.configurable && localStorageGet('httpsHint') !== 'later')
+    notes.push({ icon: 'lock', color: 'var(--info)', title: t('Verbindung unverschlüsselt (HTTP)'),
+      text: t('Admin-Passwort, Token und Sitzung gehen im Heimnetz bisher unverschlüsselt. Mit HTTPS (selbst signiertes Zertifikat) sind sie verschlüsselt.'),
+      actions: [h('button', { class: 'btn small primary', onclick: () => { closePopovers(); switchHttps(true); } }, t('Auf HTTPS umstellen …')),
+        h('button', { class: 'btn small', onclick: () => { localStorageSet('httpsHint', 'later'); refreshNotes(); } }, t('Später'))] });
+  else if (location.protocol === 'http:' && !localStorageGet('httpsHintHidden'))
+    notes.push({ icon: 'lock', color: 'var(--info)', title: t('Verbindung unverschlüsselt'),
+      text: t('Dieser Server läuft noch mit HTTP – Passwort und Daten gehen unverschlüsselt durchs Heimnetz. Neue Installationen starten seit 0.9.4 mit HTTPS; bestehende lassen sich mit einem Klick umstellen.'),
+      actions: [h('a', { class: 'btn small primary', href: '#/settings/system', onclick: closePopovers }, t('Zu Einstellungen → Verbindung')),
+        h('button', { class: 'btn small', onclick: () => { localStorageSet('httpsHintHidden', '1'); refreshNotes(); } }, t('Ausblenden'))] });
+  setNotes(notes);
+}
+
 function renderOverview() {
   const s = S.status;
+  if (S.ovEditNext && isAdmin()) { S.ovEditNext = false; ovStartEdit(); return; }
   const tv = s.totals;
   const chart = h('canvas');
+  const tempWarn = s.tempWarn ?? 65;
   if (S.group === undefined) S.group = localStorageGet('group') || '';
   if (S.group && !(s.groups || []).some(g => g.toLowerCase() === S.group.toLowerCase())) S.group = '';
   const shown = s.devices.filter(d => inGroup(d, S.group));
@@ -499,88 +779,67 @@ function renderOverview() {
   const allPower = tv.wallPower ?? tv.power;
   const groupCard = S.group ? h('div', { class: 'card row' },
     h('b', {}, S.group), h('span', { class: 'muted' }, t('{0} von {1} online', gOn.length, shown.length)),
-    h('span', {}, hash(gHash)), h('span', {}, t('{0} W', n(gPower, 1))),
-    h('span', {}, gHash > 0 ? t('{0} J/TH', n(gPower / (gHash / 1000), 2)) : '–'),
+    h('span', { class: 'mono' }, hash(gHash)), h('span', { class: 'mono' }, t('{0} W', n(gPower, 1))),
+    h('span', { class: 'mono' }, gHash > 0 ? t('{0} J/TH', n(gPower / (gHash / 1000), 2)) : '–'),
     tv.costPerDay != null && allPower > 0 ? h('span', { class: 'muted' }, t('≈ {0} {1} pro Tag', n(tv.costPerDay * gPower / allPower, 2), tv.currency)) : null,
-    isAdmin() ? h('span', { class: 'spacer' }) : null,
+    isAdmin() ? h('span', { class: 'spacer', style: 'flex:1' }) : null,
     isAdmin() ? h('a', { class: 'btn small', href: `#/groups/${encodeURIComponent(S.group)}` }, t('Gruppen-Automatik …')) : null) : null;
-  const devs = shown.map(d => h('a', { class: 'card device', href: `#/device/${d.id}` },
-    h('div', { class: 'head' }, h('span', { class: `dot ${dotClass(d)}` }), h('b', {}, d.name),
-      d.benchmark?.running ? h('span', { class: 'pill' }, t('Benchmark')) : null,
-      d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
-      d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
-      d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
-      webUiIcon(d),
-      d.poolInfo ? null : poolLinkIcon(d)),
-    poolCoinRow(d),
-    d.online
-      ? h('div', { class: 'kv num' },
-          h('div', {}, h('span', {}, t('Hashrate')), hash(d.hashrate)),
-          h('div', {}, h('span', {}, d.chipTemps?.length > 1 ? t('ASIC max. / VR') : t('ASIC / VR')), t('{0} / {1} °C', n(d.temp, 1), n(d.vrTemp, 0))),
-          h('div', {}, h('span', {}, t('Leistung')), t('{0} W', n(d.power, 1))),
-          d.wallPower != null ? h('div', {}, h('span', {}, t('Steckdose')), t('{0} W', n(d.wallPower, 1))) : null,
-          h('div', {}, h('span', {}, t('Effizienz')), d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : '–'),
-          h('div', {}, h('span', {}, t('Takt')), t('{0} MHz / {1} mV', d.frequency ?? '–', d.voltage ?? '–')),
-          h('div', {}, h('span', {}, t('Laufzeit')), dur(d.uptimeSeconds)))
-      : h('div', { class: d.maintenance ? 'warn' : 'danger' }, d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart/Tuning …')) : (d.error || 'offline')),
-    d.automation ? h('div', { class: 'small muted', style: 'margin-top:6px' }, d.automation) : null,
-    d.benchmark?.running ? h('div', { class: 'progress', style: 'margin-top:8px' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
-    d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}`, style: 'margin-top:6px' },
-      t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? t(' · {0} U/min', d.fan.rpm) : '', d.fan.stalled ? t(' · steht!') : '')) : null,
-    d.suggestion ? h('div', { class: 'small warn', style: 'margin-top:6px' }, t('Vorschlag offen: {0} MHz / {1} mV', d.suggestion.frequencyMhz, d.suggestion.coreVoltageMv)) : null));
+  const devs = shown.map(d => minerCard(d, tempWarn));
 
   // 0.9.11 Übersicht-Designer: Panels aus dem gespeicherten Aufbau (Standard = bisheriger Aufbau)
   if (S.overviewLayout === undefined) {
     S.overviewLayout = null;
     api('/overview-layout').then(d => { S.overviewLayout = d.layout; if (S.route?.view === 'overview') renderOverview(); }).catch(() => {});
   }
-  const layout = S.overviewLayout || OVERVIEW_DEFAULT;
+  const edit = S.ovEdit;
+  const layout = edit ? S.ovDraft : (S.overviewLayout || OVERVIEW_DEFAULT);
   const costText = tv.costPerDay != null ? t('{0} {1} pro Tag', n(tv.costPerDay, 2), tv.currency) : '';
+  const hist = s.history || [];
+  const [th, tu] = hashParts(tv.hashrate);
   const tiles = {
-    hashrate: () => tile(t('Hashrate gesamt'), hash(tv.hashrate), t('{0}/{1} Miner online', tv.online, tv.count), 'ok'),
+    hashrate: () => kpiTile(t('Hashrate gesamt'), 'gauge',
+      [h('span', { 'data-tw': 'tot-h', 'data-to': tu === 'TH/s' ? tv.hashrate / 1000 : tv.hashrate, 'data-dec': tu === 'TH/s' ? 2 : 0 }, th), ' ', h('small', { class: 'muted', style: 'font-size:13px' }, tu)],
+      t('{0}/{1} Miner online', tv.online, tv.count), { cls: 'ok', color: 'var(--ok)', spark: hist.slice(-120).map(p => p[1]) }),
     power: () => tv.wallPower != null
-      ? tile(t('Leistung (Steckdose)'), t('{0} W', n(tv.wallPower, 1)), t('AxeOS {0} W · Netzteil/Neben {1} W', n(tv.power, 1), n(tv.overhead, 1)) + (costText ? ' · ' + costText : ''))
-      : tile(t('Leistung'), t('{0} W', n(tv.power, 1)), costText),
-    efficiency: () => tile(t('Effizienz'), tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt')),
-    maxtemp: () => tile(t('Max. Temperatur'), tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC'),
-    price: () => s.price ? tile(t('Strompreis'), cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source) : null,
-    cost: () => tv.costPerDay != null ? tile(t('Stromkosten'), `${n(tv.costPerDay, 2)} ${tv.currency}`, t('pro Tag beim aktuellen Verbrauch')) : null,
+      ? kpiTile(t('Leistung (Steckdose)'), 'zap', t('{0} W', n(tv.wallPower, 1)), t('AxeOS {0} W · Netzteil/Neben {1} W', n(tv.power, 1), n(tv.overhead, 1)) + (costText ? ' · ' + costText : ''), { color: 'var(--info)', spark: hist.slice(-120).map(p => p[3]) })
+      : kpiTile(t('Leistung'), 'zap', t('{0} W', n(tv.power, 1)), costText, { color: 'var(--info)', spark: hist.slice(-120).map(p => p[3]) }),
+    efficiency: () => kpiTile(t('Effizienz'), 'cpu', tv.efficiency ? t('{0} J/TH', n(tv.efficiency, 2)) : '–', tv.wallEfficiency ? t('Steckdose {0} J/TH', n(tv.wallEfficiency, 2)) : t('gesamt'), { color: 'var(--accent)' }),
+    maxtemp: () => kpiTile(t('Max. Temperatur'), 'temp', tv.maxTemp != null ? t('{0} °C', n(tv.maxTemp, 1)) : '–', 'ASIC',
+      { color: tv.maxTemp != null && tv.maxTemp >= tempWarn ? 'var(--warn)' : 'var(--muted)', cls: tv.maxTemp != null && tv.maxTemp >= tempWarn ? 'warn' : '' }),
+    price: () => s.price ? kpiTile(t('Strompreis'), 'plug', cents(t('{0} ct/kWh', n(s.price.ct, 2))), s.price.source, { color: 'var(--muted)' }) : null,
+    cost: () => tv.costPerDay != null ? kpiTile(t('Stromkosten'), 'euro', `${n(tv.costPerDay, 2)} ${tv.currency}`, t('pro Tag beim aktuellen Verbrauch'), { color: 'var(--muted)' }) : null,
   };
   let chartShown = false;
   const panels = {
     ...tiles,
     kpis: () => h('div', { class: 'tiles' }, ['hashrate', 'power', 'efficiency', 'maxtemp', 'price'].map(k => tiles[k]())),
     // Ansicht-Zugang mit Gruppen: kein Gesamtverlauf über alle Miner (der Server liefert ihn dann nicht)
-    chart: () => { if (S.viewGroups?.length) return null; chartShown = true; return h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate gesamt')), h('span', { class: 'muted small' }, 'live')), h('div', { class: 'chart' }, chart)); },
+    chart: () => { if (S.viewGroups?.length) return null; chartShown = true; return h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', { style: 'margin:0' }, t('Hashrate gesamt')), h('span', { class: 'pill gray' }, 'live')), h('div', { class: 'chart' }, chart)); },
     miners: () => h('div', { class: 'stack' },
       groupChips(s.groups, s.devices, renderOverview),
       groupCard,
-      s.devices.length ? h('div', { class: 'devices' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : '')),
+      s.devices.length ? h('div', { class: 'devices', id: 'minerGrid' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : '')),
     plugs: () => s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     soak: () => isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     news: () => newsCard(true),
     text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
   };
-  const grid = h('div', { class: 'ov-grid' }, layout.panels.map(p => {
-    const content = panels[p.type]?.(p);
+  const grid = h('div', { class: `ov-grid${edit ? ' ov-edit' : ''}`, id: 'ovGrid' }, layout.panels.map((p, i) => {
+    const content = panels[p.type]?.(p) ?? (edit ? h('div', { class: 'card muted small' }, t('{0} – derzeit leer', ovTypeName(p.type))) : null);
     if (!content) return null;
-    return h('div', { class: 'ov-panel', style: `grid-column: span ${Math.min(12, Math.max(1, p.colSpan || 12))}` },
+    return h('div', { class: 'ov-panel', 'data-i': i, style: `grid-column: span ${Math.min(12, Math.max(1, p.colSpan || 12))}` },
+      edit ? ovGrip(p, i) : null,
+      edit ? h('div', { class: 'ov-resize', title: t('Breite ändern'), onpointerdown: e => ovResize(e, i) }) : null,
       p.title && p.type !== 'news' ? h('h3', { class: 'ov-title' }, p.title) : null, content);
   }));
 
   mount(h('div', { class: 'stack' },
-    // Hinweise stehen immer oben – unabhängig vom Aufbau
-    s.whatsNew ? whatsNewCard(s.whatsNew) : null,
+    // Hinweise sind in der Glocke; hier bleibt nur, was den Betrieb betrifft
+    s.whatsNew && S.whatsNewOpen ? whatsNewCard(s.whatsNew) : null,
     s.onboarding ? onboardingCard(s.onboarding) : null,
-    httpsHintCard(),
     isAdmin() && s.configSaveError ? h('div', { class: 'banner danger' },
       h('b', {}, t('Einstellungen konnten nicht gespeichert werden: {0}', s.configSaveError)),
       h('p', { class: 'small' }, t('Änderungen gehen beim nächsten Neustart verloren. Bitte Speicherplatz und Schreibrechte des Datenordners prüfen.'))) : null,
-    isAdmin() && s.walletConsentNeeded ? walletConsentBanner() : null,
-    isAdmin() && S.https && !S.https.enabled && S.https.configurable && localStorageGet('httpsHint') !== 'later' ? httpsBanner() : null,
-    isAdmin() && S.update?.latest ? h('div', { class: 'banner row' },
-      h('span', { style: 'flex:1' }, t('Server-Update {0} verfügbar (installiert: {1}).', S.update.latest, S.update.current)),
-      h('a', { class: 'btn primary small', href: '#/settings' }, t('Zum Update'))) : null,
     !s.running ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Der Motor ist pausiert – der Server fragt keine Miner ab (z. B. weil die Desktop-App im Modus „Lokal“ läuft oder Daten übertragen werden).')),
       isAdmin() ? h('button', {
@@ -589,9 +848,144 @@ function renderOverview() {
           run(() => api('/admin/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
         },
       }, t('Fortsetzen …')) : null) : null,
+    edit ? ovEditBar() : null,
     grid,
-    isAdmin() ? h('div', { class: 'row', style: 'justify-content:flex-end' }, h('a', { class: 'btn small ghost', href: '#/settings', onclick: () => { S.settingsJump = 'overview-design'; } }, t('Übersicht anpassen …'))) : null));
-  if (chartShown) drawChart(chart, [{ points: s.history.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+    isAdmin() && !edit ? h('div', { class: 'row', style: 'justify-content:flex-end' },
+      h('button', { class: 'btn small', onclick: ovStartEdit }, icon('edit', 16), t('Übersicht bearbeiten'))) : null));
+  if (chartShown) drawChart(chart, [{ points: hist.map(p => [p[0], p[1]]), color: cssVar('--ok'), format: hash }], []);
+  tweenNumbers($('#app'));
+  if (edit) ovWireMiners();
+}
+
+// ---------- Übersicht bearbeiten (0.9.14): Panels und Miner per Ziehen, Breite am Rand ----------
+
+const ovTypeName = type => (OVERVIEW_TYPES().find(x => x[0] === type) || [type, type])[1];
+
+async function ovStartEdit() {
+  // Erst den gespeicherten Aufbau holen – sonst würde der Standard bearbeitet und ein eigener Aufbau überschrieben
+  if (!S.overviewLayout) {
+    const d = await run(() => api('/overview-layout'));
+    if (!d) return;
+    S.overviewLayout = d.layout;
+  }
+  const base = S.overviewLayout || OVERVIEW_DEFAULT;
+  S.ovDraft = { panels: base.panels.map(p => ({ ...p })) };
+  S.ovOrder = null;
+  S.ovEdit = true;
+  renderOverview();
+}
+
+function ovEditBar() {
+  const used = new Set(S.ovDraft.panels.map(p => p.type));
+  const add = h('select', { style: 'width:auto' }, OVERVIEW_TYPES().filter(([k]) => k === 'text' || !used.has(k)).map(([k, l]) => h('option', { value: k }, l)));
+  const finish = async save => {
+    if (save) {
+      const r = await run(() => api('/overview-layout', { method: 'PUT', body: { panels: S.ovDraft.panels, reset: false } }), t('Übersicht gespeichert.'));
+      if (!r) return;
+      S.overviewLayout = r.layout;
+      if (S.ovOrder) await run(() => api('/devices/order', { method: 'PUT', body: { ids: S.ovOrder } }));
+    }
+    S.ovEdit = false; S.ovDraft = null; S.ovOrder = null;
+    if (save) S.status = await api('/status').catch(() => S.status);
+    renderOverview();
+  };
+  return h('div', { class: 'ov-editbar' }, icon('move'),
+    h('div', { style: 'flex:1;min-width:200px' }, h('b', {}, t('Übersicht bearbeiten')),
+      h('div', { class: 'small muted' }, t('Panels am Griff ziehen, Breite am orangen Rand ziehen, Miner-Karten direkt verschieben. Gilt für alle Browser.'))),
+    add, h('button', { class: 'btn small', onclick: () => { S.ovDraft.panels.push({ type: add.value, colSpan: 6, title: '', text: '' }); renderOverview(); } }, icon('plus', 16), t('Panel hinzufügen')),
+    h('button', { class: 'btn small ghost', onclick: async () => {
+      if (!await confirmBox(t('Standardaufbau'), t('Übersicht auf den Standardaufbau zurücksetzen?'), t('Zurücksetzen'))) return;
+      const r = await run(() => api('/overview-layout', { method: 'PUT', body: { panels: [], reset: true } }), t('Übersicht zurückgesetzt.'));
+      if (r) { S.overviewLayout = r.layout; S.ovEdit = false; renderOverview(); }
+    } }, t('Standard')),
+    h('button', { class: 'btn small ghost', onclick: () => finish(false) }, t('Abbrechen')),
+    h('button', { class: 'btn small primary', onclick: () => finish(true) }, t('Fertig')));
+}
+
+function ovGrip(p, i) {
+  const edit = async () => {
+    const title = h('input', { value: p.title || '', maxlength: 60, placeholder: t('Überschrift (optional)') });
+    const text = p.type === 'text' ? h('textarea', { rows: 4, value: p.text || '', maxlength: 2000 }) : null;
+    if (!await confirmBox(ovTypeName(p.type), h('div', { class: 'stack' }, h('label', {}, t('Überschrift (optional)')), title, text ? h('label', {}, t('Text')) : null, text), t('Übernehmen'))) return;
+    p.title = title.value.trim();
+    if (text) p.text = text.value;
+    renderOverview();
+  };
+  return h('div', { class: 'ov-grip' },
+    h('button', { type: 'button', title: t('Ziehen zum Verschieben'), 'aria-label': t('Ziehen zum Verschieben'), onpointerdown: e => ovDragPanel(e, i) }, icon('move', 16)),
+    h('span', { class: 'mono' }, `${p.colSpan || 12}/12`),
+    h('span', { class: 'ov-grip-name' }, p.title || ovTypeName(p.type)),
+    h('button', { type: 'button', title: t('Überschrift ändern'), onclick: edit }, icon('edit', 15)),
+    h('button', { type: 'button', title: t('Entfernen'), onclick: () => { S.ovDraft.panels.splice(i, 1); renderOverview(); } }, icon('x', 15)));
+}
+
+function ovDragPanel(e, i) {
+  e.preventDefault();
+  const grid = $('#ovGrid'), el = e.target.closest('.ov-panel');
+  el.classList.add('dragging');
+  const move = ev => {
+    const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.ov-panel');
+    if (!over || over === el || over.parentNode !== grid) return;
+    const r = over.getBoundingClientRect();
+    const after = ev.clientY > r.top + r.height / 2 || (ev.clientX > r.left + r.width / 2 && Math.abs(ev.clientY - (r.top + r.height / 2)) < r.height / 3);
+    grid.insertBefore(el, after ? over.nextSibling : over);
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    S.ovDraft.panels = [...grid.querySelectorAll('.ov-panel')].map(x => S.ovDraft.panels[+x.dataset.i]);
+    renderOverview();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+function ovResize(e, i) {
+  e.preventDefault();
+  const el = e.target.closest('.ov-panel'), gridW = $('#ovGrid').getBoundingClientRect().width, left = el.getBoundingClientRect().left;
+  const snaps = [3, 4, 6, 8, 9, 12];
+  const move = ev => {
+    const raw = (ev.clientX - left) / gridW * 12;
+    const span = snaps.reduce((a, b) => Math.abs(b - raw) < Math.abs(a - raw) ? b : a);
+    S.ovDraft.panels[i].colSpan = span;
+    el.style.gridColumn = `span ${span}`;
+    const lab = el.querySelector('.ov-grip .mono');
+    if (lab) lab.textContent = `${span}/12`;
+  };
+  const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+/** Im Bearbeiten-Modus: Miner-Karten verschieben statt öffnen. */
+function ovWireMiners() {
+  const grid = $('#minerGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.device').forEach(card => {
+    card.addEventListener('click', e => e.preventDefault());
+    card.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      card.classList.add('dragging');
+      const move = ev => {
+        const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.device');
+        if (!over || over === card || over.parentNode !== grid) return;
+        const r = over.getBoundingClientRect();
+        grid.insertBefore(card, ev.clientX > r.left + r.width / 2 ? over.nextSibling : over);
+      };
+      const up = () => {
+        card.classList.remove('dragging');
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        // Reihenfolge: gezeigte Miner neu, ausgeblendete (andere Gruppe) behalten ihren Platz am Ende
+        const shownIds = [...grid.querySelectorAll('.device')].map(x => x.dataset.id);
+        const rest = S.status.devices.map(d => d.id).filter(id => !shownIds.includes(id));
+        S.ovOrder = [...shownIds, ...rest];
+      };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    });
+  });
 }
 
 /** Standardaufbau der Übersicht (wie OverviewLayouts.Default auf dem Server). */
@@ -2847,7 +3241,7 @@ async function renderSettings() {
 
   const save = async () => {
     s.newViewerPin = pin.value || null;
-    if (await run(() => api('/settings', { method: 'PUT', body: s }), t('Einstellungen gespeichert.'))) { pin.value = ''; s.viewerPinSet = s.viewerPinSet || !!s.newViewerPin; }
+    if (await run(() => api('/settings', { method: 'PUT', body: s }), t('Einstellungen gespeichert.'))) { pin.value = ''; s.viewerPinSet = s.viewerPinSet || !!s.newViewerPin; S.settingsSaved?.(); }
   };
 
   // Geräte
@@ -2947,30 +3341,37 @@ async function renderSettings() {
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
     copyCard,
     overviewDesignCard(status.devices),
-    h('div', { class: 'card stack' }, h('h2', {}, t('Allgemein')),
-      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: async () => {
-        if (await run(() => api('/onboarding', { method: 'POST', body: { show: true } }))) toast(t('„Erste Schritte“ steht wieder in der Übersicht.'), 'ok', 8000);
-      } }, t('Einführung „Erste Schritte“ wieder anzeigen'))),
+    // 0.9.14: früher eine Karte „Allgemein“ – jetzt thematisch auf die Bereiche verteilt
+    h('div', { class: 'card stack' }, h('h2', {}, t('Strompreis')),
       h('div', { class: 'form' },
-        h('div', {}, h('label', {}, t('Abfrage alle (s)')), text(s, 'intervalSeconds', 'number')),
-        h('div', {}, h('label', {}, t('Live-Verlauf (min)')), text(s, 'historyMinutes', 'number')),
-        h('div', {}, h('label', {}, t('Verlauf aufbewahren (Tage)')), text(s, 'historyDays', 'number')),
-        h('div', {}, h('label', {}, t('Miner-Logs aufbewahren (Stunden, 1–168)')), text(s, 'minerLogKeepHours', 'number')),
         h('div', {}, h('label', {}, cents(t('Strompreis (ct/kWh)'))), text(s, 'electricityCtPerKwh', 'number')),
         h('div', {}, h('label', {}, t('Preis ist')), (() => { const el = h('select', { onchange: e => { s.electricityPriceIsNet = e.target.value === 'net'; } },
           h('option', { value: 'gross' }, t('brutto (inkl. MwSt.)')), h('option', { value: 'net' }, t('netto (zzgl. MwSt.)'))); el.value = s.electricityPriceIsNet ? 'net' : 'gross'; return el; })()),
         h('div', {}, h('label', {}, t('MwSt. (%)')), text(s, 'vatPercent', 'number')),
-        h('div', {}, h('label', {}, t('Währung (für alles)')), selectInput(s, 'currencyCode', (s.currencyOptions || [{ code: 'EUR', name: 'Euro', symbol: '€' }]).map(c => [c.code, `${t(c.name)} (${c.symbol})`]))),
-        h('div', {}, h('label', {}, t('Warnung ab ASIC (°C)')), text(s, 'tempWarn', 'number')),
-        h('div', {}, h('label', {}, t('Wallets prüfen alle (min)')), text(s, 'walletPollMinutes', 'number')),
-        h('div', {}, h('label', {}, t('Steuer-Erfassung alle (min)')), text(s, 'taxPollMinutes', 'number'))),
-      checkInput(s, 'restartAfterApply', t('Nach Frequenz-/Spannungsänderung neu starten')),
-      checkInput(s, 'checkForUpdates', t('Nach neuen Versionen suchen')),
+        h('div', {}, h('label', {}, t('Währung (für alles)')), selectInput(s, 'currencyCode', (s.currencyOptions || [{ code: 'EUR', name: 'Euro', symbol: '€' }]).map(c => [c.code, `${t(c.name)} (${c.symbol})`]))))),
+    h('div', { class: 'card stack' }, h('h2', {}, t('Grenzwerte und Tuning')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Warnung ab ASIC (°C)')), text(s, 'tempWarn', 'number'))),
+      checkInput(s, 'restartAfterApply', t('Nach Frequenz-/Spannungsänderung neu starten'))),
+    h('div', { class: 'card stack' }, h('h2', {}, t('Wallet-Abfrage')),
       checkInput(s, 'walletLookupConsent', t('Aus dem Pool-Benutzer erkannte Wallet-Adressen bei mempool.space/Blockchair abfragen')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Sprache des Servers (Push, Tagesbericht, E-Paper)')),
-        select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ...LANGS.map(l => [l, LANG_NAMES[l]])]))),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('Wallets prüfen alle (min)')), text(s, 'walletPollMinutes', 'number')),
+        h('div', {}, h('label', {}, t('Steuer-Erfassung alle (min)')), text(s, 'taxPollMinutes', 'number')))),
+    h('div', { class: 'card stack' }, h('h2', {}, t('Ansicht-PIN')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('PIN für „Nur ansehen“ (mind. 6 Ziffern, „-“ = entfernen)')), pin)),
       s.viewerPinLegacy ? h('p', { class: 'warn small' }, t('Die PIN ist noch im alten Format gespeichert. Bitte einmal neu setzen (mind. 6 Ziffern) – sie wird dann sicherer gespeichert.')) : null),
+    h('div', { class: 'card stack' }, h('h2', {}, t('Abfrage und Speicher')),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('Abfrage alle (s)')), text(s, 'intervalSeconds', 'number')),
+        h('div', {}, h('label', {}, t('Live-Verlauf (min)')), text(s, 'historyMinutes', 'number')),
+        h('div', {}, h('label', {}, t('Verlauf aufbewahren (Tage)')), text(s, 'historyDays', 'number')),
+        h('div', {}, h('label', {}, t('Miner-Logs aufbewahren (Stunden, 1–168)')), text(s, 'minerLogKeepHours', 'number'))),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Sprache des Servers (Push, Tagesbericht, E-Paper)')),
+        select(s, 'language', [['auto', t('Automatisch (Systemsprache)')], ...LANGS.map(l => [l, LANG_NAMES[l]])]))),
+      checkInput(s, 'checkForUpdates', t('Nach neuen Versionen suchen')),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: async () => {
+        if (await run(() => api('/onboarding', { method: 'POST', body: { show: true } }))) toast(t('„Erste Schritte“ steht wieder in der Übersicht.'), 'ok', 8000);
+      } }, t('Einführung „Erste Schritte“ wieder anzeigen')))),
     h('div', { class: 'card stack' }, h('h2', {}, t('Push-Benachrichtigungen')),
       pushTargetsEditor(nt, text, select, status?.devices || [], save),
       h('div', { class: 'row' },
@@ -2986,6 +3387,8 @@ async function renderSettings() {
       checkInput(pw, 'enabled', t('Pool/Shares überwachen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Ablehnungen ab (%)')), text(pw, 'rejectPercent', 'number')), h('div', {}, h('label', {}, t('Zeitfenster (min)')), text(pw, 'windowMinutes', 'number')),
         h('div', {}, h('label', {}, t('mind. Shares')), text(pw, 'minShares', 'number')), h('div', {}, h('label', {}, t('Antwortzeit ab (ms)')), text(pw, 'responseMs', 'number'))),
+    ),
+    h('div', { class: 'card stack' }, h('h2', {}, t('Berichte und Log-Alarme')),
       checkInput(dr, 'enabled', t('Tagesbericht per Push')),
       checkInput(dr, 'monthly', t('Monatsbericht am Monatsersten per Push')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Uhrzeit (Stunde)')), text(dr, 'hour', 'number'))),
@@ -2997,7 +3400,7 @@ async function renderSettings() {
         h('div', {}, h('label', {}, cents(t('Aufschlag (ct/kWh)'))), numInput(ps, 'surchargeCt', 0.1))),
       checkInput(ps, 'dynamicCosts', t('Stromkosten mit Stundenpreisen rechnen')),
       h('p', { class: 'muted small' }, t('Aufschlag bei aWATTar: Netzentgelte, Steuern und Umlagen (typisch 15–25 ct/kWh), bei Tibber 0. Ohne Preis für eine Stunde gilt der feste Strompreis.'))),
-    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, t('Einstellungen speichern'))),
+    lookCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Desktop-App verbinden (API-Token)')),
       h('p', { class: 'muted small' }, t('In der Desktop-App unter Einstellungen → Betriebsart „Server“ die Adresse dieses Servers und das Token eintragen. Das Token wird nur einmal angezeigt.')),
       tokens.length ? h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, [t('Name'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))), h('tbody', {}, tokenRows))) : null,
@@ -3027,9 +3430,144 @@ async function renderSettings() {
     h('p', { class: 'muted small' }, t('BitaxeTuner – Copyright © 2026 BitaxeTuner contributors. Freie Software unter der GNU GPL v3.0, '),
       h('b', {}, t('ohne jede Gewähr')), t('. Quelltext, Lizenz und Hinweise zu enthaltenen Komponenten: '),
       h('a', { href: 'https://github.com/Elemirus1996/BitaxeTuner', target: '_blank', rel: 'noopener' }, 'github.com/Elemirus1996/BitaxeTuner'), '.')));
-  addToc();
-  if (S.settingsJump) { const id = S.settingsJump; S.settingsJump = null; setTimeout(() => jumpTo(id), 50); }
-  if (S.settingsSection) { jumpTo(S.settingsSection); S.settingsSection = null; }
+  settingsSections(save);
+}
+
+// ---------- 0.9.14 Einstellungen in Bereichen ----------
+
+/** Bereiche der Einstellungen: [id, Name, Symbol, Kartentitel (h2)]. */
+const SETTINGS_SECTIONS = () => [
+  ['miners', t('Miner & Geräte'), 'cpu', [t('Geräte'), t('Einstellungen übertragen'), t('Geräteprofile')]],
+  ['look', t('Darstellung'), 'palette', [t('Darstellung'), t('Übersicht gestalten')]],
+  ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Berichte und Log-Alarme')]],
+  ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs')]],
+  ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
+  ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
+  ['access', t('Zugang & Sicherheit'), 'shield', [t('Ansicht-PIN'), t('Ansicht-Zugänge'), t('Kiosk / Wand-Tablet'), t('Verbindung'), t('Admin-Passwort ändern')]],
+  ['system', t('System'), 'server', [t('Abfrage und Speicher'), t('Sicherung'), t('Server-Update')]],
+];
+/** Karten, deren Felder mit „Speichern“ übernommen werden (übrige Karten speichern selbst). */
+const SETTINGS_FORM_CARDS = () => [t('Strompreis'), t('Grenzwerte und Tuning'), t('Wallet-Abfrage'), t('Ansicht-PIN'), t('Abfrage und Speicher'),
+  t('Push-Benachrichtigungen'), t('Überwachung'), t('Berichte und Log-Alarme'), t('Strompreis-Quelle')];
+/** Frühere Kartennamen (Hinweise, „Erste Schritte“) → heutige Karte. */
+const SETTINGS_ALIASES = () => ({ [t('Allgemein')]: t('Strompreis'), [t('Strom und Abfrage')]: t('Strompreis') });
+
+function settingsSections(save) {
+  const root = $('#app').firstElementChild;
+  if (!root) return;
+  const sections = SETTINGS_SECTIONS();
+  const bySec = new Map(), forms = new Set(SETTINGS_FORM_CARDS());
+  sections.forEach(([id, , , titles]) => titles.forEach(x => bySec.set(x, id)));
+  const order = new Map();
+  sections.forEach(([, , , titles], si) => titles.forEach((x, ti) => order.set(x, si * 100 + ti)));
+  const cards = [...root.children];
+  cards.forEach(c => {
+    const title = c.querySelector('h2')?.textContent || '';
+    c.dataset.sec = bySec.get(title) || 'system';
+    if (forms.has(title)) c.dataset.form = '1';
+    // Übersicht: Bearbeiten direkt auf der Seite
+    if (title === t('Übersicht gestalten')) c.querySelector('h2').after(h('div', { class: 'row' },
+      h('a', { class: 'btn small primary', href: '#/', onclick: () => { S.ovEditNext = true; } }, icon('edit', 16), t('Direkt auf der Übersicht bearbeiten')),
+      h('span', { class: 'muted small' }, t('Panels und Miner per Ziehen anordnen.'))));
+  });
+  // Reihenfolge innerhalb eines Bereichs wie in der Liste; Rest (Hinweise unten) behält seinen Platz
+  cards.sort((a, b) => (order.get(a.querySelector('h2')?.textContent) ?? 9999) - (order.get(b.querySelector('h2')?.textContent) ?? 9999));
+
+  // Sprungziel (Hinweis, „Erste Schritte“, Pfad #/settings/<bereich>)
+  let target = null;
+  if (S.settingsJump === 'overview-design') target = t('Übersicht gestalten');
+  if (S.settingsSection) target = SETTINGS_ALIASES()[S.settingsSection] || S.settingsSection;
+  S.settingsJump = null; S.settingsSection = null;
+  let sec = S.route?.sec;
+  if (target && bySec.has(target)) sec = bySec.get(target);
+  if (!sections.some(x => x[0] === sec)) sec = 'miners';
+
+  const bar = h('div', { class: 'savebar', role: 'status' }, h('span', {}, t('Ungespeicherte Änderungen')), h('span', { style: 'flex:1' }),
+    h('button', { class: 'btn ghost', onclick: () => { S.settingsDirty = false; renderSettings(); } }, t('Verwerfen')),
+    h('button', { class: 'btn primary', onclick: async () => { await save(); } }, t('Speichern')));
+  const nav = h('nav', { class: 'subnav', 'aria-label': t('Bereiche') }, sections.map(([id, label, ic]) =>
+    h('button', { type: 'button', 'data-s': id, onclick: () => show(id) }, icon(ic, 17), h('span', {}, label))));
+  const body = h('div', { class: 'stack settings-body' }, cards, bar);
+  mount(h('div', { class: 'settings' }, nav, body));
+
+  function show(id) {
+    sec = id;
+    S.route.sec = id;
+    history.replaceState(null, '', `#/settings/${id}`);
+    nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === id));
+    cards.forEach(c => { c.hidden = c.dataset.sec !== id; });
+    $('#crumb').textContent = t('Einstellungen');
+    $('#pageTitle').textContent = sections.find(x => x[0] === id)[1];
+    window.scrollTo({ top: 0 });
+  }
+  show(sec);
+  if (target) { const card = cards.find(c => c.querySelector('h2')?.textContent === target); if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }
+
+  // Änderungen in Formular-Karten → Speichern-Leiste
+  S.settingsDirty = false;
+  const dirty = e => { if (e.target.closest('[data-form]')) { S.settingsDirty = true; bar.classList.add('show'); } };
+  body.addEventListener('input', dirty);
+  body.addEventListener('change', dirty);
+  S.settingsSaved = () => { S.settingsDirty = false; bar.classList.remove('show'); };
+}
+
+/** Darstellung je Browser (sofort wirksam): Hintergrund, Abdunkeln, eigenes Bild, Bewegung. */
+function lookCard() {
+  const look = lookNow();
+  const set = patch => {
+    const own = (() => { try { return JSON.parse(localStorageGet('look') || '{}'); } catch { return {}; } })();
+    Object.assign(own, patch);
+    localStorageSet('look', JSON.stringify(own));
+    applyLook();
+  };
+  const BGS = [['solid', t('Einfarbig')], ['gradient', t('Verlauf')], ['aurora', t('Verlauf, bewegt')], ['hex', t('Waben')], ['circuit', t('Platine')], ['dots', t('Punkte')], ['image', t('Eigenes Bild')]];
+  const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp' });
+  file.hidden = true;
+  const opts = h('div', { class: 'bgs' }, BGS.map(([k, l]) => h('button', { type: 'button', class: `bgopt${look.bg === k ? ' on' : ''}`, 'data-bg': k,
+    onclick: () => { if (k === 'image' && !lookNow().image) { file.click(); return; } set({ bg: k }); opts.querySelectorAll('.bgopt').forEach(b => b.classList.toggle('on', b.dataset.bg === k)); } },
+    h('span', { class: `pv bgpv-${k}`, style: k === 'image' && look.image ? `background-image:url(${JSON.stringify(look.image)})` : '' }), h('span', {}, l))));
+  // Eigenes Bild: im Browser verkleinert (max. 1920 px, JPEG) und nur in diesem Browser gespeichert – nichts geht an Dritte
+  file.addEventListener('change', () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    if (f.size > 15 * 1024 * 1024) { toast(t('Bild ist zu groß (höchstens 15 MB).'), 'error'); return; }
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1920 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL('image/jpeg', 0.82);
+      URL.revokeObjectURL(img.src);
+      try { set({ bg: 'image', image: data }); } catch { toast(t('Bild konnte nicht gespeichert werden (Speicher des Browsers voll).'), 'error'); return; }
+      renderSettings();
+    };
+    img.onerror = () => toast(t('Bild konnte nicht gelesen werden.'), 'error');
+    img.src = URL.createObjectURL(f);
+  });
+  const veil = h('input', { type: 'range', min: 0, max: 80, value: look.veil || 0, style: 'max-width:260px' });
+  const veilV = h('span', { class: 'mono small' }, `${look.veil || 0} %`);
+  veil.addEventListener('input', () => { veilV.textContent = veil.value + ' %'; set({ veil: +veil.value }); });
+  const sw = (key, label, hint) => h('label', { class: 'check', style: 'align-items:flex-start' },
+    h('input', { type: 'checkbox', checked: !!look[key], onchange: e => set({ [key]: e.target.checked }) }),
+    h('span', {}, label, hint ? h('span', { class: 'muted small', style: 'display:block' }, hint) : null));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Darstellung')),
+    h('p', { class: 'muted small' }, t('Gilt sofort und nur für diesen Browser. Muster und Verläufe bleiben dezent, damit die Zahlen lesbar bleiben.')),
+    opts, file,
+    h('div', { class: 'row' }, h('label', { style: 'margin:0' }, t('Abdunkeln')), veil, veilV,
+      look.image ? h('button', { class: 'btn small ghost', onclick: () => { set({ image: null, bg: lookNow().bg === 'image' ? 'gradient' : lookNow().bg }); renderSettings(); } }, t('Eigenes Bild entfernen')) : null),
+    h('h3', { style: 'margin-top:8px' }, t('Bewegung')),
+    sw('anim', t('Animationen'), t('Seitenwechsel, Karten, Puls bei Statuswechsel. Bei „Bewegung reduzieren“ im Betriebssystem automatisch aus.')),
+    sw('numbers', t('Live-Zahlen weich zählen'), t('Hashrate und Leistung gleiten zum neuen Wert.')),
+    sw('hover', t('Karten heben sich beim Zeigen')),
+    sw('party', t('Blockfund feiern'), t('Konfetti, wenn ein Miner einen Block findet.')),
+    h('div', { class: 'row', style: 'margin-top:6px' },
+      isAdmin() ? h('button', { class: 'btn small', onclick: async () => {
+        const l = lookNow();
+        if (await run(() => api('/appearance', { method: 'PUT', body: { bg: l.bg === 'image' ? 'gradient' : l.bg, veil: l.veil || 0, anim: !!l.anim, numbers: !!l.numbers, hover: !!l.hover, party: !!l.party } }),
+          t('Als Standard für alle Browser gespeichert.'))) S.lookServer = null;
+      } }, t('Als Standard für alle übernehmen')) : null,
+      h('button', { class: 'btn small ghost', onclick: () => { localStorageSet('look', '{}'); applyLook(); renderSettings(); } }, t('Eigene Einstellung dieses Browsers zurücksetzen'))));
 }
 
 /**
