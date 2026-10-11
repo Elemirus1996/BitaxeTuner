@@ -107,7 +107,9 @@ public static class DataArchive
 
     private static void Add(ZipArchive zip, ArchiveManifest manifest, string relative, string file)
     {
-        var entry = zip.CreateEntry(DataPrefix + relative, CompressionLevel.Optimal);
+        // Große Dateien (history.db) schnell packen: „Optimal“ kostet auf einem Pi ein Vielfaches an CPU-Zeit für wenige Prozent
+        var level = new FileInfo(file).Length > 16L * 1024 * 1024 ? CompressionLevel.Fastest : CompressionLevel.Optimal;
+        var entry = zip.CreateEntry(DataPrefix + relative, level);
         using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using (var output = entry.Open())

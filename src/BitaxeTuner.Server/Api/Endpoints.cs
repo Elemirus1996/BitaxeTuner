@@ -1231,12 +1231,22 @@ public static class Endpoints
         {
             // Audit N-Sec5: im geschützten Datenordner statt im allgemeinen Temp-Ordner (Archiv enthält aufgelöste Tokens)
             var file = Path.Combine(hub.Settings.DataDirectory, $".export-{Guid.NewGuid():N}.zip");
-            await hub.RunAsync(h =>
+            // 0.9.14: Archiv nicht im Hub-Kontext bauen – das dauert auf einem Pi mit großer history.db Minuten, und so lange
+            // stünden Abfragen, Lüfterbefehle und die Oberfläche still (wirkt wie ein Absturz)
+            var (dir, history) = await hub.RunAsync(h => (h.DataDirectory, h.History));
+            try
             {
-                using var fs = File.Create(file);
-                DataArchive.Create(h.DataDirectory, h.History, fs, "server", Version);
-                return true;
-            });
+                await Task.Run(() =>
+                {
+                    using var fs = File.Create(file);
+                    DataArchive.Create(dir, history, fs, "server", Version);
+                });
+            }
+            catch
+            {
+                try { File.Delete(file); } catch { /* egal */ }
+                throw;
+            }
             var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.DeleteOnClose);
             return Results.File(stream, "application/zip", $"bitaxetuner-server-{DateTime.Now:yyyyMMdd-HHmm}.zip");
         });

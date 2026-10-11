@@ -634,20 +634,34 @@ public sealed class HistoryStore : IDisposable
     // ---------- Sicherung ----------
 
     /// <summary>
-    /// Konsistente Kopie über die SQLite-Backup-API (berücksichtigt WAL). Überschreibt nie eine vorhandene Datei.
+    /// Konsistente Kopie (berücksichtigt WAL). Überschreibt nie eine vorhandene Datei.
+    /// 0.9.14: Kopiert über eine eigene Lese-Verbindung mit „VACUUM INTO“ – im WAL-Modus blockiert ein Leser die
+    /// Schreibzugriffe nicht. Bisher lief die Kopie unter der Sperre der Datenbank: Bei einer großen history.db (Pi,
+    /// SD-Karte) stand der Hub dann minutenlang (keine Abfragen, keine Lüfterbefehle, Oberfläche reagiert nicht).
     /// </summary>
     public void BackupTo(string targetFile)
     {
         if (File.Exists(targetFile))
             throw new IOException(L.T("Ziel existiert bereits und wird nicht überschrieben: {0}", targetFile));
         Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-        lock (_lock)
+        lock (_lock) FlushPlugSamples();
+        if (!File.Exists(FilePath))
         {
-            FlushPlugSamples();
-            using var target = new SqliteConnection($"Data Source={targetFile};Pooling=False");
-            target.Open();
-            _db.BackupDatabase(target);
+            lock (_lock)
+            {
+                using var target = new SqliteConnection($"Data Source={targetFile};Pooling=False");
+                target.Open();
+                _db.BackupDatabase(target);
+            }
+            return;
         }
+        using var source = new SqliteConnection($"Data Source={FilePath};Mode=ReadOnly;Pooling=False");
+        source.Open();
+        using var cmd = source.CreateCommand();
+        cmd.CommandText = "VACUUM INTO $target";
+        cmd.Parameters.AddWithValue("$target", targetFile);
+        cmd.CommandTimeout = 0;
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>Zeilen je Tabelle – für die Prüfung nach Sicherung/Umzug.</summary>
