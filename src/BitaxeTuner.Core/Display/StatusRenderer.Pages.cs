@@ -270,6 +270,31 @@ public static partial class StatusRenderer
         DrawFooter(ctx, m);
     }
 
+    // ---------- Eigenes Bild (0.9.16) ----------
+
+    /// <summary>Höhe der Leiste für die Bildunterschrift.</summary>
+    public const int CaptionHeight = 52;
+
+    private static void DrawPicture(IImageProcessingContext ctx, DisplayModel m)
+    {
+        var p = m.Picture;
+        if (p?.Rgb is null)
+        {
+            PageHeader(ctx, m, L.T("Eigenes Bild"));
+            TextCenter(ctx, L.T("Noch kein Bild hochgeladen."), Regular.Value.CreateFont(26), Width / 2f, 190, Ink);
+            TextCenter(ctx, L.T("Unter Lüfter & Anzeige ein Bild hochladen."), Regular.Value.CreateFont(20), Width / 2f, 232, Ink);
+            DrawFooter(ctx, m);
+            return;
+        }
+        using (var pic = Image.LoadPixelData<SixLabors.ImageSharp.PixelFormats.Rgb24>(p.Rgb, Width, p.Height))
+            ctx.DrawImage(pic, new Point(0, 0), 1f);
+        if (p.Caption.Length == 0) return;
+        var top = Height - CaptionHeight;
+        ctx.Fill(Crisp, Ink, new RectangleF(0, top, Width, 2));
+        var font = Bold.Value.CreateFont(26);
+        TextCenter(ctx, Fit(p.Caption, font, Width - 32), font, Width / 2f, top + 11, Ink);
+    }
+
     // ---------- QR-Code ----------
 
     private static void DrawQr(IImageProcessingContext ctx, DisplayModel m)

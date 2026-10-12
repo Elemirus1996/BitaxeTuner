@@ -4,6 +4,8 @@ using BitaxeTuner.Core.Fans;
 using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Profiles;
 using BitaxeTuner.Core.Simulation;
+using BitaxeTuner.Core.Transfer;
+using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Tests;
 
@@ -222,6 +224,78 @@ public class DisplaySceneTests
         d.SpecialRules["bestdiff"] = new SpecialRule { Until = "hours", Hours = 1 };
         Assert.Equal(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now).Scene);
         Assert.NotEqual(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now.AddHours(2)).Scene);
+    }
+
+    /// <summary>Testbild: links rot, Mitte mittelgrau, rechts schwarz auf weißem Grund (400 × 300).</summary>
+    private static byte[] TestPicture()
+    {
+        using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(400, 300, SixLabors.ImageSharp.Color.White);
+        img.ProcessPixelRows(rows =>
+        {
+            for (var y = 50; y < 250; y++)
+            {
+                var row = rows.GetRowSpan(y);
+                for (var x = 20; x < 120; x++) row[x] = new(230, 20, 20);
+                for (var x = 150; x < 250; x++) row[x] = new(128, 128, 128);
+                for (var x = 280; x < 380; x++) row[x] = new(0, 0, 0);
+            }
+        });
+        using var ms = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(img, ms);
+        return ms.ToArray();
+    }
+
+    [Fact]
+    public void Picture_is_converted_to_white_black_and_red()
+    {
+        // 0.9.16: nur die drei Farben der Anzeige; Grau wird nicht rot
+        var png = DisplayPicture.Normalize(TestPicture());
+        static HashSet<(byte, byte, byte)> Colors(byte[] rgb) =>
+            Enumerable.Range(0, rgb.Length / 3).Select(i => (rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2])).ToHashSet();
+        static (byte, byte, byte) At(byte[] rgb, int x, int y) { var i = (y * StatusRenderer.Width + x) * 3; return (rgb[i], rgb[i + 1], rgb[i + 2]); }
+
+        var plain = DisplayPicture.Convert(png, StatusRenderer.Height, "fit", dither: false, red: true);
+        Assert.Equal(StatusRenderer.Width * StatusRenderer.Height * 3, plain.Length);
+        Assert.Subset(new HashSet<(byte, byte, byte)> { (255, 255, 255), (0, 0, 0), (220, 0, 0) }, Colors(plain));
+        // 400 × 300 → 640 × 480 mit weißem Rand links/rechts (80 px)
+        Assert.Equal(((byte)255, (byte)255, (byte)255), At(plain, 40, 240));
+        Assert.Equal(((byte)220, (byte)0, (byte)0), At(plain, 80 + 110, 240));
+        Assert.NotEqual(((byte)220, (byte)0, (byte)0), At(plain, 80 + 320, 240));
+        Assert.Equal(((byte)0, (byte)0, (byte)0), At(plain, 80 + 530, 240));
+
+        var mono = DisplayPicture.Convert(png, StatusRenderer.Height, "fill", dither: true, red: false);
+        Assert.DoesNotContain(((byte)220, (byte)0, (byte)0), Colors(mono));
+        Assert.Equal(((byte)0, (byte)0, (byte)0), At(mono, 660, 240));           // „füllen“: 800 × 600, oben und unten abgeschnitten
+
+        Assert.Throws<LocalizedException>(() => DisplayPicture.Normalize([1, 2, 3, 4]));
+    }
+
+    [Fact]
+    public async Task Picture_page_shows_uploaded_image()
+    {
+        using var rig = new Rig();
+        await rig.Hub.PollNowAsync();
+        var d = rig.Hub.Config.Display;
+        d.Pages = new DisplayPages { Overview = false, Daily = false, Chart = false, Soak = false, Image = true };
+        var empty = rig.Hub.ComposeDisplay(rig.Now, nextPage: true);
+        Assert.Equal(DisplayScene.Image, empty.Scene);
+        Assert.Null(empty.Picture!.Rgb);
+        Assert.Equal(PicoFanDevice.ImageBytes, StatusRenderer.Render(empty).Length);   // Hinweis „noch kein Bild“
+
+        rig.Hub.SaveDisplayPicture(null, TestPicture(), "Test");
+        Assert.True(rig.Hub.HasDisplayPicture(null));
+        Assert.True(DataArchive.IsTransferable(MinerHub.PictureDirectory + "/main.png"));   // in der Sicherung
+        d.ImageCaption = "Mein Miner-Regal";
+        var m = rig.Hub.ComposeDisplay(rig.Now, nextPage: true);
+        Assert.NotNull(m.Picture!.Rgb);
+        Assert.Equal(StatusRenderer.Height - StatusRenderer.CaptionHeight, m.Picture.Height);
+        d.Inverted = true;                                                              // Bild nicht als Negativ
+        using var img = StatusRenderer.RenderImage(m with { Inverted = true });
+        Assert.Equal(new SixLabors.ImageSharp.PixelFormats.Rgb24(255, 255, 255), img[5, 5]);
+
+        rig.Hub.DeleteDisplayPicture(null, "Test");
+        Assert.False(rig.Hub.HasDisplayPicture(null));
+        Assert.Null(rig.Hub.ComposeDisplay(rig.Now, nextPage: true).Picture!.Rgb);
     }
 
     [Fact]

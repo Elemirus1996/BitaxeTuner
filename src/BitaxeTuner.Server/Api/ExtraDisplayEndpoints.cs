@@ -26,6 +26,7 @@ public static class ExtraDisplayEndpoints
         lastScene = r.LastScene.ToString(),
         device = admin ? r.Description : null,
         settings = admin ? Dto.Copy(r.Config.Settings) : null,
+        hasImage = admin && File.Exists(r.PictureFile),
     };
 
     /// <summary>Lesen und Vorschau (wie die erste Anzeige nicht für Ansicht-Zugänge mit Gruppen).</summary>
@@ -89,6 +90,26 @@ public static class ExtraDisplayEndpoints
             h.ExtraRuntimes();                                  // schließt die Verbindung
             h.LogEvent(null, EventCategories.Settings, L.T("Weitere Anzeige „{0}“ entfernt.", MinerHub.ExtraName(r.Config)));
             return new { ok = true };
+        })));
+
+        // 0.9.16: eigenes Bild dieser Anzeige
+        g.MapPost("/displays/{id}/image", async (string id, HttpContext http, HubService hub) =>
+        {
+            var bytes = await Endpoints.ReadPicture(http);
+            return Results.Json(await hub.RunAsync(h =>
+            {
+                var r = Find(h, id);
+                h.SaveDisplayPicture(r.Config.Id, bytes, L.T("Browser"));
+                h.RequestExtraDisplayRefresh(r);
+                return View(r, true);
+            }));
+        });
+        g.MapDelete("/displays/{id}/image", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var r = Find(h, id);
+            h.DeleteDisplayPicture(r.Config.Id, L.T("Browser"));
+            h.RequestExtraDisplayRefresh(r);
+            return View(r, true);
         })));
 
         // Wie Taste 1 an dieser Anzeige

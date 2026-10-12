@@ -42,7 +42,7 @@ public static class DataArchive
 
     /// <summary>Bereiche, die eine Übernahme ersetzt (alles andere im Zielordner bleibt unberührt).</summary>
     public static readonly string[] ReplacedFiles = ["config.json", "history.db", "history.db-wal", "history.db-shm"];
-    public static readonly string[] ReplacedDirectories = ["tax", "tuning", "snapshots"];
+    public static readonly string[] ReplacedDirectories = ["tax", "tuning", "snapshots", Host.MinerHub.PictureDirectory];
 
     public static bool IsTransferable(string relative)
     {

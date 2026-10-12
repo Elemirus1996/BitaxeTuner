@@ -24,6 +24,8 @@ public sealed class ExtraDisplayRuntime(ExtraDisplayConfig config, DisplaySceneS
 
     public DisplayStatus Status { get; internal set; } = new(false, false, null, null, null, false);
     public string? Description => Device?.Description;
+    /// <summary>0.9.16: Datei des eigenen Bildes dieser Anzeige.</summary>
+    public string PictureFile { get; internal set; } = "";
 }
 
 /// <summary>
@@ -59,6 +61,7 @@ public sealed partial class MinerHub
                 _extras[c.Id] = r = new ExtraDisplayRuntime(c, state ?? new DisplaySceneState());
             }
             r.Config = c;   // Einstellungen können ersetzt worden sein
+            r.PictureFile = PictureFile(c.Id);
             list.Add(r);
         }
         return list;

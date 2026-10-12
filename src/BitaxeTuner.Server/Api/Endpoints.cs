@@ -73,12 +73,30 @@ public static class Endpoints
     }
 
     /// <summary>Anzeige-Einstellungen prüfen und begrenzen (erste und weitere Anzeigen).</summary>
+    /// <summary>0.9.16: hochgeladene Bilddatei lesen (Rohdaten im Body, höchstens <see cref="Core.Display.DisplayPicture.MaxUploadBytes"/>).</summary>
+    public static async Task<byte[]> ReadPicture(HttpContext http)
+    {
+        var max = Core.Display.DisplayPicture.MaxUploadBytes;
+        if (http.Request.ContentLength > max) throw new LocalizedException("Das Bild ist zu groß (höchstens {0} MB).", max / 1048576);
+        using var ms = new MemoryStream();
+        var buffer = new byte[81920];
+        int read;
+        while ((read = await http.Request.Body.ReadAsync(buffer, http.RequestAborted)) > 0)
+        {
+            ms.Write(buffer, 0, read);
+            if (ms.Length > max) throw new LocalizedException("Das Bild ist zu groß (höchstens {0} MB).", max / 1048576);
+        }
+        return ms.ToArray();
+    }
+
     internal static void NormalizeDisplay(Core.Config.DisplaySettings req)
     {
         req.IntervalMinutes = Math.Clamp(req.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240);
         req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
         req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
         req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
+        req.ImageFit = req.ImageFit == "fill" ? "fill" : "fit";
+        req.ImageCaption = (req.ImageCaption ?? "").Trim() is var cap && cap.Length > 60 ? cap[..60] : cap;
         // 0.9.16: Regel je Sonderanzeige – nur bekannte Arten, gültige Werte
         if (req.SpecialRules is { } rules)
         {
@@ -479,6 +497,7 @@ public static class Endpoints
             status = h.DisplayStatus,
             device = AuthContext.Of(http).Role == Role.Admin ? h.DisplayDeviceDescription : null,
             settings = AuthContext.Of(http).Role == Role.Admin ? Dto.Copy(h.Config.Display) : null,
+            hasImage = h.HasDisplayPicture(null),
             rebootAvailable = h.Options.SystemReboot is not null,
         })));
 
@@ -1177,6 +1196,24 @@ public static class Endpoints
         ExtraDisplayEndpoints.MapAdmin(g);
         OverviewEndpoints.MapAdmin(g);
         PublicHttpsEndpoints.Map(g);
+
+        // 0.9.16: eigenes Bild für die Seite „Eigenes Bild“ (Datei als Rohdaten im Body)
+        g.MapPost("/display/image", async (HttpContext http, HubService hub) =>
+        {
+            var bytes = await ReadPicture(http);
+            return Results.Json(await hub.RunAsync(h =>
+            {
+                h.SaveDisplayPicture(null, bytes, L.T("Browser"));
+                h.RequestDisplayRefresh();
+                return new { ok = true };
+            }));
+        });
+        g.MapDelete("/display/image", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.DeleteDisplayPicture(null, L.T("Browser"));
+            h.RequestDisplayRefresh();
+            return new { ok = true };
+        })));
 
         g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {

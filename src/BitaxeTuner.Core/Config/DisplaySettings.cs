@@ -122,6 +122,16 @@ public sealed class DisplaySettings
 
     /// <summary>0.9.7, Seite „QR-Code“: eigene Adresse; leer = Adresse dieses Servers im Heimnetz.</summary>
     public string QrUrl { get; set; } = "";
+
+    // 0.9.16, Seite „Eigenes Bild“ (das Bild selbst liegt im Datenordner unter display-images/)
+    /// <summary>"fit" = ganzes Bild mit weißem Rand, "fill" = Fläche füllen, Ränder abschneiden.</summary>
+    public string ImageFit { get; set; } = "fit";
+    /// <summary>Rastern (Fotos); aus = je Pixel die nächste Farbe (Logos, Schrift).</summary>
+    public bool ImageDither { get; set; } = true;
+    /// <summary>Rote Bildteile rot zeigen; aus = nur Schwarz/Weiß.</summary>
+    public bool ImageRed { get; set; } = true;
+    /// <summary>Bildunterschrift (leer = Bild über die ganze Fläche).</summary>
+    public string ImageCaption { get; set; } = "";
 }
 
 public sealed class DisplayPages
@@ -149,6 +159,8 @@ public sealed class DisplayPages
     public bool Sensors { get; set; }
     /// <summary>0.9.11: Neuigkeiten aus der Solo-Mining-Welt (Firmware, neue Miner, Solo-Blockfunde, Netzwerk, BitaxeTuner).</summary>
     public bool News { get; set; }
+    /// <summary>0.9.16: eigenes, hochgeladenes Bild.</summary>
+    public bool Image { get; set; }
 }
 
 /// <summary>

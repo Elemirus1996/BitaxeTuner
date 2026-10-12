@@ -4154,7 +4154,51 @@ function specialRulesTable(s) {
 }
 
 /** Seiten, Intervall, Sonderanzeigen und Taster – gleich für die erste und jede weitere Anzeige. */
-function displaySettingsFields(s) {
+/**
+ * 0.9.16, Seite „Eigenes Bild“: Bild hochladen/entfernen und wie es umgerechnet wird.
+ * pic = { base: '/display' bzw. '/displays/<id>', has, show: () => Vorschau auf das Bild stellen }.
+ */
+function pictureFields(s, pic) {
+  const state = h('p', { class: 'muted small' }, pic.has ? t('Ein Bild ist hochgeladen.') : t('Noch kein Bild hochgeladen.'));
+  const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/bmp,image/webp', style: 'width:auto' });
+  const upload = async () => {
+    const f = file.files?.[0];
+    if (!f) { toast(t('Bitte zuerst eine Bilddatei wählen.'), 'error'); return; }
+    const ok = await run(async () => {
+      const headers = { Accept: 'application/json', 'Accept-Language': LANG, 'Content-Type': f.type || 'application/octet-stream' };
+      if (S.csrf) headers['X-CSRF-Token'] = S.csrf;
+      const r = await fetch(`/api/v1${pic.base}/image`, { method: 'POST', headers, credentials: 'same-origin', body: f });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new ApiError(data?.error || t('Fehler {0}', r.status), r.status);
+      return data;
+    }, t('Bild hochgeladen.'));
+    if (!ok) return;
+    pic.has = true;
+    fill(state, t('Ein Bild ist hochgeladen.'));
+    s.pages.image = true;
+    pic.show();
+  };
+  const remove = async () => {
+    if (!await confirmBox(t('Bild entfernen'), t('Das hochgeladene Bild dieser Anzeige löschen?'), t('Entfernen'), true)) return;
+    if (!await run(() => api(`${pic.base}/image`, { method: 'DELETE' }), t('Bild entfernt.'))) return;
+    pic.has = false;
+    fill(state, t('Noch kein Bild hochgeladen.'));
+    pic.show();
+  };
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('Eigenes Bild')),
+    h('p', { class: 'muted small' }, t('Eigenes Foto oder Logo als Seite: wird auf 800 × 480 Punkte gebracht und auf Schwarz, Weiß und Rot umgerechnet. Ausschnitt, Rastern und Rot wirken nach dem Speichern.')),
+    state,
+    h('div', { class: 'row' }, file, h('button', { class: 'btn', onclick: upload }, t('Bild hochladen')),
+      h('button', { class: 'btn danger', onclick: remove }, t('Bild entfernen'))),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Ausschnitt')), pageSelect(s, 'imageFit', [['fit', t('ganzes Bild (weißer Rand)')], ['fill', t('Fläche füllen (Ränder abschneiden)')]])),
+      h('div', {}, h('label', {}, t('Bildunterschrift (leer = keine)')), h('input', { value: s.imageCaption || '', maxlength: 60, oninput: e => { s.imageCaption = e.target.value; } }))),
+    checkInput(s, 'imageDither', t('Rastern (für Fotos; aus = klare Flächen für Logos und Schrift)')),
+    checkInput(s, 'imageRed', t('Rote Bildteile rot zeigen')));
+}
+
+function displaySettingsFields(s, pic) {
   return [
     checkInput(s, 'inverted', t('Farben umkehren: helle Schrift auf schwarzem Grund (Rot bleibt rot)')),
     h('div', { class: 'form' },
@@ -4176,7 +4220,8 @@ function displaySettingsFields(s) {
       checkInput(s.pages, 'power', t('Strompreis-Ampel')),
       checkInput(s.pages, 'sensors', t('Temperaturfühler')),
       checkInput(s.pages, 'qr', t('QR-Code')),
-      checkInput(s.pages, 'news', t('Neuigkeiten'))),
+      checkInput(s.pages, 'news', t('Neuigkeiten')),
+      checkInput(s.pages, 'image', t('Eigenes Bild'))),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -4189,6 +4234,7 @@ function displaySettingsFields(s) {
     h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
     checkInput(s, 'networkBch', t('Pool & Netzwerk: auch den letzten Block im Bitcoin-Cash-Netzwerk zeigen (Blockchair)')),
     newsKindsInput(s),
+    pic ? pictureFields(s, pic) : null,
     checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
     h('h3', {}, t('Sonderanzeigen')),
     // 0.9.16: jede Sonderanzeige mit eigener Regel, wie sie endet
@@ -4241,7 +4287,7 @@ function extraDisplayItem(x, groups, reload) {
         picoConnectionInputs(s, 'display'),
         h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => picoWlanSetup('display', x.id) }, t('Display-Pico für WLAN einrichten …'))),
         x.device ? h('p', { class: 'muted small' }, t('Angeschlossen über: {0}', x.device)) : null,
-        ...displaySettingsFields(s),
+        ...displaySettingsFields(s, { base: `/displays/${x.id}`, has: !!x.hasImage, show: () => { img.src = url('Image'); } }),
         h('div', { class: 'row' },
           h('button', { class: 'btn primary', onclick: async () => {
             if (await run(() => api(`/displays/${x.id}`, { method: 'PUT', body: { name: meta.name, group: meta.group, settings: s } }), t('Anzeige-Einstellungen gespeichert.'))) reload();
@@ -4261,7 +4307,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')
@@ -4291,7 +4337,7 @@ function displayCard(d) {
         sel.value = s.device || 'fans';
         return h('div', { class: 'stack' }, h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Anzeige hängt')), sel)), own);
       })(),
-      ...displaySettingsFields(s),
+      ...displaySettingsFields(s, { base: '/display', has: !!d.hasImage, show: () => { sceneSel.value = 'Image'; img.src = `/api/v1/display/preview.png?scene=Image&t=${Date.now()}`; } }),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/display', { method: 'PUT', body: s }), t('Anzeige-Einstellungen gespeichert.'))) renderFans(); } }, t('Speichern')),
         h('button', { class: 'btn', onclick: () => run(() => api('/display/refresh', { method: 'POST', body: {} }), t('Anzeige wird aktualisiert, sobald die Mindestpause von 3 Minuten um ist.')) }, t('Jetzt aktualisieren'))),
