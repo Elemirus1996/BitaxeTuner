@@ -181,6 +181,50 @@ public class DisplaySceneTests
     }
 
     [Fact]
+    public async Task Each_special_screen_has_its_own_rule()
+    {
+        // 0.9.16: Regel je Sonderanzeige; ohne eigene Regeln gelten die bisherigen Einstellungen
+        using var rig = new Rig();
+        await rig.Hub.PollNowAsync();
+        var d = rig.Hub.Config.Display;
+        Assert.Equal("hours", d.RuleFor("block").Until);
+        Assert.Equal("button", d.RuleFor("alarm").Until);
+        Assert.Equal("once", d.RuleFor("bestdiff").Until);
+        d.SpecialUntil = "hours";
+        Assert.Equal("hours", d.RuleFor("alarm").Until);
+        d.SpecialUntil = "each";
+
+        d.SpecialRules = new()
+        {
+            ["block"] = new SpecialRule { Until = "hours", Hours = 2 },
+            ["bestdiff"] = new SpecialRule { Until = "button" },
+        };
+        // Blockfund nach eigener Haltezeit (2 h) vorbei, obwohl die alte Einstellung 24 h sagt
+        rig.Hub.OnBlockFound("Gamma", 2, rig.Now.AddHours(-3));
+        Assert.NotEqual(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        rig.Hub.OnBlockFound("Gamma", 3, rig.Now.AddHours(-1));
+        Assert.Equal(DisplayScene.BlockFound, rig.Hub.ComposeDisplay(rig.Now).Scene);
+
+        // „einmal“: nach dem Zeigen erledigt
+        d.SpecialRules["block"] = new SpecialRule { Until = "once" };
+        var shown = rig.Hub.ComposeDisplay(rig.Now);
+        Assert.Equal(DisplayScene.BlockFound, shown.Scene);
+        rig.Hub.SceneShown(shown);
+        Assert.True(rig.Hub.SceneState.BlockFoundAcknowledged);
+
+        // Best-Diff „bis Taste“ bleibt über mehrere Aktualisierungen
+        rig.Hub.OnBestDiffRecord("Gamma", "BTC", "845 M", "1,23 G", rig.Now);
+        var best = rig.Hub.ComposeDisplay(rig.Now);
+        Assert.Equal(DisplayScene.BestDiff, best.Scene);
+        rig.Hub.SceneShown(best);
+        Assert.Equal(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        // … „nach Stunden“ mit eigener Haltezeit
+        d.SpecialRules["bestdiff"] = new SpecialRule { Until = "hours", Hours = 1 };
+        Assert.Equal(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now).Scene);
+        Assert.NotEqual(DisplayScene.BestDiff, rig.Hub.ComposeDisplay(rig.Now.AddHours(2)).Scene);
+    }
+
+    [Fact]
     public void Red_only_for_special_screens_and_warnings()
     {
         var now = new DateTime(2026, 9, 27, 14, 0, 0);

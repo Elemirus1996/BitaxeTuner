@@ -79,6 +79,16 @@ public static class Endpoints
         req.BlockFoundHoldHours = Math.Clamp(req.BlockFoundHoldHours, 1, 168);
         req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
         req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
+        // 0.9.16: Regel je Sonderanzeige – nur bekannte Arten, gültige Werte
+        if (req.SpecialRules is { } rules)
+        {
+            req.SpecialRules = rules.Where(kv => Core.Config.DisplaySettings.SpecialKinds.Contains(kv.Key) && kv.Value is not null)
+                .ToDictionary(kv => kv.Key, kv => new Core.Config.SpecialRule
+                {
+                    Until = Core.Config.SpecialRule.Modes.Contains(kv.Value.Until) ? kv.Value.Until : "button",
+                    Hours = Math.Clamp(kv.Value.Hours, 1, 168),
+                });
+        }
         req.HistoryChart = req.HistoryChart is "temp" or "power" or "efficiency" ? req.HistoryChart : "hashrate";
         req.Pages ??= new Core.Config.DisplayPages();
         req.QuietFromHour = Math.Clamp(req.QuietFromHour, 0, 23);

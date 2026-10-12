@@ -175,11 +175,12 @@ public sealed partial class MinerHub
         var st = CurState;
         var model = BuildDisplayModel(now, CurGroup);
 
-        // 0.9.11: wie Sonderanzeigen enden – je Anzeige („each“) oder für alle gleich („hours“ / „button“)
-        var hold = TimeSpan.FromHours(Math.Max(1, s.BlockFoundHoldHours));
-        var blockUntil = s.SpecialUntil is "hours" or "button" ? s.SpecialUntil : s.BlockFoundUntil;
+        // 0.9.16: jede Sonderanzeige mit eigener Regel – bis Taste 1, nach Stunden oder einmal
+        var block = s.RuleFor("block");
+        var alarm = s.RuleFor("alarm");
+        var best = s.RuleFor("bestdiff");
         if (s.BlockFoundScreen && st.BlockFound is { } bf && !st.BlockFoundAcknowledged
-            && (blockUntil == "button" || now - bf.Time < hold))
+            && (block.Until is "button" or "once" || now - bf.Time < TimeSpan.FromHours(Math.Max(1, block.Hours))))
             return model with { Scene = DisplayScene.BlockFound, BlockFound = bf };
         if (s.AlarmFullscreen && model.Alerts.Count > 0 && AlarmKey(model.Alerts) is var alarmKey && alarmKey != st.AlarmAcknowledged)
         {
@@ -189,14 +190,15 @@ public sealed partial class MinerHub
                 st.AlarmSince = now;
                 SaveSceneState();
             }
-            // „alle nach Stunden“: danach nur noch als rote Zeile, wie quittiert
-            if (s.SpecialUntil != "hours" || st.AlarmSince is not { } since || now - since < hold)
+            // „nach Stunden“: danach nur noch als rote Zeile, wie quittiert
+            if (alarm.Until != "hours" || st.AlarmSince is not { } since || now - since < TimeSpan.FromHours(Math.Max(1, alarm.Hours)))
                 return model with { Scene = DisplayScene.Alarm };
         }
-        if (s.BestDiffNotice && st.BestDiff is { } bd && !st.BestDiffShown && now - bd.Time < TimeSpan.FromDays(s.SpecialUntil == "button" ? 30 : 1))
+        if (s.BestDiffNotice && st.BestDiff is { } bd && !st.BestDiffShown
+            && now - bd.Time < (best.Until == "button" ? TimeSpan.FromDays(30) : TimeSpan.FromHours(Math.Max(24, best.Hours))))
         {
-            // „each“: einmal; „hours“: bis Taste 1 oder Haltezeit; „button“: bis Taste 1
-            if (s.SpecialUntil != "hours" || now - (st.BestDiffSince ??= now) < hold)
+            // „einmal“: nach dem Zeigen erledigt; „nach Stunden“: bis Taste 1 oder Haltezeit; „bis Taste“: bis Taste 1
+            if (best.Until != "hours" || now - (st.BestDiffSince ??= now) < TimeSpan.FromHours(Math.Max(1, best.Hours)))
                 return model with { Scene = DisplayScene.BestDiff, BestDiff = bd };
         }
 
@@ -210,10 +212,20 @@ public sealed partial class MinerHub
     internal void SceneShown(DisplayModel m)
     {
         if (_extraContext is { } x) x.LastScene = m.Scene; else _lastScene = m.Scene;
-        // Best-Diff-Rekord: nur bei „je Anzeige“ nach einmaligem Zeigen erledigt, sonst bis Taste 1 bzw. Haltezeit
-        if (m.Scene == DisplayScene.BestDiff && Ds.SpecialUntil is not ("hours" or "button"))
+        // 0.9.16: Regel „einmal“ – nach dem Zeigen erledigt (sonst bis Taste 1 bzw. Haltezeit)
+        if (m.Scene == DisplayScene.BestDiff && Ds.RuleFor("bestdiff").Until == "once")
         {
             CurState.BestDiffShown = true;
+            SaveSceneState();
+        }
+        else if (m.Scene == DisplayScene.BlockFound && Ds.RuleFor("block").Until == "once" && m.BlockFound is { Example: false })
+        {
+            CurState.BlockFoundAcknowledged = true;
+            SaveSceneState();
+        }
+        else if (m.Scene == DisplayScene.Alarm && Ds.RuleFor("alarm").Until == "once")
+        {
+            CurState.AlarmAcknowledged = AlarmKey(m.Alerts);
             SaveSceneState();
         }
         // Warnungen sind weg: Quittung verfällt, damit dieselbe Warnung später wieder als Vollbild kommt

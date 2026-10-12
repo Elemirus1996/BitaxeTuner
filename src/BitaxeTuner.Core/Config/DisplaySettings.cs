@@ -87,6 +87,27 @@ public sealed class DisplaySettings
     /// </summary>
     public string SpecialUntil { get; set; } = "each";
 
+    /// <summary>
+    /// 0.9.16: Wie jede Sonderanzeige endet – je Art eine eigene Regel ("block", "alarm", "bestdiff"). Additiv; fehlt sie,
+    /// gilt die bisherige Einstellung (<see cref="SpecialUntil"/>, <see cref="BlockFoundUntil"/>, <see cref="BlockFoundHoldHours"/>).
+    /// </summary>
+    public Dictionary<string, SpecialRule>? SpecialRules { get; set; }
+
+    public static readonly string[] SpecialKinds = ["block", "alarm", "bestdiff"];
+
+    /// <summary>Wirksame Regel einer Sonderanzeige (eigene oder aus den bisherigen Einstellungen abgeleitet).</summary>
+    public SpecialRule RuleFor(string kind)
+    {
+        if (SpecialRules is not null && SpecialRules.TryGetValue(kind, out var r) && r is not null) return r;
+        var hours = Math.Max(1, BlockFoundHoldHours);
+        return kind switch
+        {
+            "block" => new SpecialRule { Until = SpecialUntil is "hours" or "button" ? SpecialUntil : BlockFoundUntil, Hours = hours },
+            "alarm" => new SpecialRule { Until = SpecialUntil == "hours" ? "hours" : "button", Hours = hours },
+            _ => new SpecialRule { Until = SpecialUntil switch { "hours" => "hours", "button" => "button", _ => "once" }, Hours = hours },
+        };
+    }
+
     /// <summary>0.9.11: Seite „Pool &amp; Netzwerk“ zeigt auch den letzten Block im Bitcoin-Cash-Netzwerk. Additiv.</summary>
     public bool NetworkBch { get; set; } = true;
 
@@ -148,4 +169,16 @@ public sealed class ExtraDisplayConfig
     public DisplaySettings Settings { get; set; } = new() { Enabled = true, Device = "own", Connection = "wlan" };
 
     public static bool ValidId(string? id) => id is { Length: > 0 and <= 16 } && id.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+}
+
+/// <summary>
+/// 0.9.16: Ende einer Sonderanzeige – "button" (bis Taste 1 bzw. „Anzeige weiter“ quittiert), "hours" (nach <see cref="Hours"/>
+/// Stunden oder vorher mit Taste 1) oder "once" (einmal zeigen, danach weiter mit den Seiten).
+/// </summary>
+public sealed class SpecialRule
+{
+    public string Until { get; set; } = "button";
+    public int Hours { get; set; } = 24;
+
+    public static readonly string[] Modes = ["button", "hours", "once"];
 }

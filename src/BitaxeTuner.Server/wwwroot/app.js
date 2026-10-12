@@ -4125,6 +4125,34 @@ function newsCard(compact) {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Neuigkeiten aus der Solo-Mining-Welt')), body);
 }
 
+/** 0.9.16: Sonderanzeigen – an/aus und je Anzeige, wie sie endet (bis Taste 1, nach Stunden, einmal). */
+function specialRulesTable(s) {
+  // Fehlen eigene Regeln, gelten die bisherigen Einstellungen (wie im Server: DisplaySettings.RuleFor)
+  const legacy = kind => {
+    const hours = Math.max(1, s.blockFoundHoldHours || 24);
+    if (kind === 'block') return { until: ['hours', 'button'].includes(s.specialUntil) ? s.specialUntil : (s.blockFoundUntil || 'hours'), hours };
+    if (kind === 'alarm') return { until: s.specialUntil === 'hours' ? 'hours' : 'button', hours };
+    return { until: s.specialUntil === 'hours' ? 'hours' : s.specialUntil === 'button' ? 'button' : 'once', hours };
+  };
+  s.specialRules ||= {};
+  for (const k of ['block', 'alarm', 'bestdiff']) s.specialRules[k] ||= legacy(k);
+  const modes = [['button', t('bis Taste 1 (bzw. „Anzeige weiter“)')], ['hours', t('nach Stunden (oder vorher Taste 1)')], ['once', t('einmal zeigen')]];
+  const row = (kind, flag, label) => {
+    const r = s.specialRules[kind];
+    const hours = h('input', { type: 'number', min: 1, max: 168, value: r.hours, style: 'width:80px', oninput: e => { r.hours = +e.target.value || 24; } });
+    hours.disabled = r.until !== 'hours';
+    const sel = h('select', { onchange: e => { r.until = e.target.value; hours.disabled = r.until !== 'hours'; } }, modes.map(([v, l]) => h('option', { value: v }, l)));
+    sel.value = r.until;
+    return h('tr', {}, h('td', {}, checkInput(s, flag, label)), h('td', {}, sel), h('td', {}, hours));
+  };
+  return h('div', { class: 'table-wrap' }, h('table', {},
+    h('thead', {}, h('tr', {}, [t('Sonderanzeige'), t('endet'), t('Stunden')].map(x => h('th', {}, x)))),
+    h('tbody', {},
+      row('block', 'blockFoundScreen', t('Blockfund als Vollbild')),
+      row('alarm', 'alarmFullscreen', t('Warnungen als Vollbild')),
+      row('bestdiff', 'bestDiffNotice', t('Neuer Best-Diff-Rekord groß')))));
+}
+
 /** Seiten, Intervall, Sonderanzeigen und Taster – gleich für die erste und jede weitere Anzeige. */
 function displaySettingsFields(s) {
   return [
@@ -4163,15 +4191,8 @@ function displaySettingsFields(s) {
     newsKindsInput(s),
     checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
     h('h3', {}, t('Sonderanzeigen')),
-    h('div', { class: 'form' },
-      h('div', { class: 'wide' }, h('label', {}, t('Alle Sonderanzeigen enden')), pageSelect(s, 'specialUntil', [['each', t('je Anzeige wie unten eingestellt')],
-        ['hours', t('alle nach Stunden (oder mit Taste 1)')], ['button', t('alle erst mit Taste 1')]]))),
-    h('div', { class: 'form' },
-      h('div', {}, checkInput(s, 'blockFoundScreen', t('Blockfund als Vollbild'))),
-      h('div', {}, h('label', {}, t('Blockfund-Anzeige endet')), pageSelect(s, 'blockFoundUntil', [['hours', t('nach Stunden oder mit Taste 1')], ['button', t('erst mit Taste 1 (wie Warnungen)')]])),
-      h('div', {}, h('label', {}, t('stehen lassen (Stunden, bis Taste 1)')), numInput(s, 'blockFoundHoldHours'))),
-    checkInput(s, 'alarmFullscreen', t('Warnungen als Vollbild (Taste 1 quittiert bis zur nächsten neuen Warnung)')),
-    checkInput(s, 'bestDiffNotice', t('Neuen Best-Diff-Rekord einmal groß anzeigen')),
+    // 0.9.16: jede Sonderanzeige mit eigener Regel, wie sie endet
+    specialRulesTable(s),
     h('h3', {}, t('Taster')),
     checkInput(s, 'buttonsEnabled', t('Taster am Pico auswerten')),
     checkInput(s, 'allowSystemReboot', t('Taste 4 (3 s halten) startet auch den Raspberry Pi neu'))];
