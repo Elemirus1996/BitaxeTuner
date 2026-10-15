@@ -69,6 +69,25 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.16
+
+- **System health with alerts** (Settings → *System*): free storage, temp folder, backup, USB stick, on the Raspberry Pi
+  memory, CPU temperature, undervoltage and a read-only SD card, plus clock (NTP), frequent restarts, certificate and
+  aborted updates – checked every 10 minutes, problems as a push (Maintenance).
+- **Server update finishes on the server**: backup, download, installation and restart no longer need the browser – you
+  may close the page. If needed, the desktop app installs the signed package **via SSH** (with a manual backup) and sets up
+  the system files (service, USB rule, restart) again.
+- **Smaller history**: `history.db` is rewritten compactly once (checked, only then swapped); afterwards cleanup releases
+  empty space continuously.
+- **Pool checks**: alert when a miner differs from the transferred pool preset (“align again”), and a coinbase check –
+  would the pool really pay a found block to your address?
+- **Maintenance reminders** per miner (operating hours; dust/heatsink, fan, thermal paste).
+- **Prices**: mined coins, merged-mining coins from the pool account and your own coins (e.g. ETH, LTC).
+- **E-paper**: new pages *Own image*, *Income & power*, *Solo chance*, *System health*, *Bitcoin network*, *Pool*,
+  *Monthly comparison*; rules per special screen and page order by time of day.
+- **News**: halving countdown and alerts on large price moves.
+- **Submit a wish** right in the app – no account needed; lands as an idea on the project board.
+
 ### Power and costs
 
 - **Electricity tariff** gross or net (with VAT rate); optionally **hourly prices** from aWATTar (exchange price +

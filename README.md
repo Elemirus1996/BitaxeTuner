@@ -66,6 +66,25 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.16
+
+- **Systemzustand mit Warnung** (Einstellungen → *System*): freier Speicher, Temp-Ordner, Sicherung, USB-Stick, auf dem
+  Raspberry Pi Arbeitsspeicher, CPU-Temperatur, Unterspannung und schreibgeschützte Speicherkarte, dazu Uhrzeit (NTP),
+  gehäufte Neustarts, Zertifikat und abgebrochene Updates – alle 10 Minuten geprüft, Probleme per Push (Wartung).
+- **Server-Update läuft auf dem Server zu Ende**: Sicherung, Download, Installation und Neustart brauchen den Browser
+  nicht mehr – die Seite darf geschlossen werden. Notfalls installiert die Desktop-App das signierte Paket **per SSH**
+  (mit Handsicherung) und richtet die Systemdateien (Dienst, USB-Regel, Neustart) neu ein.
+- **Verlauf wird kleiner**: `history.db` wird einmal kompakt neu geschrieben (geprüft, erst dann getauscht), danach gibt
+  das Aufräumen leeren Platz laufend zurück.
+- **Pool-Kontrolle**: Meldung, wenn ein Miner von der übertragenen Pool-Vorlage abweicht („wieder angleichen“), und
+  Coinbase-Prüfung – zahlt der Pool einen gefundenen Block wirklich an deine Adresse?
+- **Wartungs-Erinnerungen** je Miner (Betriebsstunden; Staub/Kühlkörper, Lüfter, Wärmeleitpaste).
+- **Kurse**: geschürfte Coins, Merged-Mining-Coins aus dem Pool-Konto und eigene Wunsch-Coins (z. B. ETH, LTC).
+- **E-Paper**: neue Seiten *Eigenes Bild*, *Ertrag & Strom*, *Solo-Chance*, *Systemzustand*, *Bitcoin-Netz*, *Pool*,
+  *Monatsvergleich*; Regeln je Sonderanzeige und Seitenfolge nach Tageszeit.
+- **Neuigkeiten**: Halving-Countdown und Meldung bei großen Kursbewegungen.
+- **Wunsch einreichen** direkt in der App – ohne Konto; landet als Idee auf dem Projekt-Board.
+
 ### Strom und Kosten
 
 - **Stromtarif** brutto oder netto (mit MwSt.-Satz); optional **Stundenpreise** von aWATTar (Börsenpreis + Aufschlag)
