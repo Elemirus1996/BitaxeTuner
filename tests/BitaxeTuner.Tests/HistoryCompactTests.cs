@@ -44,8 +44,10 @@ public class HistoryCompactTests
         var file = dir.File("history.db");
         CreateLegacy(file, keep: 1000, deleted: 9000);
 
+        // Anhängen statt ersetzen: parallel gestartete Server-Tests hängen ihre eigene Rückmeldung an (vorher flatterhaft)
         var keepAlive = 0;
-        HistoryStore.KeepAlive = () => Interlocked.Increment(ref keepAlive);
+        Action count = () => Interlocked.Increment(ref keepAlive);
+        HistoryStore.KeepAlive += count;
         try
         {
             using (var store = new HistoryStore(file))
@@ -72,7 +74,7 @@ public class HistoryCompactTests
             Assert.Null(again.Compaction);
             Assert.Equal(2, Pragma(file, "auto_vacuum"));
         }
-        finally { HistoryStore.KeepAlive = null; }
+        finally { HistoryStore.KeepAlive -= count; }
     }
 
     [Fact]
