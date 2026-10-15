@@ -5,7 +5,7 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Network;
 
 /// <summary>Eine Neuigkeit; Titel und Text in der Sprache der Oberfläche (Rückfall: Deutsch, dann Englisch).</summary>
-/// <param name="Kind">"firmware", "miner", "solo", "network" oder "bitaxetuner".</param>
+/// <param name="Kind">"firmware", "miner", "solo", "network", "bitaxetuner"; 0.9.16 lokal: "halving", "price".</param>
 public sealed record NewsItem(string Id, DateTime DateUtc, string Kind, string? Coin, string Title, string Text, string Url);
 
 /// <summary>
@@ -17,7 +17,7 @@ public sealed record NewsItem(string Id, DateTime DateUtc, string Kind, string? 
 public sealed class NewsFeed : IDisposable
 {
     public const string DefaultUrl = "https://raw.githubusercontent.com/Elemirus1996/BitaxeTuner/news/news.json";
-    public static readonly string[] Kinds = ["solo", "firmware", "miner", "network", "bitaxetuner"];
+    public static readonly string[] Kinds = ["solo", "firmware", "miner", "network", "bitaxetuner", "halving", "price"];
     private static readonly TimeSpan RefreshEvery = TimeSpan.FromHours(3);
 
     private readonly HttpClient _http;
@@ -32,7 +32,32 @@ public sealed class NewsFeed : IDisposable
         _http.Timeout = TimeSpan.FromSeconds(15);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("BitaxeTuner-news/1.0");
         _cacheFile = Path.Combine(dataDirectory, "news-cache.json");
+        _localFile = Path.Combine(dataDirectory, "news-local.json");
         try { if (File.Exists(_cacheFile)) _raw = File.ReadAllText(_cacheFile); } catch { /* ohne Zwischenspeicher weiter */ }
+        try { if (File.Exists(_localFile)) _local = JsonSerializer.Deserialize<List<NewsItem>>(File.ReadAllText(_localFile)) ?? []; }
+        catch { _local = []; }
+    }
+
+    // 0.9.16: Meldungen, die der Server selbst erzeugt (Halving-Countdown, große Kursbewegung) – im Datenordner gemerkt
+    private readonly string _localFile;
+    private List<NewsItem> _local = [];
+
+    /// <summary>Lokale Meldung hinzufügen (gleiche Id = schon vorhanden, nichts passiert). Liefert true, wenn neu.</summary>
+    public bool AddLocal(NewsItem item)
+    {
+        lock (_local)
+        {
+            if (_local.Any(x => x.Id == item.Id)) return false;
+            _local.Add(item);
+            _local = _local.OrderByDescending(x => x.DateUtc).Take(40).ToList();
+            try { File.WriteAllText(_localFile, JsonSerializer.Serialize(_local)); } catch { /* nur Anzeige */ }
+            return true;
+        }
+    }
+
+    public bool HasLocal(string id)
+    {
+        lock (_local) return _local.Any(x => x.Id == id);
     }
 
     public string Url { get; set; } = DefaultUrl;
@@ -70,7 +95,9 @@ public sealed class NewsFeed : IDisposable
     public List<NewsItem> Items(IEnumerable<string>? kinds, int max, string? language = null)
     {
         var wanted = kinds?.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return Parse(_raw ?? "", language ?? Loc.Current.Language).Items
+        List<NewsItem> local;
+        lock (_local) local = [.. _local];
+        return Parse(_raw ?? "", language ?? Loc.Current.Language).Items.Concat(local)
             .Where(i => wanted is null || wanted.Count == 0 || wanted.Contains(i.Kind))
             .OrderByDescending(i => i.DateUtc).Take(max).ToList();
     }

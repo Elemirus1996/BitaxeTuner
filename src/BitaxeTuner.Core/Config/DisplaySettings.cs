@@ -118,7 +118,7 @@ public sealed class DisplaySettings
     /// 0.9.11, Seite „Neuigkeiten“: welche Arten gezeigt werden ("solo", "firmware", "miner", "network", "bitaxetuner").
     /// Additiv; leer = alle.
     /// </summary>
-    public List<string> NewsKinds { get; set; } = ["solo", "firmware", "miner", "network", "bitaxetuner"];
+    public List<string> NewsKinds { get; set; } = ["solo", "firmware", "miner", "network", "bitaxetuner", "halving", "price"];
 
     /// <summary>0.9.7, Seite „QR-Code“: eigene Adresse; leer = Adresse dieses Servers im Heimnetz.</summary>
     public string QrUrl { get; set; } = "";

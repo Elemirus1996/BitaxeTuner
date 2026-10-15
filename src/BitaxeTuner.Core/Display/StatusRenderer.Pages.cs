@@ -343,6 +343,8 @@ public static partial class StatusRenderer
         "miner" => L.T("NEUER MINER"),
         "network" => L.T("NETZWERK"),
         "bitaxetuner" => "BITAXETUNER",
+        "halving" => L.T("HALVING"),
+        "price" => L.T("KURS"),
         _ => kind.ToUpperInvariant(),
     };
 

@@ -31,6 +31,7 @@ public sealed partial class MinerHub
         if (Config.PriceSource.Source != "none") _ = RefreshPricesAsync(now);
         RefreshProfitInputs(now);
         RefreshCoinQuotes(now);   // 0.9.16: Kurse der gerade geschürften Coins
+        TickLocalNews(now);       // 0.9.16: Halving-Countdown, große Kursbewegung
 
         var list = Devices;
         foreach (var device in list)
