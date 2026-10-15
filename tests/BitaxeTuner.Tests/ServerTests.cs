@@ -248,9 +248,11 @@ public sealed class ServerTests : IDisposable
         Assert.True(after.GetProperty("pools").EnumerateArray().First(p => p.GetProperty("key").GetString()!.EndsWith(key!.Split('|')[1])).GetProperty("active").GetBoolean());
         await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/switch", new { target = "home" }));   // zurück
 
-        var rule = new { enabled = true, returnHome = true, returnAfterMinutes = 30, entries = new[] { new { days = 127, fromHour = 1, toHour = 2 } } };
+        // Zeitfenster weit weg von „jetzt“ – sonst schaltet die laufende Pool-Automatik während des Tests um (flatterte zwischen 1 und 2 Uhr)
+        var from = (DateTime.Now.Hour + 12) % 24;
+        var rule = new { enabled = true, returnHome = true, returnAfterMinutes = 30, entries = new[] { new { days = 127, fromHour = from, toHour = from + 1 } } };
         Assert.False((await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{id}/pools/rule", new { rule }))).GetProperty("approved").GetBoolean());
-        Assert.Contains("01–02", (await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/rule/approval-text", new { }))).GetProperty("text").GetString());
+        Assert.Contains($"{from:00}–{from + 1:00}", (await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/rule/approval-text", new { }))).GetProperty("text").GetString());
         await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/pools/rule/approve", new { }));
         Assert.True((await Json(await admin.GetAsync($"/api/v1/devices/{id}/pools"))).GetProperty("approved").GetBoolean());
         await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{id}/pools/rule", new { rule = new { enabled = false } }));
