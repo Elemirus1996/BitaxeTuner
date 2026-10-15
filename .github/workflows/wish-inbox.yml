@@ -36,9 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          OWNER: ${{ github.repository_owner }}
           TOPIC: bitaxetuner-wish-jjrd5a2dk5
-          PROJECT_NUMBER: "3"
           PROJECT_ID: PVT_kwHOBu-fOs4Bk4H-
           STATUS_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjnDYE
           STATUS_IDEEN: b0059fc0
@@ -50,8 +48,13 @@ jobs:
           since=$(cat .wish-state/last 2>/dev/null || echo "13h")
           case "$since" in *[!A-Za-z0-9]*) since="13h";; esac
           curl -fsS --max-time 30 "https://ntfy.sh/${TOPIC}/json?poll=1&since=${since}" > messages.jsonl || { echo "ntfy nicht erreichbar"; exit 0; }
-          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json \
-                --jq '.fields[] | select(.name=="Geplant für") | .options[]? | select(.name=="Kundenwunsch") | .id')
+          # Nur gh api graphql (reicht mit Scope „project“; „gh project …“ verlangt zusätzlich read:org)
+          set_field() {
+            gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}' \
+              -f p="$PROJECT_ID" -f i="$1" -f f="$2" -f o="$3" > /dev/null
+          }
+          opt=$(gh api graphql -f query='query($p:ID!){node(id:$p){... on ProjectV2{field(name:"Geplant für"){... on ProjectV2SingleSelectField{options{id name}}}}}}' \
+                -f p="$PROJECT_ID" --jq '.data.node.field.options[]? | select(.name=="Kundenwunsch") | .id')
           # Gültige Wünsche als JSON-Zeilen (id, title, body); alles andere wird verworfen
           jq -c 'select(.event == "message")
                  | . as $m | ($m.message | try fromjson catch null) as $w
@@ -67,11 +70,10 @@ jobs:
           while IFS= read -r line; do
             title=$(printf '%s' "$line" | jq -r .title)
             body=$(printf '%s' "$line" | jq -r .body)
-            item=$(gh project item-create "$PROJECT_NUMBER" --owner "@me" --title "$title" --body "$body" --format json --jq .id)
-            gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD" --single-select-option-id "$STATUS_IDEEN"
-            if [ -n "$opt" ]; then
-              gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"
-            fi
+            item=$(gh api graphql -f query='mutation($p:ID!,$t:String!,$b:String!){addProjectV2DraftIssue(input:{projectId:$p,title:$t,body:$b}){projectItem{id}}}' \
+                   -f p="$PROJECT_ID" -f t="$title" -f b="$body" --jq '.data.addProjectV2DraftIssue.projectItem.id')
+            set_field "$item" "$STATUS_FIELD" "$STATUS_IDEEN"
+            if [ -n "$opt" ]; then set_field "$item" "$PLANNED_FIELD" "$opt"; fi
             if [ -n "${DISCORD_WEBHOOK:-}" ]; then
               printf '%s' "$line" | jq -c '{content: ("💡 **" + .title + "**\n" + (.body | .[0:1800])), allowed_mentions: {parse: []}}' \
                 | curl -fsS --max-time 15 -H "Content-Type: application/json" --data-binary @- "$DISCORD_WEBHOOK" > /dev/null || echo "Discord nicht erreichbar"

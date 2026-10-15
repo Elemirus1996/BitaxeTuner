@@ -26,20 +26,25 @@ jobs:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
-          OWNER: ${{ github.repository_owner }}
-          PROJECT_NUMBER: "3"
+          ISSUE_ID: ${{ github.event.issue.node_id }}
           PROJECT_ID: PVT_kwHOBu-fOs4Bk4H-
           STATUS_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjnDYE
           STATUS_IDEEN: b0059fc0
           PLANNED_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjuJAs
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "PROJECT_TOKEN fehlt – übersprungen."; exit 0; fi
-          item=$(gh project item-add "$PROJECT_NUMBER" --owner "@me" --url "$ISSUE_URL" --format json --jq .id)
-          gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD" --single-select-option-id "$STATUS_IDEEN"
-          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json \
-                --jq '.fields[] | select(.name=="Geplant für") | .options[]? | select(.name=="Kundenwunsch") | .id')
+          # Nur gh api graphql (reicht mit Scope „project“; „gh project …“ verlangt zusätzlich read:org)
+          set_field() {
+            gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}' \
+              -f p="$PROJECT_ID" -f i="$1" -f f="$2" -f o="$3" > /dev/null
+          }
+          item=$(gh api graphql -f query='mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}' \
+                 -f p="$PROJECT_ID" -f c="$ISSUE_ID" --jq '.data.addProjectV2ItemById.item.id')
+          set_field "$item" "$STATUS_FIELD" "$STATUS_IDEEN"
+          opt=$(gh api graphql -f query='query($p:ID!){node(id:$p){... on ProjectV2{field(name:"Geplant für"){... on ProjectV2SingleSelectField{options{id name}}}}}}' \
+                -f p="$PROJECT_ID" --jq '.data.node.field.options[]? | select(.name=="Kundenwunsch") | .id')
           if [ -n "$opt" ]; then
-            gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"
+            set_field "$item" "$PLANNED_FIELD" "$opt"
           else
             echo "Option „Kundenwunsch“ im Feld „Geplant für“ fehlt – nur Status „Ideen“ gesetzt."
           fi
