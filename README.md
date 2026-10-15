@@ -66,6 +66,16 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.17
+
+- **PV-Automatik**: viel Sonne → volle Leistung, wenig Sonne → Stromsparen. PV-Leistung aus einer Messsteckdose
+  (Shelly, Tasmota, FRITZ!DECT) oder aus Home Assistant – darüber auch Anker Solix (Einstellungen → *PV-Anlage*).
+- **Effizienz-Ratgeber** mit dem Ziel *Stromsparen* (geringste stabile Leistung).
+- **Andere Firmware** (z. B. ZyberOS): in der Übersicht mit allen Werten, nur ohne Benchmark und Übertaktung.
+- **Pool-Vorlage nach Zeitplan**: je Zeitfenster eine beliebige Pool-Vorlage, z. B. Mining-Party am Samstagabend.
+- **E-Paper in Farbe**: Waveshare 7,3″ Spectra 6 (sechs Farben) als wählbarer Display-Typ, Anschluss an denselben Pins
+  der Lüfterplatine (Pico-Programm 8.3).
+
 ### Neu in 0.9.16
 
 - **Systemzustand mit Warnung** (Einstellungen → *System*): freier Speicher, Temp-Ordner, Sicherung, USB-Stick, auf dem

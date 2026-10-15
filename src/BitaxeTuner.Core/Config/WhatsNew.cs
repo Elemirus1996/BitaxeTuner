@@ -141,6 +141,23 @@ public static class WhatsNew
             new("0.9.13", tr.T("Pool und Coin je Miner in der Übersicht"),
                 tr.T("Jede Miner-Karte zeigt den Pool als Abzeichen – ein Klick öffnet die Pool-Seite (bei Solo-Pools deine Statistik) – und den Coin, den der Miner gerade schürft. In der Desktop-App steht beides in der Pool-Zeile des Miners."),
                 null),
+            new("0.9.17", tr.T("PV-Automatik: mit der Sonne minen"),
+                server ? tr.T("Neue Automatik-Art „PV-Leistung“ (Gerät → Automatik, auch für Gruppen): viel Sonne → volle Leistung, wenig Sonne → Stromspar-Voreinstellung, dazwischen bleibt es. Die PV-Leistung kommt aus einer Messsteckdose (Shelly, Tasmota, FRITZ!DECT) oder aus Home Assistant – darüber auch Anker Solix. Einstellungen → Strom & Kosten → PV-Anlage.")
+                       : tr.T("Neue Automatik-Art „PV-Leistung“ (Miner → Automatik): viel Sonne → volle Leistung, wenig Sonne → Stromspar-Voreinstellung, dazwischen bleibt es. Die PV-Leistung kommt aus einer Messsteckdose (Shelly, Tasmota, FRITZ!DECT) oder aus Home Assistant – darüber auch Anker Solix. Einstellungen → PV-Anlage."),
+                tr.T("PV-Anlage")),
+            new("0.9.17", tr.T("Effizienz-Ratgeber: Stromsparen"),
+                tr.T("Der Effizienz-Ratgeber hat das neue Ziel „Stromsparen“: die stabile Einstellung mit der geringsten Leistung – vorgeschlagen ab 3 % weniger Verbrauch, angewendet nur nach Bestätigung."),
+                null),
+            new("0.9.17", tr.T("Andere Firmware: nur überwachen"),
+                tr.T("Miner mit anderer Firmware als AxeOS oder NerdQAxe (z. B. ZyberOS) erscheinen jetzt in der Übersicht mit allen Werten, Verlauf und Meldungen – nur Benchmark, Frequenz und Spannung bleiben tabu („👁 Nur überwachen“). In den Geräte-Einstellungen lässt sich das je Miner auch von Hand festlegen."),
+                null),
+            new("0.9.17", tr.T("Pool-Vorlage nach Zeitplan"),
+                tr.T("Die Pool-Automatik kann je Zeitfenster eine Pool-Vorlage nutzen statt des Ersatz-Pools – z. B. samstags 20–24 Uhr eine Mining-Party. Danach geht der Miner zurück zum Haupt-Pool, und der bisherige Ersatz-Pool wird wieder eingetragen; der Haupt-Pool bleibt unberührt."),
+                null),
+            new("0.9.17", tr.T("E-Paper in Farbe: Spectra 6"),
+                server ? tr.T("Neben dem 7,5″-Display (schwarz/weiß/rot) gibt es jetzt das 7,3″ Spectra 6 mit sechs Farben: blaue Linien und Kurven, Grün für „alles ok“, Gelb für Warndreieck und Rekord, Rot für Probleme, Fotos in allen Farben. Anschluss an denselben Pins der Lüfterplatine; Display-Typ in den Anzeige-Einstellungen wählen.")
+                       : tr.T("Neben dem 7,5″-Display (schwarz/weiß/rot) gibt es jetzt das 7,3″ Spectra 6 mit sechs Farben. Anschluss an denselben Pins der Lüfterplatine; den Display-Typ wählst du in der Browser-Oberfläche unter Lüfter & Anzeige."),
+                null),
             new("0.9.16", tr.T("Systemzustand mit Warnung"),
                 server ? tr.T("Einstellungen → System → Systemzustand: freier Speicher, Temp-Ordner, Sicherung, USB-Stick, auf dem Raspberry Pi Arbeitsspeicher, CPU-Temperatur, Unterspannung und eine schreibgeschützte Speicherkarte, dazu Uhrzeit, gehäufte Neustarts, Zertifikat und abgebrochene Updates. Alle 10 Minuten geprüft; bei Problemen kommt ein Push (Wartung).")
                        : tr.T("Einstellungen → Sicherung → „Speicherplatz und Aufräumen …“ zeigt jetzt auch den Systemzustand: freier Speicher, Temp-Ordner, Sicherung und abgebrochene Updates. Alle 10 Minuten geprüft; bei Problemen kommt ein Push (Wartung)."),

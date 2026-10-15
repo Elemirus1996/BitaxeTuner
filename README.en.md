@@ -69,6 +69,16 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.17
+
+- **PV automation**: lots of sun → full power, little sun → power saving. PV power from a metering plug (Shelly,
+  Tasmota, FRITZ!DECT) or from Home Assistant – which also covers Anker Solix (Settings → *PV system*).
+- **Efficiency advisor** with the goal *power saving* (lowest stable power).
+- **Other firmware** (e.g. ZyberOS): in the overview with all values, just without benchmark and overclocking.
+- **Pool preset by schedule**: any pool preset per time window, e.g. a mining party on Saturday evening.
+- **Colour e-paper**: Waveshare 7.3″ Spectra 6 (six colours) as a selectable display type, wired to the same pins of
+  the fan board (Pico program 8.3).
+
 ### New in 0.9.16
 
 - **System health with alerts** (Settings → *System*): free storage, temp folder, backup, USB stick, on the Raspberry Pi
