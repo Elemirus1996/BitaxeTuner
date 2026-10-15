@@ -36,6 +36,25 @@ public sealed class HubDevice
     /// <summary>Gerät aus der gemeinsamen Geräteliste (config.json) – nach "Einstellungen speichern" eine neue Kopie.</summary>
     public DeviceConfig Config => State.Config;
     public MinerInfo? Info => State.Online ? State.Normalized : null;
+
+    /// <summary>
+    /// 0.9.17 „Nur überwachen“: von Hand eingestellt oder Firmware, die BitaxeTuner nicht tunt (alles außer AxeOS/NerdQAxe,
+    /// z. B. ZyberOS). Übersicht, Verlauf, Meldungen, Pools und Lüfter wie gewohnt – kein Benchmark, keine Frequenz-/
+    /// Spannungsänderung (auch nicht durch Automatik oder Wiederherstellen). Null = normales Tuning.
+    /// </summary>
+    public string? MonitorOnlyReason => Config.MonitorOnly switch
+    {
+        true => Core.I18n.L.T("von Hand eingestellt"),
+        false => null,
+        null => State.Normalized?.Firmware switch
+        {
+            Api.FirmwareKind.ZyberOS => "ZyberOS",
+            Api.FirmwareKind.Unknown => Core.I18n.L.T("unbekannte Firmware"),
+            _ => null,
+        },
+    };
+
+    public bool MonitorOnly => MonitorOnlyReason is not null;
     public bool IsSimulated => Connection.Inner is SimulatedMinerClient;
     public string Title => !string.IsNullOrWhiteSpace(Config.Name) ? Config.Name : State.Normalized?.DisplayName ?? Host;
 

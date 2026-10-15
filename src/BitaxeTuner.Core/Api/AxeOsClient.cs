@@ -287,6 +287,11 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
 
     public static FirmwareKind DetectFirmware(JsonElement r)
     {
+        // 0.9.17: Ableger mit derselben API, aber eigener Hardware/Firmware – erkennbar am Namen in Modell, Board oder Version
+        foreach (var field in new[] { "deviceModel", "boardVersion", "version", "axeOSVersion", "hostname", "ASICModel" })
+            if (r.TryGetProperty(field, out var v) && v.ValueKind == JsonValueKind.String
+                && v.GetString() is { } s && s.Contains("zyber", StringComparison.OrdinalIgnoreCase))
+                return FirmwareKind.ZyberOS;
         if (r.TryGetProperty("asicTemps", out _) || r.TryGetProperty("jobInterval", out _) || r.TryGetProperty("pidTargetTemp", out _))
             return FirmwareKind.NerdQAxe;
         if (r.TryGetProperty("axeOSVersion", out _) || r.TryGetProperty("ASICModel", out _) || r.TryGetProperty("overclockEnabled", out _))

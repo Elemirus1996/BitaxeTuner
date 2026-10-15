@@ -118,6 +118,8 @@ public sealed class BenchmarkManager
     public async Task RunAsync(HubDevice device, BenchmarkPlan plan)
     {
         if (device.IsBenchmarkRunning) throw new InvalidOperationException(L.T("Auf diesem Gerät läuft bereits ein Benchmark."));
+        if (device.MonitorOnlyReason is { } why)
+            throw new LocalizedException("{0} wird nur überwacht ({1}) – kein Benchmark.", device.Title, why);
         var profile = device.Profile;
         await _hub.TryAutoBackupAsync(device, L.T("vor Benchmark"));
 

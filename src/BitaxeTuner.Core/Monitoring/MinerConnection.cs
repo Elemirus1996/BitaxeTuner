@@ -92,6 +92,12 @@ public sealed class MinerConnection : IMinerClient, IDisposable
     /// </summary>
     public Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default)
     {
+        if (values.ContainsKey("frequency") || values.ContainsKey("coreVoltage") || values.ContainsKey("overclockEnabled")) ThrowIfTuningBlocked();
+        return PatchSettingsCoreAsync(values, ct);
+    }
+
+    private Task PatchSettingsCoreAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct)
+    {
         _maintenance.Extend(Address, MaintenanceTracker.DefaultTail);
         return RunAsync(async () =>
         {
@@ -114,8 +120,17 @@ public sealed class MinerConnection : IMinerClient, IDisposable
         ApplySettingsAsync(frequencyMhz, coreVoltageMv, source, null, ct);
 
     /// <param name="note">Begründung für das Protokoll, z. B. "Temperaturschutz: 67 °C".</param>
+    /// <summary>0.9.17: Grund, warum Frequenz/Spannung hier nicht geändert werden dürfen („Nur überwachen“); null = erlaubt.</summary>
+    public Func<string?>? TuningBlockedReason { get; set; }
+
+    private void ThrowIfTuningBlocked()
+    {
+        if (TuningBlockedReason?.Invoke() is { } why) throw new I18n.LocalizedException(why);
+    }
+
     public async Task ApplySettingsAsync(int frequencyMhz, int coreVoltageMv, TuningSource source, string? note, CancellationToken ct = default)
     {
+        ThrowIfTuningBlocked();
         // Alter Wert aus einer frischen Abfrage, damit das Protokoll stimmt.
         int? oldFreq = null, oldMv = null;
         try
