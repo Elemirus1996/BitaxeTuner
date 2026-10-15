@@ -52,11 +52,11 @@ public sealed partial class MinerHub
         try { stamp = File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue; }
         catch (IOException) { stamp = DateTime.MinValue; }
         if (stamp == DateTime.MinValue) return new DisplayPictureData(null, height, caption);
-        var key = $"{file}|{stamp.Ticks}|{height}|{s.ImageFit}|{s.ImageDither}|{s.ImageRed}";
+        var key = $"{file}|{stamp.Ticks}|{height}|{s.ImageFit}|{s.ImageDither}|{s.ImageRed}|{s.Panel}";
         if (_pictureCache is { } c && c.Key == key) return c.Data with { Caption = caption };
         try
         {
-            var data = new DisplayPictureData(DisplayPicture.Convert(File.ReadAllBytes(file), height, s.ImageFit, s.ImageDither, s.ImageRed), height, caption);
+            var data = new DisplayPictureData(DisplayPicture.Convert(File.ReadAllBytes(file), height, s.ImageFit, s.ImageDither, s.ImageRed, s.IsSpectra), height, caption);
             _pictureCache = (key, data);
             return data;
         }

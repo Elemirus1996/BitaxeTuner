@@ -44,7 +44,8 @@ public static class ExtraDisplayEndpoints
             if (AuthContext.Of(http).Scope.Restricted) return Results.Json(new { error = L.N("Für diesen Ansicht-Zugang nicht freigegeben.") }, statusCode: 403);
             var model = await hub.RunAsync(h => h.ComposeExtraDisplay(Find(h, id), DateTime.Now,
                 Enum.TryParse<DisplayScene>(scene, true, out var sc) ? sc : null));
-            using var img = StatusRenderer.RenderImage(model);
+            var panel = await hub.RunAsync(h => Find(h, id).Config.Settings.Panel);   // 0.9.17: Spectra 6 in Farbe
+            using var img = StatusRenderer.RenderImage(model, panel);
             var ms = new MemoryStream();
             await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(img, ms);
             return Results.File(ms.ToArray(), "image/png");

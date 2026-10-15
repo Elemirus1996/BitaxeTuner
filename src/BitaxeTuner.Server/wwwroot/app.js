@@ -4335,11 +4335,15 @@ function pictureFields(s, pic) {
       h('div', {}, h('label', {}, t('Ausschnitt')), pageSelect(s, 'imageFit', [['fit', t('ganzes Bild (weißer Rand)')], ['fill', t('Fläche füllen (Ränder abschneiden)')]])),
       h('div', {}, h('label', {}, t('Bildunterschrift (leer = keine)')), h('input', { value: s.imageCaption || '', maxlength: 60, oninput: e => { s.imageCaption = e.target.value; } }))),
     checkInput(s, 'imageDither', t('Rastern (für Fotos; aus = klare Flächen für Logos und Schrift)')),
-    checkInput(s, 'imageRed', t('Rote Bildteile rot zeigen')));
+    checkInput(s, 'imageRed', t('Rote Bildteile rot zeigen (Spectra 6: alle Farben)')));
 }
 
 function displaySettingsFields(s, pic) {
   return [
+    // 0.9.17: Display-Typ (beide 800 × 480, gleiche Pins)
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Display-Typ')), pageSelect(s, 'panel', [['bwr75', t('7,5″ schwarz/weiß/rot (Waveshare 7.5″ B)')],
+      ['spectra73', t('7,3″ Spectra 6 – sechs Farben (Waveshare 7.3″ E)')]]))),
+    h('p', { class: 'muted small' }, t('Spectra 6 am Lüfter-Pico mit Jumperkabeln an dieselben Pins wie das 7,5″-Display: DIN GP15, CLK GP14, CS GP13, DC GP12, RST GP11, BUSY GP22, VCC 3V3, GND (einen PWR-Pin des Moduls ebenfalls an 3V3). Ein Bildaufbau dauert etwa 20–30 Sekunden; das Pico-Programm ab 8.3 wird automatisch aufgespielt.')),
     checkInput(s, 'inverted', t('Farben umkehren: helle Schrift auf schwarzem Grund (Rot bleibt rot)')),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Titel')), h('input', { value: s.title, oninput: e => { s.title = e.target.value; } })),

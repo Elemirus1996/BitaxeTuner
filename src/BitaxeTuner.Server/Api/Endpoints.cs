@@ -97,6 +97,7 @@ public static class Endpoints
         req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
         req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
         req.ImageFit = req.ImageFit == "fill" ? "fill" : "fit";
+        req.Panel = Core.Config.DisplaySettings.Panels.Contains(req.Panel) ? req.Panel : "bwr75";   // 0.9.17
         req.MonthCompareMonths = req.MonthCompareMonths == 12 ? 12 : 6;
         // 0.9.16 Seitenfolge nach Tageszeit: höchstens 6 Fenster, Stunden 0–23, nur bekannte Seiten
         if (req.PageWindows is { } windows)
@@ -552,7 +553,8 @@ public static class Endpoints
             var model = await hub.RunAsync(h => Enum.TryParse<Core.Display.DisplayScene>(scene, true, out var sc)
                 ? h.PreviewScene(sc, DateTime.Now)
                 : h.ComposeDisplay(DateTime.Now));
-            using var img = Core.Display.StatusRenderer.RenderImage(model);
+            var panel = await hub.RunAsync(h => h.Config.Display.Panel);   // 0.9.17: Spectra 6 in Farbe
+            using var img = Core.Display.StatusRenderer.RenderImage(model, panel);
             var ms = new MemoryStream();
             await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(img, ms);
             return Results.File(ms.ToArray(), "image/png");

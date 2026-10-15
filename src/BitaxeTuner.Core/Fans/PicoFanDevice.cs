@@ -101,7 +101,7 @@ public sealed class PicoUpdatedException(string message) : IOException(message);
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "8.2";
+    public const string FirmwareVersion = "8.3";
     public const string RoleFans = "fans";
     public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;
@@ -363,11 +363,20 @@ public sealed class PicoFanDevice : IFanDevice
 
     public Task ShowImageAsync(byte[] planes, CancellationToken ct = default) => Task.Run(() =>
     {
-        if (planes.Length != ImageBytes) throw new ArgumentException(L.T("Bildgröße passt nicht zur Anzeige."));
+        var spectra = planes.Length == Display.StatusRenderer.SpectraBytes;   // 0.9.17: 7,3″ Spectra 6
+        if (planes.Length != ImageBytes && !spectra) throw new ArgumentException(L.T("Bildgröße passt nicht zur Anzeige."));
         lock (_lock)
         {
             _io.Write($"IMG {planes.Length}\r\n");
-            Expect("OK IMG", ReplyTimeout + TimeSpan.FromSeconds(0.5));
+            try
+            {
+                // Spectra 6: der Pico setzt das Panel vor „OK IMG“ zurück und initialisiert es (dauert etwas länger)
+                Expect("OK IMG", ReplyTimeout + TimeSpan.FromSeconds(spectra ? 6 : 0.5));
+            }
+            catch (IOException ex) when (spectra && ex.Message.Contains("size", StringComparison.Ordinal))
+            {
+                throw new IOException(L.T("Das Pico-Programm kennt das Spectra-6-Display noch nicht – es wird beim nächsten Verbinden aktualisiert (ab 8.3)."));
+            }
             // 192 Byte je Zeile (256 Zeichen Base64); jede Zeile setzt auch den Watchdog im Pico zurück
             var sb = new StringBuilder();
             for (var i = 0; i < planes.Length; i += 192)

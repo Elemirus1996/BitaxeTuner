@@ -80,6 +80,24 @@ public static partial class StatusRenderer
 
     private static readonly Color Ink = Color.Black;
     private static readonly Color Red = Color.FromRgb(220, 0, 0);
+
+    // 0.9.17 Spectra 6: weitere Farben – nur, wenn das Panel sie kann; sonst wie bisher Schwarz/Rot
+    [ThreadStatic] private static bool _colors;
+    private static readonly Color Blue6 = Color.FromRgb(0, 60, 200);
+    private static readonly Color Green6 = Color.FromRgb(0, 150, 60);
+    private static readonly Color Yellow6 = Color.FromRgb(255, 230, 0);
+    /// <summary>Trennlinien und Hilfslinien: Blau (Spectra 6) bzw. Schwarz.</summary>
+    private static Color Rule => _colors ? Blue6 : Ink;
+    /// <summary>Kurven, Balken, Fortschritt: Blau (Spectra 6) bzw. Rot wie bisher.</summary>
+    private static Color Accent => _colors ? Blue6 : Red;
+    /// <summary>„In Ordnung“ / Plus: Grün (Spectra 6) bzw. Schwarz.</summary>
+    private static Color Good => _colors ? Green6 : Ink;
+    /// <summary>Füllung von Warndreieck und Stern: Gelb (Spectra 6) bzw. Rot.</summary>
+    private static Color Signal => _colors ? Yellow6 : Red;
+    /// <summary>Gute Nachricht (Blockfund, Rekord): Grün (Spectra 6) bzw. Rot wie bisher.</summary>
+    private static Color Celebrate => _colors ? Green6 : Red;
+    /// <summary>Wert mit Vorzeichen: Minus rot, Plus grün (Spectra 6) bzw. schwarz.</summary>
+    private static Color Signed(double v) => v < 0 ? Red : Good;
     private static readonly DrawingOptions Crisp = new() { GraphicsOptions = new GraphicsOptions { Antialias = false } };
 
     private static FontFamily Load(string style)
@@ -89,8 +107,16 @@ public static partial class StatusRenderer
         return new FontCollection().Add(s);
     }
 
-    /// <summary>Bild als RGB (Vorschau im Browser, Tests).</summary>
-    public static Image<Rgb24> RenderImage(DisplayModel m)
+    /// <summary>Bild als RGB (Vorschau im Browser, Tests). <paramref name="panel"/> "spectra73" = mit Blau/Grün/Gelb.</summary>
+    public static Image<Rgb24> RenderImage(DisplayModel m, string panel = "bwr75")
+    {
+        var previous = _colors;
+        _colors = panel == "spectra73";
+        try { return RenderImageCore(m); }
+        finally { _colors = previous; }
+    }
+
+    private static Image<Rgb24> RenderImageCore(DisplayModel m)
     {
         var img = new Image<Rgb24>(Width, Height, Color.White);
         img.Mutate(ctx =>
@@ -126,7 +152,7 @@ public static partial class StatusRenderer
         return img;
     }
 
-    /// <summary>Schwarz ↔ Weiß tauschen, Rot unverändert lassen (gleiche Schwellen wie <see cref="ToPlanes"/>).</summary>
+    /// <summary>Schwarz ↔ Weiß tauschen, Farben (Rot, beim Spectra 6 auch Gelb/Blau/Grün) unverändert lassen.</summary>
     private static void Invert(Image<Rgb24> img) => img.ProcessPixelRows(rows =>
     {
         for (var y = 0; y < Height; y++)
@@ -135,7 +161,7 @@ public static partial class StatusRenderer
             for (var x = 0; x < Width; x++)
             {
                 var p = row[x];
-                if (p.R > 150 && p.G < 100 && p.B < 100) continue;
+                if (Math.Max(p.R, Math.Max(p.G, p.B)) - Math.Min(p.R, Math.Min(p.G, p.B)) > 100) continue;   // farbig
                 row[x] = p.R + p.G + p.B < 384 ? new Rgb24(255, 255, 255) : new Rgb24(0, 0, 0);
             }
         }
@@ -150,7 +176,7 @@ public static partial class StatusRenderer
         var sub = $"{m.TotalW.ToString("0.0", De)} W" +
                   (m.EfficiencyJth is { } e ? L.T(" · {0} J/TH", e.ToString("0.0", De)) : "") +
                   L.T(" · {0}/{1} online", m.Online, m.Count);
-        TextRight(ctx, sub, Regular.Value, 22, Width - 16, 56, m.Online < m.Count ? Red : Ink);
+        TextRight(ctx, sub, Regular.Value, 22, Width - 16, 56, m.Online < m.Count ? Red : m.Count > 0 ? Good : Ink);
         // Temperaturfühler unter dem Titel, jeder für sich (zu warm oder fehlend in Rot)
         if (m.Temps is { Count: > 0 } temps)
         {
@@ -169,7 +195,7 @@ public static partial class StatusRenderer
                 x += w + 18;
             }
         }
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 88, Width - 32, 3));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 88, Width - 32, 3));
 
         // Spaltenköpfe
         const int colHash = 478, colChip = 584, colVr = 688, colFan = Width - 16;
@@ -204,7 +230,7 @@ public static partial class StatusRenderer
                 TextRight(ctx, r.VrTemp is { } v ? $"{v.ToString("0", De)} °C" : "–", valueFont, colVr, y, r.VrHot ? Red : Ink);
                 TextRight(ctx, r.FanStalled ? L.T("steht!") : r.FanPercent is { } f ? $"{f} %" : "–", valueFont, colFan, y, r.FanStalled ? Red : Ink);
             }
-            if (i < shown.Count - 1) ctx.Fill(Crisp, Ink, new RectangleF(16, top + (i + 1) * rowH - 1, Width - 32, 1));
+            if (i < shown.Count - 1) ctx.Fill(Crisp, Rule, new RectangleF(16, top + (i + 1) * rowH - 1, Width - 32, 1));
         }
         if (m.Miners.Count > shown.Count)
             Text(ctx, L.T("+ {0} weitere", m.Miners.Count - shown.Count), small, 16, bottom - 22, Ink);
@@ -225,7 +251,7 @@ public static partial class StatusRenderer
     /// <summary>Fußzeile aller Seiten: Lüfter · Strompreis · Stand.</summary>
     private static void DrawFooter(IImageProcessingContext ctx, DisplayModel m)
     {
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 442, Width - 32, 2));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 442, Width - 32, 2));
         var foot = Regular.Value.CreateFont(21);
         var fanText = L.T("Lüfter: ") + m.FanMode;
         var fanFont = m.FanModeAlert ? Bold.Value.CreateFont(21) : foot;
@@ -243,11 +269,53 @@ public static partial class StatusRenderer
         }
     }
 
-    /// <summary>Die beiden Ebenen für das Display (2 × 48 000 Byte).</summary>
-    public static byte[] Render(DisplayModel m)
+    /// <summary>Daten für das Display: 7,5″ B = zwei Ebenen (2 × 48 000 Byte), 0.9.17 Spectra 6 = 4 Bit je Pixel (192 000 Byte).</summary>
+    public static byte[] Render(DisplayModel m, string panel = "bwr75")
     {
-        using var img = RenderImage(m);
-        return ToPlanes(img);
+        using var img = RenderImage(m, panel);
+        return panel == "spectra73" ? ToSpectra(img) : ToPlanes(img);
+    }
+
+    public const int SpectraBytes = Width * Height / 2;
+
+    /// <summary>0.9.17 Spectra 6: Farben des Panels (Index = Farbcode der Firmware) und ihr Aussehen auf dem Bildschirm.</summary>
+    public static readonly (byte Code, Rgb24 Rgb)[] SpectraPalette =
+    [
+        (0, new Rgb24(0, 0, 0)), (1, new Rgb24(255, 255, 255)), (2, new Rgb24(255, 230, 0)),
+        (3, new Rgb24(220, 0, 0)), (5, new Rgb24(0, 60, 200)), (6, new Rgb24(0, 150, 60)),
+    ];
+
+    /// <summary>Bild → Spectra-6-Daten: je Pixel die nächste der sechs Farben, zwei Pixel je Byte (oberes Halbbyte zuerst).</summary>
+    public static byte[] ToSpectra(Image<Rgb24> img)
+    {
+        var result = new byte[SpectraBytes];
+        img.ProcessPixelRows(rows =>
+        {
+            for (var y = 0; y < Height; y++)
+            {
+                var row = rows.GetRowSpan(y);
+                for (var x = 0; x < Width; x += 2)
+                {
+                    var hi = SpectraCode(row[x]);
+                    var lo = SpectraCode(row[x + 1]);
+                    result[(y * Width + x) / 2] = (byte)((hi << 4) | lo);
+                }
+            }
+        });
+        return result;
+    }
+
+    private static byte SpectraCode(Rgb24 p)
+    {
+        var best = SpectraPalette[1].Code;
+        var bestD = int.MaxValue;
+        foreach (var (code, c) in SpectraPalette)
+        {
+            int dr = p.R - c.R, dg = p.G - c.G, db = p.B - c.B;
+            var d = dr * dr + dg * dg + db * db;
+            if (d < bestD) { bestD = d; best = code; }
+        }
+        return best;
     }
 
     public static byte[] ToPlanes(Image<Rgb24> img)

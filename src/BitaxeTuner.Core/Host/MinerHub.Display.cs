@@ -216,7 +216,7 @@ public sealed partial class MinerHub
             // Regelmäßige Aktualisierung ohne besonderen Anlass: nächste Seite
             var rotate = routineDue && _displayShown is not null && !_displayRequested && !_displayUserRequested && alarmKey == _displayAlarmKey;
             var shown = ComposeDisplay(now, nextPage: rotate);
-            var planes = await Task.Run(() => StatusRenderer.Render(shown));
+            var planes = await Task.Run(() => StatusRenderer.Render(shown, s.Panel));
             await pico.ShowImageAsync(planes);
             SceneShown(shown);
             if (_displayUserRequested && _displayShown is not null && now < _displayShown + DisplayMinGap) _displayUserRefreshes.Enqueue(now);

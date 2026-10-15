@@ -32,7 +32,7 @@ public static partial class StatusRenderer
     {
         Text(ctx, title, Bold.Value, 32, 16, 14, Ink);
         TextRight(ctx, (m.PageLabel is { } p ? p + " · " : "") + m.Time.ToString("HH:mm", De), Regular.Value, 22, Width - 16, 22, Ink);
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 62, Width - 32, 3));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 62, Width - 32, 3));
     }
 
     private static void Tile(IImageProcessingContext ctx, float x, float y, float w, string label, string value, bool red = false)
@@ -64,7 +64,7 @@ public static partial class StatusRenderer
         if (d.BestDiff is { } bd)
             Text(ctx, Fit(L.T("Best Diff (Rekord): {0}", bd) + (d.BestDiffMiner is { } bm ? $" · {bm}" : "") + L.T(" · {0} kWh", N(d.Kwh, "0.00")),
                 Regular.Value.CreateFont(21), Width - 32), Regular.Value.CreateFont(21), 16, 142, Ink);
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 174, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 174, Width - 32, 1));
 
         var small = Regular.Value.CreateFont(17);
         TextRight(ctx, L.T("Ø Hashrate"), small, 470, 180, Ink);
@@ -134,7 +134,7 @@ public static partial class StatusRenderer
             var v = min + (max - min) * k / 4;
             var y = Y(v);
             TextRight(ctx, kind != "hashrate" ? N(v, "0.0") : max >= 1000 ? N(v / 1000, "0.00") : N(v, "0"), small, x0 - 8, y - 10, Ink);
-            if (k > 0) for (var x = x0 + 4; x < x1; x += 12) ctx.Fill(Crisp, Ink, new RectangleF(x, y, 4, 1));
+            if (k > 0) for (var x = x0 + 4; x < x1; x += 12) ctx.Fill(Crisp, Rule, new RectangleF(x, y, 4, 1));
         }
         Text(ctx, kind switch { "temp" => "°C", "power" => "W", "efficiency" => "J/TH", _ => max >= 1000 ? "TH/s" : "GH/s" }, small, 16, y0 - 26, Ink);
         for (var hAgo = 24; hAgo >= 0; hAgo -= 6)
@@ -147,7 +147,7 @@ public static partial class StatusRenderer
         var segment = new List<PointF>();
         void Flush()
         {
-            if (segment.Count > 1) ctx.DrawLine(Crisp, Red, 3, segment.ToArray());   // 0.9.11: Graph in Rot
+            if (segment.Count > 1) ctx.DrawLine(Crisp, Accent, 3, segment.ToArray());   // 0.9.11: Graph in Rot (Spectra 6: Blau)
             segment.Clear();
         }
         DateTime? last = null;
@@ -237,7 +237,7 @@ public static partial class StatusRenderer
         }
         var bchLine = n.ShowBch;
         var lineY = bchLine ? 388 : 400;
-        ctx.Fill(Crisp, Ink, new RectangleF(16, lineY, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, lineY, Width - 32, 1));
         var net = n.Height is { } h
             ? L.T("Bitcoin-Netzwerk: Block {0}", N(h, "N0")) + (n.LastBlockPool is { } p ? L.T(" · zuletzt von {0}", p) : "") +
               (n.LastBlockTime is { } lt ? L.T(" · vor {0} min", N(Math.Max(0, (m.Time - lt).TotalMinutes), "0")) : "")
@@ -259,12 +259,12 @@ public static partial class StatusRenderer
     private static void DrawBlockFound(IImageProcessingContext ctx, DisplayModel m)
     {
         var b = m.BlockFound!;
-        ctx.Fill(Crisp, Red, new RectangleF(0, 0, Width, 14));
-        ctx.Fill(Crisp, Red, new RectangleF(0, Height - 14, Width, 14));
+        ctx.Fill(Crisp, Celebrate, new RectangleF(0, 0, Width, 14));
+        ctx.Fill(Crisp, Celebrate, new RectangleF(0, Height - 14, Width, 14));
         Cube(ctx, 170, 215, 118);
         const float x = 330;
-        Text(ctx, L.T("BLOCK"), Bold.Value, 72, x, 44, Red);
-        Text(ctx, L.T("GEFUNDEN!"), Bold.Value, 72, x, 118, Red);
+        Text(ctx, L.T("BLOCK"), Bold.Value, 72, x, 44, Celebrate);
+        Text(ctx, L.T("GEFUNDEN!"), Bold.Value, 72, x, 118, Celebrate);
         Text(ctx, Fit(b.Miner, Bold.Value.CreateFont(40), Width - x - 16), Bold.Value.CreateFont(40), x, 214, Ink);
         Text(ctx, b.Time.ToString(L.T("dddd, dd.MM.yyyy · HH:mm 'Uhr'"), L.Culture), Regular.Value, 24, x, 270, Ink);
         if (b.Height is { } h) Text(ctx, L.T("Block {0} (Netzwerkstand beim Fund)", N(h, "N0")), Regular.Value, 22, x, 306, Ink);
@@ -287,7 +287,7 @@ public static partial class StatusRenderer
             Text(ctx, Fit(shown[i], font, Width - 80), font, 54, 256 + i * lineH, Ink);
         }
         if (m.Alerts.Count > shown.Count) Text(ctx, L.T("+ {0} weitere", m.Alerts.Count - shown.Count), Regular.Value, 20, 54, 256 + shown.Count * lineH, Ink);
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 442, Width - 32, 2));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 442, Width - 32, 2));
         Text(ctx, L.T("Taste 1: quittieren"), Regular.Value, 21, 16, 450, Ink);
         TextRight(ctx, L.T("Lüfter: ") + m.FanMode, Regular.Value.CreateFont(21), Width - 16, 450, m.FanModeAlert ? Red : Ink);
     }
@@ -297,7 +297,7 @@ public static partial class StatusRenderer
         var b = m.BestDiff!;
         Star(ctx, 160, 200, 110);
         const float x = 320;
-        Text(ctx, L.T("Neuer Rekord!"), Bold.Value, 52, x, 40, Red);
+        Text(ctx, L.T("Neuer Rekord!"), Bold.Value, 52, x, 40, Celebrate);
         Text(ctx, Fit(b.Miner, Bold.Value.CreateFont(36), Width - x - 16), Bold.Value.CreateFont(36), x, 110, Ink);
         Text(ctx, L.T("Best Difficulty ({0})", b.Coin), Regular.Value, 22, x, 170, Ink);
         Text(ctx, b.Current, Bold.Value, 80, x, 196, Ink);
@@ -313,7 +313,7 @@ public static partial class StatusRenderer
         var dx = s * 0.87f;
         PointF top = new(cx, cy - s), right = new(cx + dx, cy - s / 2), mid = new(cx, cy), left = new(cx - dx, cy - s / 2);
         PointF rightLow = new(cx + dx, cy + s / 2), bottom = new(cx, cy + s), leftLow = new(cx - dx, cy + s / 2);
-        ctx.FillPolygon(Crisp, Red, top, right, mid, left);
+        ctx.FillPolygon(Crisp, Signal, top, right, mid, left);   // Spectra 6: gelb
         ctx.FillPolygon(Crisp, Ink, mid, right, rightLow, bottom);
         ctx.DrawPolygon(Crisp, Ink, 5, top, right, mid, left);
         ctx.DrawPolygon(Crisp, Ink, 5, left, mid, bottom, leftLow);
@@ -324,10 +324,11 @@ public static partial class StatusRenderer
     private static void Warning(IImageProcessingContext ctx, float cx, float cy, float s)
     {
         PointF a = new(cx, cy - s), b = new(cx + s * 1.1f, cy + s * 0.9f), c = new(cx - s * 1.1f, cy + s * 0.9f);
-        ctx.FillPolygon(Crisp, Red, a, b, c);
+        ctx.FillPolygon(Crisp, Signal, a, b, c);
         ctx.DrawPolygon(Crisp, Ink, 5, a, b, c);
-        ctx.Fill(Crisp, Color.White, new RectangleF(cx - 11, cy - s * 0.45f, 22, s * 0.8f));
-        ctx.Fill(Crisp, Color.White, new RectangleF(cx - 11, cy + s * 0.48f, 22, 22));
+        var mark = _colors ? Ink : Color.White;   // Spectra 6: gelbes Schild mit schwarzem Ausrufezeichen
+        ctx.Fill(Crisp, mark, new RectangleF(cx - 11, cy - s * 0.45f, 22, s * 0.8f));
+        ctx.Fill(Crisp, mark, new RectangleF(cx - 11, cy + s * 0.48f, 22, 22));
     }
 
     /// <summary>Stern für Rekorde.</summary>
@@ -340,7 +341,7 @@ public static partial class StatusRenderer
             var angle = -Math.PI / 2 + i * Math.PI / 5;
             pts[i] = new PointF(cx + (float)(radius * Math.Cos(angle)), cy + (float)(radius * Math.Sin(angle)));
         }
-        ctx.FillPolygon(Crisp, Red, pts);
+        ctx.FillPolygon(Crisp, Signal, pts);
         ctx.DrawPolygon(Crisp, Ink, 5, pts);
     }
 }

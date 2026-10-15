@@ -43,11 +43,11 @@ public static partial class StatusRenderer
         var y = 110f;
         foreach (var r in p.Rows)
         {
-            ctx.Fill(Crisp, Ink, new RectangleF(16, y, Width - 32, 1));
+            ctx.Fill(Crisp, Rule, new RectangleF(16, y, Width - 32, 1));
             Text(ctx, r.Label, label, 16, y + 18, Ink);
             TextRight(ctx, Money(r.Income) + (r.Partial ? "*" : ""), value, right[1], y + 14, Ink);
             TextRight(ctx, Money(r.Cost), value, right[2], y + 14, Ink);
-            TextRight(ctx, Money(r.Net, signed: true), value, right[3], y + 14, r.Net < 0 ? Red : Ink);
+            TextRight(ctx, Money(r.Net, signed: true), value, right[3], y + 14, r.Net < 0 ? Red : r.Net > 0 ? Good : Ink);
             Text(ctx, L.T("{0} kWh", N(r.Kwh, "0.0")), Regular.Value.CreateFont(17), 16, y + 52, Ink);
             y += 76;
         }
@@ -80,7 +80,7 @@ public static partial class StatusRenderer
         {
             DrawSoloCoin(ctx, c, y, height, shown.Count == 1);
             y += height;
-            if (c != shown[^1]) ctx.Fill(Crisp, Ink, new RectangleF(16, y - 4, Width - 32, 1));
+            if (c != shown[^1]) ctx.Fill(Crisp, Rule, new RectangleF(16, y - 4, Width - 32, 1));
         }
         DrawFooter(ctx, m);
     }
@@ -129,14 +129,16 @@ public static partial class StatusRenderer
         {
             var color = c.Problem ? Red : Ink;
             var dot = new SixLabors.ImageSharp.Drawing.EllipsePolygon(28, y + row / 2 - 2, 9);
-            if (c.Problem) ctx.Fill(Crisp, Red, dot); else ctx.Draw(Crisp, Ink, 2, dot);
+            if (c.Problem) ctx.Fill(Crisp, Red, dot);
+            else if (_colors) ctx.Fill(Crisp, Good, dot);   // Spectra 6: grüner Punkt = in Ordnung
+            else ctx.Draw(Crisp, Ink, 2, dot);
             Text(ctx, Fit(c.Label, label, 300), label, 48, y, Ink);
             TextRight(ctx, Fit(c.Value, value, Width - 380), value, Width - 16, y, color);
             y += row;
         }
         var summary = problems == 0 ? L.T("Alles in Ordnung.") : L.T("{0} Punkt(e) brauchen Aufmerksamkeit – Details in den Einstellungen → System.", problems);
         var small = Regular.Value.CreateFont(19);
-        Text(ctx, Fit(summary, small, Width - 32), small, 16, 414, problems == 0 ? Ink : Red);
+        Text(ctx, Fit(summary, small, Width - 32), small, 16, 414, problems == 0 ? Good : Red);
         DrawFooter(ctx, m);
     }
 
