@@ -24,6 +24,7 @@ jobs:
       - name: Als Idee aufs Board (Geplant für „Kundenwunsch“)
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
           OWNER: ${{ github.repository_owner }}
           PROJECT_NUMBER: "3"
@@ -41,4 +42,9 @@ jobs:
             gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"
           else
             echo "Option „Kundenwunsch“ im Feld „Geplant für“ fehlt – nur Status „Ideen“ gesetzt."
+          fi
+          # Optional: Hinweis per Discord (nur die Issue-Adresse, keine @-Erwähnungen)
+          if [ -n "${DISCORD_WEBHOOK:-}" ]; then
+            jq -nc --arg url "$ISSUE_URL" '{content: ("💡 Neuer Wunsch auf GitHub: " + $url), allowed_mentions: {parse: []}}' \
+              | curl -fsS --max-time 15 -H "Content-Type: application/json" --data-binary @- "$DISCORD_WEBHOOK" > /dev/null || echo "Discord nicht erreichbar"
           fi

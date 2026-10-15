@@ -369,6 +369,20 @@ function toast(text, kind = 'info', ms = 6000) {
  * des Browsers, sonst eine Anleitung passend zum Gerät – und der Hinweis auf „HTTPS ohne Warnung“, wenn der Browser die
  * Seite (selbst signiertes Zertifikat, IP-Adresse) nicht als App zulässt.
  */
+/** 0.9.16: Wunsch ohne GitHub-Konto direkt in der App; mit Konto wahlweise das GitHub-Formular. */
+async function wishDialog() {
+  const idea = h('textarea', { rows: 5, maxlength: 1000, style: 'width:100%' });
+  const why = h('textarea', { rows: 3, maxlength: 1000, style: 'width:100%' });
+  const body = h('div', { class: 'stack' },
+    h('label', {}, t('Was wünschst du dir?')), idea,
+    h('label', {}, t('Wofür brauchst du es? (optional)')), why,
+    h('p', { class: 'muted small' }, t('Geht ohne Anmeldung an den Entwickler (Wunsch-Briefkasten über ntfy.sh, etwa 12 Stunden zwischengespeichert, nicht verschlüsselt) und landet als Idee auf dem Projekt-Board. Mitgeschickt werden nur dein Text, die App-Version und die Sprache – bitte keine persönlichen Daten, Adressen oder Passwörter eintragen.')),
+    h('a', { href: wishUrl(S.info?.version), target: '_blank', rel: 'noopener', class: 'small' }, t('Lieber auf GitHub (mit Konto) …')));
+  setTimeout(() => idea.focus(), 50);
+  if (!(await confirmBox(t('Wunsch einreichen'), body, t('Absenden')))) return;
+  await run(() => api('/wish', { method: 'POST', body: { idea: idea.value, why: why.value } }), t('Danke! Dein Wunsch ist unterwegs und landet als Idee auf dem Projekt-Board.'));
+}
+
 /** 0.9.16: Adresse für „Wunsch einreichen“ – GitHub-Formular mit vorausgefüllter Version. */
 function wishUrl(version) {
   return 'https://github.com/Elemirus1996/BitaxeTuner/issues/new?template=feature_request.yml&labels=enhancement,Kundenwunsch'
@@ -448,7 +462,7 @@ async function boot() {
   });
   $('#installApp').addEventListener('click', () => installApp());
   // 0.9.16: Feature-Wunsch als GitHub-Issue (Vorlage mit Label „Kundenwunsch“ → Projekt-Board)
-  $('#wish').addEventListener('click', () => window.open(wishUrl(S.info?.version), '_blank', 'noopener,noreferrer'));
+  $('#wish').addEventListener('click', () => wishDialog());
   $('#logout').addEventListener('click', async () => {
     await run(() => api('/logout', { method: 'POST' }));
     S.role = 'None'; S.csrf = null;

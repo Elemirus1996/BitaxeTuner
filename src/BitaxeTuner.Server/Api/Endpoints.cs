@@ -435,6 +435,13 @@ public static class Endpoints
 
     private static void MapViewer(RouteGroupBuilder g)
     {
+        // 0.9.16 „Wunsch einreichen“ ohne GitHub-Konto (Wunsch-Briefkasten → Projekt-Board), für alle Angemeldeten
+        g.MapPost("/wish", async (WishRequest req, HttpContext http) =>
+        {
+            await Core.Network.WishBox.SendAsync(req.Idea ?? "", req.Why, Version, LangOf(http).Language, http.RequestAborted);
+            return Results.Json(new { ok = true });
+        });
+
         // Ansicht-Zugänge mit Gruppen sehen nur ihre Miner: fremde Geräte gelten als nicht vorhanden (404)
         g.MapGet("/status", async (HttpContext http, HubService hub) =>
         {
@@ -1502,3 +1509,6 @@ public sealed record WebPushRequest(string? Endpoint, WebPushKeys? Keys, string?
 
 /// <summary>0.9.16: weitere Kurse.</summary>
 public sealed record WatchCoinsRequest(List<string>? Coins);
+
+/// <summary>0.9.16: Wunsch aus der App.</summary>
+public sealed record WishRequest(string? Idea, string? Why);

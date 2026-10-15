@@ -1,0 +1,89 @@
+# Wunsch-Briefkasten: Wünsche aus der App („Wunsch einreichen“, ohne GitHub-Konto) kommen über das ntfy.sh-Thema
+# aus src/BitaxeTuner.Core/Network/WishBox.cs. Diese Action holt sie stündlich ab und legt je Wunsch eine private
+# Entwurfskarte aufs Projekt-Board (Status „Ideen“, „Geplant für“ = „Kundenwunsch“) – kein öffentliches Issue.
+#
+# Sicherheit: Das Thema ist öffentlich bekannt, jeder kann hineinschreiben. Deshalb: nur Nachrichten im erwarteten
+# JSON-Format (app = bitaxetuner, v = 1), Längen begrenzt, höchstens 10 je Lauf; der Text wird nur als Daten an gh
+# übergeben, nie in Befehle eingesetzt. Doppelte vermeidet der zuletzt verarbeitete Nachrichtenstand (Actions-Cache).
+# Braucht das Repo-Secret PROJECT_TOKEN (wie „Wunsch aufs Board“). Optional DISCORD_WEBHOOK: jeder neue Wunsch
+# zusätzlich als Discord-Nachricht (ohne @-Erwähnungen) – die Webhook-Adresse steht nur hier als Secret, nie in der App.
+name: Wunsch-Briefkasten
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wish-inbox
+  cancel-in-progress: false
+
+jobs:
+  inbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Letzten Stand holen
+        uses: actions/cache/restore@v4
+        with:
+          path: .wish-state
+          key: wish-state-${{ github.run_id }}
+          restore-keys: wish-state-
+
+      - name: Wünsche abholen und aufs Board legen
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          OWNER: ${{ github.repository_owner }}
+          TOPIC: bitaxetuner-wish-jjrd5a2dk5
+          PROJECT_NUMBER: "3"
+          PROJECT_ID: PVT_kwHOBu-fOs4Bk4H-
+          STATUS_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjnDYE
+          STATUS_IDEEN: b0059fc0
+          PLANNED_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjuJAs
+        run: |
+          set -eu
+          if [ -z "$GH_TOKEN" ]; then echo "PROJECT_TOKEN fehlt – übersprungen."; exit 0; fi
+          mkdir -p .wish-state
+          since=$(cat .wish-state/last 2>/dev/null || echo "13h")
+          case "$since" in *[!A-Za-z0-9]*) since="13h";; esac
+          curl -fsS --max-time 30 "https://ntfy.sh/${TOPIC}/json?poll=1&since=${since}" > messages.jsonl || { echo "ntfy nicht erreichbar"; exit 0; }
+          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json \
+                --jq '.fields[] | select(.name=="Geplant für") | .options[]? | select(.name=="Kundenwunsch") | .id')
+          # Gültige Wünsche als JSON-Zeilen (id, title, body); alles andere wird verworfen
+          jq -c 'select(.event == "message")
+                 | . as $m | ($m.message | try fromjson catch null) as $w
+                 | select($w != null and ($w | type) == "object" and $w.app == "bitaxetuner" and $w.v == 1)
+                 | select(($w.idea | type) == "string" and ($w.idea | length) >= 3 and ($w.idea | length) <= 1000)
+                 | {id: $m.id,
+                    title: ("Wunsch: " + ($w.idea | gsub("[\\r\\n\\t]+"; " ") | .[0:80])),
+                    body: ($w.idea + "\n\n" + (if (($w.why // "") | type) == "string" and ($w.why // "") != "" then "Wofür: " + ($w.why | .[0:1000]) + "\n\n" else "" end)
+                           + "Version: " + (($w.version // "?") | tostring | .[0:20]) + " · Sprache: " + (($w.lang // "?") | tostring | .[0:5])
+                           + "\nEingegangen über die App (ntfy), " + ($m.time | todate))}' messages.jsonl | head -n 10 > wishes.jsonl
+          last=$(jq -r 'select(.event == "message") | .id' messages.jsonl | tail -n 1)
+          count=0
+          while IFS= read -r line; do
+            title=$(printf '%s' "$line" | jq -r .title)
+            body=$(printf '%s' "$line" | jq -r .body)
+            item=$(gh project item-create "$PROJECT_NUMBER" --owner "$OWNER" --title "$title" --body "$body" --format json --jq .id)
+            gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD" --single-select-option-id "$STATUS_IDEEN"
+            if [ -n "$opt" ]; then
+              gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"
+            fi
+            if [ -n "${DISCORD_WEBHOOK:-}" ]; then
+              printf '%s' "$line" | jq -c '{content: ("💡 **" + .title + "**\n" + (.body | .[0:1800])), allowed_mentions: {parse: []}}' \
+                | curl -fsS --max-time 15 -H "Content-Type: application/json" --data-binary @- "$DISCORD_WEBHOOK" > /dev/null || echo "Discord nicht erreichbar"
+            fi
+            count=$((count + 1))
+          done < wishes.jsonl
+          if [ -n "$last" ]; then printf '%s' "$last" > .wish-state/last; fi
+          echo "$count Wünsche aufs Board gelegt."
+
+      - name: Stand merken
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .wish-state
+          key: wish-state-${{ github.run_id }}
