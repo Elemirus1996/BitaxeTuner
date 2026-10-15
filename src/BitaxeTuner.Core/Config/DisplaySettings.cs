@@ -28,6 +28,17 @@ public sealed class DisplaySettings
 
     public bool OwnDevice => Device == "own";
 
+    /// <summary>
+    /// 0.9.17: Display-Typ – "bwr75" (Waveshare 7,5″ B, schwarz/weiß/rot, wie bisher) oder "spectra73" (Waveshare 7,3″
+    /// Spectra 6 / E6: schwarz, weiß, gelb, rot, blau, grün). Beide 800 × 480 an denselben Pins. Additiv.
+    /// </summary>
+    public string Panel { get; set; } = "bwr75";
+
+    public static readonly string[] Panels = ["bwr75", "spectra73"];
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsSpectra => Panel == "spectra73";
+
     /// <summary>Regelmäßig neu aufbauen (Minuten, mindestens 3). Alarme und Tastendrücke zeigen sich früher.</summary>
     public int IntervalMinutes { get; set; } = 5;
 

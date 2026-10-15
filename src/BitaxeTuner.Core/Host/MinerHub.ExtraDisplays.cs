@@ -178,7 +178,7 @@ public sealed partial class MinerHub
         {
             var rotate = routineDue && r.Shown is not null && !r.Requested && !r.UserRequested && alarmKey == r.AlarmKey;
             var shown = WithDisplay(r, () => ComposeDisplay(now, nextPage: rotate));
-            var planes = await Task.Run(() => StatusRenderer.Render(shown));
+            var planes = await Task.Run(() => StatusRenderer.Render(shown, s.Panel));
             await pico.ShowImageAsync(planes);
             WithDisplay(r, () => { SceneShown(shown); return 0; });
             if (r.UserRequested && r.Shown is not null && now < r.Shown + DisplayMinGap) r.UserRefreshes.Enqueue(now);

@@ -97,6 +97,7 @@ public static class Endpoints
         req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
         req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
         req.ImageFit = req.ImageFit == "fill" ? "fill" : "fit";
+        req.Panel = Core.Config.DisplaySettings.Panels.Contains(req.Panel) ? req.Panel : "bwr75";   // 0.9.17
         req.MonthCompareMonths = req.MonthCompareMonths == 12 ? 12 : 6;
         // 0.9.16 Seitenfolge nach Tageszeit: höchstens 6 Fenster, Stunden 0–23, nur bekannte Seiten
         if (req.PageWindows is { } windows)

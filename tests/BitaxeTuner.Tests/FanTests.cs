@@ -183,6 +183,8 @@ internal sealed class FakePico : ILineTransport
     private List<byte>? _image;
     public byte[]? Shown { get; private set; }
     public string? NextRpmLine { get; set; }
+    /// <summary>Pico-Programm vor 8.3 (kennt nur das 7,5″-Display).</summary>
+    public bool OldFirmware { get; set; }
 
     /// <summary>Taster am Pico (unaufgefordert gesendete Zeile).</summary>
     public void Press(string evt) => _out.Append(evt + "\r\n");
@@ -208,6 +210,7 @@ internal sealed class FakePico : ILineTransport
             else if (line == "NET") _out.Append(Files.ContainsKey("btcfg.json") ? "OK NET 1 192.0.2.10\r\n" : "OK NET 0 -\r\n");
             else if (line.StartsWith("SET ")) { SetCommands.Add(line); _out.Append((NextRpmLine ?? "RPM 1200 1300 0 0 0 0") + "\r\n"); }
             else if (line == "GET") _out.Append("RPM 0 0 0 0 0 0\r\n");
+            else if (line.StartsWith("IMG ") && OldFirmware && line != "IMG 96000") _out.Append("ERR size\r\n");   // vor 8.3: kein Spectra 6
             else if (line.StartsWith("IMG ")) { _image = new List<byte>(); _out.Append("OK IMG\r\n"); }
             else if (line.StartsWith("D ")) _image?.AddRange(Convert.FromBase64String(line[2..]));
             else if (line == "SHOW") { Shown = _image?.ToArray(); _out.Append("OK SHOW\r\n"); }
@@ -504,6 +507,44 @@ public class DisplayAndButtonTests
         await device.ExchangeAsync([50, 50, 50, 50, 50, 50]);
         Assert.Equal(["BTN 3", "BTN 4 LONG", "BTN 3 LONG"], device.DrainEvents());
         Assert.Empty(device.DrainEvents());
+    }
+
+    [Fact]
+    public async Task Spectra_image_is_sent_with_six_colours_and_old_firmware_is_explained()
+    {
+        // 0.9.17: 7,3″ Spectra 6 – 4 Bit je Pixel, 192 000 Byte
+        var data = StatusRenderer.Render(Model(), "spectra73");
+        Assert.Equal(StatusRenderer.SpectraBytes, data.Length);
+        Assert.Contains(data, b => b == 0x11);                                   // weiße Flächen
+        Assert.All(data, b => Assert.True((b >> 4) is 0 or 1 or 2 or 3 or 5 or 6 && (b & 15) is 0 or 1 or 2 or 3 or 5 or 6));
+
+        var pico = new FakePico { ProgramRunning = true };
+        using (var device = PicoFanDevice.Connect(pico, "COM5"))
+        {
+            await device.ShowImageAsync(data);
+            Assert.Equal(data, pico.Shown);
+        }
+        var old = new FakePico { ProgramRunning = true, OldFirmware = true };
+        using var oldDevice = PicoFanDevice.Connect(old, "COM6");
+        var ex = await Assert.ThrowsAsync<IOException>(() => oldDevice.ShowImageAsync(data));
+        Assert.Contains("8.3", ex.Message);
+    }
+
+    [Fact]
+    public void Spectra_packs_two_pixels_per_byte_with_nearest_panel_colour()
+    {
+        using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(StatusRenderer.Width, StatusRenderer.Height,
+            new SixLabors.ImageSharp.PixelFormats.Rgb24(255, 255, 255));
+        img[0, 0] = new(0, 0, 0);          // schwarz
+        img[1, 0] = new(220, 0, 0);        // rot (Farbe des Renderers)
+        img[2, 0] = new(250, 220, 20);     // gelb
+        img[3, 0] = new(10, 60, 190);      // blau
+        img[4, 0] = new(0, 140, 70);       // grün
+        var d = StatusRenderer.ToSpectra(img);
+        Assert.Equal(0x03, d[0]);
+        Assert.Equal(0x25, d[1]);
+        Assert.Equal(0x61, d[2]);
+        Assert.Equal(0x11, d[^1]);
     }
 
     [Fact]

@@ -9,6 +9,8 @@
 #   Fans: PWM GP0,2,4,6,8,10 -> 1k -> BC547 base (10k to GND), collector -> fan pin 4.
 #   The transistor inverts: GPIO low = fan PWM high = 100 %. Tacho GP16..21 with internal pull-up.
 #   e-Paper 7.5" B (800x480, black/white/red, UC8179): DIN GP15, CLK GP14, CS GP13, DC GP12, RST GP11, BUSY GP22.
+#   8.3: alternatively e-Paper 7.3" Spectra 6 (E6, 800x480, 6 colours) on the same pins (jumper wires; a PWR pin of the
+#   HAT goes to 3V3). The panel type follows from the IMG size (96000 = 7.5" B, 192000 = Spectra 6).
 # Role "display" (Pico plugged directly onto the Waveshare Pico-ePaper-7.5-B, no fans):
 #   e-Paper: DIN GP11, CLK GP10, CS GP9, DC GP8, RST GP12, BUSY GP13 (Waveshare layout).
 # Both roles: buttons GP1,3,5,7 to GND (internal pull-up), onboard LED blinks on every press;
@@ -23,7 +25,9 @@
 #   HELLO                -> OK BTFAN <version> <channels> <role>
 #   SET p1 .. p6         -> RPM r1 .. r6 [T id=t id=t ..]   (fan percent 0..100; T = DS18B20 ROM id (hex) = deg C)
 #   GET                  -> RPM r1 .. r6 [T id=t id=t ..]   (role display: "RPM" without fan values)
-#   IMG <bytes>          -> OK IMG             (then D-lines with base64 data, 1st half black plane, 2nd half red plane)
+#   IMG <bytes>          -> OK IMG             (then D-lines with base64 data, 1st half black plane, 2nd half red plane;
+#                                               8.3: 192000 bytes = Spectra 6, 2 pixels per byte, high nibble first,
+#                                               0 black 1 white 2 yellow 3 red 5 blue 6 green - streamed straight to the panel)
 #   D <base64>           -> (no reply)
 #   SHOW                 -> OK SHOW | ERR ...  (refresh runs in the background, ~16 s)
 #   PUT main.py <bytes> <sha256 hex> -> OK PUT (then F-lines with base64 data)
@@ -57,7 +61,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8.2"
+VERSION = "8.3"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -70,6 +74,7 @@ BTN_EVENTS = (("BTN 1", None), ("BTN 2", None), ("BTN 3", "BTN 3 LONG"), (None, 
 EPD_W = 800
 EPD_H = 480
 PLANE = EPD_W * EPD_H // 8
+SPECTRA_BYTES = EPD_W * EPD_H // 2
 SERVER_LOST_MS = 10 * 60 * 1000
 NET_PORT = 8490
 AUTH_TIMEOUT_MS = 5000
@@ -320,6 +325,8 @@ epd_busy_seen = False   # BUSY went low ("busy") during the current refresh
 EPD_MIN_MS = 25000      # without a working BUSY line: wait this long before powering the panel off
 last_show = 0
 lost_drawn = False
+epd_kind = 0         # 8.3: 0 = 7.5" B (UC8179), 1 = 7.3" Spectra 6 (data streamed to the panel, no buffer)
+spectra_stream = False
 
 
 def epd_cmd(c):
@@ -337,8 +344,9 @@ def epd_data(d):
 
 
 def epd_idle():
-    # UC8179: BUSY high = idle (status read after command 0x71)
-    epd_cmd(0x71)
+    # BUSY high = idle; UC8179 needs the status command 0x71 first, Spectra 6 reports it directly
+    if epd_kind == 0:
+        epd_cmd(0x71)
     return epd_busy.value() == 1
 
 
@@ -352,7 +360,7 @@ def epd_wait(ms):
     return True
 
 
-def epd_init():
+def epd_spi_setup():
     global epd_spi
     if epd_spi is None:
         # MISO explicitly on the unused GP28: without it MicroPython takes the default SPI1 RX pin GP8 - that is DC on
@@ -362,6 +370,10 @@ def epd_init():
         # and take DC / RST back as outputs in case a firmware still claimed them for SPI
         epd_dc.init(Pin.OUT, value=0)
         epd_rst.init(Pin.OUT, value=1)
+
+
+def epd_init():
+    epd_spi_setup()
     # Reset and init sequence as in the Waveshare example for the 7.5" B (UC8179)
     epd_rst.value(1)
     time.sleep_ms(200)
@@ -390,8 +402,72 @@ def epd_init():
     return True
 
 
+def epd_init_spectra():
+    # Reset and init sequence as in the Waveshare example for the 7.3" E (Spectra 6)
+    epd_spi_setup()
+    epd_rst.value(1)
+    time.sleep_ms(20)
+    epd_rst.value(0)
+    time.sleep_ms(2)
+    epd_rst.value(1)
+    time.sleep_ms(20)
+    if not epd_wait(3000):
+        return False
+    time.sleep_ms(30)
+    for c, d in ((0xAA, b"\x49\x55\x20\x08\x09\x18"), (0x01, b"\x3f"), (0x00, b"\x5f\x69"),
+                 (0x03, b"\x00\x54\x00\x44"), (0x05, b"\x40\x1f\x1f\x2c"), (0x06, b"\x6f\x1f\x17\x49"),
+                 (0x08, b"\x6f\x1f\x1f\x22"), (0x30, b"\x03"), (0x50, b"\x3f"), (0x60, b"\x02\x00"),
+                 (0x61, b"\x03\x20\x01\xe0"), (0x84, b"\x01"), (0xE3, b"\x2f")):
+        epd_cmd(c)
+        epd_data(d)
+    epd_cmd(0x04)            # power on
+    return epd_wait(3000)
+
+
+def spectra_begin():
+    # IMG for Spectra 6: initialise and open the data transfer - the D lines go straight to the panel
+    global img, spectra_stream, epd_kind
+    if epd_state != 0:
+        return "ERR busy"
+    img = None               # no 7.5" picture any more (frees memory, no "server lost" redraw in the wrong format)
+    epd_kind = 1
+    try:
+        if not epd_init_spectra():
+            return "ERR display not responding"
+        epd_cmd(0x10)
+    except Exception as e:
+        return "ERR " + str(e)
+    spectra_stream = True
+    return "OK IMG"
+
+
+def spectra_show():
+    global epd_state, epd_started, last_show, epd_busy_seen, spectra_stream
+    if not spectra_stream or img_pos < img_len:
+        return "ERR no image"
+    spectra_stream = False
+    try:
+        epd_cmd(0x04)        # power on
+        epd_wait(3000)
+        epd_cmd(0x06)        # booster
+        epd_data(b"\x6f\x1f\x17\x49")
+        epd_cmd(0x12)        # refresh, finishes in the background (~20 s)
+        epd_data(b"\x00")
+        time.sleep_ms(100)
+    except Exception as e:
+        return "ERR " + str(e)
+    epd_state = 1
+    epd_started = time.ticks_ms()
+    epd_busy_seen = False
+    last_show = epd_started
+    return "OK SHOW"
+
+
 def epd_show():
-    global epd_state, epd_started, last_show, epd_busy_seen
+    global epd_state, epd_started, last_show, epd_busy_seen, epd_kind
+    if spectra_stream:
+        return spectra_show()
+    epd_kind = 0
     if img is None or img_pos < len(img):
         return "ERR no image"
     if epd_state != 0:
@@ -424,8 +500,11 @@ def epd_poll():
         epd_busy_seen = True
     # Done when BUSY went low and is high again; if BUSY never went low (line not working) only after EPD_MIN_MS -
     # powering off right away would cut the refresh short and the picture would not change (8.1)
-    if (idle and (epd_busy_seen or elapsed > EPD_MIN_MS)) or elapsed > 45000:
+    min_ms, max_ms = (EPD_MIN_MS, 45000) if epd_kind == 0 else (35000, 60000)
+    if (idle and (epd_busy_seen or elapsed > min_ms)) or elapsed > max_ms:
         epd_cmd(0x02)        # power off
+        if epd_kind == 1:
+            epd_data(b"\x00")
         epd_wait(3000)
         epd_cmd(0x07)        # deep sleep
         epd_data(b"\xa5")
@@ -538,7 +617,16 @@ def handle(line):
     if cmd == "SET":
         last_fan = last_cmd
     if cmd == "D":
-        if img is not None and len(parts) > 1:
+        if spectra_stream and len(parts) > 1:
+            try:
+                chunk = ubinascii.a2b_base64(parts[1])
+                n = min(len(chunk), img_len - img_pos)
+                if n > 0:
+                    epd_data(chunk[:n])
+                    img_pos += n
+            except Exception as e:
+                note_error("spectra", e)
+        elif img is not None and len(parts) > 1:
             try:
                 chunk = ubinascii.a2b_base64(parts[1])
                 n = min(len(chunk), len(img) - img_pos)
@@ -573,6 +661,11 @@ def handle(line):
     elif cmd == "IMG":
         try:
             size = int(parts[1])
+            if size == SPECTRA_BYTES:
+                img_pos = 0
+                img_len = size
+                reply(spectra_begin())
+                return
             if size != 2 * PLANE:
                 reply("ERR size")
                 return

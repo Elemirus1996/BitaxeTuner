@@ -55,7 +55,7 @@ public static class DisplayPicture
     /// "fill" = Fläche füllen und Ränder abschneiden), dann auf Weiß/Schwarz(/Rot) – mit <paramref name="dither"/> gerastert
     /// (Floyd-Steinberg, gut für Fotos), sonst je Pixel die nächste Farbe (gut für Logos und Schrift).
     /// </summary>
-    public static byte[] Convert(byte[] png, int height, string fit, bool dither, bool red)
+    public static byte[] Convert(byte[] png, int height, string fit, bool dither, bool red, bool spectra = false)
     {
         using var img = Image.Load<Rgb24>(png);
         img.Mutate(x => x.Resize(new ResizeOptions
@@ -80,7 +80,9 @@ public static class DisplayPicture
                 }
             }
         });
-        Rgb24[] palette = red ? [White, Black, RedInk] : [White, Black];
+        // 0.9.17 Spectra 6: alle sechs Farben des Panels („Rot“ aus = nur Schwarz/Weiß)
+        Rgb24[] palette = spectra && red ? StatusRenderer.SpectraPalette.Select(p => p.Rgb).ToArray()
+            : red ? [White, Black, RedInk] : [White, Black];
         var output = new byte[StatusRenderer.Width * height * 3];
         output.AsSpan().Fill(255);
         for (var y = 0; y < h; y++)

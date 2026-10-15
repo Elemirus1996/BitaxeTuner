@@ -243,11 +243,53 @@ public static partial class StatusRenderer
         }
     }
 
-    /// <summary>Die beiden Ebenen für das Display (2 × 48 000 Byte).</summary>
-    public static byte[] Render(DisplayModel m)
+    /// <summary>Daten für das Display: 7,5″ B = zwei Ebenen (2 × 48 000 Byte), 0.9.17 Spectra 6 = 4 Bit je Pixel (192 000 Byte).</summary>
+    public static byte[] Render(DisplayModel m, string panel = "bwr75")
     {
         using var img = RenderImage(m);
-        return ToPlanes(img);
+        return panel == "spectra73" ? ToSpectra(img) : ToPlanes(img);
+    }
+
+    public const int SpectraBytes = Width * Height / 2;
+
+    /// <summary>0.9.17 Spectra 6: Farben des Panels (Index = Farbcode der Firmware) und ihr Aussehen auf dem Bildschirm.</summary>
+    public static readonly (byte Code, Rgb24 Rgb)[] SpectraPalette =
+    [
+        (0, new Rgb24(0, 0, 0)), (1, new Rgb24(255, 255, 255)), (2, new Rgb24(255, 230, 0)),
+        (3, new Rgb24(220, 0, 0)), (5, new Rgb24(0, 60, 200)), (6, new Rgb24(0, 150, 60)),
+    ];
+
+    /// <summary>Bild → Spectra-6-Daten: je Pixel die nächste der sechs Farben, zwei Pixel je Byte (oberes Halbbyte zuerst).</summary>
+    public static byte[] ToSpectra(Image<Rgb24> img)
+    {
+        var result = new byte[SpectraBytes];
+        img.ProcessPixelRows(rows =>
+        {
+            for (var y = 0; y < Height; y++)
+            {
+                var row = rows.GetRowSpan(y);
+                for (var x = 0; x < Width; x += 2)
+                {
+                    var hi = SpectraCode(row[x]);
+                    var lo = SpectraCode(row[x + 1]);
+                    result[(y * Width + x) / 2] = (byte)((hi << 4) | lo);
+                }
+            }
+        });
+        return result;
+    }
+
+    private static byte SpectraCode(Rgb24 p)
+    {
+        var best = SpectraPalette[1].Code;
+        var bestD = int.MaxValue;
+        foreach (var (code, c) in SpectraPalette)
+        {
+            int dr = p.R - c.R, dg = p.G - c.G, db = p.B - c.B;
+            var d = dr * dr + dg * dg + db * db;
+            if (d < bestD) { bestD = d; best = code; }
+        }
+        return best;
     }
 
     public static byte[] ToPlanes(Image<Rgb24> img)
