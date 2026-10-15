@@ -42,7 +42,7 @@ public static class Dto
             running = hub.IsRunning,
             tempWarn = hub.Config.TempWarn,   // 0.9.14: Temperaturbalken und „warm“ auf den Miner-Karten
             // 0.9.16: Kurse der gerade geschürften Coins (Miner-Karte, Panel „Kurse“)
-            coins = hub.CoinQuotes().Select(c => new { symbol = c.Symbol, price = c.Price, change = c.Change24hPercent, source = c.Source, miners = c.Miners, spark = c.Spark }),
+            coins = hub.CoinQuotes().Select(c => new { symbol = c.Symbol, price = c.Price, change = c.Change24hPercent, source = c.Source, miners = c.Miners, spark = c.Spark, kind = c.Kind }),
             // 0.9.15: laufendes Server-Update (Sperre) – alle Admin-Oberflächen blenden den Update-Knopf aus
             updateRunning = role == Role.Admin && hub.RunningUpdate is { } upd
                 ? new { version = upd.Version, by = upd.By, started = upd.StartedUtc, phase = upd.Phase, phaseText = MinerHub.UpdatePhaseText(upd.Phase) }

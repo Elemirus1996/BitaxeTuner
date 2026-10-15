@@ -73,7 +73,9 @@ public sealed partial class MinerHub
             var cur = Currencies.Of(Config).Symbol;
             News.AddLocal(new NewsItem(id, now.ToUniversalTime(), "price", q.Symbol,
                 L.T("{0} {1} in 24 Stunden", q.Symbol, (ch > 0 ? "+" : "") + ch.ToString("0.0", L.Culture) + " %"),
-                L.T("Kurs jetzt {0} {1} – gilt für den Coin, den deine Miner gerade schürfen.", price.ToString(price >= 100 ? "N0" : price >= 1 ? "N2" : "0.######", L.Culture), cur), ""));
+                q.Kind == "mined"
+                    ? L.T("Kurs jetzt {0} {1} – gilt für den Coin, den deine Miner gerade schürfen.", price.ToString(price >= 100 ? "N0" : price >= 1 ? "N2" : "0.######", L.Culture), cur)
+                    : L.T("Kurs jetzt {0} {1}.", price.ToString(price >= 100 ? "N0" : price >= 1 ? "N2" : "0.######", L.Culture), cur), ""));
         }
     }
 }

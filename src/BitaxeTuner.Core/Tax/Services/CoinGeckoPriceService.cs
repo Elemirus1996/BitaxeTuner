@@ -78,11 +78,16 @@ public sealed class CoinGeckoPriceService : IPriceService, IDisposable
     private static string Vs(string? currency) => Config.Currencies.Get(currency).GeckoCode;
 
     /// <summary>Kursverlauf der letzten 24 Stunden in der Währung (für die Anzeige); leer bei Fehler.</summary>
-    public async Task<List<(DateTime Time, double Value)>> GetDayChartAsync(CoinType coin, string currency = "EUR", CancellationToken ct = default)
+    public Task<List<(DateTime Time, double Value)>> GetDayChartAsync(CoinType coin, string currency = "EUR", CancellationToken ct = default) =>
+        GetDayChartAsync(coin.CoinGeckoId(), currency, ct);
+
+    /// <summary>0.9.16: wie oben, mit CoinGecko-ID (frei gewählte Coins, <see cref="Network.CoinCatalog"/>).</summary>
+    public async Task<List<(DateTime Time, double Value)>> GetDayChartAsync(string geckoId, string currency = "EUR", CancellationToken ct = default)
     {
         try
         {
-            using var doc = await GetJsonAsync($"api/v3/coins/{coin.CoinGeckoId()}/market_chart?vs_currency={Vs(currency)}&days=1", ct);
+            if (!System.Text.RegularExpressions.Regex.IsMatch(geckoId, "^[a-z0-9-]{2,60}$")) return [];
+            using var doc = await GetJsonAsync($"api/v3/coins/{geckoId}/market_chart?vs_currency={Vs(currency)}&days=1", ct);
             if (doc is null || !doc.RootElement.TryGetProperty("prices", out var prices) || prices.ValueKind != JsonValueKind.Array) return [];
             var list = new List<(DateTime, double)>();
             foreach (var p in prices.EnumerateArray())

@@ -718,15 +718,28 @@ const pct1 = v => `${v >= 0 ? '+' : ''}${n(v, 1)} %`;
 
 /** 0.9.16 Panel „Kurse“: alle Coins, die die Miner gerade schürfen – Kurs, 24-h-Veränderung, Verlauf, Anzahl Miner. */
 function coinsCard(coins, currency) {
-  if (!coins?.length) return null;
+  if (!coins?.length && !isAdmin()) return null;
+  // 0.9.16: geschürft, Merged Mining (Pool-Konto) oder frei gewählt
+  const kindText = c => c.kind === 'merged' ? t('Merged Mining') : c.kind === 'watch' ? t('beobachtet') : t('{0} Miner', c.miners);
+  const editor = isAdmin() ? (() => {
+    const input = h('input', { placeholder: 'ETH, LTC, DOGE, XYZ=coingecko-id', style: 'flex:1;min-width:200px' });
+    api('/coins/watch').then(r => { input.value = (r.coins || []).join(', '); }).catch(() => {});
+    return h('details', {}, h('summary', { class: 'small muted' }, t('Weitere Kurse …')),
+      h('div', { class: 'row', style: 'flex-wrap:wrap' }, input, h('button', { class: 'btn small', onclick: async () => {
+        const list = input.value.split(',').map(x => x.trim()).filter(Boolean);
+        await run(() => api('/coins/watch', { method: 'PUT', body: { coins: list } }), t('Gespeichert – Kurse kommen mit der nächsten Abfrage.'));
+      } }, t('Speichern'))),
+      h('p', { class: 'muted small' }, t('Kürzel mit Komma trennen (bis 12). Unbekannte Coins als „KÜRZEL=coingecko-id“ – die ID steht in der Adresse der CoinGecko-Seite. Kurse von CoinGecko, stündlich.')));
+  })() : null;
   return h('div', { class: 'card stack' },
     h('h3', { style: 'margin:0' }, t('Kurse der geschürften Coins')),
-    h('div', { class: 'coin-list' }, coins.map(c => h('div', { class: 'coin-row' },
+    h('div', { class: 'coin-list' }, (coins || []).map(c => h('div', { class: 'coin-row' },
       h('span', { class: 'badge-dot', style: `background:${COIN_COLORS[c.symbol] || 'var(--muted)'}` }, c.symbol === 'BTC' ? '₿' : c.symbol[0]),
-      h('div', { style: 'min-width:0' }, h('b', {}, c.symbol), h('div', { class: 'muted small' }, t('{0} Miner', c.miners) + (c.source === 'pool' ? ' · ' + t('Kurs laut Pool') : ''))),
+      h('div', { style: 'min-width:0' }, h('b', {}, c.symbol), h('div', { class: 'muted small' }, kindText(c) + (c.source === 'pool' ? ' · ' + t('Kurs laut Pool') : ''))),
       sparkEl(c.spark || [], c.change == null ? 'var(--muted)' : c.change >= 0 ? 'var(--ok)' : 'var(--danger)'),
       h('div', { style: 'text-align:right' }, h('div', { class: 'mono' }, c.price == null ? '–' : coinPrice(c.price)),
-        c.change != null ? h('div', { class: `small ${c.change >= 0 ? 'ok' : 'danger'}` }, pct1(c.change)) : h('div', { class: 'muted small' }, '–'))))));
+        c.change != null ? h('div', { class: `small ${c.change >= 0 ? 'ok' : 'danger'}` }, pct1(c.change)) : h('div', { class: 'muted small' }, '–'))))),
+    editor);
 }
 
 /** Link zur Weboberfläche des Miners (AxeOS) – auf Karten, die selbst Links sind, als <span> wie poolLinkIcon. */

@@ -21,6 +21,9 @@ public sealed class AppConfig
     /// <summary>0.9.14 Pool-Steuerung: Pool-Vorlagen zum Übertragen auf Miner. Additiv; Passwörter in secrets.json.</summary>
     public List<PoolPreset> PoolPresets { get; set; } = [];
 
+    /// <summary>0.9.16: weitere Kurse neben den geschürften Coins („ETH“ oder „XYZ=coingecko-id“). Additiv.</summary>
+    public List<string> WatchCoins { get; set; } = [];
+
     /// <summary>0.9.16: Wartungs-Erinnerungen (Abstände in Betriebstagen). Additiv.</summary>
     public UpkeepSettings Upkeep { get; set; } = new();
 

@@ -1236,6 +1236,14 @@ public static class Endpoints
             return new { ok = true };
         })));
 
+        // 0.9.16 weitere Kurse („ETH“ oder „XYZ=coingecko-id“)
+        g.MapGet("/coins/watch", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { coins = h.Config.WatchCoins })));
+        g.MapPut("/coins/watch", async (WatchCoinsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.SetWatchCoins(req.Coins ?? [], L.T("Browser"));
+            return new { ok = true, coins = h.Config.WatchCoins };
+        })));
+
         // 0.9.16 Wartungs-Erinnerungen: Aufgabe erledigt, Abstände einstellen
         g.MapPost("/devices/{id}/upkeep/{task}/done", async (string id, string task, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
@@ -1491,3 +1499,6 @@ public sealed record MaintenanceRequest(bool On, double? Hours);
 /// <summary>0.9.12: Push-Anmeldung eines Browsers (PushSubscription.toJSON()).</summary>
 public sealed record WebPushKeys(string? P256dh, string? Auth);
 public sealed record WebPushRequest(string? Endpoint, WebPushKeys? Keys, string? Name);
+
+/// <summary>0.9.16: weitere Kurse.</summary>
+public sealed record WatchCoinsRequest(List<string>? Coins);
