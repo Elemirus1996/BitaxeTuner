@@ -142,6 +142,7 @@ public sealed partial class MinerHub : IDisposable
         Prices = new PriceService(() => Config.PriceSource, _priceHttp);
         Automation = new AutomationEngine(Prices) { CentPerKwh = () => Currencies.Of(Config).CentPerKwh };
         Automation.Profitability = ProfitabilityOf;   // 0.9.15 Ertrags-Automatik
+        Automation.SolarPowerW = SolarPowerW;         // 0.9.17 PV-Automatik
         WebView = new WebViewServer(() => Config.WebView.PinHash, () => WebStatusJson, UpgradeLegacyPin);
         Updates = new UpdateService(_updateHttp, options.UpdateRepository);
         Benchmarks = new BenchmarkManager(this);

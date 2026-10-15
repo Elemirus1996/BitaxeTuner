@@ -5,7 +5,8 @@ using BitaxeTuner.Core.I18n;
 
 namespace BitaxeTuner.Core.Advisor;
 
-public enum AdvisorGoal { Efficiency, Balanced, Hashrate }
+/// <summary>0.9.17: <see cref="PowerSave"/> = geringste Leistung unter den stabilen Ergebnissen (z. B. wenig Sonne).</summary>
+public enum AdvisorGoal { Efficiency, Balanced, Hashrate, PowerSave }
 
 /// <summary>Eine geprüfte Einstellung aus den Benchmarks, verglichen mit der aktuellen.</summary>
 public sealed record AdvisorCandidate(
@@ -49,10 +50,13 @@ public static class EfficiencyAdvisor
 
         double? jth = hashrateGh is > 1 && powerW is > 0 ? powerW / (hashrateGh / 1000) : null;
         var candidates = new List<AdvisorCandidate>();
-        foreach (var g in new[] { AdvisorGoal.Efficiency, AdvisorGoal.Balanced, AdvisorGoal.Hashrate })
+        foreach (var g in new[] { AdvisorGoal.Efficiency, AdvisorGoal.Balanced, AdvisorGoal.Hashrate, AdvisorGoal.PowerSave })
         {
             var mode = g switch { AdvisorGoal.Efficiency => RankingMode.Efficiency, AdvisorGoal.Hashrate => RankingMode.MaxHashrate, _ => RankingMode.Balanced };
-            var best = ResultRanking.Rank(stable, mode).FirstOrDefault();
+            // Stromsparen: geringste Leistung, bei Gleichstand die bessere Effizienz
+            var best = g == AdvisorGoal.PowerSave
+                ? stable.OrderBy(r => r.AvgPowerW).ThenBy(r => r.EfficiencyJth).FirstOrDefault()
+                : ResultRanking.Rank(stable, mode).FirstOrDefault();
             if (best is null) continue;
             var dw = powerW is { } w ? best.AvgPowerW - w : 0;
             var dgh = hashrateGh is { } h ? best.AvgHashRateGh - h : 0;
@@ -87,6 +91,8 @@ public static class EfficiencyAdvisor
     {
         AdvisorGoal.Efficiency => currentJth is { } j && c.Jth <= j * (1 - MinEfficiencyGain),
         AdvisorGoal.Hashrate => c.HashrateGh >= currentGh * (1 + MinHashrateGain),
+        // Stromsparen: lohnt ab 3 % weniger Leistung (aktuell = Kandidat − Unterschied)
+        AdvisorGoal.PowerSave => c.DeltaW < 0 && -c.DeltaW >= (c.PowerW - c.DeltaW) * MinEfficiencyGain,
         _ => (currentJth is { } j2 && c.Jth <= j2 * (1 - MinEfficiencyGain)) || c.HashrateGh >= currentGh * (1 + MinHashrateGain),
     };
 

@@ -21,6 +21,9 @@ public sealed class AppConfig
     /// <summary>0.9.14 Pool-Steuerung: Pool-Vorlagen zum Übertragen auf Miner. Additiv; Passwörter in secrets.json.</summary>
     public List<PoolPreset> PoolPresets { get; set; } = [];
 
+    /// <summary>0.9.17: Quelle der PV-Leistung für die Automatik-Art „PV-Leistung“. Additiv.</summary>
+    public SolarSettings Solar { get; set; } = new();
+
     /// <summary>0.9.16: weitere Kurse neben den geschürften Coins („ETH“ oder „XYZ=coingecko-id“). Additiv.</summary>
     public List<string> WatchCoins { get; set; } = [];
 
@@ -753,7 +756,7 @@ public sealed class ScheduleEntry
 
 public sealed class PresetScheduleRule : AutomationRule
 {
-    /// <summary>"time" (Wochenplan), "price" (Strompreis) oder "profit" (0.9.15: Strom teurer als der Ertrag).</summary>
+    /// <summary>"time" (Wochenplan), "price" (Strompreis), "profit" (0.9.15: Strom teurer als der Ertrag) oder "solar" (0.9.17: PV-Leistung).</summary>
     public string Mode { get; set; } = "time";
     public List<ScheduleEntry> Entries { get; set; } = [];
     /// <summary>Voreinstellung, wenn kein Eintrag passt (leer = nichts tun).</summary>
@@ -768,15 +771,23 @@ public sealed class PresetScheduleRule : AutomationRule
     /// </summary>
     public double ProfitMarginPercent { get; set; } = 10;
 
+    /// <summary>
+    /// 0.9.17 PV-Modus: ab dieser PV-Leistung (W) → <see cref="CheapPreset"/> (viel Sonne, volle Leistung), bis
+    /// <see cref="SolarLowW"/> → <see cref="ExpensivePreset"/> (Stromsparen); dazwischen bleibt es, wie es ist.
+    /// </summary>
+    public double SolarHighW { get; set; } = 300;
+    public double SolarLowW { get; set; } = 100;
+
     /// <summary>Nutzt die Regel günstig/teuer statt Zeitfenster?</summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool UsesPriceLevels => Mode is "price" or "profit";
+    public bool UsesPriceLevels => Mode is "price" or "profit" or "solar";
 
     // Der Zusatz für „profit“ hängt nur dort an – bestehende Freigaben (time/price) bleiben gültig
     public override string Describe() => FormattableString.Invariant(
         $"schedule|{Mode}|{DefaultPreset}|{ThresholdCt}|{CheapPreset}|{ExpensivePreset}|") +
         string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour},{e.Preset}"))) +
-        (Mode == "profit" ? FormattableString.Invariant($"|margin:{ProfitMarginPercent}") : "");
+        (Mode == "profit" ? FormattableString.Invariant($"|margin:{ProfitMarginPercent}") : "") +
+        (Mode == "solar" ? FormattableString.Invariant($"|solar:{SolarLowW},{SolarHighW}") : "");
 
     /// <summary>
     /// Nutzt der Zeitplan diese Voreinstellung? Die Freigabe merkt sich nur den Namen – wer eine benutzte Voreinstellung

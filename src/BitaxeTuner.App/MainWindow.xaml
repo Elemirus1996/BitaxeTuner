@@ -589,7 +589,9 @@
                                                                  Foreground="{DynamicResource TextBrush}" GroupName="Mode" />
                                                     <RadioButton Content="{l:T 'Strompreis'}" IsChecked="{Binding ScheduleIsPrice}" Foreground="{DynamicResource TextBrush}" GroupName="Mode" Margin="0,0,16,0" />
                                                     <RadioButton Content="{l:T 'Ertrag'}" IsChecked="{Binding ScheduleIsProfit}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
-                                                                 ToolTip="{l:T 'Sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt'}" />
+                                                                 ToolTip="{l:T 'Sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt'}" Margin="0,0,16,0" />
+                                                    <RadioButton Content="{l:T 'PV-Leistung'}" IsChecked="{Binding ScheduleIsSolar}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
+                                                                 ToolTip="{l:T 'Viel Sonne → volle Leistung, wenig Sonne → Stromsparen (Quelle unter Einstellungen → PV-Anlage)'}" />
                                                 </StackPanel>
 
                                                 <StackPanel Visibility="{Binding ScheduleIsTime, Converter={StaticResource BoolToVisibility}}">
@@ -621,6 +623,13 @@
                                                     <TextBox Grid.Column="1" Text="{Binding Schedule.ThresholdCt}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsPrice, Converter={StaticResource BoolToVisibility}}" />
                                                     <TextBlock Text="{l:T 'Abstand zum Break-even (%)'}" Style="{StaticResource FieldLabel}" Visibility="{Binding ScheduleIsProfit, Converter={StaticResource BoolToVisibility}}" />
                                                     <TextBox Grid.Column="1" Text="{Binding Schedule.ProfitMarginPercent}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsProfit, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBlock Text="{l:T 'viel Sonne ab (W)'}" Style="{StaticResource FieldLabel}" Visibility="{Binding ScheduleIsSolar, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBox Grid.Column="1" Text="{Binding Schedule.SolarHighW}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsSolar, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBlock Grid.Row="3" Text="{l:T 'wenig Sonne bis (W)'}" Style="{StaticResource FieldLabel}" Visibility="{Binding ScheduleIsSolar, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Schedule.SolarLowW}" Style="{StaticResource FieldBox}" Visibility="{Binding ScheduleIsSolar, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                               Visibility="{Binding ScheduleIsSolar, Converter={StaticResource BoolToVisibility}}"
+                                                               Text="{l:T 'PV-Leistung: ab „viel Sonne“ gilt „günstig →“ (volle Leistung), bis „wenig Sonne“ gilt „teuer →“ (z. B. eine Stromspar-Voreinstellung); dazwischen bleibt es, wie es ist. Die Quelle (Messsteckdose oder Home Assistant, auch Anker Solix) wird unter Einstellungen → Strom &amp; Kosten → PV-Anlage eingestellt.'}" />
                                                     <TextBlock Grid.Row="1" Text="{l:T 'Günstig (≤ Schwelle) → Voreinstellung'}" Style="{StaticResource FieldLabel}" />
                                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Schedule.CheapPreset}" Width="130" Margin="0,3" />
                                                     <TextBlock Grid.Row="2" Text="{l:T 'Teuer → Voreinstellung'}" Style="{StaticResource FieldLabel}" />

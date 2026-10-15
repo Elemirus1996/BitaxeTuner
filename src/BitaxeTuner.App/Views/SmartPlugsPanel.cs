@@ -36,6 +36,7 @@ public sealed class SmartPlugsPanel : StackPanel
         ("miners", L.T("speist Miner")),
         ("other", L.T("Nebenverbraucher (Zusatzlüfter, Pi …)")),
         ("total", L.T("Gesamtmessung (alles dahinter)")),
+        ("pv", L.T("PV-Erzeugung (nicht in den Kosten)")),
     ];
 
     public SmartPlugsPanel(AppHost host)

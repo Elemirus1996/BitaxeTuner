@@ -924,6 +924,7 @@ public static class Endpoints
         BackupEndpoints.Map(g);
         MqttEndpoints.Map(g);
         PlugEndpoints.Map(g);
+        SolarEndpoints.Map(g);   // 0.9.17 PV-Quelle
         ReportEndpoints.Map(g);
         TaxEndpoints.Map(g);
         KioskEndpoints.Map(g);

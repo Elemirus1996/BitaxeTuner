@@ -53,6 +53,9 @@ public sealed class AutomationEngine
     /// </summary>
     public Func<string, DateTime, (double CostCt, double BreakEvenCt)?>? Profitability { get; set; }
 
+    /// <summary>0.9.17 PV-Modus: aktuelle PV-Leistung in W (null = unbekannt). Vom Hub gesetzt.</summary>
+    public Func<DateTime, double?>? SolarPowerW { get; set; }
+
     /// <summary>0.9.11: Einheit des Strompreises in der gewählten Währung (z. B. „ct/kWh“, „p/kWh“).</summary>
     public Func<string> CentPerKwh { get; set; } = () => "ct/kWh";
 
@@ -195,6 +198,20 @@ public sealed class AutomationEngine
                 : st.ScheduleTarget ?? schedule.CheapPreset;
             result.Status += L.T(" · Strom {0} / Break-even {1} ct/kWh", F(p.CostCt, "0.0"), F(p.BreakEvenCt, "0.0")).Replace("ct/kWh", CentPerKwh());
         }
+        else if (schedule.Mode == "solar")
+        {
+            if (SolarPowerW?.Invoke(now) is not { } pv)
+            {
+                Notice(result, st, host, ruleName, L.T("PV-Leistung gerade unbekannt (Quelle unter Einstellungen → Strom & Kosten → PV-Anlage) – Voreinstellung bleibt unverändert."));
+                return result;
+            }
+            // Mit Abstand: volle Leistung ab „viel Sonne“, Stromsparen bis „wenig Sonne“, dazwischen bleibt das bisherige Ziel
+            var high = Math.Max(schedule.SolarHighW, schedule.SolarLowW);
+            presetName = pv >= high ? schedule.CheapPreset
+                : pv <= schedule.SolarLowW ? schedule.ExpensivePreset
+                : st.ScheduleTarget ?? schedule.ExpensivePreset;
+            result.Status += L.T(" · PV {0} W", F(pv, "0"));
+        }
         else
         {
             presetName = schedule.Entries.FirstOrDefault(e => e.Matches(now))?.Preset ?? schedule.DefaultPreset;
@@ -234,13 +251,15 @@ public sealed class AutomationEngine
         result.Action = new AutomationAction(host, ruleName, preset.FrequencyMhz, preset.CoreVoltageMv,
             group is not null ? L.T("Gruppe „{0}“: „{1}“", group, preset.Name)
             : schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name)
-            : schedule.Mode == "profit" ? L.T("Ertrag: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
+            : schedule.Mode == "profit" ? L.T("Ertrag: „{0}“", preset.Name)
+            : schedule.Mode == "solar" ? L.T("PV-Leistung: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
         return result;
     }
 
     private static string RuleName(PresetScheduleRule schedule, string? group)
     {
-        var kind = schedule.Mode == "price" ? L.T("Strompreis") : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : L.T("Zeitplan");
+        var kind = schedule.Mode == "price" ? L.T("Strompreis") : schedule.Mode == "profit" ? L.T("Ertrags-Automatik")
+            : schedule.Mode == "solar" ? L.T("PV-Automatik") : L.T("Zeitplan");
         return group is null ? kind : L.T("Gruppe „{0}“ ({1})", group, kind);
     }
 
@@ -260,7 +279,7 @@ public sealed class AutomationEngine
                 ? st.OriginalFrequency is { } o ? L.T("Temperaturschutz aktiv (abgesenkt, ursprünglich {0} MHz)", o) : L.T("Temperaturschutz bereit")
                 : L.T("Temperaturschutz: Freigabe fehlt"));
         var kind = group is not null ? L.T("Gruppen-Automatik „{0}“", group) : schedule.Mode == "price" ? L.T("Strompreis-Regel")
-            : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : L.T("Zeitplan");
+            : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : schedule.Mode == "solar" ? L.T("PV-Automatik") : L.T("Zeitplan");
         if (schedule.Enabled)
             parts.Add(scheduleOn
                 ? L.T("{0} aktiv{1}", kind, (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))
