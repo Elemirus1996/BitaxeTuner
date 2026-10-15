@@ -50,7 +50,7 @@ jobs:
           since=$(cat .wish-state/last 2>/dev/null || echo "13h")
           case "$since" in *[!A-Za-z0-9]*) since="13h";; esac
           curl -fsS --max-time 30 "https://ntfy.sh/${TOPIC}/json?poll=1&since=${since}" > messages.jsonl || { echo "ntfy nicht erreichbar"; exit 0; }
-          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json \
+          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json \
                 --jq '.fields[] | select(.name=="Geplant für") | .options[]? | select(.name=="Kundenwunsch") | .id')
           # Gültige Wünsche als JSON-Zeilen (id, title, body); alles andere wird verworfen
           jq -c 'select(.event == "message")
@@ -67,7 +67,7 @@ jobs:
           while IFS= read -r line; do
             title=$(printf '%s' "$line" | jq -r .title)
             body=$(printf '%s' "$line" | jq -r .body)
-            item=$(gh project item-create "$PROJECT_NUMBER" --owner "$OWNER" --title "$title" --body "$body" --format json --jq .id)
+            item=$(gh project item-create "$PROJECT_NUMBER" --owner "@me" --title "$title" --body "$body" --format json --jq .id)
             gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD" --single-select-option-id "$STATUS_IDEEN"
             if [ -n "$opt" ]; then
               gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"

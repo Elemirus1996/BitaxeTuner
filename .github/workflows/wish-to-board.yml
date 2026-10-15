@@ -34,9 +34,9 @@ jobs:
           PLANNED_FIELD: PVTSSF_lAHOBu-fOs4Bk4H-zhjuJAs
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "PROJECT_TOKEN fehlt – übersprungen."; exit 0; fi
-          item=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$ISSUE_URL" --format json --jq .id)
+          item=$(gh project item-add "$PROJECT_NUMBER" --owner "@me" --url "$ISSUE_URL" --format json --jq .id)
           gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD" --single-select-option-id "$STATUS_IDEEN"
-          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json \
+          opt=$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json \
                 --jq '.fields[] | select(.name=="Geplant für") | .options[]? | select(.name=="Kundenwunsch") | .id')
           if [ -n "$opt" ]; then
             gh project item-edit --id "$item" --project-id "$PROJECT_ID" --field-id "$PLANNED_FIELD" --single-select-option-id "$opt"
