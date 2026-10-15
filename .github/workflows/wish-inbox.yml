@@ -71,9 +71,14 @@ jobs:
             title=$(printf '%s' "$line" | jq -r .title)
             body=$(printf '%s' "$line" | jq -r .body)
             item=$(gh api graphql -f query='mutation($p:ID!,$t:String!,$b:String!){addProjectV2DraftIssue(input:{projectId:$p,title:$t,body:$b}){projectItem{id}}}' \
-                   -f p="$PROJECT_ID" -f t="$title" -f b="$body" --jq '.data.addProjectV2DraftIssue.projectItem.id')
-            set_field "$item" "$STATUS_FIELD" "$STATUS_IDEEN"
-            if [ -n "$opt" ]; then set_field "$item" "$PLANNED_FIELD" "$opt"; fi
+                   -f p="$PROJECT_ID" -f t="$title" -f b="$body" --jq '.data.addProjectV2DraftIssue.projectItem.id' < /dev/null)
+            if [ -z "$item" ] || [ "$item" = "null" ]; then echo "Karte konnte nicht angelegt werden."; exit 1; fi
+            echo "Karte angelegt: $item"
+            set_field "$item" "$STATUS_FIELD" "$STATUS_IDEEN" < /dev/null
+            if [ -n "$opt" ]; then set_field "$item" "$PLANNED_FIELD" "$opt" < /dev/null; fi
+            # Gegenprobe: liegt die Karte im Projekt?
+            gh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{project{number title} createdAt}}}' -f i="$item" \
+              --jq '.data.node | "geprüft: Projekt \(.project.number) (\(.project.title)), \(.createdAt)"' < /dev/null
             if [ -n "${DISCORD_WEBHOOK:-}" ]; then
               printf '%s' "$line" | jq -c '{content: ("💡 **" + .title + "**\n" + (.body | .[0:1800])), allowed_mentions: {parse: []}}' \
                 | curl -fsS --max-time 15 -H "Content-Type: application/json" --data-binary @- "$DISCORD_WEBHOOK" > /dev/null || echo "Discord nicht erreichbar"
