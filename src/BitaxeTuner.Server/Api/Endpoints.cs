@@ -96,6 +96,16 @@ public static class Endpoints
         req.BlockFoundUntil = req.BlockFoundUntil == "button" ? "button" : "hours";
         req.SpecialUntil = req.SpecialUntil is "hours" or "button" ? req.SpecialUntil : "each";
         req.ImageFit = req.ImageFit == "fill" ? "fill" : "fit";
+        req.MonthCompareMonths = req.MonthCompareMonths == 12 ? 12 : 6;
+        // 0.9.16 Seitenfolge nach Tageszeit: höchstens 6 Fenster, Stunden 0–23, nur bekannte Seiten
+        if (req.PageWindows is { } windows)
+            req.PageWindows = windows.Where(w => w is not null).Take(6).Select(w => new Core.Config.DisplayPageWindow
+            {
+                From = Math.Clamp(w.From, 0, 23),
+                To = Math.Clamp(w.To, 0, 23),
+                IntervalMinutes = w.IntervalMinutes <= 0 ? 0 : Math.Clamp(w.IntervalMinutes, Core.Config.DisplaySettings.MinIntervalMinutes, 240),
+                Pages = (w.Pages ?? []).Where(p => Enum.TryParse<Core.Display.DisplayScene>(p, true, out _)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            }).ToList();
         req.ImageCaption = (req.ImageCaption ?? "").Trim() is var cap && cap.Length > 60 ? cap[..60] : cap;
         // 0.9.16: Regel je Sonderanzeige – nur bekannte Arten, gültige Werte
         if (req.SpecialRules is { } rules)

@@ -201,7 +201,7 @@ public sealed partial class MinerHub
         var model = BuildDisplayModel(now);
         // Nur neue/weggefallene Warnungen lösen ein Neuzeichnen aus, nicht schwankende Werte darin (schont das Panel)
         var alarmKey = AlarmKey(model.Alerts) + "|" + FanOverride + "|" + IsPaused;
-        var interval = TimeSpan.FromMinutes(Math.Max(DisplaySettings.MinIntervalMinutes, s.IntervalMinutes));
+        var interval = DisplayInterval(s, now);   // 0.9.16: im Zeitfenster ggf. eigenes Intervall
         var quiet = s.QuietEnabled && FanController.IsNight(new CaseFanSettings { NightFromHour = s.QuietFromHour, NightToHour = s.QuietToHour }, now);
         var routineDue = _displayShown is null || (!quiet && now - _displayShown >= interval);
         var due = routineDue || _displayRequested || _displayUserRequested || alarmKey != _displayAlarmKey;

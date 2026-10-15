@@ -60,6 +60,9 @@ public sealed record DisplayModel(
     public IReadOnlyList<DisplaySoloCoin>? Solo { get; init; }
     /// <summary>0.9.16: Systemzustand.</summary>
     public IReadOnlyList<Host.SystemCheck>? System { get; init; }
+    public DisplayBitcoin? Bitcoin { get; init; }
+    public DisplayPoolPage? PoolPage { get; init; }
+    public DisplayMonthCompare? MonthCompare { get; init; }
 }
 
 /// <summary>
@@ -110,6 +113,9 @@ public static partial class StatusRenderer
                 case DisplayScene.Profit: DrawProfit(ctx, m); break;
                 case DisplayScene.Solo: DrawSolo(ctx, m); break;
                 case DisplayScene.System: DrawSystem(ctx, m); break;
+                case DisplayScene.Bitcoin when m.Bitcoin is not null: DrawBitcoin(ctx, m); break;
+                case DisplayScene.PoolAccount when m.PoolPage is not null: DrawPoolPage(ctx, m); break;
+                case DisplayScene.MonthCompare when m.MonthCompare is not null: DrawMonthCompare(ctx, m); break;
                 case DisplayScene.Chart when m.Chart is not null: DrawChart(ctx, m); break;
                 case DisplayScene.Soak when m.Soaks is not null: DrawSoak(ctx, m); break;
                 case DisplayScene.Network when m.Network is not null: DrawNetwork(ctx, m); break;

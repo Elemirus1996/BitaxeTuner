@@ -164,7 +164,7 @@ public sealed partial class MinerHub
         var s = r.Config.Settings;
         var model = WithDisplay(r, () => BuildDisplayModel(now, CurGroup));
         var alarmKey = AlarmKey(model.Alerts) + "|" + FanOverride + "|" + IsPaused;
-        var interval = TimeSpan.FromMinutes(Math.Max(DisplaySettings.MinIntervalMinutes, s.IntervalMinutes));
+        var interval = DisplayInterval(s, now);   // 0.9.16: im Zeitfenster ggf. eigenes Intervall
         var quiet = s.QuietEnabled && FanController.IsNight(new CaseFanSettings { NightFromHour = s.QuietFromHour, NightToHour = s.QuietToHour }, now);
         var routineDue = r.Shown is null || (!quiet && now - r.Shown >= interval);
         var due = routineDue || r.Requested || r.UserRequested || alarmKey != r.AlarmKey;

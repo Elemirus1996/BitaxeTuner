@@ -132,6 +132,26 @@ public sealed class DisplaySettings
     public bool ImageRed { get; set; } = true;
     /// <summary>Bildunterschrift (leer = Bild über die ganze Fläche).</summary>
     public string ImageCaption { get; set; } = "";
+
+    /// <summary>0.9.16 Monatsvergleich: 6 oder 12 Monate.</summary>
+    public int MonthCompareMonths { get; set; } = 6;
+
+    /// <summary>
+    /// 0.9.16 Seitenfolge nach Tageszeit: In einem Zeitfenster nur diese Seiten (und auf Wunsch ein eigenes Intervall),
+    /// z. B. morgens Tagesbilanz, abends Strompreis/Ertrag. Leer = immer alle eingeschalteten Seiten. Additiv.
+    /// </summary>
+    public List<DisplayPageWindow>? PageWindows { get; set; }
+}
+
+/// <summary>0.9.16: Zeitfenster der Seitenfolge (Stunde von–bis, über Mitternacht möglich).</summary>
+public sealed class DisplayPageWindow
+{
+    public int From { get; set; } = 6;
+    public int To { get; set; } = 10;
+    /// <summary>Szenen-Namen (z. B. "Daily", "Power"); nur Seiten, die auch eingeschaltet sind.</summary>
+    public List<string> Pages { get; set; } = [];
+    /// <summary>Eigenes Intervall in Minuten (0 = wie sonst).</summary>
+    public int IntervalMinutes { get; set; }
 }
 
 public sealed class DisplayPages
@@ -167,6 +187,12 @@ public sealed class DisplayPages
     public bool Solo { get; set; }
     /// <summary>0.9.16: Systemzustand (Speicher, Sicherung, Pi, Zertifikat …).</summary>
     public bool System { get; set; }
+    /// <summary>0.9.16: Bitcoin-Netz (Gebühren, Difficulty-Anpassung, Halving).</summary>
+    public bool Bitcoin { get; set; }
+    /// <summary>0.9.16: Pool (Coin je Miner, Guthaben, letzte Auszahlung, bester Pool).</summary>
+    public bool PoolAccount { get; set; }
+    /// <summary>0.9.16: Monatsvergleich (Strom und Ertrag der letzten Monate).</summary>
+    public bool MonthCompare { get; set; }
 }
 
 /// <summary>

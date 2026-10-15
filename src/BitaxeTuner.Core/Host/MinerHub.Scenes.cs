@@ -168,7 +168,14 @@ public sealed partial class MinerHub
         if (p.Profit && History is not null) list.Add(new(DisplayScene.Profit));
         if (p.Solo) list.Add(new(DisplayScene.Solo));
         if (p.System) list.Add(new(DisplayScene.System));
+        if (p.Bitcoin) list.Add(new(DisplayScene.Bitcoin));
+        if (p.PoolAccount) list.Add(new(DisplayScene.PoolAccount));
+        if (p.MonthCompare && History is not null) list.Add(new(DisplayScene.MonthCompare));
         if (list.Count == 0) list.Add(new(DisplayScene.Overview));
+        // 0.9.16: Seitenfolge nach Tageszeit – im Zeitfenster nur dessen Seiten (bleibt keine übrig, alle)
+        if (CurrentPageWindow(Ds, Options.Clock?.Invoke() ?? DateTime.Now) is { Pages.Count: > 0 } w
+            && list.Where(x => w.Pages.Contains(x.Scene.ToString(), StringComparer.OrdinalIgnoreCase)).ToList() is { Count: > 0 } only)
+            return only;
         return list;
     }
 
@@ -293,6 +300,12 @@ public sealed partial class MinerHub
                 return model with { Scene = page, Solo = BuildSolo() };
             case DisplayScene.System:
                 return model with { Scene = page, System = SystemChecks(now) };
+            case DisplayScene.Bitcoin:
+                return model with { Scene = page, Bitcoin = BuildBitcoin() };
+            case DisplayScene.PoolAccount:
+                return model with { Scene = page, PoolPage = BuildPoolPage(now) };
+            case DisplayScene.MonthCompare when BuildMonthCompare(now) is { } mc:
+                return model with { Scene = page, MonthCompare = mc };
             case DisplayScene.News:
                 _ = RefreshNewsAsync(force: false);
                 return model with { Scene = page, News = News.Items(Ds.NewsKinds, 6) };

@@ -153,6 +153,58 @@ public sealed class DisplayPagesTests : IDisposable
     }
 
     [Fact]
+    public async Task Bitcoin_pool_and_month_compare_pages_render()
+    {
+        // 0.9.16: Seiten „Bitcoin-Netz“, „Pool“, „Monatsvergleich“
+        await _hub.PollNowAsync();
+        var fees = BitaxeTuner.Core.Network.NetworkClient.ParseFees("""{"fastestFee":12,"halfHourFee":8,"hourFee":5,"economyFee":2,"minimumFee":1}""");
+        Assert.Equal((12, 8, 5, 2), (fees.Fastest, fees.HalfHour, fees.Hour, fees.Economy));
+        foreach (var scene in new[] { DisplayScene.Bitcoin, DisplayScene.PoolAccount, DisplayScene.MonthCompare })
+            RendersFully(_hub.PreviewScene(scene, DateTime.Now));
+
+        var now = DateTime.Now;
+        var m = _hub.PreviewScene(DisplayScene.Overview, now);
+        var btc = m with
+        {
+            Scene = DisplayScene.Bitcoin,
+            Bitcoin = new DisplayBitcoin(934_512, "Foundry USA", now.AddMinutes(-4), fees, new DisplayDifficulty(62.5, 3.4, 756, now.AddDays(5)),
+                1_050_000, 115_488, 3.125, 1.5625),
+        };
+        var pool = m with
+        {
+            Scene = DisplayScene.PoolAccount,
+            PoolPage = new DisplayPoolPage([new("Gamma 1", "BTC", "Mining-Dutch", "PPS"), new("Gamma 2", "DGB", "Mining-Dutch", "PPS"), new("Nerd", "BCH", "Public Pool", null)],
+                [new("BTC", 0.00012345m, 9.87m), new("DGB", 154.2m, 1.25m)], "€", now.AddDays(-2), "DGB", "Mining-Dutch", "99,8 % verfügbar · 0,12 % abgelehnt"),
+        };
+        var months = Enumerable.Range(0, 6).Select(i => new DisplayMonthBar(new DateTime(now.Year, now.Month, 1).AddMonths(i - 5), 80 + i * 4, 20m + i, i == 0 ? null : 14m + i * 2)).ToList();
+        var compare = m with { Scene = DisplayScene.MonthCompare, MonthCompare = new DisplayMonthCompare(months, "€") };
+        foreach (var x in new[] { btc, pool, compare }) RendersFully(x);
+        var dir = Environment.GetEnvironmentVariable("BT_EPAPER_PREVIEW");
+        if (dir is not null)
+        {
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(btc), Path.Combine(dir, "epaper-bitcoin.png"));
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(pool), Path.Combine(dir, "epaper-pool.png"));
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(compare), Path.Combine(dir, "epaper-months.png"));
+        }
+    }
+
+    [Fact]
+    public void Page_windows_limit_pages_and_interval_by_time_of_day()
+    {
+        // 0.9.16: im Zeitfenster nur Verlauf und Kurs, mit eigenem Intervall
+        _config.Display.Pages = new DisplayPages { Overview = true, Daily = true, Chart = true, Prices = true };
+        _config.Display.AlarmFullscreen = false;                     // keine Warnung als Vollbild dazwischen
+        var hour = DateTime.Now.Hour;
+        _config.Display.PageWindows = [new DisplayPageWindow { From = hour, To = (hour + 1) % 24, Pages = ["Chart", "Prices"], IntervalMinutes = 20 }];
+        var seen = Enumerable.Range(0, 6).Select(_ => _hub.ComposeDisplay(DateTime.Now, nextPage: true).Scene).Distinct().ToHashSet();
+        Assert.Subset(new HashSet<DisplayScene> { DisplayScene.Chart, DisplayScene.Prices }, seen);
+        Assert.DoesNotContain(DisplayScene.Overview, seen);
+        // Fenster ohne eingeschaltete Seite: alle Seiten wie sonst
+        _config.Display.PageWindows[0].Pages = ["Bitcoin"];
+        Assert.Contains(_hub.ComposeDisplay(DateTime.Now, nextPage: true).Scene, new[] { DisplayScene.Overview, DisplayScene.Daily, DisplayScene.Chart, DisplayScene.Prices });
+    }
+
+    [Fact]
     public async Task Profit_and_solo_pages_render()
     {
         // 0.9.16: Seiten „Ertrag & Strom“ und „Solo-Chance“

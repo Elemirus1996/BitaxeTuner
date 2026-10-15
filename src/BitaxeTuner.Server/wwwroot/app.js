@@ -4141,6 +4141,36 @@ function newsCard(compact) {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Neuigkeiten aus der Solo-Mining-Welt')), body);
 }
 
+/** 0.9.16: Seitenfolge nach Tageszeit – Zeitfenster mit eigenen Seiten und auf Wunsch eigenem Intervall. */
+function pageWindowsInput(s) {
+  const pages = [['Overview', t('Übersicht')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')], ['Monthly', t('Monatsbilanz')],
+    ['MonthCompare', t('Monatsvergleich')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Profit', t('Ertrag & Strom')],
+    ['Solo', t('Solo-Chance')], ['Network', t('Pool & Netzwerk')], ['Bitcoin', t('Bitcoin-Netz')], ['PoolAccount', t('Pool')],
+    ['Group', t('je Miner-Gruppe')], ['Sensors', t('Temperaturfühler')], ['System', t('Systemzustand')], ['News', t('Neuigkeiten')],
+    ['Image', t('Eigenes Bild')], ['Qr', t('QR-Code')], ['Soak', t('Dauertest (wenn aktiv)')]];
+  s.pageWindows ||= [];
+  const box = h('div', { class: 'stack' });
+  const hour = (w, key) => h('input', { type: 'number', min: 0, max: 23, value: w[key], style: 'width:70px', oninput: e => { w[key] = Math.max(0, Math.min(23, +e.target.value || 0)); } });
+  const draw = () => fill(box,
+    s.pageWindows.map((w, i) => h('div', { class: 'card stack', style: 'padding:10px' },
+      h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
+        h('span', {}, t('von')), hour(w, 'from'), h('span', {}, t('bis')), hour(w, 'to'), h('span', {}, t('Uhr')),
+        h('span', { class: 'muted small' }, t('Intervall (min, 0 = wie sonst)')),
+        h('input', { type: 'number', min: 0, max: 240, value: w.intervalMinutes || 0, style: 'width:80px', oninput: e => { w.intervalMinutes = +e.target.value || 0; } }),
+        h('span', { class: 'spacer', style: 'flex:1' }),
+        h('button', { class: 'btn small danger', onclick: () => { s.pageWindows.splice(i, 1); draw(); } }, t('Entfernen'))),
+      h('div', { class: 'row', style: 'flex-wrap:wrap;gap:4px 14px' }, pages.map(([k, label]) => {
+        const c = h('input', { type: 'checkbox', checked: (w.pages || []).includes(k) });
+        c.addEventListener('change', () => { w.pages = c.checked ? [...new Set([...(w.pages || []), k])] : (w.pages || []).filter(x => x !== k); });
+        return h('label', { class: 'check small' }, c, label);
+      })))),
+    h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { s.pageWindows.push({ from: 6, to: 10, intervalMinutes: 0, pages: ['Daily', 'Prices'] }); draw(); } }, t('Zeitfenster hinzufügen'))));
+  draw();
+  return h('details', {}, h('summary', {}, t('Seitenfolge nach Tageszeit')),
+    h('p', { class: 'muted small' }, t('Im Zeitfenster zeigt die Anzeige nur die angehakten Seiten (sofern eingeschaltet), z. B. morgens Tagesbilanz und Kurs, abends Strompreis und Ertrag. Nachts mit längerem Intervall – oder „Nachts nur bei Warnungen aktualisieren“ oben.')),
+    box);
+}
+
 /** 0.9.16: Sonderanzeigen – an/aus und je Anzeige, wie sie endet (bis Taste 1, nach Stunden, einmal). */
 function specialRulesTable(s) {
   // Fehlen eigene Regeln, gelten die bisherigen Einstellungen (wie im Server: DisplaySettings.RuleFor)
@@ -4240,7 +4270,10 @@ function displaySettingsFields(s, pic) {
       checkInput(s.pages, 'image', t('Eigenes Bild')),
       checkInput(s.pages, 'profit', t('Ertrag & Strom')),
       checkInput(s.pages, 'solo', t('Solo-Chance')),
-      checkInput(s.pages, 'system', t('Systemzustand'))),
+      checkInput(s.pages, 'system', t('Systemzustand')),
+      checkInput(s.pages, 'bitcoin', t('Bitcoin-Netz')),
+      checkInput(s.pages, 'poolAccount', t('Pool')),
+      checkInput(s.pages, 'monthCompare', t('Monatsvergleich'))),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -4249,12 +4282,18 @@ function displaySettingsFields(s, pic) {
         ['income', t('Ertrag')], ['hashrate', t('Hashrate')]])),
       h('div', {}, h('label', {}, t('Verlauf (24 h) zeigt')), pageSelect(s, 'historyChart', [['hashrate', t('Hashrate')], ['temp', t('Temperatur')],
         ['power', t('Leistung')], ['efficiency', t('Effizienz')]])),
+      h('div', {}, h('label', {}, t('Monatsvergleich')), (() => {
+        const el = h('select', { style: 'width:auto', onchange: e => { s.monthCompareMonths = +e.target.value; } }, [[6, t('6 Monate')], [12, t('12 Monate')]].map(([v, l]) => h('option', { value: v }, l)));
+        el.value = String(s.monthCompareMonths || 6);
+        return el;
+      })()),
       h('div', {}, h('label', {}, t('QR-Code-Adresse (leer = dieser Server)')), h('input', { value: s.qrUrl || '', placeholder: 'https://…', oninput: e => { s.qrUrl = e.target.value; } }))),
     h('p', { class: 'muted small' }, t('Kurs: CoinGecko, bei BTC dazu der Countdown bis zur nächsten Difficulty-Anpassung (mempool.space). Strompreis-Ampel braucht aWATTar oder Tibber, Temperaturfühler-Seite erscheint nur mit eingetragenen Fühlern.')),
     checkInput(s, 'networkBch', t('Pool & Netzwerk: auch den letzten Block im Bitcoin-Cash-Netzwerk zeigen (Blockchair)')),
     newsKindsInput(s),
     pic ? pictureFields(s, pic) : null,
     checkInput(s, 'rotatePages', t('Bei jeder Aktualisierung zur nächsten Seite wechseln')),
+    pageWindowsInput(s),
     h('h3', {}, t('Sonderanzeigen')),
     // 0.9.16: jede Sonderanzeige mit eigener Regel, wie sie endet
     specialRulesTable(s),
@@ -4326,7 +4365,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['System', t('Systemzustand')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['System', t('Systemzustand')], ['Bitcoin', t('Bitcoin-Netz')], ['PoolAccount', t('Pool')], ['MonthCompare', t('Monatsvergleich')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')

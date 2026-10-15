@@ -9,6 +9,9 @@ public sealed record BlockDto(long Height, DateTime Time, string Pool, string Po
 
 public sealed record PoolDto(string Name, string Slug, int BlockCount);
 
+/// <summary>0.9.16: empfohlene Gebühren (sat/vB) laut mempool.space.</summary>
+public sealed record FeesDto(int Fastest, int HalfHour, int Hour, int Economy, int Minimum);
+
 /// <summary>Nächste Difficulty-Anpassung: Fortschritt in %, erwartete Änderung in %, Restblöcke, geschätzter Zeitpunkt.</summary>
 public sealed record DifficultyDto(double ProgressPercent, double ExpectedChangePercent, int RemainingBlocks, DateTime? Eta, long NextHeight);
 
@@ -65,6 +68,22 @@ public sealed class NetworkClient : IDisposable
         using var resp = await MempoolLimit.GetAsync(_http, $"{Base}/v1/difficulty-adjustment", ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         return ParseDifficulty(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>0.9.16: empfohlene Gebühren (/v1/fees/recommended).</summary>
+    public async Task<FeesDto> GetFeesAsync(CancellationToken ct)
+    {
+        using var resp = await MempoolLimit.GetAsync(_http, $"{Base}/v1/fees/recommended", ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        return ParseFees(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+    }
+
+    public static FeesDto ParseFees(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var r = doc.RootElement;
+        int Get(string name) => r.TryGetProperty(name, out var v) && v.TryGetDouble(out var d) ? (int)Math.Round(d) : 0;
+        return new FeesDto(Get("fastestFee"), Get("halfHourFee"), Get("hourFee"), Get("economyFee"), Get("minimumFee"));
     }
 
     /// <summary>0.9.15: aktuelle BTC-Difficulty (Ausweichquelle, wenn Blockchair sperrt).</summary>
