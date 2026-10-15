@@ -55,7 +55,21 @@ public sealed class StorageWindow : Window
             _body.Children.Add(Text(L.T("Frei") + ": " + Mb(free) + " · " + L.T("von {0} ({1})", Mb(total), s.Drive)));
         }
         _body.Children.Add(Text(L.T("Datenordner gesamt") + ": " + Mb(s.DataBytes) + " · " + L.T("Verlauf (history.db)") + ": " + Mb(s.HistoryBytes) +
+                                (s.HistoryFreeBytes is > 0 and var hf ? " (" + L.T("davon leer: {0}", Mb(hf)) + ")" : "") +
                                 " · " + L.T("Sicherungen") + ": " + Mb(s.BackupsBytes) + " · " + L.T("Vorherige Stände") + ": " + Mb(s.PreviousBytes), muted: true));
+
+        // 0.9.16: leeren Platz freigeben
+        if (s.HistoryFreeBytes > 16L * 1048576)
+        {
+            var compact = new Button { Content = L.T("Leeren Platz freigeben"), Padding = new Thickness(10, 2, 10, 2), HorizontalAlignment = HorizontalAlignment.Left };
+            compact.Click += (_, _) =>
+            {
+                try { MessageBox.Show(this, _hub.CompactHistory(L.T("Desktop")), Title, MessageBoxButton.OK, MessageBoxImage.Information); }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Warning); }
+                Draw();
+            };
+            _body.Children.Add(compact);
+        }
 
         // 0.9.16: was in history.db Platz belegt
         if (s.Tables is { Count: > 0 } tables)

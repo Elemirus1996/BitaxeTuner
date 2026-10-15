@@ -13,7 +13,7 @@ public sealed record PreviousState(string Name, DateTime Time, long Bytes);
 /// <param name="FreeBytes">Freier Platz (für den Dienst nutzbar).</param>
 public sealed record StorageInfo(string Drive, long? TotalBytes, long? FreeBytes, long DataBytes, long HistoryBytes,
     long BackupsBytes, int BackupCount, long PreviousBytes, IReadOnlyList<PreviousState> Previous,
-    IReadOnlyList<HistoryStore.TableSize>? Tables = null);
+    IReadOnlyList<HistoryStore.TableSize>? Tables = null, long? HistoryFreeBytes = null, bool HistoryIncremental = false);
 
 /// <summary>
 /// 0.9.15: Speicherübersicht und Aufräumen. Sicherungen im Datenordner und vorherige Stände („backup-…“-Ordner) lassen sich
@@ -60,9 +60,24 @@ public sealed partial class MinerHub
         // 0.9.16: was in history.db Platz belegt (größte Tabellen zuerst)
         IReadOnlyList<HistoryStore.TableSize>? tables = null;
         try { tables = History?.TableSizes(); } catch { /* nur Anzeige */ }
+        (long Free, bool Incremental)? space = null;
+        try { space = History?.SpaceInfo(); } catch { /* nur Anzeige */ }
         return new StorageInfo(drive?.Name ?? Path.GetPathRoot(full) ?? full, total, free,
             Directory.Exists(full) ? DirectorySize(new DirectoryInfo(full)) : 0, history,
-            backups.Sum(f => f.Length), backups.Count, previous.Sum(p => p.Bytes), previous, tables);
+            backups.Sum(f => f.Length), backups.Count, previous.Sum(p => p.Bytes), previous, tables,
+            space?.Free, space?.Incremental ?? false);
+    }
+
+    /// <summary>0.9.16: leeren Platz in history.db jetzt freigeben (sonst stündlich nach dem Aufräumen).</summary>
+    public string CompactHistory(string by)
+    {
+        if (History is null) throw new LocalizedException("Verlaufsdatenbank nicht verfügbar.");
+        if (!History.SpaceInfo().Incremental)
+            return L.T("Die Datenbank wird beim nächsten Neustart einmalig verkleinert (dafür muss genug Speicher frei sein).");
+        var freed = History.ReleaseFreeSpace();
+        var text = L.T("Verlauf: {0} MB leerer Platz freigegeben.", (freed / 1048576.0).ToString("0.0", L.Culture));
+        LogEvent(null, EventCategories.System, text + " – " + by);
+        return text;
     }
 
     /// <summary>Verständlicher Name einer Verlaufstabelle (Browser und Desktop gleich).</summary>

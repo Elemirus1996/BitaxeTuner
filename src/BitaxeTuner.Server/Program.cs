@@ -50,6 +50,13 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 builder.Host.UseWindowsService(o => o.ServiceName = "BitaxeTuner");
 builder.Host.UseSystemd();
+// 0.9.16: einmalige Verkleinerung der history.db beim Start kann länger dauern als systemds Startfrist (90 s) –
+// währenddessen mehr Zeit anmelden (ohne systemd/NOTIFY_SOCKET wirkungslos)
+var startNotifier = new Microsoft.Extensions.Hosting.Systemd.SystemdNotifier();
+BitaxeTuner.Core.Monitoring.HistoryStore.KeepAlive = () =>
+{
+    if (startNotifier.IsEnabled) startNotifier.Notify(new Microsoft.Extensions.Hosting.Systemd.ServiceState("EXTEND_TIMEOUT_USEC=90000000"));
+};
 builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat = "yyyy-MM-dd HH:mm:ss "; });
 // Nicht jede Anfrage protokollieren (Handy-Ansicht fragt laufend ab; SD-Karte des Pi schonen)
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);

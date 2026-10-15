@@ -40,6 +40,7 @@ public static class BackupEndpoints
         drive = s.Drive, totalBytes = s.TotalBytes, freeBytes = s.FreeBytes, dataBytes = s.DataBytes, historyBytes = s.HistoryBytes,
         backupsBytes = s.BackupsBytes, backupCount = s.BackupCount, previousBytes = s.PreviousBytes, low = MinerHub.StorageLow(s),
         previous = s.Previous.Select(p => new { name = p.Name, time = p.Time, size = p.Bytes }).ToList(),
+        historyFreeBytes = s.HistoryFreeBytes, historyIncremental = s.HistoryIncremental,
         tables = (s.Tables ?? []).Take(8).Select(t => new { name = t.Name, label = MinerHub.TableLabel(t.Name), rows = t.Rows, size = t.Bytes }).ToList(),
     };
 
@@ -60,6 +61,13 @@ public static class BackupEndpoints
         {
             h.DeleteLocalBackup(name, L.T("Browser"));
             return new { ok = true, storage = StorageJson(h.Storage()) };
+        })));
+
+        // 0.9.16: leeren Platz in history.db freigeben
+        g.MapPost("/backup/compact", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var message = h.CompactHistory(L.T("Browser"));
+            return new { ok = true, message, storage = StorageJson(h.Storage()) };
         })));
 
         g.MapDelete("/backup/previous/{name}", async (string name, HubService hub) => Results.Json(await hub.RunAsync(h =>

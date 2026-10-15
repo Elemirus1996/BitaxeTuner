@@ -46,7 +46,7 @@ public sealed record WindowAverage(int Minutes, double HashRateGh, double Temp, 
 /// unter dem Host "*". Offline-Minuten werden mit online=0 gespeichert, daraus
 /// ergibt sich die Verfügbarkeit.
 /// </summary>
-public sealed class HistoryStore : IDisposable
+public sealed partial class HistoryStore : IDisposable
 {
     public const string AggregateHost = "*";
 
@@ -67,9 +67,11 @@ public sealed class HistoryStore : IDisposable
         FilePath = file;
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
 
+        // 0.9.16: einmalig kompakt neu schreiben und auf „leeren Platz freigeben“ umstellen (HistoryStore.Compact.cs)
+        Compaction = CompactOnOpen(file);
         _db = new SqliteConnection($"Data Source={file}");
         _db.Open();
-
+        Execute("PRAGMA auto_vacuum=INCREMENTAL;");   // neue Datei: gleich so anlegen; bestehende: wirkt erst mit VACUUM
         Execute("PRAGMA journal_mode=WAL;");
         // Audit E1: im WAL-Modus genügt NORMAL – kein fsync je Commit (schont SD-Karte/SSD), bei Stromausfall gehen
         // höchstens die letzten Sekunden verloren, die Datei bleibt aber konsistent.

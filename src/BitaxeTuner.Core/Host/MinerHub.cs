@@ -324,7 +324,12 @@ public sealed partial class MinerHub : IDisposable
         if ((now - _lastLogPrune).TotalMinutes >= 60)
         {
             _lastLogPrune = now;
-            try { History.PruneMinerLog(now.AddHours(-Math.Clamp(Config.MinerLogKeepHours, 1, 168))); } catch { /* nicht kritisch */ }
+            try
+            {
+                History.PruneMinerLog(now.AddHours(-Math.Clamp(Config.MinerLogKeepHours, 1, 168)));
+                History.ReleaseFreeSpace();   // 0.9.16: Platz gelöschter Zeilen zurückgeben
+            }
+            catch { /* nicht kritisch */ }
         }
     }
 
@@ -393,6 +398,12 @@ public sealed partial class MinerHub : IDisposable
         // Home Assistant bekommt auch im Pausenzustand Werte (Lüfter, Fühler, „pausiert“)
         if (Config.Mqtt.Enabled) _ = ApplyMqttSettingsAsync();
         LogEvent(null, EventCategories.System, L.T("Überwachung gestartet ({0} Miner)", Devices.Count));
+        // 0.9.16: einmalige Verkleinerung der history.db beim Öffnen
+        if (History?.Compaction is { } hc)
+            LogEvent(null, EventCategories.System, hc.Skipped is null
+                ? L.T("Verlauf (history.db) verkleinert: {0} MB → {1} MB. Leerer Platz wird künftig laufend freigegeben.",
+                    (hc.BeforeBytes / 1048576).ToString(L.Culture), (hc.AfterBytes / 1048576).ToString(L.Culture))
+                : L.T("Verlauf (history.db) nicht verkleinert: {0}. Neuer Versuch beim nächsten Start.", hc.Skipped));
         foreach (var problem in Profiles.Problems) LogEvent(null, EventCategories.Settings, problem);
         if (_paused) return; // z. B. Server pausiert, weil die Desktop-App gerade selbst abfragt
         RestartLoops();

@@ -5165,6 +5165,11 @@ function backupCard() {
   const mb = b => t('{0} MB', n(b / 1024 / 1024, 1));
   // 0.9.15: Speicher freigeben (Sicherung bzw. vorherigen Stand löschen, mit Bestätigung)
   const del = async (kind, name, size) => {
+    if (kind === 'compact') {
+      const r = await run(() => api('/backup/compact', { method: 'POST', body: {} }));
+      if (r) { toast(r.message, 'ok'); load(); }
+      return;
+    }
     if (!await confirmBox(t('Endgültig löschen?'), t('{0} ({1}) wird endgültig gelöscht und kann nicht mehr eingespielt werden.', name, mb(size)), t('Löschen'), true)) return;
     if (await run(() => api(`/backup/${kind}/${encodeURIComponent(name)}`, { method: 'DELETE' }), t('Gelöscht.'))) load();
   };
@@ -5256,9 +5261,16 @@ function storageBox(s, del, mb) {
     h('div', { class: 'tiles' },
       tile(t('Frei'), s.freeBytes == null ? '–' : mb(s.freeBytes), s.totalBytes ? t('von {0} ({1})', mb(s.totalBytes), s.drive) : s.drive, s.low ? 'danger' : 'ok'),
       tile(t('Datenordner gesamt'), mb(s.dataBytes)),
-      tile(t('Verlauf (history.db)'), mb(s.historyBytes)),
+      tile(t('Verlauf (history.db)'), mb(s.historyBytes), s.historyFreeBytes ? t('davon leer: {0}', mb(s.historyFreeBytes)) : ''),
       tile(t('Sicherungen'), mb(s.backupsBytes), t('{0} Dateien', s.backupCount)),
       tile(t('Vorherige Stände'), mb(s.previousBytes), t('{0} Ordner', s.previous.length))),
+    // 0.9.16: leeren Platz freigeben (sonst stündlich bzw. einmalig beim nächsten Neustart)
+    s.historyFreeBytes > 16 * 1048576 ? h('div', { class: 'row' },
+      h('button', { class: 'btn small', onclick: () => del('compact') }, t('Leeren Platz freigeben')),
+      h('span', { class: 'muted small' }, s.historyIncremental ? t('geschieht sonst stündlich von selbst')
+        : t('wird beim nächsten Neustart einmalig verkleinert'))) : null,
+    s.tables?.some(x => x.name === 'miner_log' && x.size > 50 * 1048576)
+      ? h('p', { class: 'muted small' }, t('Die gespeicherten Miner-Logs belegen den meisten Platz. Weniger Stunden aufbewahren: Einstellungen → Überwachung & Automatik → „Miner-Logs aufbewahren“.')) : null,
     // 0.9.16: was in history.db Platz belegt
     s.tables?.length ? h('details', {}, h('summary', { class: 'small' }, t('Was belegt den Verlauf (history.db)?')),
       h('div', { class: 'table-wrap' }, h('table', {},
