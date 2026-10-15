@@ -267,6 +267,103 @@ public partial class RemoteWindow : Window
     private async void Ssh_Click(object sender, RoutedEventArgs e) =>
         await Services.SshKeyService.OpenForServerAsync(this, _config.Server, () => Mode_Click(sender, e));
 
+    private void SshMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = SshButton.ContextMenu!;
+        menu.PlacementTarget = SshButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    // ---------- 0.9.16: Notfall-Update und Systemdateien per SSH ----------
+
+    private bool _sshBusy;
+
+    /// <summary>Gemeinsamer Ablauf: Fortschritt im Update-Knopf, Fehler als Meldung (mit Hinweis auf „Betriebsart …“).</summary>
+    private async Task RunSshAsync(string title, Func<SshUpdateService, Task> work)
+    {
+        if (_sshBusy) return;
+        var host = SshKeyService.HostFor(_config.Server);
+        if (host is null)
+        {
+            MessageBox.Show(this, L.T("Kein Rechner für SSH bekannt – unter „Betriebsart …“ eintragen."), title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        _sshBusy = true;
+        UpdateButton.IsEnabled = false;
+        UpdateButton.Visibility = Visibility.Visible;
+        try
+        {
+            await SshKeyService.EnsureKeyAsync();
+            var ssh = new SshUpdateService(_config.Server.SshUser, host, _updateHttp, text => Dispatcher.Invoke(() => UpdateButton.Content = text));
+            await work(ssh);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException or System.Net.Http.HttpRequestException
+                                       or TaskCanceledException or System.ComponentModel.Win32Exception)
+        {
+            MessageBox.Show(this, ex.Message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _sshBusy = false;
+            ShowUpdateButton();
+        }
+    }
+
+    private async void SshUpdate_Click(object sender, RoutedEventArgs e) => await RunSshAsync(L.T("Notfall-Update per SSH"), async ssh =>
+    {
+        var (arch, installed) = await ssh.ProbeAsync();
+        var (info, file) = await ssh.DownloadAsync(arch);
+        var target = info.Version.ToString(3);
+        var text = L.T("Server per SSH aktualisieren: {0} → {1}\n\n1. Dienst stoppen und den Datenordner von Hand sichern (/var/backups/bitaxetuner)\n2. Geprüftes Paket installieren (Programm, Dienste, USB-Regel)\n3. Dienst startet neu\n\nNur nötig, wenn das Update über die Oberfläche nicht klappt.",
+            installed ?? L.T("unbekannt"), target);
+        if (installed == target) text += "\n\n" + L.T("Diese Version ist schon installiert – sie wird neu installiert.");
+        UpdateButton.Content = L.T("Bitte bestätigen …");
+        if (MessageBox.Show(this, text, L.T("Notfall-Update per SSH"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        var saved = await ssh.UpdateAsync(info, file);
+
+        // Warten, bis der Server mit der neuen Version antwortet
+        UpdateButton.Content = L.T("Warte auf den Server …");
+        string? running = null;
+        var deadline = DateTime.Now.AddMinutes(5);
+        while (DateTime.Now < deadline)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            try
+            {
+                using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint);
+                running = (await client.InfoAsync()).Version;
+                if (Plain(running) == target) break;
+            }
+            catch (ServerException) { /* startet gerade */ }
+        }
+        MessageBox.Show(this, Plain(running) == target
+                ? L.T("Server läuft mit Version {0}.\nHandsicherung: {1}", target, saved)
+                : L.T("Installiert, aber der Server meldet sich (noch) nicht mit Version {0}. Im SSH-Terminal prüfen: journalctl -u bitaxetuner -n 50\nHandsicherung: {1}", target, saved),
+            L.T("Notfall-Update per SSH"), MessageBoxButton.OK, Plain(running) == target ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        _serverUpdate = null;
+        await ConnectAsync();
+    });
+
+    private async void SshSystem_Click(object sender, RoutedEventArgs e) => await RunSshAsync(L.T("Systemdateien per SSH erneuern"), async ssh =>
+    {
+        var (arch, installed) = await ssh.ProbeAsync();
+        var (info, file) = await ssh.DownloadAsync(arch);
+        var latest = info.Version.ToString(3);
+        if (installed != latest)
+        {
+            MessageBox.Show(this, L.T("Auf dem Pi läuft {0}, das neueste Paket ist {1}. Bitte zuerst aktualisieren (Update-Knopf oder „Notfall-Update per SSH …“) – dabei werden die Systemdateien mit eingerichtet.",
+                installed ?? L.T("unbekannt"), latest), L.T("Systemdateien per SSH erneuern"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        UpdateButton.Content = L.T("Bitte bestätigen …");
+        if (MessageBox.Show(this, L.T("Dienst, Neustart-Funktion und USB-Sicherung aus dem geprüften Paket {0} neu einrichten? Der Dienst startet dabei kurz neu, Daten bleiben unverändert.", info.Tag),
+                L.T("Systemdateien per SSH erneuern"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        await ssh.SystemFilesAsync(info, file);
+        MessageBox.Show(this, L.T("Systemdateien eingerichtet (Dienst, Neustart-Funktion, USB-Sicherung)."), L.T("Systemdateien per SSH erneuern"),
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    });
+
     // ---------- Updates: Server und App mit einem Klick ----------
 
     private ServerUpdateStatus? _serverUpdate;

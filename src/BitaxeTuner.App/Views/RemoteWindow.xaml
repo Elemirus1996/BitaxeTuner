@@ -51,9 +51,19 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <Button Click="Ssh_Click" Style="{StaticResource GhostButton}"
+                    <Button x:Name="SshButton" Click="SshMenu_Click" Style="{StaticResource GhostButton}"
                             ToolTip="{l:T 'Konsole auf deinem Server öffnen (ohne Passwort, Einrichtung unter Betriebsart …)'}">
-                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'SSH-Terminal'}" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'SSH ▾'}" /></StackPanel>
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{l:T 'SSH-Terminal öffnen'}" Click="Ssh_Click" />
+                                <Separator />
+                                <MenuItem Header="{l:T 'Notfall-Update per SSH …'}" Click="SshUpdate_Click" />
+                                <MenuItem Header="{l:T 'Systemdateien per SSH erneuern …'}" Click="SshSystem_Click" />
+                                <Separator />
+                                <MenuItem Header="{l:T 'Einstellungen (Betriebsart …)'}" Click="Mode_Click" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
                     </Button>
                     <Button Click="Mode_Click" Margin="6,0,0,0" Padding="10,5">
                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8AB;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Betriebsart …'}" /></StackPanel>
