@@ -38,9 +38,13 @@ public sealed class UpdateLockTests : IDisposable
         // Fremde Kennung gibt nichts frei, die eigene schon
         _hub.EndUpdate("Test", "falsch");
         Assert.NotNull(_hub.RunningUpdate);
+        Assert.Null(_hub.LastUpdateError);
         _hub.EndUpdate("Sicherung fehlgeschlagen", mine.Id);
         Assert.Null(_hub.RunningUpdate);
+        // 0.9.16 (Issue #11): der Grund bleibt sichtbar, bis ein neues Update beginnt
+        Assert.Equal(("v1.0.0", "Sicherung fehlgeschlagen"), (_hub.LastUpdateError!.Value.Version, _hub.LastUpdateError.Value.Error));
         Assert.True(_hub.TryBeginUpdate("v1.0.0", "Desktop-App", null, out _));
+        Assert.Null(_hub.LastUpdateError);
     }
 
     [Fact]

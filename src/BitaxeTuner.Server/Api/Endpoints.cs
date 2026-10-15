@@ -1279,6 +1279,8 @@ public static class Endpoints
             running = hub.Hub.RunningUpdate is { } run
                 ? new { version = run.Version, by = run.By, started = run.StartedUtc, phase = run.Phase, phaseText = MinerHub.UpdatePhaseText(run.Phase) }
                 : null,
+            // 0.9.16 (Issue #11): warum das letzte Update abgebrochen wurde
+            lastError = hub.Hub.LastUpdateError is { } le ? new { version = le.Version, error = le.Error, time = le.AtUtc } : null,
         }));
 
         g.MapPost("/admin/update/check", async (ServerUpdater updater) =>
@@ -1312,24 +1314,25 @@ public static class Endpoints
             var by = UpdateClient(http);
             var (started, running) = await hub.RunAsync(h => (h.TryBeginUpdate(tag, by, req?.Id, out var r), r));
             if (!started) return UpdateBusy(running);
-            // Erst die Sicherung (Datenordner + USB/NAS) – schlägt sie fehl, sieht der Browser den Grund sofort und es passiert nichts
-            BackupStatus backup;
-            try { backup = await hub.RunAsync(h => h.BackupBeforeUpdateAsync(tag)); }
-            catch (Exception ex)
-            {
-                await hub.RunAsync(h => { h.EndUpdate(ex.Message); return 0; });
-                throw;
-            }
+            // 0.9.16 (Issue #11): Sicherung und Installation laufen ganz auf dem Server – die Antwort kommt sofort. Bisher wartete
+            // die Anfrage die ganze (auf dem Pi minutenlange) Sicherung ab; schlief das Handy oder riss die Verbindung ab, ging
+            // es nach der erfolgreichen Sicherung nicht weiter. Fortschritt und Abbruchgrund zeigt GET /admin/update.
             _ = Task.Run(async () =>
             {
-                try { await updater.InstallAsync(); }
+                try
+                {
+                    // Erst die Sicherung (Datenordner + USB/NAS; eine der letzten 15 min wird verwendet) – schlägt sie fehl,
+                    // wird nichts installiert
+                    await hub.RunAsync(h => h.BackupBeforeUpdateAsync(tag));
+                    await updater.InstallAsync();
+                }
                 catch (Exception ex)
                 {
                     log.LogError(ex, "Update fehlgeschlagen");
                     await hub.RunAsync(h => { h.EndUpdate(ex.Message); return 0; });
                 }
             });
-            return Results.Json(new { ok = true, backup = backup.LastFile, message = LangOf(http).T("Sicherung {0} erstellt. Update wird geladen und installiert – der Server startet danach neu (ca. 1 Minute).", backup.LastFile) });
+            return Results.Json(new { ok = true, message = LangOf(http).T("Sicherung und Update laufen jetzt auf dem Server, danach startet er neu. Die Seite darf dabei geschlossen werden.") });
         });
 
         g.MapPost("/admin/pause", async (PauseRequest req, HubService hub) =>

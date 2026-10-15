@@ -371,7 +371,8 @@ public partial class RemoteWindow : Window
                 // 2. Server-Update anstoßen, 3. auf die neue Version warten (Neustart dauert ca. 1 Minute)
                 UpdateButton.Content = L.T("Server wird aktualisiert …");
                 await client.InstallServerUpdateAsync(lockId);
-                var deadline = DateTime.Now.AddMinutes(8);
+                // 0.9.16: Sicherung und Installation laufen auf dem Server weiter, die Anfrage kehrt sofort zurück
+                var deadline = DateTime.Now.AddMinutes(20);
                 string? running = null;
                 while (DateTime.Now < deadline)
                 {

@@ -24,6 +24,9 @@ public sealed partial class MinerHub
     private readonly object _updateLock = new();
     private UpdateRun? _updateRun;
 
+    /// <summary>0.9.16: Grund des letzten abgebrochenen Updates – die Update-Karte zeigt ihn, bis ein neues beginnt.</summary>
+    public (string Version, string Error, DateTime AtUtc)? LastUpdateError { get; private set; }
+
     /// <summary>Gerade laufendes Update (null = keines).</summary>
     public UpdateRun? RunningUpdate
     {
@@ -48,6 +51,7 @@ public sealed partial class MinerHub
                 return id is not null && id == r.Id;
             }
             _updateRun = run = new UpdateRun(Guid.NewGuid().ToString("N"), version, by, DateTime.UtcNow, "backup");
+            LastUpdateError = null;
         }
         LogEvent(null, EventCategories.System, L.T("Update auf {0} gestartet ({1}) – weitere Update-Knöpfe sind gesperrt, bis es durch ist.", version, by));
         return true;
@@ -68,6 +72,7 @@ public sealed partial class MinerHub
             r = _updateRun;
             if (r is null || (id is not null && id != r.Id)) return;
             _updateRun = null;
+            LastUpdateError = (r.Version, error ?? L.T("ohne Angabe"), DateTime.UtcNow);
         }
         LogEvent(null, EventCategories.System, L.T("Update auf {0} abgebrochen: {1} – Update-Knopf wieder frei.", r.Version, error ?? L.T("ohne Angabe")));
     }
