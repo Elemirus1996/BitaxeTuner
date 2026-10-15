@@ -360,6 +360,43 @@ public sealed partial class MinerHub
         }
     }
 
+    /// <summary>
+    /// 0.9.17: Ein neu eingerichteter Pico hat einen neuen Schlüssel. Zeigt noch ein anderer Eintrag (Hauptanzeige, Lüfter,
+    /// weitere Anzeige) auf denselben Pico – gleiche IP oder gleicher Name –, wird er gelöst. Sonst meldet sich dieser Eintrag
+    /// über die gemerkte IP weiter mit dem alten Schlüssel an („Schlüssel passt nicht“) und belegt die einzige Verbindung
+    /// des Pico, sodass auch die neue Zuordnung immer wieder abreißt.
+    /// </summary>
+    private void ReleaseOtherPicoLinks(ExtraDisplayConfig? extra, string role, string? ip, string target)
+    {
+        bool Same(string host, string lastIp) =>
+            (ip is { Length: > 0 } && (lastIp == ip || SplitHostPort(host).Host == ip))
+            || string.Equals(SplitHostPort(host).Host, target, StringComparison.OrdinalIgnoreCase);
+        var owner = extra is not null ? L.T("Anzeige „{0}“", string.IsNullOrWhiteSpace(extra.Name) ? extra.Id : extra.Name)
+            : role == PicoFanDevice.RoleDisplay ? L.T("Hauptanzeige") : L.T("Lüfter-Pico");
+
+        var d = Config.Display;
+        if (!(extra is null && role == PicoFanDevice.RoleDisplay) && d.OwnDevice && d.Connection == "wlan" && Same(d.NetworkHost, d.NetworkIp))
+        {
+            // wie beim Umstellen der Rolle per USB: die Hauptanzeige hängt danach am Lüfter-Pico
+            d.Device = "fans";
+            d.NetworkHost = d.NetworkIp = "";
+            LogEvent(null, EventCategories.Fans, L.T("Hauptanzeige war mit diesem Pico verbunden – Verbindung gelöst, der Pico gehört jetzt zu: {0}.", owner));
+        }
+        var f = Config.Fans;
+        if (!(extra is null && role == PicoFanDevice.RoleFans) && f.Connection == "wlan" && Same(f.NetworkHost, f.NetworkIp))
+        {
+            f.NetworkHost = f.NetworkIp = "";
+            LogEvent(null, EventCategories.Fans, L.T("Lüfter-Pico war mit diesem Pico verbunden – Verbindung gelöst, der Pico gehört jetzt zu: {0}.", owner));
+        }
+        foreach (var x in Config.ExtraDisplays)
+        {
+            if (x == extra || x.Settings.Connection != "wlan" || !Same(x.Settings.NetworkHost, x.Settings.NetworkIp)) continue;
+            x.Settings.NetworkHost = x.Settings.NetworkIp = "";
+            LogEvent(null, EventCategories.Fans, L.T("Anzeige „{0}“ war mit diesem Pico verbunden – Verbindung gelöst, der Pico gehört jetzt zu: {1}.",
+                string.IsNullOrWhiteSpace(x.Name) ? x.Id : x.Name, owner));
+        }
+    }
+
     internal static (string Host, int Port) SplitHostPort(string value)
     {
         var v = value.Trim();
@@ -509,6 +546,7 @@ public sealed partial class MinerHub
             Config.Fans.NetworkHost = target;
             Config.Fans.NetworkIp = ip ?? "";
         }
+        ReleaseOtherPicoLinks(extra, role, ip, target);
         Config.Save();
         LogEvent(null, EventCategories.Fans, ip is null
             ? L.T("Pico an {0} für WLAN „{1}“ eingerichtet ({2}); noch keine WLAN-Verbindung gemeldet.", name, config.Ssid, target)

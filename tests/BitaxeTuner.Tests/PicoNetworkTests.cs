@@ -246,6 +246,40 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Pico_set_up_again_for_another_display_is_released_from_the_old_one()
+    {
+        // 0.9.17: Display-Pico erst Hauptanzeige, dann für eine weitere Anzeige neu eingerichtet – die Hauptanzeige darf
+        // ihn nicht mehr über die gemerkte IP mit dem alten Schlüssel ansprechen
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var pico = new FakePico { ProgramRunning = true };
+        var config = new AppConfig();
+        using var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = _dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new SimulatedMinerClient(gamma, 1, h),
+            SerialTransportFactory = _ => pico,
+            DisplayDeviceFactory = _ => new SimulatedFanDevice(PicoFanDevice.RoleDisplay),
+        });
+        await hub.SetupPicoNetworkAsync("display", "COM9", "Heimnetz", "sehrgeheim-123", null);
+        Assert.Equal(("own", "192.0.2.10"), (config.Display.Device, config.Display.NetworkIp));
+        var other = new ExtraDisplayConfig { Name = "Wohnzimmer" };
+        other.Settings.NetworkHost = "bitaxetuner-display-alt.local";
+        other.Settings.NetworkIp = "192.0.2.77";
+        var extra = new ExtraDisplayConfig { Name = "Büro" };
+        config.ExtraDisplays.AddRange([other, extra]);
+
+        var r = await hub.SetupPicoNetworkAsync("display", "COM9", "Heimnetz", "sehrgeheim-123", "bitaxetuner-display-buero", extra.Id);
+
+        Assert.Equal("bitaxetuner-display-buero.local", extra.Settings.NetworkHost);
+        Assert.Equal("192.0.2.10", r.Ip);
+        Assert.Equal(("fans", "", ""), (config.Display.Device, config.Display.NetworkHost, config.Display.NetworkIp));   // gelöst
+        Assert.Equal("192.0.2.77", other.Settings.NetworkIp);                                                              // fremder Pico bleibt
+        Assert.NotEqual(hub.Secrets.Get(MinerHub.PicoKeyDisplay), hub.Secrets.Get(MinerHub.ExtraPicoKey(extra.Id)));
+        Assert.Contains(hub.History!.QueryEvents(DateTime.Now.AddHours(-1), DateTime.Now.AddMinutes(1)), e => e.Message.Contains("Hauptanzeige war mit diesem Pico verbunden"));
+    }
+
+    [Fact]
     public async Task Role_can_be_switched_over_usb_without_wlan()
     {
         // 0.9.12: Pico per USB als Display- oder Lüfter-Pico festlegen – ohne WLAN-Daten, ohne Thonny
