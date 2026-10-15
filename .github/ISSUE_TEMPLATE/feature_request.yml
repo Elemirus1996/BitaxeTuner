@@ -1,14 +1,19 @@
 name: Idee / Feature request
-description: Vorschlag für eine neue Funktion oder Verbesserung.
-labels: [enhancement]
+description: Vorschlag für eine neue Funktion oder Verbesserung. Landet als Idee auf dem Projekt-Board.
+labels: [enhancement, Kundenwunsch]
 body:
   - type: textarea
     id: idea
     attributes:
-      label: Was wünschst du dir?
+      label: Was wünschst du dir? / What would you like?
     validations:
       required: true
   - type: textarea
     id: why
     attributes:
-      label: Wofür brauchst du es?
+      label: Wofür brauchst du es? / What do you need it for?
+  - type: input
+    id: version
+    attributes:
+      label: BitaxeTuner-Version
+      description: Wird beim Öffnen aus der App vorausgefüllt. / Prefilled when opened from the app.

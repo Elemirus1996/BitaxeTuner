@@ -258,6 +258,7 @@ function applyStaticTexts() {
   $('#lookLabel').textContent = t('Darstellung …');
   $('#logoutLabel').textContent = t('Abmelden');
   $('#installLabel').textContent = t('Als App installieren …');
+  $('#wishLabel').textContent = t('Wunsch einreichen …');
   $('#installApp').hidden = runningAsApp();
   $('#collapseLabel').textContent = t('Einklappen');
   $('#collapse').title = t('Seitenleiste ein-/ausklappen');
@@ -368,6 +369,12 @@ function toast(text, kind = 'info', ms = 6000) {
  * des Browsers, sonst eine Anleitung passend zum Gerät – und der Hinweis auf „HTTPS ohne Warnung“, wenn der Browser die
  * Seite (selbst signiertes Zertifikat, IP-Adresse) nicht als App zulässt.
  */
+/** 0.9.16: Adresse für „Wunsch einreichen“ – GitHub-Formular mit vorausgefüllter Version. */
+function wishUrl(version) {
+  return 'https://github.com/Elemirus1996/BitaxeTuner/issues/new?template=feature_request.yml&labels=enhancement,Kundenwunsch'
+    + (version ? '&version=' + encodeURIComponent(version) : '');
+}
+
 async function installApp() {
   closePopovers();
   if (installEvent) {
@@ -440,6 +447,8 @@ async function boot() {
     localStorageSet('sideMini', mini ? '1' : '0');
   });
   $('#installApp').addEventListener('click', () => installApp());
+  // 0.9.16: Feature-Wunsch als GitHub-Issue (Vorlage mit Label „Kundenwunsch“ → Projekt-Board)
+  $('#wish').addEventListener('click', () => window.open(wishUrl(S.info?.version), '_blank', 'noopener,noreferrer'));
   $('#logout').addEventListener('click', async () => {
     await run(() => api('/logout', { method: 'POST' }));
     S.role = 'None'; S.csrf = null;

@@ -44,6 +44,10 @@
                             ToolTip="{l:T 'Anleitung, Erklärung des Protokolls und der Miner-Logs, häufige Fragen'}">
                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE897;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Hilfe'}" /></StackPanel>
                     </Button>
+                    <Button Click="OnWishClick" Style="{StaticResource GhostButton}" Foreground="#C9D3E3"
+                            ToolTip="{l:T 'Idee oder Wunsch für BitaxeTuner einreichen (GitHub-Formular, landet auf dem Projekt-Board)'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA80;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Wunsch …'}" /></StackPanel>
+                    </Button>
                     <Button Click="OnSettingsClick" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0">
                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" Foreground="{DynamicResource AccentInkBrush}" /><TextBlock Text="{l:T 'Einstellungen'}" /></StackPanel>
                     </Button>

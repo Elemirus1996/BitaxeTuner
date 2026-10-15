@@ -306,6 +306,15 @@ public partial class MainWindow : Window
 
     private void OnHelpClick(object sender, RoutedEventArgs e) => new Views.HelpWindow { Owner = this }.Show();
 
+    /// <summary>0.9.16: Feature-Wunsch als GitHub-Issue (Vorlage mit Label „Kundenwunsch“ → Projekt-Board).</summary>
+    private void OnWishClick(object sender, RoutedEventArgs e)
+    {
+        var url = "https://github.com/" + Services.UpdateChecker.Repository + "/issues/new?template=feature_request.yml&labels=enhancement,Kundenwunsch&version="
+                  + Uri.EscapeDataString(ViewModels.MainViewModel.CurrentVersion.ToString(3));
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (System.ComponentModel.Win32Exception) { MessageBox.Show(this, url, Title); }
+    }
+
     private void OnStoredLogsClick(object sender, RoutedEventArgs e)
     {
         if (Vm.SelectedDevice is { } d) new Views.StoredLogWindow(Vm.Host.Hub, d.Device) { Owner = this }.Show();
