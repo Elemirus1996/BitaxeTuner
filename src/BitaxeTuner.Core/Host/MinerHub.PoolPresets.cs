@@ -169,6 +169,15 @@ public sealed partial class MinerHub
     /// <summary>
     /// Bestätigte Übertragung: je Miner Vorschau neu rechnen, sichern, schreiben, Haupt-Pool merken, neu starten, protokollieren.
     /// </summary>
+    private void RememberPresets(HubDevice device, PoolAssignment a)
+    {
+        if (a.PrimaryId is { Length: > 0 } p) device.Config.PoolPresetPrimary = p;
+        if (a.FallbackId is { Length: > 0 } f) device.Config.PoolPresetFallback = f;
+        Config.Save();
+        _poolDeviationLayouts.Remove(device.Host);   // nach der Übertragung neu lesen
+        _poolDeviationCount.Remove(device.Host);
+    }
+
     public async Task<List<PoolAssignItem>> ApplyPoolAssignmentsAsync(IReadOnlyList<PoolAssignment> assignments, string by)
     {
         var results = new List<PoolAssignItem>();
@@ -176,14 +185,20 @@ public sealed partial class MinerHub
         {
             if (Device(a.Host) is not { } device) continue;
             var (item, patch, raw) = await PlanAssignAsync(device, a);
-            if (item.Skip is not null || patch.Count == 0) { results.Add(item); continue; }
+            if (item.Skip is not null || patch.Count == 0)
+            {
+                // 0.9.16: „bereits so eingestellt“ – Vorlage trotzdem merken (für die Abweichungs-Prüfung)
+                if (raw.Length > 0 && item.Changes.Count == 0 && patch.Count == 0) RememberPresets(device, a);
+                results.Add(item);
+                continue;
+            }
             try
             {
                 device.Applying = true;
                 await TryAutoBackupAsync(device, L.T("vor Pool-Übertragung"));
                 await device.Connection.PatchSettingsAsync(PoolWrite.Adapt(raw, patch));
                 if (PoolPresetById(a.PrimaryId) is { } primary) device.Config.HomePool = $"{primary.Url.Trim().ToLowerInvariant()}:{primary.Port}";
-                Config.Save();
+                RememberPresets(device, a);
                 await device.Connection.RestartAsync();
                 PoolState(device.Host).Layout = null;
                 device.AddLog(L.T("Pools übertragen ({0}): {1}", by, item.Text), EventCategories.Settings);

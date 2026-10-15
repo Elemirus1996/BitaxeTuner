@@ -148,6 +148,7 @@ public sealed partial class MinerHub
         CheckDailyReport(now);
         RecordHealth(now);
         TickSystemHealth(now);   // 0.9.16: Systemzustand alle 10 min
+        TickPoolDeviations(now); // 0.9.16: Abweichung von der Pool-Vorlage
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

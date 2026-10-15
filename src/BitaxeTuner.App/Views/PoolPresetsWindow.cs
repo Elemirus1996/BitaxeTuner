@@ -417,6 +417,16 @@ public sealed class PoolPresetsWindow : Window
             Add(current, 1);
             var primary = PresetChoice();
             var fallback = PresetChoice();
+            // 0.9.16: weicht von der zuletzt übertragenen Vorlage ab → Hinweis und Vorlagen vorauswählen („wieder angleichen“)
+            if (Hub.PoolDeviationOf(d) is { } dev)
+            {
+                current.ToolTip = string.Join("\n", dev.Differences);
+                Select(primary, dev.PrimaryId);
+                Select(fallback, dev.FallbackId);
+                var warn = new TextBlock { Text = "⚠ " + L.T("weicht von der Vorlage ab"), FontSize = 11, ToolTip = current.ToolTip, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+                warn.SetResourceReference(TextBlock.ForegroundProperty, "WarnBrush");
+                Add(warn, 4);
+            }
             Add(primary, 2);
             Add(fallback, 3);
             _rows[d.Host] = (primary, fallback, current);
@@ -448,6 +458,13 @@ public sealed class PoolPresetsWindow : Window
     }
 
     private static string? IdOf(ComboBox c) => (c.SelectedItem as ComboBoxItem)?.Tag as string;
+
+    private static void Select(ComboBox c, string? id)
+    {
+        if (id is null) return;
+        foreach (var item in c.Items.OfType<ComboBoxItem>())
+            if (item.Tag as string == id) { c.SelectedItem = item; return; }
+    }
 
     private async Task TransferAsync()
     {

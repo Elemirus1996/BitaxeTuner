@@ -350,6 +350,10 @@ public sealed class DeviceConfig
     /// </summary>
     public string? HomePool { get; set; }
 
+    /// <summary>0.9.16: zuletzt übertragene Pool-Vorlagen (Id) – Grundlage für „weicht von der Vorlage ab“. Additiv.</summary>
+    public string? PoolPresetPrimary { get; set; }
+    public string? PoolPresetFallback { get; set; }
+
     /// <summary>0.9.11: automatische Pool-Umschaltung (Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares).</summary>
     public PoolSwitchRule PoolAuto { get; set; } = new();
 

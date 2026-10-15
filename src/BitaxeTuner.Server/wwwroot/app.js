@@ -3911,7 +3911,12 @@ async function renderPools() {
           h('tr', { class: 'muted' }, h('td', {}, h('i', {}, t('alle Miner'))), h('td', {}), h('td', {}, all('primary')), h('td', {}, all('fallback'))),
           data.devices.map(d => h('tr', {},
             h('td', { style: 'white-space:nowrap' }, h('span', { class: `dot ${d.online ? 'on' : 'off'}`, style: 'display:inline-block;width:8px;height:8px;margin-right:8px;vertical-align:middle' }), d.name),
-            h('td', {}, currentText(d)),
+            h('td', {}, currentText(d),
+              // 0.9.16: weicht von der zuletzt übertragenen Vorlage ab
+              d.deviation?.length ? h('div', { class: 'small warn', style: 'margin-top:4px' }, '⚠ ', d.deviation.join(' · '),
+                h('div', { class: 'row', style: 'margin-top:4px' },
+                  h('button', { class: 'btn small', onclick: () => { choice[d.id] = { primary: d.assigned.primary || '', fallback: d.assigned.fallback || '' }; transfer(); } }, t('wieder angleichen …')),
+                  h('button', { class: 'btn small', onclick: async () => { if (await run(() => api(`/pool-presets/forget/${d.id}`, { method: 'POST', body: {} }), t('Wird nicht mehr überwacht.'))) { d.deviation = null; drawAssign(); } } }, t('so lassen')))) : null),
             h('td', {}, select(opts, choice[d.id].primary, v => { choice[d.id].primary = v; })),
             h('td', {}, select(opts, choice[d.id].fallback, v => { choice[d.id].fallback = v; }))))))),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: transfer }, t('Vorschau und übertragen …'))));

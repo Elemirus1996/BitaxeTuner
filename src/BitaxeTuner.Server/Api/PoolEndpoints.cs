@@ -152,7 +152,21 @@ public static class PoolEndpoints
         g.MapGet("/pool-presets", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
         {
             presets = h.Config.PoolPresets.Select(PresetJson).ToList(),
-            devices = h.Devices.Select(d => new { id = Dto.DeviceId(d.Host), name = d.Title, online = d.State.Online, homePool = d.Config.HomePool }).ToList(),
+            devices = h.Devices.Select(d => new
+            {
+                id = Dto.DeviceId(d.Host), name = d.Title, online = d.State.Online, homePool = d.Config.HomePool,
+                // 0.9.16: gemerkte Vorlagen und Abweichung davon
+                assigned = new { primary = d.Config.PoolPresetPrimary, fallback = d.Config.PoolPresetFallback },
+                deviation = h.PoolDeviationOf(d)?.Differences,
+            }).ToList(),
+        })));
+
+        // 0.9.16: Abweichung ist gewollt – Vorlagen dieses Miners nicht mehr überwachen
+        g.MapPost("/pool-presets/forget/{id}", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var d = h.Devices.FirstOrDefault(x => Dto.DeviceId(x.Host) == id) ?? throw new KeyNotFoundException(L.T("Miner nicht gefunden."));
+            h.ForgetPoolPresets(d, L.T("Browser"));
+            return new { ok = true };
         })));
 
         g.MapPut("/pool-presets", async (PoolPresetsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>

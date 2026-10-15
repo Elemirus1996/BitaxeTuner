@@ -85,6 +85,44 @@ public sealed class PoolPresetTests : IDisposable
     }
 
     [Fact]
+    public async Task Deviation_from_the_preset_is_reported_after_two_checks()
+    {
+        // 0.9.16: Vorlage wird gemerkt; weicht der Miner ab, kommt nach zwei Prüfungen Protokoll und Push
+        _hub.Config.Notifications.Provider = "ntfy";
+        _hub.Config.Notifications.NtfyTopic = "t";
+        _hub.Notify.TransportOverride = (_, _, _) => Task.CompletedTask;
+        var sent = new List<string>();
+        _hub.Notify.Sending += (key, _, _, _) => sent.Add(key);
+        Assert.True(await _hub.PollNowAsync());
+        SavePresets();
+        var d = _hub.Device("10.0.0.51")!;
+        await _hub.ApplyPoolAssignmentsAsync([new PoolAssignment(d.Host, "solo", "pps")], "Test");
+        Assert.Equal(("solo", "pps"), (d.Config.PoolPresetPrimary, d.Config.PoolPresetFallback));
+        Assert.True(await _hub.PollNowAsync());
+        var now = DateTime.Now;
+        await _hub.CheckPoolDeviationsForTestAsync(now);
+        Assert.True(_hub.PoolDeviationOf(d) is null, string.Join(" / ", _hub.PoolDeviationOf(d)?.Differences ?? []));   // passt
+        Assert.Null(_hub.PoolDeviationOf(_hub.Device("10.0.0.52")!));    // keine Vorlage gemerkt
+
+        // Vorlage zeigt jetzt auf einen anderen Pool (wie eine Änderung direkt in AxeOS)
+        var presets = _hub.Config.PoolPresets.Select(p => p.Clone()).ToList();
+        presets.Single(p => p.Id == "solo").Url = "neu.example.org";
+        _hub.SavePoolPresets(presets, "Test");
+        var dev = _hub.PoolDeviationOf(d)!;
+        Assert.Contains(dev.Differences, x => x.Contains("solo.example.org:3333") && x.Contains("neu.example.org:3333"));
+
+        sent.Clear();
+        await _hub.CheckPoolDeviationsForTestAsync(now);
+        Assert.Empty(sent);                                              // einmal kann ein Umschalten sein
+        await _hub.CheckPoolDeviationsForTestAsync(now.AddMinutes(10));
+        Assert.Equal([$"pool-deviation:{d.Host}"], sent);
+        Assert.Contains(d.LogLines, l => l.Contains("weichen von der Vorlage ab"));
+
+        _hub.ForgetPoolPresets(d, "Test");                               // „so lassen“
+        Assert.Null(_hub.PoolDeviationOf(d));
+    }
+
+    [Fact]
     public async Task Legacy_firmware_gets_the_old_fields_and_same_preset_twice_is_refused()
     {
         Assert.True(await _hub.PollNowAsync());
