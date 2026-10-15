@@ -2501,18 +2501,29 @@ function poolRuleEditor(rule) {
     });
     return i;
   };
+  // 0.9.17: je Zeitfenster Ersatz-Pool oder eine Pool-Vorlage (z. B. Mining-Party)
+  let presets = [];
+  const poolSelect = e => {
+    const s = h('select', { onchange: ev => { e.preset = ev.target.value; } },
+      h('option', { value: '' }, t('Ersatz-Pool')), ...presets.map(p => h('option', { value: p.id }, `${p.name} (${p.url}:${p.port})`)));
+    s.value = presets.some(p => p.id === e.preset) ? e.preset : '';
+    return s;
+  };
   const renderEntries = () => fill(entries, ...rule.entries.map((e, i) => h('div', { class: 'form' },
     h('div', {}, h('label', {}, t('Tage (z. B. Mo-Fr, Sa,So, täglich)')), daysInput(e)),
     h('div', {}, h('label', {}, t('von (Uhr)')), numInput(e, 'fromHour')),
     h('div', {}, h('label', {}, t('bis (Uhr)')), numInput(e, 'toHour')),
+    h('div', {}, h('label', {}, t('Pool')), poolSelect(e)),
     h('button', { class: 'btn small ghost', onclick: () => { rule.entries.splice(i, 1); renderEntries(); } }, t('Entfernen')))));
   renderEntries();
+  api('/pool-presets').then(d => { presets = d.presets || []; renderEntries(); }).catch(() => { /* ohne Vorlagen: nur Ersatz-Pool */ });
   return h('div', { class: 'stack' },
     checkInput(rule, 'enabled', t('eingeschaltet')),
     h('h3', {}, t('Ersatz-Pool nach Zeitplan')),
     h('p', { class: 'muted small' }, t('In diesen Zeitfenstern arbeitet der Miner auf dem Ersatz-Pool, danach wieder auf dem Haupt-Pool.')),
+    h('p', { class: 'muted small' }, t('Statt des Ersatz-Pools kann je Zeitfenster eine Pool-Vorlage gewählt werden (z. B. Mining-Party am Samstagabend). Sie wird für das Fenster als Ersatz-Pool eingetragen; danach kehrt der Miner zum Haupt-Pool zurück und der bisherige Ersatz-Pool wird wieder eingetragen. Der Haupt-Pool bleibt unberührt.')),
     entries,
-    h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { rule.entries.push({ days: 127, fromHour: 0, toHour: 6 }); renderEntries(); } }, t('Zeitfenster hinzufügen'))),
+    h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { rule.entries.push({ days: 127, fromHour: 0, toHour: 6, preset: '' }); renderEntries(); } }, t('Zeitfenster hinzufügen'))),
     h('h3', {}, t('Bei Problemen')),
     checkInput(rule, 'onBadShares', t('auf den Ersatz-Pool wechseln, wenn die Pool-Überwachung zu viele abgelehnte Shares oder zu lange Antwortzeiten meldet')),
     h('div', { class: 'form' }, h('div', {}, h('label', {}, t('so lange (min)')), numInput(rule, 'badMinutes'))),

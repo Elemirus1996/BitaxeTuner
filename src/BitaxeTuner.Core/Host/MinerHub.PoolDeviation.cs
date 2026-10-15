@@ -34,6 +34,7 @@ public sealed partial class MinerHub
     public PoolDeviation? PoolDeviationOf(HubDevice d)
     {
         if (!d.State.Online || d.State.Info is not { } i) return null;
+        if (d.Config.PoolScheduleSaved is not null) return null;   // 0.9.17: Pool-Vorlage nach Zeitplan aktiv – gewollt
         var primary = PoolPresetById(d.Config.PoolPresetPrimary);
         var fallback = PoolPresetById(d.Config.PoolPresetFallback);
         if (primary is null && fallback is null) return null;
