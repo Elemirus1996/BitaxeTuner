@@ -80,6 +80,15 @@ public sealed class StorageWindow : Window
                                         (t.Bytes is { } b ? " · " + Mb(b) : ""), muted: true));
         }
 
+        // 0.9.16: Systemzustand
+        _body.Children.Add(Text(L.T("Systemzustand"), bold: true));
+        foreach (var c in _hub.SystemChecks(DateTime.Now))
+        {
+            var line = Text((c.State == "ok" ? "✓ " : c.State == "warn" ? "! " : "✕ ") + c.Label + ": " + c.Value + (c.Hint is { Length: > 0 } hint ? " – " + hint : ""), muted: c.State == "ok");
+            if (c.Problem) line.SetResourceReference(TextBlock.ForegroundProperty, "DangerBrush");
+            _body.Children.Add(line);
+        }
+
         _body.Children.Add(Text(L.T("Sicherung im Datenordner"), bold: true));
         var files = _hub.LocalBackups();
         if (files.Count == 0) _body.Children.Add(Text(L.T("keine"), muted: true));

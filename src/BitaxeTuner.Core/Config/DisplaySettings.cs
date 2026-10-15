@@ -165,6 +165,8 @@ public sealed class DisplayPages
     public bool Profit { get; set; }
     /// <summary>0.9.16: Solo-Chance je Coin.</summary>
     public bool Solo { get; set; }
+    /// <summary>0.9.16: Systemzustand (Speicher, Sicherung, Pi, Zertifikat …).</summary>
+    public bool System { get; set; }
 }
 
 /// <summary>

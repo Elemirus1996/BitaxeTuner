@@ -102,6 +102,30 @@ builder.WebHost.ConfigureKestrel(k =>
 });
 
 var app = builder.Build();
+
+// 0.9.16 Systemzustand: was nur der Server kennt – Zertifikat für „HTTPS ohne Warnung“ und ein verfügbares Update
+HubService.ExtraSystemChecks = h =>
+{
+    var checks = new List<BitaxeTuner.Core.Host.SystemCheck>();
+    var s = h.Config.PublicHttps;
+    if (s.Enabled)
+    {
+        var st = app.Services.GetRequiredService<PublicCertificates>().Status(s, h.Secrets.Has(PublicCertificates.TokenKey));
+        var label = BitaxeTuner.Core.I18n.L.T("HTTPS-Zertifikat");
+        if (st.NotAfter is { } until)
+        {
+            var days = (until - DateTime.Now).TotalDays;
+            checks.Add(new("cert", label, BitaxeTuner.Core.I18n.L.T("gültig bis {0:d}", until), days < 7 ? "bad" : days < 14 ? "warn" : "ok",
+                days < 14 ? BitaxeTuner.Core.I18n.L.T("Wird normalerweise 30 Tage vorher erneuert – Einstellungen → Verbindung prüfen: {0}", st.LastError ?? "–") : null));
+        }
+        else if (st.LastError is { Length: > 0 } err)
+            checks.Add(new("cert", label, BitaxeTuner.Core.I18n.L.T("kein Zertifikat"), "warn", err));
+    }
+    var updater = app.Services.GetRequiredService<ServerUpdater>();
+    if (updater.Latest is { } latest)
+        checks.Add(new("update-available", BitaxeTuner.Core.I18n.L.T("Server-Update"), BitaxeTuner.Core.I18n.L.T("{0} verfügbar", latest.Tag), "ok"));
+    return checks;
+};
 settings = app.Services.GetRequiredService<ServerSettings>(); // Tests ersetzen die Einstellungen per DI
 // Neuinstallation mit HTTPS: Wahl merken, damit sie nach dem Anlegen von Zugangsdaten/Einstellungen bestehen bleibt
 if (settings.Https && !settings.HttpsFixed && ServerSettings.ReadStoredHttps(settings.DataDirectory) is null)

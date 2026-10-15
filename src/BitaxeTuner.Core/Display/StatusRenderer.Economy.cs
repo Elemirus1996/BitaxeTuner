@@ -114,6 +114,32 @@ public static partial class StatusRenderer
         }
     }
 
+    // ---------- Systemzustand (0.9.16) ----------
+
+    private static void DrawSystem(IImageProcessingContext ctx, DisplayModel m)
+    {
+        var checks = m.System ?? [];
+        var problems = checks.Count(c => c.Problem);
+        PageHeader(ctx, m, L.T("Systemzustand"));
+        var label = Regular.Value.CreateFont(checks.Count > 8 ? 21 : 24);
+        var value = Bold.Value.CreateFont(checks.Count > 8 ? 21 : 24);
+        var row = Math.Min(40f, 330f / Math.Max(1, checks.Count));
+        var y = 80f;
+        foreach (var c in checks.Take(9))
+        {
+            var color = c.Problem ? Red : Ink;
+            var dot = new SixLabors.ImageSharp.Drawing.EllipsePolygon(28, y + row / 2 - 2, 9);
+            if (c.Problem) ctx.Fill(Crisp, Red, dot); else ctx.Draw(Crisp, Ink, 2, dot);
+            Text(ctx, Fit(c.Label, label, 300), label, 48, y, Ink);
+            TextRight(ctx, Fit(c.Value, value, Width - 380), value, Width - 16, y, color);
+            y += row;
+        }
+        var summary = problems == 0 ? L.T("Alles in Ordnung.") : L.T("{0} Punkt(e) brauchen Aufmerksamkeit – Details in den Einstellungen → System.", problems);
+        var small = Regular.Value.CreateFont(19);
+        Text(ctx, Fit(summary, small, Width - 32), small, 16, 414, problems == 0 ? Ink : Red);
+        DrawFooter(ctx, m);
+    }
+
     /// <summary>Prozent mit drei gültigen Stellen, sehr kleine Werte als „1 : N“.</summary>
     private static string SoloPercent(double p)
     {

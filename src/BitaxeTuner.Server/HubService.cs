@@ -36,6 +36,9 @@ public sealed class HubService : IHostedService, IDisposable
     /// <summary>Aktueller Motor. Wird nach einer Datenübernahme ersetzt (<see cref="HubReplaced"/>).</summary>
     public MinerHub Hub { get; private set; }
 
+    /// <summary>0.9.16: Prüfungen, die nur der Server kennt (Zertifikat, Update) – gesetzt in Program.cs.</summary>
+    public static Func<MinerHub, IEnumerable<SystemCheck>>? ExtraSystemChecks { get; set; }
+
     /// <summary>Neuer Motor nach Datenübernahme (im Hub-Kontext).</summary>
     public event Action<MinerHub>? HubReplaced;
 
@@ -47,6 +50,7 @@ public sealed class HubService : IHostedService, IDisposable
         Core.I18n.Loc.Configure(config.Language); // Sprache für Push, Tagesbericht, E-Paper, Protokoll
         var hub = new MinerHub(config, new MinerHubOptions
         {
+            ExtraSystemChecks = h => ExtraSystemChecks?.Invoke(h) ?? [],
             DataDirectory = Settings.DataDirectory,
             ClientFactory = _options?.ClientFactory,
             OnlineChecks = _options?.OnlineChecks ?? true,

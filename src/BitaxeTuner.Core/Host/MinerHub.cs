@@ -33,6 +33,9 @@ public sealed class MinerHubOptions
     /// <summary>Adresse der Browser-Oberfläche im Heimnetz (QR-Code auf dem E-Paper); vom Server gesetzt.</summary>
     public Func<string?>? WebUrl { get; init; }
 
+    /// <summary>0.9.16: zusätzliche Prüfungen für den Systemzustand (Server: HTTPS-Zertifikat, verfügbares Update).</summary>
+    public Func<MinerHub, IEnumerable<SystemCheck>>? ExtraSystemChecks { get; init; }
+
     /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
     public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
 

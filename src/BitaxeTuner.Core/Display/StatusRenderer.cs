@@ -58,6 +58,8 @@ public sealed record DisplayModel(
     public DisplayProfit? Profit { get; init; }
     /// <summary>0.9.16: Solo-Chance je Coin.</summary>
     public IReadOnlyList<DisplaySoloCoin>? Solo { get; init; }
+    /// <summary>0.9.16: Systemzustand.</summary>
+    public IReadOnlyList<Host.SystemCheck>? System { get; init; }
 }
 
 /// <summary>
@@ -107,6 +109,7 @@ public static partial class StatusRenderer
                 case DisplayScene.Image: DrawPicture(ctx, m); break;
                 case DisplayScene.Profit: DrawProfit(ctx, m); break;
                 case DisplayScene.Solo: DrawSolo(ctx, m); break;
+                case DisplayScene.System: DrawSystem(ctx, m); break;
                 case DisplayScene.Chart when m.Chart is not null: DrawChart(ctx, m); break;
                 case DisplayScene.Soak when m.Soaks is not null: DrawSoak(ctx, m); break;
                 case DisplayScene.Network when m.Network is not null: DrawNetwork(ctx, m); break;

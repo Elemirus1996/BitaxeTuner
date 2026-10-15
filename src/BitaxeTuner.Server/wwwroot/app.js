@@ -3597,6 +3597,7 @@ async function renderSettings() {
     kioskCard(status?.groups || []),
     connectionCard(),
     metricsCard(),
+    systemHealthCard(),
     backupCard(),
     mqttCard(),
     plugsCard(),
@@ -3623,7 +3624,7 @@ const SETTINGS_SECTIONS = () => [
   ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
   ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
   ['access', t('Zugang & Sicherheit'), 'shield', [t('Ansicht-PIN'), t('Ansicht-Zugänge'), t('Kiosk / Wand-Tablet'), t('Verbindung'), t('Admin-Passwort ändern')]],
-  ['system', t('System'), 'server', [t('Abfrage und Speicher'), t('Sicherung'), t('Server-Update')]],
+  ['system', t('System'), 'server', [t('Systemzustand'), t('Abfrage und Speicher'), t('Sicherung'), t('Server-Update')]],
 ];
 /** Karten, deren Felder mit „Speichern“ übernommen werden (übrige Karten speichern selbst). */
 const SETTINGS_FORM_CARDS = () => [t('Strompreis'), t('Grenzwerte und Tuning'), t('Wallet-Abfrage'), t('Ansicht-PIN'), t('Abfrage und Speicher'),
@@ -4223,7 +4224,8 @@ function displaySettingsFields(s, pic) {
       checkInput(s.pages, 'news', t('Neuigkeiten')),
       checkInput(s.pages, 'image', t('Eigenes Bild')),
       checkInput(s.pages, 'profit', t('Ertrag & Strom')),
-      checkInput(s.pages, 'solo', t('Solo-Chance'))),
+      checkInput(s.pages, 'solo', t('Solo-Chance')),
+      checkInput(s.pages, 'system', t('Systemzustand'))),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -4309,7 +4311,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['System', t('Systemzustand')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')
@@ -5160,6 +5162,25 @@ function viewersCard(groups) {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Ansicht-Zugänge')),
     h('p', { class: 'muted small' }, t('Eigene PIN je Person, nur zum Ansehen. Mit Gruppen sieht der Zugang nur diese Miner – ohne Summen, Verläufe und E-Paper über alle Miner. Die allgemeine PIN oben sieht weiterhin alles. Anmelden, Anlegen und Widerrufen stehen im Protokoll.')),
     body);
+}
+
+/** 0.9.16: Systemzustand – Speicher, Temp-Ordner, Sicherung, USB-Stick, Pi (RAM, Temperatur, Strom), Zertifikat, Update. */
+function systemHealthCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const load = async () => {
+    const d = await api('/system/health').catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
+    if (!d) return;
+    const mark = { ok: ['ok', '✓'], warn: ['warn', '!'], bad: ['danger', '✕'] };
+    fill(body,
+      h('p', { class: 'muted small' }, t('Wird alle 10 Minuten geprüft. Bei Problemen kommt ein Push (Kategorie Wartung, höchstens einmal am Tag je Punkt).')),
+      h('div', { class: 'table-wrap' }, h('table', {}, h('tbody', {}, d.checks.map(c => h('tr', {},
+        h('td', { class: mark[c.state]?.[0], style: 'width:1.5em;font-weight:700' }, mark[c.state]?.[1] || ''),
+        h('td', {}, c.label),
+        h('td', { class: c.state === 'ok' ? '' : mark[c.state]?.[0] }, c.value, c.hint ? h('div', { class: 'muted small' }, c.hint) : null)))))),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: load }, t('Neu prüfen'))));
+  };
+  load();
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Systemzustand')), body);
 }
 
 function backupCard() {

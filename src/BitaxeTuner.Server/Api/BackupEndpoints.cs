@@ -63,6 +63,12 @@ public static class BackupEndpoints
             return new { ok = true, storage = StorageJson(h.Storage()) };
         })));
 
+        // 0.9.16: Systemzustand (Speicher, Temp, Sicherung, USB, Pi, Zertifikat, Update)
+        g.MapGet("/system/health", async (HubService hub) => Results.Json(await hub.RunAsync(h => new
+        {
+            checks = h.SystemChecks(DateTime.Now).Select(c => new { key = c.Key, label = c.Label, value = c.Value, state = c.State, hint = c.Hint }).ToList(),
+        })));
+
         // 0.9.16: leeren Platz in history.db freigeben
         g.MapPost("/backup/compact", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
