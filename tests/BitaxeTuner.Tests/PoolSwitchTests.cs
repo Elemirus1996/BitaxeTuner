@@ -177,6 +177,40 @@ public sealed class PoolSwitchTests : IDisposable
     }
 
     [Fact]
+    public async Task Schedule_with_pool_preset_writes_it_as_backup_and_restores_the_old_backup()
+    {
+        // 0.9.17: „Mining-Party“ – Pool-Vorlage je Zeitfenster; Haupt-Pool bleibt, alter Ersatz-Pool kommt zurück
+        Assert.True(await _hub.PollNowAsync());
+        var d = D("10.0.0.41");
+        _hub.SavePoolPresets([new PoolPreset { Name = "Party", Url = "party.example", Port = 5555, User = "party.wallet", Worker = "none" }], "Test");
+        var party = _hub.Config.PoolPresets.Single();
+        var rule = new PoolSwitchRule { Enabled = true, ReturnHome = false, Entries = [new ScheduleEntry { Days = 127, FromHour = 10, ToHour = 14, Preset = party.Id }] };
+        _hub.SavePoolRule(d, rule);
+        Assert.Equal(party.Id, d.Config.PoolAuto.Entries.Single().Preset);
+        Assert.Contains("presets:", d.Config.PoolAuto.Describe());
+        Assert.Contains("Party", MinerHub.PoolRuleText(d.Config.PoolAuto, d.Title, _hub.Config.PoolPresets));
+        _hub.PoolReachable = (_, _) => Task.FromResult(true);
+        var sim = _sims[d.Host];
+
+        await _hub.EvaluatePoolRuleAsync(d, d.Config.PoolAuto, null, _now);                 // 12 Uhr → Vorlage aktiv
+        Assert.Equal(("party.example", 5555, "party.wallet"), sim.PoolEntries[sim.PoolIndexes.Primary]);
+        Assert.Equal("pool.demo.invalid", sim.PoolEntries[sim.PoolIndexes.Secondary].Url);   // Haupt-Pool unberührt
+        Assert.Equal("backup.demo.invalid:4444", d.Config.PoolScheduleSaved!.Address);
+        Assert.Null(_hub.PoolDeviationOf(d));
+
+        await _hub.EvaluatePoolRuleAsync(d, d.Config.PoolAuto, null, _now.AddHours(3));     // 15 Uhr → zurück zum Haupt-Pool
+        Assert.Equal("pool.demo.invalid", sim.PoolEntries[sim.PoolIndexes.Primary].Url);
+        await _hub.EvaluatePoolRuleAsync(d, d.Config.PoolAuto, null, _now.AddHours(3).AddMinutes(2));   // alten Ersatz-Pool zurückschreiben
+        Assert.Equal("backup.demo.invalid", sim.PoolEntries[sim.PoolIndexes.Secondary].Url);
+        Assert.Null(d.Config.PoolScheduleSaved);
+
+        // Unbekannte Vorlage fällt beim Speichern weg; ohne Vorlage bleibt die Prüfsumme wie bisher
+        _hub.SavePoolRule(d, new PoolSwitchRule { Entries = [new ScheduleEntry { Days = 127, FromHour = 1, ToHour = 2, Preset = "gibtsnicht" }] });
+        Assert.Equal("", d.Config.PoolAuto.Entries.Single().Preset);
+        Assert.DoesNotContain("presets:", d.Config.PoolAuto.Describe());
+    }
+
+    [Fact]
     public async Task Bad_shares_switch_to_the_backup_and_return_only_when_home_answers()
     {
         Assert.True(await _hub.PollNowAsync());

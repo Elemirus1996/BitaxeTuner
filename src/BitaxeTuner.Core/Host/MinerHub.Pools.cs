@@ -201,7 +201,7 @@ public sealed partial class MinerHub
         return null;
     }
 
-    private static void NormalizePoolRule(PoolSwitchRule rule)
+    private void NormalizePoolRule(PoolSwitchRule rule)
     {
         rule.Entries ??= [];
         foreach (var e in rule.Entries)
@@ -209,7 +209,8 @@ public sealed partial class MinerHub
             e.FromHour = Math.Clamp(e.FromHour, 0, 23);
             e.ToHour = Math.Clamp(e.ToHour, 1, 24);
             e.Days &= 127;
-            e.Preset = "";
+            // 0.9.17: Pool-Vorlage je Zeitfenster (leer = Ersatz-Pool); unbekannte Vorlagen fallen weg
+            e.Preset = PoolPresetById(e.Preset?.Trim()) is { } p ? p.Id : "";
         }
         rule.ReturnAfterMinutes = Math.Clamp(rule.ReturnAfterMinutes, 5, 24 * 60);
         rule.BadMinutes = Math.Clamp(rule.BadMinutes, 5, 24 * 60);
@@ -262,10 +263,13 @@ public sealed partial class MinerHub
     }
 
     /// <summary>Freigabetext: was die Regel tut (Desktop und Browser gleich).</summary>
-    public static string PoolRuleText(PoolSwitchRule rule, string who)
+    public static string PoolRuleText(PoolSwitchRule rule, string who, IReadOnlyList<PoolPreset>? presets = null)
     {
         var lines = new List<string>();
-        foreach (var e in rule.Entries) lines.Add(L.T("• {0} {1:00}–{2:00} Uhr → Ersatz-Pool, danach zurück zum Haupt-Pool", e.DaysText, e.FromHour, e.ToHour));
+        foreach (var e in rule.Entries)
+            lines.Add(presets?.FirstOrDefault(p => p.Id == e.Preset) is { } preset
+                ? L.T("• {0} {1:00}–{2:00} Uhr → Pool-Vorlage „{3}“ ({4}), danach zurück zum Haupt-Pool; der bisherige Ersatz-Pool wird wieder eingetragen", e.DaysText, e.FromHour, e.ToHour, preset.Name, preset.Text)
+                : L.T("• {0} {1:00}–{2:00} Uhr → Ersatz-Pool, danach zurück zum Haupt-Pool", e.DaysText, e.FromHour, e.ToHour));
         if (rule.OnBadShares) lines.Add(L.T("• Meldet die Pool-Überwachung {0} min lang zu viele abgelehnte Shares oder zu lange Antwortzeiten → Ersatz-Pool", rule.BadMinutes));
         if (rule.ReturnHome) lines.Add(L.T("• Läuft der Miner auf dem Ersatz-Pool und ist der Haupt-Pool wieder erreichbar → nach {0} min zurück zum Haupt-Pool", rule.ReturnAfterMinutes));
         if (lines.Count == 0) lines.Add(L.T("• (keine Bedingung gewählt – die Regel tut nichts)"));
@@ -312,15 +316,30 @@ public sealed partial class MinerHub
         var layout = st.Layout;
         var home = layout.Home(device.Config.HomePool);
         var active = layout.Active;
-        if (home is null || active is null || layout.Backup(device.Config.HomePool) is null) return;
+        if (home is null || active is null) return;
         var onHome = active == home;
         st.OffHomeSince = onHome ? null : st.OffHomeSince ?? now;
+        var entry = rule.ScheduledEntry(now);
+        var party = entry is { Preset.Length: > 0 } ? PoolPresetById(entry.Preset) : null;
+
+        // 0.9.17: Fenster mit Pool-Vorlage vorbei und wieder auf dem Haupt-Pool → bisherigen Ersatz-Pool zurückschreiben
+        if (onHome && party is null && device.Config.PoolScheduleSaved is { } saved)
+        {
+            await RestoreScheduledFallbackAsync(device, layout, saved, st);
+            return;
+        }
+        if (party is null && layout.Backup(device.Config.HomePool) is null) return;
 
         var bad = onHome && rule.OnBadShares && (PoolBadOverride?.Invoke(device) ?? PoolIsBad(device.Host));
         st.BadSince = bad ? st.BadSince ?? now : null;
         if (now - st.LastSwitch < PoolMinGap) return;
 
         var who = group is null ? "" : L.T(" (Gruppe „{0}“)", group);
+        if (party is not null)
+        {
+            await ScheduledPresetAsync(device, layout, party, who, st, now);
+            return;
+        }
         if (rule.BackupScheduled(now))
         {
             if (onHome && (await SwitchPoolAsync(device, "backup", L.T("Zeitplan") + who, automatic: true, at: now)).Plan is not null)
@@ -335,7 +354,7 @@ public sealed partial class MinerHub
         }
         // Zurück: nach einem Zeitplan-Fenster sofort, sonst erst nach der Wartezeit – jeweils nur, wenn der Haupt-Pool antwortet
         if (onHome) { st.ScheduledSwitch = false; return; }
-        if (st.ScheduledSwitch && await PoolReachable(home.Url, home.Port))
+        if ((st.ScheduledSwitch || device.Config.PoolScheduleSaved is not null) && await PoolReachable(home.Url, home.Port))
         {
             await SwitchPoolAsync(device, "home", L.T("Zeitplan beendet") + who, automatic: true, at: now);
             st.ScheduledSwitch = false;
@@ -343,6 +362,80 @@ public sealed partial class MinerHub
         else if (rule.ReturnHome && st.OffHomeSince is { } off && now - off >= TimeSpan.FromMinutes(rule.ReturnAfterMinutes)
                  && await PoolReachable(home.Url, home.Port))
             await SwitchPoolAsync(device, "home", L.T("Haupt-Pool wieder erreichbar") + who, automatic: true, at: now);
+    }
+
+    /// <summary>
+    /// 0.9.17: Zeitfenster mit Pool-Vorlage. Steht die Vorlage schon auf dem Miner, wird nur umgeschaltet; sonst wird sie in den
+    /// Ersatz-Platz geschrieben (der bisherige Ersatz-Pool wird gemerkt) und aktiviert. Der Haupt-Pool bleibt unberührt.
+    /// </summary>
+    private async Task ScheduledPresetAsync(HubDevice device, PoolLayout layout, PoolPreset party, string who, PoolAutoState st, DateTime now)
+    {
+        var address = $"{party.Url.Trim().ToLowerInvariant()}:{party.Port}";
+        if (layout.Active?.Address == address) { st.ScheduledSwitch = true; return; }
+        var reason = L.T("Zeitplan: Pool-Vorlage „{0}“", party.Name) + who;
+        var home = layout.Home(device.Config.HomePool);
+        if (layout.Pools.FirstOrDefault(p => p.Address == address && p != home) is { } slot)
+        {
+            if ((await SwitchPoolAsync(device, slot.Key, reason, automatic: true, at: now)).Plan is not null) st.ScheduledSwitch = true;
+            return;
+        }
+        // Nur aus dem Normalzustand (Haupt-Pool vorn, kein Ausweichen der Firmware) in den Ersatz-Platz schreiben
+        var raw = await device.Connection.GetRawInfoAsync();
+        var current = PoolLayout.Parse(raw);
+        home = current.Home(device.Config.HomePool);
+        if (home is null || current.Primary != home || current.UsingFallback) return;
+        var old = current.Secondary;
+        if (device.Config.PoolScheduleSaved is null)
+        {
+            device.Config.PoolScheduleSaved = new SavedPoolSlot(old?.Url ?? "", old?.Port ?? 0, old?.User ?? "");
+            Config.Save();
+        }
+        var patch = new Dictionary<string, object>
+        {
+            ["fallbackStratumURL"] = party.Url.Trim(), ["fallbackStratumPort"] = party.Port,
+            ["fallbackStratumUser"] = party.UserFor(device.Title, old?.User ?? home.User),
+        };
+        if (party.Password.Length > 0) patch["fallbackStratumPassword"] = party.Password;
+        try
+        {
+            device.Applying = true;
+            await device.Connection.PatchSettingsAsync(PoolWrite.Adapt(raw, patch));
+        }
+        finally
+        {
+            device.Applying = false;
+        }
+        st.Layout = null;
+        device.AddLog(L.T("Pool-Automatik: Vorlage „{0}“ als Ersatz-Pool eingetragen (bisher {1}).", party.Name, old?.Text ?? "–"), EventCategories.Automation);
+        if ((await SwitchPoolAsync(device, "backup", reason, automatic: true, at: now)).Plan is not null) st.ScheduledSwitch = true;
+    }
+
+    /// <summary>0.9.17: nach dem Fenster den gemerkten Ersatz-Pool zurückschreiben (Haupt-Pool läuft schon wieder).</summary>
+    private async Task RestoreScheduledFallbackAsync(HubDevice device, PoolLayout layout, SavedPoolSlot saved, PoolAutoState st)
+    {
+        var home = layout.Home(device.Config.HomePool);
+        if (home is null || layout.Primary != home || layout.UsingFallback) return;
+        if (saved.Url.Length > 0 && layout.Secondary?.Address != saved.Address)
+        {
+            var raw = await device.Connection.GetRawInfoAsync();
+            try
+            {
+                device.Applying = true;
+                await device.Connection.PatchSettingsAsync(PoolWrite.Adapt(raw, new Dictionary<string, object>
+                {
+                    ["fallbackStratumURL"] = saved.Url, ["fallbackStratumPort"] = saved.Port, ["fallbackStratumUser"] = saved.User,
+                }));
+            }
+            finally
+            {
+                device.Applying = false;
+            }
+            device.AddLog(L.T("Pool-Automatik: bisherigen Ersatz-Pool {0} wieder eingetragen.", saved.Text), EventCategories.Automation);
+        }
+        device.Config.PoolScheduleSaved = null;
+        Config.Save();
+        st.Layout = null;
+        st.ScheduledSwitch = false;
     }
 
     private bool PoolIsBad(string host)

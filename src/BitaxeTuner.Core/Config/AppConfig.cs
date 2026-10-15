@@ -372,6 +372,12 @@ public sealed class DeviceConfig
     /// <summary>0.9.11: automatische Pool-Umschaltung (Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares).</summary>
     public PoolSwitchRule PoolAuto { get; set; } = new();
 
+    /// <summary>
+    /// 0.9.17: Ersatz-Pool, der vor einem Zeitfenster mit Pool-Vorlage auf dem Miner stand. Die Vorlage wird für das Fenster
+    /// in den Ersatz-Platz geschrieben; danach schreibt BitaxeTuner diesen Eintrag zurück. null = nichts zurückzuschreiben. Additiv.
+    /// </summary>
+    public SavedPoolSlot? PoolScheduleSaved { get; set; }
+
     /// <summary>0.9.16: Betriebsstunden und erledigte Wartung (null = noch nie online gesehen). Additiv.</summary>
     public DeviceUpkeep? Upkeep { get; set; }
 
@@ -835,7 +841,10 @@ public sealed class GroupScheduleRule
 /// </summary>
 public sealed class PoolSwitchRule : AutomationRule
 {
-    /// <summary>Zeitfenster, in denen der Ersatz-Pool genutzt wird (Preset-Feld bleibt leer); außerhalb → Haupt-Pool.</summary>
+    /// <summary>
+    /// Zeitfenster, in denen der Ersatz-Pool genutzt wird; außerhalb → Haupt-Pool. 0.9.17: <see cref="ScheduleEntry.Preset"/>
+    /// = Id einer Pool-Vorlage (z. B. Mining-Party am Samstagabend) statt des eingestellten Ersatz-Pools; leer = Ersatz-Pool.
+    /// </summary>
     public List<ScheduleEntry> Entries { get; set; } = [];
     /// <summary>Zurück zum Haupt-Pool, sobald er wieder erreichbar ist (nach <see cref="ReturnAfterMinutes"/>).</summary>
     public bool ReturnHome { get; set; } = true;
@@ -844,12 +853,17 @@ public sealed class PoolSwitchRule : AutomationRule
     public bool OnBadShares { get; set; }
     public int BadMinutes { get; set; } = 15;
 
+    // Vorlagen hängen nur an, wenn eine gewählt ist – bestehende Freigaben bleiben gültig
     public override string Describe() => FormattableString.Invariant(
         $"pool|{ReturnHome}|{ReturnAfterMinutes}|{OnBadShares}|{BadMinutes}|") +
-        string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour}")));
+        string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour}"))) +
+        (Entries.Any(e => e.Preset.Length > 0) ? "|presets:" + string.Join(",", Entries.Select(e => e.Preset)) : "");
 
-    /// <summary>Soll nach Zeitplan gerade der Ersatz-Pool laufen?</summary>
+    /// <summary>Soll nach Zeitplan gerade der Ersatz-Pool (bzw. eine Pool-Vorlage) laufen?</summary>
     public bool BackupScheduled(DateTime local) => Entries.Any(e => e.Matches(local));
+
+    /// <summary>Erstes passendes Zeitfenster (null = keins).</summary>
+    public ScheduleEntry? ScheduledEntry(DateTime local) => Entries.FirstOrDefault(e => e.Matches(local));
 
     public PoolSwitchRule Clone()
     {
@@ -857,6 +871,13 @@ public sealed class PoolSwitchRule : AutomationRule
         copy.Entries = Entries.Select(e => e.Clone()).ToList();
         return copy;
     }
+}
+
+/// <summary>0.9.17: gemerkter Pool-Eintrag (ohne Passwort – das liefert die Firmware nicht).</summary>
+public sealed record SavedPoolSlot(string Url, int Port, string User)
+{
+    public string Address => $"{Url.Trim().ToLowerInvariant()}:{Port}";
+    public string Text => $"{Url}:{Port}";
 }
 
 /// <summary>0.9.11: Pool-Automatik für alle Miner einer Gruppe. Eine eigene Regel eines Miners hat Vorrang.</summary>

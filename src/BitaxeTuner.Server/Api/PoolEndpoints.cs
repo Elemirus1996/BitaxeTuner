@@ -97,7 +97,7 @@ public static class PoolEndpoints
         g.MapPost("/devices/{id}/pools/rule/approval-text", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             var d = Device(h, id);
-            return new { text = MinerHub.PoolRuleText(d.Config.PoolAuto, d.Title) };
+            return new { text = MinerHub.PoolRuleText(d.Config.PoolAuto, d.Title, h.Config.PoolPresets) };
         })));
 
         g.MapPost("/devices/{id}/pools/rule/approve", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
@@ -225,7 +225,7 @@ public static class PoolEndpoints
         {
             var group = GroupOf(req, h);
             var rule = h.GroupPoolRuleFor(group) ?? throw new LocalizedException("Für „{0}“ ist noch keine Regel gespeichert.", group);
-            return new { text = MinerHub.PoolRuleText(rule.Rule, L.T("Gruppe „{0}“", group)) };
+            return new { text = MinerHub.PoolRuleText(rule.Rule, L.T("Gruppe „{0}“", group), h.Config.PoolPresets) };
         })));
 
         g.MapPost("/group-pools/approve", async (PoolRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>

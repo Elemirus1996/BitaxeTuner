@@ -117,7 +117,7 @@ public sealed class PoolSwitchWindow : Window
         var rule = d.Config.PoolAuto.Clone();
         AddRuleEditor(rule, d.Config.PoolAuto.IsApproved(d.Host),
             () => { Hub.SavePoolRule(d, rule); return d.Config.PoolAuto.IsApproved(d.Host); },
-            () => MinerHub.PoolRuleText(d.Config.PoolAuto, d.Title),
+            () => MinerHub.PoolRuleText(d.Config.PoolAuto, d.Title, Hub.Config.PoolPresets),
             () => Hub.ApprovePoolRule(d));
     }
 
@@ -151,7 +151,7 @@ public sealed class PoolSwitchWindow : Window
         var rule = existing?.Rule.Clone() ?? new PoolSwitchRule();
         AddRuleEditor(rule, existing is not null && Hub.IsGroupPoolRuleApproved(existing),
             () => Hub.IsGroupPoolRuleApproved(Hub.SaveGroupPoolRule(group, rule)),
-            () => MinerHub.PoolRuleText(Hub.GroupPoolRuleFor(group)!.Rule, L.T("Gruppe „{0}“", group)),
+            () => MinerHub.PoolRuleText(Hub.GroupPoolRuleFor(group)!.Rule, L.T("Gruppe „{0}“", group), Hub.Config.PoolPresets),
             () => Hub.ApproveGroupPoolRule(group));
     }
 
@@ -179,10 +179,13 @@ public sealed class PoolSwitchWindow : Window
         var enabled = new CheckBox { Content = L.T("eingeschaltet"), IsChecked = rule.Enabled, Margin = new Thickness(0, 2, 0, 6) };
         _body.Children.Add(enabled);
         _body.Children.Add(Text(L.T("Ersatz-Pool nach Zeitplan – eine Zeile je Zeitfenster, z. B. „Mo-Fr 0-6“ oder „täglich 22-6“:"), true));
+        // 0.9.17: „Sa 20-24 > Vorlagenname“ = Pool-Vorlage statt Ersatz-Pool
+        _body.Children.Add(Text(L.T("Pool-Vorlage statt Ersatz-Pool: „> Name der Vorlage“ anhängen, z. B. „Sa 20-24 > Mining-Party“. Sie wird für das Fenster als Ersatz-Pool eingetragen; danach wird der bisherige Ersatz-Pool wieder eingetragen."), true));
         var entries = new TextBox
         {
             AcceptsReturn = true, MinHeight = 60, Padding = new Thickness(4, 3, 4, 3),
-            Text = string.Join("\n", rule.Entries.Select(e => $"{e.DaysText} {e.FromHour}-{e.ToHour}")),
+            Text = string.Join("\n", rule.Entries.Select(e => $"{e.DaysText} {e.FromHour}-{e.ToHour}" +
+                (Hub.PoolPresetById(e.Preset) is { } p ? " > " + p.Name : ""))),
         };
         _body.Children.Add(entries);
         var bad = new CheckBox { Content = L.T("auf den Ersatz-Pool wechseln, wenn die Pool-Überwachung zu viele abgelehnte Shares oder zu lange Antwortzeiten meldet"), IsChecked = rule.OnBadShares, Margin = new Thickness(0, 8, 0, 2) };
@@ -197,17 +200,30 @@ public sealed class PoolSwitchWindow : Window
         bool Collect()
         {
             var list = new List<ScheduleEntry>();
-            foreach (var line in entries.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var full in entries.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
+                var arrow = full.IndexOf('>');
+                var line = arrow >= 0 ? full[..arrow].Trim() : full;
+                var presetId = "";
+                if (arrow >= 0)
+                {
+                    var name = full[(arrow + 1)..].Trim();
+                    if (Hub.Config.PoolPresets.FirstOrDefault(p => string.Equals(p.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)) is not { } preset)
+                    {
+                        MessageBox.Show(this, L.T("Pool-Vorlage „{0}“ gibt es nicht.", name), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return false;
+                    }
+                    presetId = preset.Id;
+                }
                 var cut = line.LastIndexOf(' ');
                 var hours = cut > 0 ? line[(cut + 1)..].Split('-') : [];
                 if (cut <= 0 || hours.Length != 2 || ScheduleEntry.ParseDays(line[..cut]) is not { } days ||
                     !int.TryParse(hours[0], out var from) || !int.TryParse(hours[1], out var to))
                 {
-                    MessageBox.Show(this, L.T("Zeile nicht erkannt: „{0}“ – Beispiel: Mo-Fr 0-6", line), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(this, L.T("Zeile nicht erkannt: „{0}“ – Beispiel: Mo-Fr 0-6", full), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
                     return false;
                 }
-                list.Add(new ScheduleEntry { Days = days, FromHour = from, ToHour = to });
+                list.Add(new ScheduleEntry { Days = days, FromHour = from, ToHour = to, Preset = presetId });
             }
             if (!int.TryParse(badMin.Text, out var b) || !int.TryParse(retMin.Text, out var r))
             {
