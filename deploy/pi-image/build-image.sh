@@ -75,16 +75,19 @@ chmod 755 "$R/opt/bitaxetuner/versions/$VERSION/BitaxeTuner.Server"
 ln -sfn "$VERSION" "$R/opt/bitaxetuner/versions/active"
 ln -sfn versions/active "$R/opt/bitaxetuner/current"
 install -m 755 "$SRC/bitaxetuner-firstboot.sh" "$R/opt/bitaxetuner/bitaxetuner-firstboot.sh"
-for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service bitaxetuner-usb@.service; do
+for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service bitaxetuner-usb@.service \
+         bitaxetuner-wifi.path bitaxetuner-wifi.service; do
     install -m 644 "$SRC/$u" "$R/etc/systemd/system/$u"
 done
 # USB-Stick für Sicherungen
 install -d -m 755 "$R/usr/local/lib/bitaxetuner" "$R/media/bitaxetuner-usb"
 install -m 755 "$SRC/bitaxetuner-usb-mount.sh" "$R/usr/local/lib/bitaxetuner/usb-mount"
+# 0.9.17: WLAN des Servers für die Pico-Einrichtung (nur auf Anforderung)
+install -m 755 "$SRC/bitaxetuner-wifi.sh" "$R/usr/local/lib/bitaxetuner/wifi-read"
 install -m 644 "$SRC/99-bitaxetuner-usb.rules" "$R/etc/udev/rules.d/99-bitaxetuner-usb.rules"
 # Dienste aktivieren (wie "systemctl enable", ohne das Zielsystem zu starten)
 install -d "$R/etc/systemd/system/multi-user.target.wants"
-for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-firstboot.service; do
+for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-firstboot.service; do
     ln -sfn "/etc/systemd/system/$u" "$R/etc/systemd/system/multi-user.target.wants/$u"
 done
 

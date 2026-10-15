@@ -4557,19 +4557,29 @@ async function picoWlanSetup(role, displayId) {
   const ssid = h('input', { autocomplete: 'off', maxlength: 32 });
   const pw = h('input', { type: 'password', autocomplete: 'new-password', maxlength: 63 });
   const host = h('input', { value: displayId ? `bitaxetuner-display-${displayId}` : role === 'display' ? 'bitaxetuner-display' : 'bitaxetuner-fans', maxlength: 32 });
+  // 0.9.17: WLAN des Servers übernehmen (nur der Name kommt in den Browser, das Passwort geht direkt vom Server zum Pico)
+  const serverWifi = await api('/fans/server-wifi').catch(() => null);
+  const useServer = { on: !!serverWifi?.ssid };
+  const manual = h('div', { class: 'stack' },
+    h('div', {}, h('label', {}, t('WLAN-Name (SSID, 2,4 GHz)')), ssid),
+    h('div', {}, h('label', {}, t('WLAN-Passwort')), pw));
+  manual.hidden = useServer.on;
+  const serverBox = serverWifi?.ssid
+    ? h('label', { class: 'row' }, h('input', { type: 'checkbox', checked: true, onchange: e => { useServer.on = e.target.checked; manual.hidden = useServer.on; } }),
+        h('span', {}, t('WLAN des Servers übernehmen: „{0}“ (Passwort wird nicht angezeigt)', serverWifi.ssid)))
+    : serverWifi?.error ? h('p', { class: 'muted small' }, serverWifi.error) : null;
   const body = h('div', { class: 'stack' },
     h('p', {}, role === 'display'
       ? t('Display-Pico (Pico 2 WH, auf das E-Paper gesteckt) jetzt per USB-Datenkabel an diesen Server anschließen.')
       : t('Lüfter-Pico (Pico 2 WH auf der Lüfterplatine) jetzt per USB-Datenkabel an diesen Server anschließen.')),
     h('div', {}, h('label', {}, t('USB-Port')), port,
       ports.pico.length === 0 ? h('p', { class: 'small warn' }, t('Gerade kein Pico am USB erkannt – anschließen und den Dialog neu öffnen.')) : null),
-    h('div', {}, h('label', {}, t('WLAN-Name (SSID, 2,4 GHz)')), ssid),
-    h('div', {}, h('label', {}, t('WLAN-Passwort')), pw),
+    serverBox, manual,
     h('div', {}, h('label', {}, t('Gerätename im Heimnetz')), host),
     h('p', { class: 'muted small' }, t('Aufgespielt werden Programm, Rolle, WLAN-Zugang und ein neuer Schlüssel. Das WLAN-Passwort steht danach nur auf dem Pico, nicht auf dem Server. Dauer ca. 30 Sekunden; Lüfter laufen dabei mit 100 %.')));
   if (!await confirmBox(t('Pico für WLAN einrichten'), body, t('Einrichten'))) return;
   toast(t('Pico wird eingerichtet …'), 'info', 30000);
-  const r = await run(() => api('/fans/wlan-setup', { method: 'POST', body: { role, port: port.value, ssid: ssid.value, password: pw.value, host: host.value, displayId } }));
+  const r = await run(() => api('/fans/wlan-setup', { method: 'POST', body: { role, port: port.value, ssid: useServer.on ? '' : ssid.value, password: useServer.on ? '' : pw.value, host: host.value, displayId, useServerWifi: useServer.on } }));
   pw.value = '';
   if (!r) return;
   toast(r.ip ? t('Eingerichtet: {0} ({1}). Pico jetzt vom Server trennen und an sein eigenes Netzteil.', r.host, r.ip)

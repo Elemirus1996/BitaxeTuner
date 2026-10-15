@@ -1,0 +1,9 @@
+[Unit]
+Description=BitaxeTuner: WLAN des Servers für die Pico-Einrichtung lesen (auf Anforderung)
+
+[Path]
+# Der Dienst (ohne Root-Rechte) legt diese Datei beim „Pico für WLAN einrichten“ an
+PathExists=/var/lib/bitaxetuner/wifi-request
+
+[Install]
+WantedBy=multi-user.target

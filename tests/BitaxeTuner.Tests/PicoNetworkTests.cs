@@ -280,6 +280,43 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Setup_can_take_the_wlan_of_the_server()
+    {
+        // 0.9.17: WLAN-Name und -Passwort vom Server übernehmen – das Passwort landet nur auf dem Pico
+        var gamma = ProfileRegistry.LoadBuiltIn().First(p => p.Id == "bitaxe-gamma");
+        var pico = new FakePico { ProgramRunning = true };
+        var config = new AppConfig();
+        using var hub = new MinerHub(config, new MinerHubOptions
+        {
+            DataDirectory = _dir.Path,
+            OnlineChecks = false,
+            ClientFactory = h => new SimulatedMinerClient(gamma, 1, h),
+            SerialTransportFactory = _ => pico,
+            DisplayDeviceFactory = _ => new SimulatedFanDevice(PicoFanDevice.RoleDisplay),
+        });
+        if (!OperatingSystem.IsLinux())
+        {
+            Assert.False(hub.ServerWifiSupported);
+            await Assert.ThrowsAsync<LocalizedException>(() => hub.ReadServerWifiAsync());
+        }
+
+        hub.ServerWifiOverride = () => new ServerWifi("Server-WLAN", "vom-server-789");
+        Assert.True(hub.ServerWifiSupported);
+        await hub.SetupPicoNetworkAsync("display", "COM9", "ignoriert", "ignoriert-123", null, useServerWifi: true);
+        Assert.Contains("Server-WLAN", pico.Files["btcfg.json"]);
+        Assert.Contains("vom-server-789", pico.Files["btcfg.json"]);
+        config.Save(_dir.File("config.json"));
+        Assert.DoesNotContain("vom-server-789", File.ReadAllText(_dir.File("config.json")));
+        Assert.DoesNotContain("vom-server-789", File.ReadAllText(_dir.File("secrets.json")));
+
+        // Server nicht im WLAN: verständliche Meldung, nichts aufgespielt
+        hub.ServerWifiOverride = () => null;
+        pico.Files.Clear();
+        await Assert.ThrowsAsync<LocalizedException>(() => hub.SetupPicoNetworkAsync("display", "COM9", null, null, null, useServerWifi: true));
+        Assert.Empty(pico.Files);
+    }
+
+    [Fact]
     public async Task Role_can_be_switched_over_usb_without_wlan()
     {
         // 0.9.12: Pico per USB als Display- oder Lüfter-Pico festlegen – ohne WLAN-Daten, ohne Thonny
