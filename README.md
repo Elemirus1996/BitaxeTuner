@@ -66,6 +66,12 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.18
+
+- **Pico-WLAN vom Server**: Beim Einrichten eines Pico übernimmt der Raspberry Pi sein eigenes WLAN – kein Eintippen
+  mehr; das Passwort geht direkt zum Pico (bestehende Pis: Systemdateien einmal erneuern).
+- **Pico neu einrichten** für eine andere Anzeige löst die alte Zuordnung – kein „Schlüssel passt nicht“ mehr.
+
 ### Neu in 0.9.17
 
 - **PV-Automatik**: viel Sonne → volle Leistung, wenig Sonne → Stromsparen. PV-Leistung aus einer Messsteckdose

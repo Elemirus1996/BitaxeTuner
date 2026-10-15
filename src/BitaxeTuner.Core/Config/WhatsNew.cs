@@ -141,6 +141,12 @@ public static class WhatsNew
             new("0.9.13", tr.T("Pool und Coin je Miner in der Übersicht"),
                 tr.T("Jede Miner-Karte zeigt den Pool als Abzeichen – ein Klick öffnet die Pool-Seite (bei Solo-Pools deine Statistik) – und den Coin, den der Miner gerade schürft. In der Desktop-App steht beides in der Pool-Zeile des Miners."),
                 null),
+            new("0.9.18", tr.T("Pico-WLAN vom Server übernehmen"),
+                tr.T("Beim „Pico für WLAN einrichten“ kann der Raspberry Pi sein eigenes WLAN mitgeben – Name und Passwort musst du nicht mehr eintippen. Das Passwort geht direkt vom Server zum Pico und wird nirgends angezeigt oder gespeichert. Bestehende Pis brauchen dafür einmal neue Systemdateien (Desktop-App → Server → „SSH ▾“ → „Systemdateien per SSH erneuern …“)."),
+                null),
+            new("0.9.18", tr.T("Pico neu einrichten ohne Schlüssel-Fehler"),
+                tr.T("Wird ein Display-Pico für eine andere Anzeige neu eingerichtet (z. B. bisher Hauptanzeige, jetzt weitere Anzeige), löst BitaxeTuner die alte Zuordnung automatisch. Vorher meldete die alte Anzeige immer wieder „Schlüssel passt nicht“ und störte die neue."),
+                null),
             new("0.9.17", tr.T("PV-Automatik: mit der Sonne minen"),
                 server ? tr.T("Neue Automatik-Art „PV-Leistung“ (Gerät → Automatik, auch für Gruppen): viel Sonne → volle Leistung, wenig Sonne → Stromspar-Voreinstellung, dazwischen bleibt es. Die PV-Leistung kommt aus einer Messsteckdose (Shelly, Tasmota, FRITZ!DECT) oder aus Home Assistant – darüber auch Anker Solix. Einstellungen → Strom & Kosten → PV-Anlage.")
                        : tr.T("Neue Automatik-Art „PV-Leistung“ (Miner → Automatik): viel Sonne → volle Leistung, wenig Sonne → Stromspar-Voreinstellung, dazwischen bleibt es. Die PV-Leistung kommt aus einer Messsteckdose (Shelly, Tasmota, FRITZ!DECT) oder aus Home Assistant – darüber auch Anker Solix. Einstellungen → PV-Anlage."),

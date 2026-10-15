@@ -69,6 +69,12 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.18
+
+- **Pico Wi-Fi from the server**: when setting up a Pico, the Raspberry Pi passes on its own Wi-Fi – no more typing;
+  the password goes straight to the Pico (existing Pis: renew the system files once).
+- **Setting up a Pico again** for another display releases the old link – no more “key does not match”.
+
 ### New in 0.9.17
 
 - **PV automation**: lots of sun → full power, little sun → power saving. PV power from a metering plug (Shelly,
