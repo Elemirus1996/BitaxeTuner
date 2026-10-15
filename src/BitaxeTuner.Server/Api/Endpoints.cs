@@ -553,7 +553,8 @@ public static class Endpoints
             var model = await hub.RunAsync(h => Enum.TryParse<Core.Display.DisplayScene>(scene, true, out var sc)
                 ? h.PreviewScene(sc, DateTime.Now)
                 : h.ComposeDisplay(DateTime.Now));
-            using var img = Core.Display.StatusRenderer.RenderImage(model);
+            var panel = await hub.RunAsync(h => h.Config.Display.Panel);   // 0.9.17: Spectra 6 in Farbe
+            using var img = Core.Display.StatusRenderer.RenderImage(model, panel);
             var ms = new MemoryStream();
             await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(img, ms);
             return Results.File(ms.ToArray(), "image/png");

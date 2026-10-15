@@ -55,6 +55,63 @@ public sealed class DisplayPagesTests : IDisposable
     }
 
     [Fact]
+    public async Task Spectra_pages_use_extra_colours_and_black_white_red_stays_unchanged()
+    {
+        // 0.9.17: Spectra 6 – Trennlinien/Kurven blau, „in Ordnung“ grün; das 7,5″-Display bleibt schwarz/weiß/rot.
+        // Mit BT_DISPLAY_DUMP=<Ordner> werden alle Seiten als PNG abgelegt (zum Ansehen).
+        await _hub.PollNowAsync();
+        var dump = Environment.GetEnvironmentVariable("BT_DISPLAY_DUMP");
+        var palette = StatusRenderer.SpectraPalette.Select(p => p.Rgb).ToHashSet();
+        var blueSeen = false;
+        foreach (var scene in Enum.GetValues<DisplayScene>())
+        {
+            var m = _hub.PreviewScene(scene, DateTime.Now);
+            using var spectra = StatusRenderer.RenderImage(m, "spectra73");
+            using var bwr = StatusRenderer.RenderImage(m);
+            var spectraColours = Colours(spectra);
+            Assert.Subset(palette, spectraColours);
+            Assert.DoesNotContain(Colours(bwr), c => c is { R: 0, G: 60, B: 200 } or { R: 0, G: 150, B: 60 } or { R: 255, G: 230, B: 0 });
+            blueSeen |= spectraColours.Contains(new SixLabors.ImageSharp.PixelFormats.Rgb24(0, 60, 200));
+            Assert.Equal(StatusRenderer.SpectraBytes, StatusRenderer.Render(m with { Inverted = true }, "spectra73").Length);
+            if (dump is { Length: > 0 })
+            {
+                Directory.CreateDirectory(dump);
+                await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(spectra, Path.Combine(dump, $"{scene}-spectra.png"));
+                await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(bwr, Path.Combine(dump, $"{scene}-bwr.png"));
+            }
+        }
+        Assert.True(blueSeen);
+
+        // Diagramm mit Messpunkten: Kurve blau statt rot
+        var now = DateTime.Now;
+        var chart = _hub.PreviewScene(DisplayScene.Overview, now) with
+        {
+            Scene = DisplayScene.Chart, ChartKind = "hashrate",
+            Chart = Enumerable.Range(0, 48).Select(i => new DisplayPoint(now.AddMinutes(-30 * (47 - i)), 1000 + 80 * Math.Sin(i / 5.0), 55)).ToList(),
+        };
+        using var chartImg = StatusRenderer.RenderImage(chart, "spectra73");
+        var blue = 0;
+        chartImg.ProcessPixelRows(rows =>
+        {
+            for (var y = 100; y < 400; y++)
+                foreach (var p in rows.GetRowSpan(y)) if (p is { R: 0, G: 60, B: 200 }) blue++;
+        });
+        Assert.True(blue > 500, $"blaue Pixel: {blue}");
+        if (dump is { Length: > 0 }) await SixLabors.ImageSharp.ImageExtensions.SaveAsPngAsync(chartImg, Path.Combine(dump, "ChartData-spectra.png"));
+    }
+
+    private static HashSet<SixLabors.ImageSharp.PixelFormats.Rgb24> Colours(SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24> img)
+    {
+        var set = new HashSet<SixLabors.ImageSharp.PixelFormats.Rgb24>();
+        img.ProcessPixelRows(rows =>
+        {
+            for (var y = 0; y < rows.Height; y++)
+                foreach (var p in rows.GetRowSpan(y)) set.Add(p);
+        });
+        return set;
+    }
+
+    [Fact]
     public void Price_page_shows_btc_bch_or_both_and_difficulty_only_for_btc()
     {
         var now = DateTime.Now;

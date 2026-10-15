@@ -39,7 +39,7 @@ public static partial class StatusRenderer
         if (b.Fees is { } fees)
             Text(ctx, Fit(L.T("Gebühren (sat/vB): schnell {0} · 30 min {1} · 1 h {2} · sparsam {3}", fees.Fastest, fees.HalfHour, fees.Hour, fees.Economy), small, Width - 32),
                 small, 16, 172, Ink);
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 206, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 206, Width - 32, 1));
 
         // Difficulty-Anpassung mit Fortschrittsbalken
         var label = Regular.Value.CreateFont(22);
@@ -87,7 +87,7 @@ public static partial class StatusRenderer
         }
         if (p.Miners.Count > 6) { Text(ctx, L.T("… und {0} weitere", p.Miners.Count - 6), font, 16, y, Ink); y += 30; }
         y += 4;
-        ctx.Fill(Crisp, Ink, new RectangleF(16, y, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, y, Width - 32, 1));
         y += 10;
         if (p.Coins.Count > 0)
         {

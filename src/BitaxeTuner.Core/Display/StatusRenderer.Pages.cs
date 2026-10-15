@@ -68,7 +68,7 @@ public static partial class StatusRenderer
             var v = min + (max - min) * k / 3;
             var y = Y(v);
             TextRight(ctx, N(v, format), small, area.Left - 6, y - 10, Ink);
-            if (k > 0) for (var x = area.Left + 4; x < area.Right; x += 12) ctx.Fill(Crisp, Ink, new RectangleF(x, y, 4, 1));
+            if (k > 0) for (var x = area.Left + 4; x < area.Right; x += 12) ctx.Fill(Crisp, Rule, new RectangleF(x, y, 4, 1));
         }
         for (var i = 0; i <= timeLabels; i++)
         {
@@ -104,8 +104,8 @@ public static partial class StatusRenderer
             Text(ctx, c.Name, Regular.Value, 22, 16, 76, Ink);
             Text(ctx, c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value, 64, 16, 100, Ink);
             if (c.Change24h is { } ch)
-                TextRight(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 32, Width - 16, 122, ch < 0 ? Red : Ink);
-            LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), line: Red);
+                TextRight(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 32, Width - 16, 122, Signed(ch));
+            LineChart(ctx, c.Points, new RectangleF(96, 196, Width - 116, chartBottom - 196 - 24), m.Time.AddHours(-24), m.Time, c.Eur >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), line: Accent);
         }
         else if (coins.Count > 2)
         {
@@ -119,10 +119,10 @@ public static partial class StatusRenderer
                 var y = 70 + (i / 2) * rowH;
                 Text(ctx, Fit(c.Name, Regular.Value.CreateFont(20), colW), Regular.Value.CreateFont(20), x, y + 4, Ink);
                 Text(ctx, Fit(c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value.CreateFont(36), colW * 0.62f), Bold.Value.CreateFont(36), x, y + 28, Ink);
-                if (c.Change24h is { } ch) TextRight(ctx, Signed(ch, "0.0") + " %", Bold.Value, 24, x + colW, y + 36, ch < 0 ? Red : Ink);
+                if (c.Change24h is { } ch) TextRight(ctx, Signed(ch, "0.0") + " %", Bold.Value, 24, x + colW, y + 36, Signed(ch));
                 if (c.Points.Count > 1)
                     LineChart(ctx, c.Points, new RectangleF(x + 84, y + 78, colW - 104, rowH - 78 - 22), m.Time.AddHours(-24), m.Time,
-                        PriceFormat(c.Points.Max(p => p.Value), 1), TimeSpan.FromHours(6), timeLabels: 2, line: Red);
+                        PriceFormat(c.Points.Max(p => p.Value), 1), TimeSpan.FromHours(6), timeLabels: 2, line: Accent);
             }
         }
         else
@@ -134,19 +134,19 @@ public static partial class StatusRenderer
                 var x = 16 + i * (colW + 16);
                 Text(ctx, c.Name, Regular.Value, 22, x, 76, Ink);
                 Text(ctx, Fit(c.Eur is { } e ? Money(e, c.Unit) : "–", Bold.Value.CreateFont(46), colW), Bold.Value.CreateFont(46), x, 102, Ink);
-                if (c.Change24h is { } ch) Text(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 24, x, 160, ch < 0 ? Red : Ink);
+                if (c.Change24h is { } ch) Text(ctx, L.T("{0} % in 24 h", Signed(ch, "0.0")), Bold.Value, 24, x, 160, Signed(ch));
                 LineChart(ctx, c.Points, new RectangleF(x + 70, 204, colW - 74, chartBottom - 204 - 24), m.Time.AddHours(-24), m.Time,
-                    c.Eur is >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), timeLabels: 2, line: Red);
+                    c.Eur is >= 1000 ? "N0" : "N0", TimeSpan.FromHours(2), timeLabels: 2, line: Accent);
             }
         }
         if (m.Difficulty is { } d)
         {
-            ctx.Fill(Crisp, Ink, new RectangleF(16, 360, Width - 32, 1));
+            ctx.Fill(Crisp, Rule, new RectangleF(16, 360, Width - 32, 1));
             var eta = d.Eta is { } t ? L.T(" · ca. {0}", t.ToString(L.T("ddd dd.MM. HH:mm"), De)) : "";
             Text(ctx, Fit(L.T("Difficulty-Anpassung in {0} Blöcken{1} · erwartet {2} %", N(d.RemainingBlocks, "N0"), eta, Signed(d.ExpectedChangePercent, "0.0")),
                 Regular.Value.CreateFont(21), Width - 32), Regular.Value.CreateFont(21), 16, 368, Ink);
             ctx.DrawPolygon(Crisp, Ink, 2, new PointF(16, 404), new PointF(Width - 16, 404), new PointF(Width - 16, 420), new PointF(16, 404 + 16));
-            ctx.Fill(Crisp, Red, new RectangleF(16, 404, (float)((Width - 32) * Math.Clamp(d.ProgressPercent / 100, 0, 1)), 16));   // 0.9.11: rot
+            ctx.Fill(Crisp, Accent, new RectangleF(16, 404, (float)((Width - 32) * Math.Clamp(d.ProgressPercent / 100, 0, 1)), 16));   // 0.9.11: rot (Spectra 6: blau)
         }
         DrawFooter(ctx, m);
     }
@@ -164,7 +164,7 @@ public static partial class StatusRenderer
         Tile(ctx, 16 + w, 76, w, L.T("Ø Leistung"), $"{N(d.W, "0.0")} W");
         Tile(ctx, 16 + 2 * w, 76, w, L.T("Effizienz"), d.Gh > 1 ? L.T("{0} J/TH", N(d.W / (d.Gh / 1000), "0.0")) : "–");
         Tile(ctx, 16 + 3 * w, 76, w, L.T("Stromkosten"), $"{N(d.Cost, "0.00")} {d.Currency}");
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 146, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 146, Width - 32, 1));
         Text(ctx, $"{s.Label} ({s.Unit})", Regular.Value, 19, 16, 152, Ink);
         LineChart(ctx, s.Points, new RectangleF(86, 186, Width - 106, 226), m.Time.AddHours(-24), m.Time, s.Format, TimeSpan.FromMinutes(30));
         DrawFooter(ctx, m);
@@ -189,7 +189,7 @@ public static partial class StatusRenderer
         var note = (mo.AvgGh is { } gh ? L.T("Ø Hashrate {0}", FormatHash(gh)) : "") +
                    (mo.IncomeMissing > 0 ? L.T(" · {0} Zuflüsse ohne Kurs", mo.IncomeMissing) : "");
         if (note.Length > 0) Text(ctx, Fit(note.TrimStart(' ', '·'), Regular.Value.CreateFont(19), Width - 32), Regular.Value.CreateFont(19), 16, 142, Ink);
-        ctx.Fill(Crisp, Ink, new RectangleF(16, 170, Width - 32, 1));
+        ctx.Fill(Crisp, Rule, new RectangleF(16, 170, Width - 32, 1));
         Text(ctx, mo.BarLabel, Regular.Value, 19, 16, 176, Ink);
 
         var days = DateTime.DaysInMonth(mo.Month.Year, mo.Month.Month);
@@ -212,7 +212,7 @@ public static partial class StatusRenderer
                 var h = (float)(b.Value / max) * area.Height;
                 var x = area.Left + (day - 1) * slot + slot * 0.15f;
                 var today = mo.Partial && day == m.Time.Day;
-                ctx.Fill(Crisp, today ? Red : Ink, new RectangleF(x, area.Bottom - h, slot * 0.7f, h));
+                ctx.Fill(Crisp, today ? Accent : Ink, new RectangleF(x, area.Bottom - h, slot * 0.7f, h));
             }
             foreach (var day in new[] { 1, 5, 10, 15, 20, 25, days })
                 TextCenter(ctx, day.ToString(De), small, area.Left + (day - 0.5f) * slot, area.Bottom + 4, Ink);
@@ -373,7 +373,7 @@ public static partial class StatusRenderer
             Text(ctx, NewsKindLabel(n.Kind), tag, 16, y + 26, red ? Red : Ink);
             Text(ctx, Fit(n.Title, title, Width - 150 - 16), title, 150, y, red ? Red : Ink);
             if (n.Text.Length > 0) Text(ctx, Fit(n.Text, text, Width - 150 - 16), text, 150, y + (rowH >= 80 ? 32 : 28), Ink);
-            if (i < list.Count - 1) ctx.Fill(Crisp, Ink, new RectangleF(16, y + rowH - 8, Width - 32, 1));
+            if (i < list.Count - 1) ctx.Fill(Crisp, Rule, new RectangleF(16, y + rowH - 8, Width - 32, 1));
         }
         DrawFooter(ctx, m);
     }
@@ -401,7 +401,7 @@ public static partial class StatusRenderer
             Text(ctx, Fit(s.Name, name, 420), name, 16, y, s.Hot ? Red : Ink);
             if (rowH >= 50) Text(ctx, L.T("Grenze {0} °C", N(s.Warn, "0.#")), small, 16, y + (rowH >= 70 ? 38 : 28), Ink);
             TextRight(ctx, s.Temp is { } t ? $"{N(t, "0.0")} °C" : L.T("fehlt"), big, Width - 16, y, s.Hot || s.Temp is null ? Red : Ink);
-            if (i < list.Count - 1) ctx.Fill(Crisp, Ink, new RectangleF(16, y + rowH - 6, Width - 32, 1));
+            if (i < list.Count - 1) ctx.Fill(Crisp, Rule, new RectangleF(16, y + rowH - 6, Width - 32, 1));
         }
         DrawFooter(ctx, m);
     }
