@@ -87,6 +87,11 @@ public sealed partial class MinerHub
 
     private async Task ExecuteAutomationAsync(HubDevice device, MinerInfo before, AutomationAction a)
     {
+        if (device.MonitorOnlyReason is { } why)
+        {
+            SetAutomationStatus(device, L.T("Nur überwachen ({0}) – die Automatik ändert hier nichts.", why));
+            return;
+        }
         device.Applying = true;
         try
         {

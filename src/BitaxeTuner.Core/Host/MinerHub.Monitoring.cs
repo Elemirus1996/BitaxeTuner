@@ -503,16 +503,16 @@ public sealed partial class MinerHub
         if (!Options.OnlineChecks || (DateTime.UtcNow - _lastFirmwareRefresh).TotalMinutes < 30) return;
         _lastFirmwareRefresh = DateTime.UtcNow;
 
-        await Firmware.RefreshAsync(States.Select(s => s.Config.FirmwareRepo));
+        await Firmware.RefreshAsync(States.Select(FirmwareRepoOf));
 
         if (!Config.Notifications.Wants(NotifyCategory.Maintenance) || !Notify.Enabled) return;
 
         foreach (var s in States.Where(s => !string.IsNullOrWhiteSpace(s.Info?.version)))
         {
-            var fw = Firmware.Evaluate(s.Config.FirmwareRepo, s.Info!.version);
+            var fw = Firmware.Evaluate(FirmwareRepoOf(s), s.Info!.version);
             if (fw.Status != FirmwareStatus.UpdateAvailable || fw.Latest is null) continue;
 
-            var repo = s.Config.FirmwareRepo.Trim();
+            var repo = FirmwareRepoOf(s).Trim();
             if (Config.NotifiedFirmware.TryGetValue(repo, out var done) && done == fw.Latest) continue;
 
             Config.NotifiedFirmware[repo] = fw.Latest;
@@ -524,10 +524,29 @@ public sealed partial class MinerHub
         }
     }
 
+    public const string DefaultFirmwareRepo = "bitaxeorg/ESP-Miner";
+
+    /// <summary>
+    /// 0.9.17: Repository für den Firmware-Check. Steht noch das ESP-Miner-Standardrepository drin, gilt für ZyberOS das
+    /// ZyberOS-Repository und für unbekannte Firmware gar keins – sonst würde eine fremde Version mit ESP-Miner verglichen
+    /// und fälschlich „Update verfügbar“ gemeldet.
+    /// </summary>
+    public static string FirmwareRepoOf(MinerState s)
+    {
+        var repo = s.Config.FirmwareRepo?.Trim() ?? "";
+        if (!string.Equals(repo, DefaultFirmwareRepo, StringComparison.OrdinalIgnoreCase)) return repo;
+        return s.Normalized?.Firmware switch
+        {
+            Api.FirmwareKind.ZyberOS => "TinyChipHub/ZyberOS-Release",
+            Api.FirmwareKind.Unknown => "",
+            _ => repo,
+        };
+    }
+
     public string FirmwareText(MinerState s)
     {
         var installed = s.Info?.version;
-        var fw = Firmware.Evaluate(s.Config.FirmwareRepo, installed);
+        var fw = Firmware.Evaluate(FirmwareRepoOf(s), installed);
         return fw.Status switch
         {
             FirmwareStatus.UpToDate => L.T("Firmware {0} (aktuell)", installed),

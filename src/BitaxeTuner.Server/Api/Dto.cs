@@ -205,6 +205,8 @@ public static class Dto
             // 0.9.13: Coin des Miners (Pool-Konto, sonst Einstellung/Wallet-Adresse) und Pool mit Link zur Pool-Seite.
             // Der Link kann den Pool-Benutzer (Wallet-Adresse) enthalten – Pool daher nur für Admins
             coin = hub.PoolCoinSymbolOf(s) ?? MinerHub.ResolveCoin(s)?.Symbol(),
+            // 0.9.17 „Nur überwachen“ (Grund, z. B. „ZyberOS“; null = Tuning möglich)
+            monitorOnly = d.MonitorOnlyReason,
             // 0.9.16 Coinbase-Prüfung (ESP-Miner mit „Coinbase entschlüsseln“)
             coinbase = admin && i?.coinbasePayoutStatus is "verified" or "not_found"
                 ? new { status = i!.coinbasePayoutStatus, user = i.coinbaseValueUserSatoshis, total = i.coinbaseValueTotalSatoshis }
@@ -335,6 +337,7 @@ public static class Dto
             config = admin ? new
             {
                 c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.LogArchive, c.ProfileId,
+                monitorOnlyMode = c.MonitorOnly switch { true => "on", false => "off", null => "auto" },
                 presets = Copy(c.Presets),
                 thermalGuard = Copy(c.ThermalGuard),
                 thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host),

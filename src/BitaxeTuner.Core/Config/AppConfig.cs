@@ -311,6 +311,12 @@ public sealed class DeviceConfig
     /// <summary>"Auto" (aus der Wallet-Adresse), "BTC" oder "BCH".</summary>
     public string Coin { get; set; } = "Auto";
 
+    /// <summary>
+    /// 0.9.17 Nur überwachen – kein Benchmark, keine Frequenz-/Spannungsänderung (auch nicht durch Automatik).
+    /// null = automatisch nach Firmware (alles außer AxeOS/NerdQAxe), true = immer, false = Tuning erlauben. Additiv.
+    /// </summary>
+    public bool? MonitorOnly { get; set; }
+
     /// <summary>GitHub-Repository der Firmware für den Update-Check, leer = kein Check.</summary>
     public string FirmwareRepo { get; set; } = "bitaxeorg/ESP-Miner";
 

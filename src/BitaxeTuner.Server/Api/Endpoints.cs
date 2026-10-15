@@ -28,7 +28,8 @@ public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
-public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null);
+public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
+    string? MonitorOnlyMode = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -628,6 +629,9 @@ public static class Endpoints
             if (req.LogAlerts is { } la) c.LogAlerts = la;
             if (req.LogArchive is { } lk) c.LogArchive = lk;
             if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
+            // 0.9.17: „auto“ (nach Firmware), „on“ (nur überwachen), „off“ (Tuning erlauben)
+            if (req.MonitorOnlyMode is "auto" or "on" or "off")
+                c.MonitorOnly = req.MonitorOnlyMode switch { "on" => true, "off" => false, _ => null };
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
             return new { ok = true };

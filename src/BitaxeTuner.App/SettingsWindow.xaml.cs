@@ -149,13 +149,14 @@ public partial class SettingsWindow : Window
         WalletBox.Text = _current?.WalletAddress ?? "";
         SelectByTag(CoinBox, _current?.Coin ?? "Auto");
         RepoBox.Text = _current?.FirmwareRepo ?? "";
+        SelectByTag(MonitorOnlyBox, _current?.MonitorOnly switch { true => "on", false => "off", _ => "auto" });
         GroupsBox.Text = _current is null ? "" : string.Join(", ", _current.Groups);
         DeviceLogAlertsBox.IsChecked = _current?.LogAlerts == true;
         DeviceLogArchiveBox.IsChecked = _current?.LogArchive == true;
 
         var enabled = _current is not null;
         NameBox.IsEnabled = HostBox.IsEnabled = WalletBox.IsEnabled = enabled;
-        CoinBox.IsEnabled = RepoBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = GroupsBox.IsEnabled = enabled;
+        CoinBox.IsEnabled = RepoBox.IsEnabled = MonitorOnlyBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = GroupsBox.IsEnabled = enabled;
     }
 
     /// <summary>Eingaben in das aktuell gewählte Gerät zurückschreiben.</summary>
@@ -169,6 +170,7 @@ public partial class SettingsWindow : Window
         _current.WalletAddress = WalletBox.Text.Trim();
         _current.Coin = SelectedTag(CoinBox) ?? "Auto";
         _current.FirmwareRepo = RepoBox.Text.Trim();
+        _current.MonitorOnly = SelectedTag(MonitorOnlyBox) switch { "on" => true, "off" => false, _ => null };
         _current.Groups = MinerGroups.Normalize(GroupsBox.Text.Split(','));
         _current.LogAlerts = DeviceLogAlertsBox.IsChecked == true;
         _current.LogArchive = DeviceLogArchiveBox.IsChecked == true;

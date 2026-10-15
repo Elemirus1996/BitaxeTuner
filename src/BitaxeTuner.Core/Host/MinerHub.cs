@@ -282,6 +282,10 @@ public sealed partial class MinerHub : IDisposable
 
     private void InitDevice(HubDevice device)
     {
+        // 0.9.17 „Nur überwachen“: Frequenz/Spannung werden für solche Miner an keiner Stelle geändert
+        device.Connection.TuningBlockedReason = () => device.MonitorOnlyReason is { } why
+            ? L.T("{0} wird nur überwacht ({1}) – Frequenz und Spannung ändert BitaxeTuner hier nicht.", device.Title, why)
+            : null;
         // Zeilen mit Kategorie dauerhaft in history.db (Protokoll; übersteht Neustarts und Updates)
         device.Logged += (category, message) => LogEvent(device.Host, category, message);
         device.AddLog(L.T("Gerät: {0} ({1})", device.Title, device.Host), category: null);
@@ -380,6 +384,7 @@ public sealed partial class MinerHub : IDisposable
         FirmwareKind.AxeOS => "AxeOS",
         FirmwareKind.NerdQAxe => L.T("NerdQAxe-Firmware"),
         FirmwareKind.Simulated => L.T("Simulation"),
+        FirmwareKind.ZyberOS => "ZyberOS",
         _ => L.T("Firmware"),
     };
 

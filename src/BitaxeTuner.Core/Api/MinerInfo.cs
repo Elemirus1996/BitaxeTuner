@@ -6,6 +6,8 @@ public enum FirmwareKind
     AxeOS,
     NerdQAxe,
     Simulated,
+    /// <summary>0.9.17: ZyberOS (TinyChipHub, Zyber Blanc) – ESP-Miner-Ableger, nur Überwachung.</summary>
+    ZyberOS,
 }
 
 /// <summary>

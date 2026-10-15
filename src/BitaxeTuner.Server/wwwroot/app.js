@@ -871,6 +871,8 @@ function minerCard(d, tempWarn) {
       d.soak ? h('span', { class: 'pill' }, t('Dauertest')) : null,
       d.simulated ? h('span', { class: 'pill gray' }, t('Simulation')) : null,
       d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
+      // 0.9.17: Firmware ohne Tuning (z. B. ZyberOS) bzw. von Hand „nur überwachen“
+      d.monitorOnly ? h('span', { class: 'pill gray', title: t('Nur überwachen ({0}) – kein Benchmark, keine Änderung an Frequenz und Spannung.', d.monitorOnly) }, '👁 ' + t('Nur überwachen')) : null,
       webUiIcon(d),
       d.poolInfo ? null : poolLinkIcon(d)),
     d.online
@@ -1867,7 +1869,9 @@ function summaryOf(id) { return S.status?.devices.find(d => d.id === id) || S.de
 
 function renderDevice() {
   const d = S.detail.summary;
-  const tab = TABS().some(tv => tv[0] === S.route.tab && (!tv[2] || isAdmin())) ? S.route.tab : 'live';
+  // 0.9.17: „Nur überwachen“ – kein Benchmark-Reiter
+  const tabOk = tv => (!tv[2] || isAdmin()) && !(tv[0] === 'benchmark' && S.detail?.summary?.monitorOnly);
+  const tab = TABS().some(tv => tv[0] === S.route.tab && tabOk(tv)) ? S.route.tab : 'live';
   S.route.tab = tab;
   // 0.9.14: Kopf wie die Miner-Karte – Status, Name, große Hashrate mit Verlauf, Pool/Coin, Aktionen
   mount(h('div', { id: 'device-page', class: 'stack' },
@@ -1884,7 +1888,7 @@ function renderDevice() {
           d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
           h('span', { class: 'pill', title: t('Geräteprofil') }, S.detail.profile.name)))),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
-    h('div', { class: 'tabs' }, TABS().filter(tv => !tv[2] || isAdmin()).map(([k, label]) =>
+    h('div', { class: 'tabs' }, TABS().filter(tabOk).map(([k, label]) =>
       h('a', { href: `#/device/${d.id}/${k}`, class: k === tab ? 'active' : null }, label))),
     h('div', {
       id: 'tab', oninput: markTabDirty, onchange: markTabDirty,
@@ -3555,12 +3559,16 @@ async function renderSettings() {
       extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
       extra.logArchive = h('input', { type: 'checkbox', checked: !!c.logArchive });
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
+      extra.monitorOnly = h('select', {}, [['auto', t('automatisch (nach Firmware)')], ['on', t('nur überwachen')], ['off', t('Tuning erlauben')]]
+        .map(([v, l]) => h('option', { value: v, selected: (c.monitorOnlyMode || 'auto') === v }, l)));
       fill(more.firstChild, h('div', { class: 'stack' },
         h('div', { class: 'form' },
           h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Wallet-Adresse')), extra.wallet),
           h('div', {}, h('label', {}, t('Coin')), extra.coin),
           h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo),
-          h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Gruppen (mit Komma getrennt)')), extra.groups)),
+          h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Gruppen (mit Komma getrennt)')), extra.groups),
+          h('div', { title: t('Automatisch: Miner mit anderer Firmware als AxeOS oder NerdQAxe (z. B. ZyberOS) werden nur überwacht – alles außer Overclocking.') },
+            h('label', {}, t('Overclocking / Tuning')), extra.monitorOnly)),
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
         h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)'))));
@@ -3568,7 +3576,7 @@ async function renderSettings() {
     const save = () => {
       const body = { name: name.value };
       if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked,
-        groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean) });
+        groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value });
       return run(() => api(`/devices/${d.id}`, { method: 'PUT', body }), t('Gespeichert.'));
     };
     return [h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
