@@ -7,7 +7,7 @@ namespace BitaxeTuner.Core.Network;
 
 /// <summary>
 /// 0.9.16 „Wunsch einreichen“ ohne GitHub-Konto: Der Wunsch geht als kleine JSON-Nachricht an ein festes ntfy.sh-Thema
-/// (öffentlicher Briefkasten, rund 12 Stunden zwischengespeichert). Die GitHub-Action „Wunsch-Briefkasten“ holt stündlich
+/// (öffentlicher Briefkasten, rund 12 Stunden zwischengespeichert). Die GitHub-Action „Wunsch-Briefkasten“ holt alle 15 Minuten
 /// ab und legt eine private Entwurfskarte auf dem Projekt-Board an. Mitgeschickt werden nur Text, App-Version und
 /// Sprache – keine Kennung, keine Konfiguration. Spam-Bremse: höchstens 3 Wünsche je 10 Minuten.
 /// </summary>

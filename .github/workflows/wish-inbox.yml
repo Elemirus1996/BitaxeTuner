@@ -1,5 +1,5 @@
 # Wunsch-Briefkasten: Wünsche aus der App („Wunsch einreichen“, ohne GitHub-Konto) kommen über das ntfy.sh-Thema
-# aus src/BitaxeTuner.Core/Network/WishBox.cs. Diese Action holt sie stündlich ab und legt je Wunsch eine private
+# aus src/BitaxeTuner.Core/Network/WishBox.cs. Diese Action holt sie alle 15 Minuten ab und legt je Wunsch eine private
 # Entwurfskarte aufs Projekt-Board (Status „Ideen“, „Geplant für“ = „Kundenwunsch“) – kein öffentliches Issue.
 #
 # Sicherheit: Das Thema ist öffentlich bekannt, jeder kann hineinschreiben. Deshalb: nur Nachrichten im erwarteten
@@ -11,7 +11,8 @@ name: Wunsch-Briefkasten
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    # alle 15 Minuten, abseits der vollen Viertelstunde (dort verzögert GitHub geplante Läufe am stärksten)
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
