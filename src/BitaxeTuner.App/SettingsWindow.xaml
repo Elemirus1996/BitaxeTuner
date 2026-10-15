@@ -453,6 +453,14 @@
             </StackPanel>
         </Border>
 
+        <!-- PV-Anlage (0.9.17) -->
+        <Border x:Name="SolarCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'PV-Anlage'}" Style="{StaticResource Section}"/>
+                <ContentControl x:Name="SolarHost"/>
+            </StackPanel>
+        </Border>
+
         <!-- Pool-Konto (0.9.12) -->
         <Border x:Name="PoolAccountCard" Style="{StaticResource Card}">
             <StackPanel>

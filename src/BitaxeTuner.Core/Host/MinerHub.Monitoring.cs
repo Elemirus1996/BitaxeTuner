@@ -151,6 +151,7 @@ public sealed partial class MinerHub
         TickPoolDeviations(now); // 0.9.16: Abweichung von der Pool-Vorlage
         TickCoinbase();          // 0.9.16: zahlt die Coinbase an die eigene Adresse?
         TickUpkeep(now);         // 0.9.16: Betriebsstunden, Wartungs-Erinnerungen
+        TickSolar(now);          // 0.9.17: PV-Leistung aus Home Assistant
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

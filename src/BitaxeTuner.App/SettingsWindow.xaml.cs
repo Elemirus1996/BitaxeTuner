@@ -81,10 +81,12 @@ public partial class SettingsWindow : Window
         {
             _plugsPanel = new Views.SmartPlugsPanel(host);
             PlugsHost.Content = _plugsPanel;
+            _solarPanel = new Views.SolarPanel(host);
+            SolarHost.Content = _solarPanel;
             _poolPanel = new Views.PoolAccountPanel(host);
             PoolAccountHost.Content = _poolPanel;
         }
-        else PlugsCard.Visibility = PoolAccountCard.Visibility = Visibility.Collapsed;
+        else PlugsCard.Visibility = SolarCard.Visibility = PoolAccountCard.Visibility = Visibility.Collapsed;
 
         DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
                           L.T("Feste IP ist zuverlässiger.");
@@ -397,6 +399,12 @@ public partial class SettingsWindow : Window
             ScrollToSection(L.T("Smart Plugs"));
             return;
         }
+        if (_solarPanel?.Validate() is { } solarError)
+        {
+            ErrorText.Text = solarError;
+            ScrollToSection(L.T("PV-Anlage"));
+            return;
+        }
         if (_poolPanel?.Validate() is { } poolError)
         {
             ErrorText.Text = poolError;
@@ -404,6 +412,7 @@ public partial class SettingsWindow : Window
             return;
         }
         _plugsPanel?.Apply(_config);
+        _solarPanel?.Apply(_config);
         _poolPanel?.Apply(_config);
         _notify.Targets = _pushPanel.Targets;
         _notify.ApplyTargets(_config.Devices.Select(d => d.Host));
@@ -621,6 +630,7 @@ public partial class SettingsWindow : Window
     private NotificationSettings _notify = new();
     private readonly Views.PushTargetsPanel _pushPanel;
     private readonly Views.SmartPlugsPanel? _plugsPanel;
+    private readonly Views.SolarPanel? _solarPanel;
     private readonly Views.PoolAccountPanel? _poolPanel;
     private readonly AppHost? _host;
 

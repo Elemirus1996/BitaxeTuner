@@ -31,7 +31,8 @@ public sealed class SmartPlugConfig
     /// <summary>Benutzer bei geschütztem Gerät (Gen2+: immer „admin“). Passwort in secrets.json.</summary>
     public string User { get; set; } = "admin";
 
-    /// <summary>"miners" (speist die Miner in <see cref="Miners"/>), "other" (Zusatzlüfter, Pi …) oder "total" (Gesamtmessung).</summary>
+    /// <summary>"miners" (speist die Miner in <see cref="Miners"/>), "other" (Zusatzlüfter, Pi …), "total" (Gesamtmessung)
+    /// oder 0.9.17 "pv" (PV-Erzeugung – zählt nicht zu den Stromkosten, Quelle für die PV-Automatik).</summary>
     public string Role { get; set; } = "miners";
 
     /// <summary>Hosts der Miner an diesem Plug (Rolle "miners").</summary>
@@ -47,7 +48,7 @@ public sealed class SmartPlugConfig
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];
 
-    public static readonly string[] Roles = ["miners", "other", "total"];
+    public static readonly string[] Roles = ["miners", "other", "total", "pv"];
 
     public static string SecretKey(string id) => $"plug.{id}.password";
 }

@@ -1423,7 +1423,7 @@ function httpsHintCard() {
 
 /** Smart Plugs in der Übersicht: Leistung an der Steckdose, bei Miner-Plugs die Differenz zu AxeOS. */
 function plugOverviewCard(plugs) {
-  const roleText = { miners: t('Miner'), other: t('Nebenverbraucher'), total: t('Gesamtmessung') };
+  const roleText = { miners: t('Miner'), other: t('Nebenverbraucher'), total: t('Gesamtmessung'), pv: t('PV-Erzeugung') };
   return h('div', { class: 'card stack' },
     h('div', { class: 'titlebar' }, h('h3', {}, t('Smart Plugs')), h('span', { class: 'spacer' }),
       isAdmin() ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = t('Smart Plugs'); } }, t('Einstellungen')) : null),
@@ -1795,7 +1795,7 @@ function updateCompare() {
 /** Effizienz-Ratgeber: beste geprüfte Einstellung je Ziel, Vergleich mit dem aktuellen Betrieb. Ändert nie selbst etwas. */
 function advisorCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
-  const goals = [['Balanced', t('Ausgewogen')], ['Efficiency', t('Effizienz (J/TH)')], ['Hashrate', t('Hashrate')]];
+  const goals = [['Balanced', t('Ausgewogen')], ['Efficiency', t('Effizienz (J/TH)')], ['Hashrate', t('Hashrate')], ['PowerSave', t('Stromsparen')]];
   const goalSel = h('select', { style: 'width:auto', onchange: () => load() }, goals.map(([v, tv]) => h('option', { value: v }, tv)));
   try { goalSel.value = localStorageGet('advisorGoal') || 'Balanced'; } catch { /* egal */ }
   const signed = (v, digits, unit) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${n(Math.abs(v), digits)} ${unit}`;
@@ -1837,7 +1837,7 @@ function advisorCard() {
             h('div', { class: 'table-wrap' }, h('table', {},
               h('thead', {}, h('tr', {}, [t('Ziel'), t('Einstellung'), t('Hashrate'), t('Leistung'), 'J/TH', t('pro Monat'), t('geprüft')].map(x => h('th', {}, x)))),
               h('tbody', {}, m.candidates.map(x => h('tr', {},
-                h('td', {}, { Efficiency: t('Effizienz'), Balanced: t('Ausgewogen'), Hashrate: t('Hashrate') }[x.goal]),
+                h('td', {}, { Efficiency: t('Effizienz'), Balanced: t('Ausgewogen'), Hashrate: t('Hashrate'), PowerSave: t('Stromsparen') }[x.goal]),
                 h('td', { class: 'num' }, `${x.frequencyMhz} / ${x.coreVoltageMv}`),
                 h('td', { class: 'num' }, hash(x.hashrateGh)), h('td', { class: 'num' }, t('{0} W', n(x.powerW, 1))), h('td', { class: 'num' }, n(x.jth, 2)),
                 h('td', { class: 'num' }, signed(x.monthlyCostDelta, 2, d.currency)), h('td', { class: 'small' }, x.confidence))))))) : null);
@@ -2457,14 +2457,14 @@ function tabAutomation() {
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Zeitplan / Strompreis')), h('span', { class: `pill ${c.scheduleApproved ? '' : 'gray'}` }, c.scheduleApproved ? t('freigegeben') : t('nicht freigegeben'))),
       checkInput(sched, 'enabled', t('eingeschaltet')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)'))); s.value = sched.mode; return s; })())),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)'))); s.value = sched.mode; return s; })())),
       h('h3', {}, t('Zeitplan')), entries,
       h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: presets[0]?.name || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
         h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
       h('h3', {}, t('Strompreis')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
         h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
-      profitRuleBox(sched),
+      profitRuleBox(sched), solarRuleBox(sched),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: () => approve('schedule') }, t('Speichern & freigeben …')))),
     h('div', { class: 'card stack' },
       h('h3', {}, t('Dauertest')),
@@ -3097,14 +3097,14 @@ function groupAutomationCard(g) {
     h('div', { class: 'row' }, nowPreset, h('button', { class: 'btn', onclick: switchNow }, t('Vorschau und umschalten …'))),
     h('h3', {}, t('Regel')),
     checkInput(sched, 'enabled', t('eingeschaltet')),
-    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)'))); s.value = sched.mode || 'time'; return s; })())),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)'))); s.value = sched.mode || 'time'; return s; })())),
     h('h3', {}, t('Zeitplan')), entries,
     h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: names[0] || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
       h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
     h('h3', {}, t('Strompreis')),
     h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
       h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
-    profitRuleBox(sched),
+    profitRuleBox(sched), solarRuleBox(sched),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
 }
 
@@ -3115,6 +3115,17 @@ function profitRuleBox(sched) {
     h('h3', {}, t('Ertrag')),
     h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Abstand zum Break-even (%)')), numInput(sched, 'profitMarginPercent', 1))),
     h('p', { class: 'muted small' }, t('Ertrag: „Günstig“ = volle Leistung, solange der Strom um den Abstand unter dem Break-even-Preis liegt; „Teuer“ = sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt. Ertrag je TH aus dem Pool-Konto, sonst PPS-Erwartung für BTC.')));
+}
+
+/** 0.9.17 PV-Automatik: viel Sonne → „günstig →“ (volle Leistung), wenig Sonne → „teuer →“ (Stromsparen), dazwischen bleibt es. */
+function solarRuleBox(sched) {
+  if (sched.solarHighW == null) sched.solarHighW = 300;
+  if (sched.solarLowW == null) sched.solarLowW = 100;
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('PV-Leistung')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('viel Sonne ab (W)')), numInput(sched, 'solarHighW', 10)),
+      h('div', {}, h('label', {}, t('wenig Sonne bis (W)')), numInput(sched, 'solarLowW', 10))),
+    h('p', { class: 'muted small' }, t('PV-Leistung: ab „viel Sonne“ gilt „günstig →“ (volle Leistung), bis „wenig Sonne“ gilt „teuer →“ (z. B. eine Stromspar-Voreinstellung); dazwischen bleibt es, wie es ist. Die Quelle (Messsteckdose oder Home Assistant, auch Anker Solix) wird unter Einstellungen → Strom & Kosten → PV-Anlage eingestellt.')));
 }
 
 // ---------- Sicherungen ----------
@@ -3672,6 +3683,7 @@ async function renderSettings() {
     backupCard(),
     mqttCard(),
     plugsCard(),
+    solarCard(),
     poolAccountCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Admin-Passwort ändern')),
@@ -3691,7 +3703,7 @@ const SETTINGS_SECTIONS = () => [
   ['miners', t('Miner & Geräte'), 'cpu', [t('Geräte'), t('Einstellungen übertragen'), t('Geräteprofile')]],
   ['look', t('Darstellung'), 'palette', [t('Darstellung'), t('Übersicht gestalten')]],
   ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Berichte und Log-Alarme')]],
-  ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs')]],
+  ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs'), t('PV-Anlage')]],
   ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
   ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
   ['access', t('Zugang & Sicherheit'), 'shield', [t('Ansicht-PIN'), t('Ansicht-Zugänge'), t('Kiosk / Wand-Tablet'), t('Verbindung'), t('Admin-Passwort ändern')]],
@@ -4774,6 +4786,50 @@ function fanEditor(data) {
 }
 
 /** Smart Plugs (Shelly): anlegen, Rolle und Miner zuordnen, testen. Es wird nie geschaltet, nur gemessen. */
+/** 0.9.17: Woher die PV-Leistung für die Automatik-Art „PV-Leistung“ kommt – Messsteckdose (Shelly …) oder Home Assistant (auch Anker Solix). */
+function solarCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const render = d => {
+    const s = d.settings;
+    const src = h('select', {}, [['none', t('keine')], ['plug', t('Messsteckdose (Shelly, Tasmota, FRITZ!DECT)')], ['homeassistant', t('Home Assistant (auch Anker Solix)')]]
+      .map(([v, l]) => h('option', { value: v }, l)));
+    src.value = s.source || 'none';
+    const plug = h('select', {}, [h('option', { value: '' }, '–'), ...d.plugs.map(p => h('option', { value: p.id }, p.name + (p.role === 'pv' ? ' ☀' : '')))]);
+    plug.value = s.plugId || '';
+    const url = h('input', { value: s.haUrl || '', placeholder: 'http://homeassistant.local:8123' });
+    const entity = h('input', { value: s.haEntity || '', placeholder: 'sensor.pv_power' });
+    const token = h('input', { type: 'password', autocomplete: 'new-password',
+      placeholder: d.tokenSet ? t('gespeichert – leer lassen = unverändert') : t('langlebiges Zugriffstoken') });
+    const plugBox = h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Messsteckdose')), plug));
+    const haBox = h('div', { class: 'stack' },
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Adresse')), url), h('div', {}, h('label', {}, t('Sensor (Leistung in W oder kW)')), entity),
+        h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Zugriffstoken')), token)),
+      h('p', { class: 'muted small' }, t('Token in Home Assistant unter Profil → Sicherheit → Langlebige Zugriffstoken erstellen. Anker Solix: über die Anker-Solix-Integration in Home Assistant, dann deren Sensor für die PV-Leistung eintragen.')));
+    const show = () => { plugBox.style.display = src.value === 'plug' ? '' : 'none'; haBox.style.display = src.value === 'homeassistant' ? '' : 'none'; };
+    src.addEventListener('change', show);
+    show();
+    const req = () => ({ settings: { source: src.value, plugId: plug.value, haUrl: url.value, haEntity: entity.value }, token: token.value || null });
+    const now = d.settings.source === 'none' ? t('keine Quelle eingestellt')
+      : d.powerW != null ? t('aktuell {0} W', n(d.powerW, 0)) : d.error ? t('Fehler: {0}', d.error) : t('noch kein Wert');
+    fill(body,
+      h('p', { class: 'muted small' }, t('Für die Automatik-Art „PV-Leistung“: Bei viel Sonne volle Leistung, bei wenig Sonne Stromsparen. BitaxeTuner liest nur, schaltet nichts.')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Quelle')), src)),
+      plugBox, haBox,
+      h('p', { class: 'small' }, now),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', onclick: async () => {
+          const r = await run(() => api('/solar/test', { method: 'POST', body: req() }));
+          if (r) toast(t('PV-Leistung gelesen: {0} W', n(r.powerW, 0)), 'info');
+        } }, t('Testen')),
+        h('button', { class: 'btn primary', onclick: async () => {
+          const r = await run(() => api('/solar', { method: 'PUT', body: req() }), t('Gespeichert.'));
+          if (r) render(r);
+        } }, t('Speichern'))));
+  };
+  api('/solar').then(render).catch(e => fill(body, h('p', { class: 'error' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('PV-Anlage')), body);
+}
+
 function plugsCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const render = d => {
@@ -4781,7 +4837,8 @@ function plugsCard() {
     const passwords = {};
     const clear = new Set();
     const list = h('div', { class: 'stack' });
-    const roles = [['miners', t('speist Miner')], ['other', t('Nebenverbraucher (Zusatzlüfter, Pi …)')], ['total', t('Gesamtmessung (alles dahinter)')]];
+    const roles = [['miners', t('speist Miner')], ['other', t('Nebenverbraucher (Zusatzlüfter, Pi …)')], ['total', t('Gesamtmessung (alles dahinter)')],
+      ['pv', t('PV-Erzeugung (nicht in den Kosten)')]];
     const statusOf = id => d.status?.find(x => x.id === id);
     const draw = () => fill(list, s.items.length ? s.items.map((p, i) => {
       const st = statusOf(p.id);
