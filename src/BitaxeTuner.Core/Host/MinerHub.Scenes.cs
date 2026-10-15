@@ -165,6 +165,8 @@ public sealed partial class MinerHub
         if (p.Qr) list.Add(new(DisplayScene.Qr));
         if (p.News) list.Add(new(DisplayScene.News));
         if (p.Image) list.Add(new(DisplayScene.Image));
+        if (p.Profit && History is not null) list.Add(new(DisplayScene.Profit));
+        if (p.Solo) list.Add(new(DisplayScene.Solo));
         if (list.Count == 0) list.Add(new(DisplayScene.Overview));
         return list;
     }
@@ -284,6 +286,10 @@ public sealed partial class MinerHub
                 return model with { Scene = page, Qr = BuildQr() };
             case DisplayScene.Image:
                 return model with { Scene = page, Picture = BuildPicture() };
+            case DisplayScene.Profit:
+                return model with { Scene = page, Profit = BuildProfitPage(now) };
+            case DisplayScene.Solo:
+                return model with { Scene = page, Solo = BuildSolo() };
             case DisplayScene.News:
                 _ = RefreshNewsAsync(force: false);
                 return model with { Scene = page, News = News.Items(Ds.NewsKinds, 6) };

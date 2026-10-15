@@ -4221,7 +4221,9 @@ function displaySettingsFields(s, pic) {
       checkInput(s.pages, 'sensors', t('Temperaturfühler')),
       checkInput(s.pages, 'qr', t('QR-Code')),
       checkInput(s.pages, 'news', t('Neuigkeiten')),
-      checkInput(s.pages, 'image', t('Eigenes Bild'))),
+      checkInput(s.pages, 'image', t('Eigenes Bild')),
+      checkInput(s.pages, 'profit', t('Ertrag & Strom')),
+      checkInput(s.pages, 'solo', t('Solo-Chance'))),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -4307,7 +4309,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')

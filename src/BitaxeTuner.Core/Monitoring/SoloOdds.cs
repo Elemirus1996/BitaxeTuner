@@ -63,6 +63,11 @@ public sealed class SoloOddsService
         }
     }
 
+    internal void SetDifficultyForTest(CoinType coin, double? value)
+    {
+        lock (_difficulty) _difficulty[coin] = (DateTime.UtcNow, value);
+    }
+
     public SoloOddsResult Calculate(CoinType coin, double hashrateGh, int miners)
     {
         double? difficulty;

@@ -153,6 +153,39 @@ public sealed class DisplayPagesTests : IDisposable
     }
 
     [Fact]
+    public async Task Profit_and_solo_pages_render()
+    {
+        // 0.9.16: Seiten „Ertrag & Strom“ und „Solo-Chance“
+        await _hub.PollNowAsync();
+        _hub.Odds.SetDifficultyForTest(BitaxeTuner.Core.Tax.Models.CoinType.Bitcoin, 1.4e14);
+        RendersFully(_hub.PreviewScene(DisplayScene.Profit, DateTime.Now));
+        var solo = _hub.PreviewScene(DisplayScene.Solo, DateTime.Now);
+        Assert.Equal(2, solo.Solo!.Count);                                    // BTC und BCH
+        Assert.Equal(1.4e14, solo.Solo[0].Difficulty);
+        RendersFully(solo);
+
+        var m = solo with
+        {
+            Scene = DisplayScene.Profit,
+            Profit = new DisplayProfit("€", "pool", [
+                new("24 Stunden", 0.42m, 0.61m, -0.19m, 2.9, false), new("7 Tage", 3.10m, 4.20m, -1.10m, 20.3, false),
+                new("30 Tage", 15.80m, 17.95m, -2.15m, 86.7, true), new("Oktober", 7.40m, 8.10m, -0.70m, 39.1, false)]),
+        };
+        RendersFully(m);
+        var oneCoin = solo with { Solo = [new("BTC", 3, 3150, 1.4e14, 2.3e-5, 0.0083, 43500)] };
+        var twoCoins = solo with { Solo = [new("BTC", 3, 3150, 1.4e14, 2.3e-5, 0.0083, 43500), new("BCH", 1, 1100, 5.6e11, 1.9e-3, 0.5, 520)] };
+        RendersFully(oneCoin);
+        RendersFully(twoCoins);
+        var dir = Environment.GetEnvironmentVariable("BT_EPAPER_PREVIEW");
+        if (dir is not null)
+        {
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(m), Path.Combine(dir, "epaper-profit.png"));
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(oneCoin), Path.Combine(dir, "epaper-solo1.png"));
+            SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(twoCoins), Path.Combine(dir, "epaper-solo2.png"));
+        }
+    }
+
+    [Fact]
     public async Task Price_page_can_show_the_coins_being_mined()
     {
         await _hub.PollNowAsync();

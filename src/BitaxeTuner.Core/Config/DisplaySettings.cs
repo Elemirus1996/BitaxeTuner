@@ -161,6 +161,10 @@ public sealed class DisplayPages
     public bool News { get; set; }
     /// <summary>0.9.16: eigenes, hochgeladenes Bild.</summary>
     public bool Image { get; set; }
+    /// <summary>0.9.16: Ertrag gegen Strom (24 h, 7 Tage, 30 Tage, Monat).</summary>
+    public bool Profit { get; set; }
+    /// <summary>0.9.16: Solo-Chance je Coin.</summary>
+    public bool Solo { get; set; }
 }
 
 /// <summary>
