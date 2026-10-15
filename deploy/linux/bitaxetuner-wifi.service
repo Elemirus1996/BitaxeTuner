@@ -1,0 +1,6 @@
+[Unit]
+Description=BitaxeTuner: WLAN-Name und -Passwort des Servers für die Pico-Einrichtung
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/bitaxetuner/wifi-read

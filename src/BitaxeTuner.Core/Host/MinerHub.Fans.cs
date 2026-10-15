@@ -455,10 +455,17 @@ public sealed partial class MinerHub
     /// und die Verbindung in den Einstellungen auf WLAN umstellen. Das WLAN-Passwort wird nirgends auf dem Server gespeichert.
     /// </summary>
     /// <param name="displayId">0.9.11: Display-Pico einer weiteren Anzeige (eigener Schlüssel, eigene Verbindung).</param>
-    public async Task<PicoSetupResult> SetupPicoNetworkAsync(string role, string? port, string? ssid, string? password, string? host, string? displayId = null)
+    /// <param name="useServerWifi">0.9.17: WLAN-Name und -Passwort vom Server übernehmen statt der übergebenen Werte.</param>
+    public async Task<PicoSetupResult> SetupPicoNetworkAsync(string role, string? port, string? ssid, string? password, string? host, string? displayId = null,
+        bool useServerWifi = false)
     {
         var extra = displayId is null ? null
             : Config.ExtraDisplays.FirstOrDefault(d => d.Id == displayId) ?? throw new LocalizedException("Anzeige nicht gefunden.");
+        if (useServerWifi)
+        {
+            var wifi = await ReadServerWifiAsync();
+            (ssid, password) = (wifi.Ssid, wifi.Password);
+        }
         var config = PicoNetworkConfig.Create(role, ssid, password, host);
         var candidates = port is { Length: > 0 } p && p != "auto" ? [p] : PicoFanDevice.FindPorts();
         if (candidates.Count == 0) throw new LocalizedException("Kein Pico am USB gefunden – Pico per Datenkabel anschließen.");

@@ -45,7 +45,8 @@ public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
 public sealed record OverrideRequest(string Mode);
 public sealed record KioskLoginRequest(string? Token);
-public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host, string? DisplayId = null);
+public sealed record PicoSetupRequest(string? Role, string? Port, string? Ssid, string? Password, string? Host, string? DisplayId = null,
+    bool UseServerWifi = false);
 
 /// <summary>REST-API /api/v1 – Rollen: öffentlich (Info, Einrichtung, Anmeldung), Nur ansehen, Admin.</summary>
 public static class Endpoints
@@ -1302,6 +1303,14 @@ public static class Endpoints
             return new { ok = true, role = r, port };
         })));
 
+        // 0.9.17: WLAN des Servers für die Pico-Einrichtung – nur der Name geht an den Browser, nie das Passwort
+        g.MapGet("/fans/server-wifi", async (HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            if (!h.ServerWifiSupported) return new { supported = false, ssid = (string?)null, error = (string?)null };
+            try { return new { supported = true, ssid = (string?)(await h.ReadServerWifiAsync()).Ssid, error = (string?)null }; }
+            catch (LocalizedException ex) { return new { supported = true, ssid = (string?)null, error = (string?)ex.Message }; }
+        })));
+
         // Pico am USB für WLAN einrichten (Lüfter- oder Display-Pico). Das WLAN-Passwort geht nur auf den Pico.
         g.MapPost("/fans/wlan-setup", async (PicoSetupRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
         {
@@ -1309,7 +1318,7 @@ public static class Endpoints
             // 0.9.11: Display-Pico einer weiteren Anzeige – eigener Gerätename, damit sich mehrere Picos im WLAN nicht stören
             var extraId = role == Core.Fans.PicoFanDevice.RoleDisplay && req.DisplayId is { Length: > 0 } id ? id : null;
             var host = extraId is not null && string.IsNullOrWhiteSpace(req.Host) ? $"bitaxetuner-display-{extraId}" : req.Host;
-            var result = await h.SetupPicoNetworkAsync(role, req.Port, req.Ssid, req.Password, host, extraId);
+            var result = await h.SetupPicoNetworkAsync(role, req.Port, req.Ssid, req.Password, host, extraId, req.UseServerWifi);
             if (extraId is null && role == Core.Fans.PicoFanDevice.RoleDisplay) h.Config.Display.Enabled = true;
             h.Config.Save();
             await h.ApplyFanSettingsAsync();
