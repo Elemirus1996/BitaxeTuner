@@ -21,6 +21,9 @@ public sealed class AppConfig
     /// <summary>0.9.14 Pool-Steuerung: Pool-Vorlagen zum Übertragen auf Miner. Additiv; Passwörter in secrets.json.</summary>
     public List<PoolPreset> PoolPresets { get; set; } = [];
 
+    /// <summary>0.9.16: Wartungs-Erinnerungen (Abstände in Betriebstagen). Additiv.</summary>
+    public UpkeepSettings Upkeep { get; set; } = new();
+
     /// <summary>0.9.8: Zeitzone für Haltefrist und Datumsangaben im Steuer-Bereich (Audit F5). Additiv.</summary>
     public string TaxTimeZone { get; set; } = Tax.TaxTime.DefaultZone;
 
@@ -356,6 +359,9 @@ public sealed class DeviceConfig
 
     /// <summary>0.9.11: automatische Pool-Umschaltung (Zeitplan, zurück zum Haupt-Pool, bei schlechten Shares).</summary>
     public PoolSwitchRule PoolAuto { get; set; } = new();
+
+    /// <summary>0.9.16: Betriebsstunden und erledigte Wartung (null = noch nie online gesehen). Additiv.</summary>
+    public DeviceUpkeep? Upkeep { get; set; }
 
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
@@ -950,4 +956,30 @@ public static class MinerGroups
         devices.SelectMany(d => d.Groups).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
 
     public static bool Contains(DeviceConfig device, string group) => device.Groups.Contains(group, StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>0.9.16: Wartungs-Erinnerungen – Abstände in Betriebstagen.</summary>
+public sealed class UpkeepSettings
+{
+    public bool Enabled { get; set; } = true;
+    /// <summary>Staub entfernen, Kühlkörper reinigen.</summary>
+    public int DustDays { get; set; } = 90;
+    /// <summary>Lüfter prüfen.</summary>
+    public int FanDays { get; set; } = 365;
+    /// <summary>Wärmeleitpaste/-pad erneuern.</summary>
+    public int PasteDays { get; set; } = 730;
+}
+
+/// <summary>0.9.16: Betriebsstunden eines Miners und wann welche Wartung erledigt wurde.</summary>
+public sealed class DeviceUpkeep
+{
+    public double Hours { get; set; }
+    public Dictionary<string, UpkeepDone> Done { get; set; } = [];
+}
+
+public sealed class UpkeepDone
+{
+    public DateTime At { get; set; }
+    /// <summary>Betriebsstunden beim Erledigen.</summary>
+    public double Hours { get; set; }
 }

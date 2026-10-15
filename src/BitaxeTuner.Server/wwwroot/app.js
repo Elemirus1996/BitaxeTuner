@@ -849,6 +849,8 @@ function minerCard(d, tempWarn) {
     d.online ? h('div', { class: 'small muted' }, t('VR {0} °C · {1} MHz / {2} mV · Laufzeit {3}', n(d.vrTemp, 0), d.frequency ?? '–', d.voltage ?? '–', dur(d.uptimeSeconds))) : null,
     poolCoinRow(d),
     d.automation ? h('div', { class: 'small muted' }, d.automation) : null,
+    // 0.9.16 Wartungs-Erinnerung
+    d.upkeepDue?.length ? h('div', { class: 'small warn', title: d.upkeepDue.join(' · ') }, '🔧 ' + t('Wartung fällig: {0}', d.upkeepDue.join(' · '))) : null,
     d.benchmark?.running ? h('div', { class: 'progress' }, h('div', { style: `width:${d.benchmark.overallProgress}%` })) : null,
     d.fan ? h('div', { class: `small ${d.fan.stalled ? 'danger' : 'muted'}` },
       t('VR-Lüfter K{0}: {1} %{2}{3}', d.fan.channel, d.fan.percent, d.fan.rpm != null ? t(' · {0} U/min', d.fan.rpm) : '', d.fan.stalled ? t(' · steht!') : '')) : null,
@@ -1938,9 +1940,34 @@ function tabHealth() {
       h('div', { class: 'card table-wrap' }, h('table', {},
         h('thead', {}, h('tr', {}, [t('Wert'), t('letzte 7 Tage'), t('4 Wochen davor')].map(x => h('th', {}, x)))),
         h('tbody', {}, rows.map(([label, f, key]) => h('tr', {}, h('td', {}, label), h('td', { class: 'num' }, v(d.recent[key], f)), h('td', { class: 'num' }, v(d.base[key], f))))))),
-      h('p', { class: 'muted small' }, t('Einmal am Tag geprüft; gemeldet wird nur eine deutliche Veränderung (Push „Gesundheit“ in den Einstellungen). Lüfter und abgelehnte Shares werden seit 0.7.0 erfasst – der Vergleich braucht einige Wochen Daten.')));
+      h('p', { class: 'muted small' }, t('Einmal am Tag geprüft; gemeldet wird nur eine deutliche Veränderung (Push „Gesundheit“ in den Einstellungen). Lüfter und abgelehnte Shares werden seit 0.7.0 erfasst – der Vergleich braucht einige Wochen Daten.')),
+      upkeepCard(d.upkeep));
   }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
   return box;
+}
+
+/** 0.9.16: Wartungs-Erinnerungen – Betriebsstunden, Aufgaben mit Fälligkeit, „erledigt“, Abstände. */
+function upkeepCard(u) {
+  if (!u) return null;
+  const s = { ...u.settings };
+  const days = v => v >= 0 ? t('in {0} Tagen', n(v, 0)) : t('seit {0} Tagen fällig', n(-v, 0));
+  return h('div', { class: 'card stack' },
+    h('h3', {}, t('Wartung')),
+    h('p', { class: 'muted small' }, u.hours != null ? t('Betriebsstunden: {0} (gezählt, solange der Miner online ist; Startwert aus der Firmware).', n(u.hours, 0)) : t('Noch keine Betriebsstunden – der Miner war noch nicht online.')),
+    u.tasks.length ? h('div', { class: 'table-wrap' }, h('table', {}, h('tbody', {}, u.tasks.map(x => h('tr', {},
+      h('td', {}, x.label), h('td', { class: x.due ? 'warn' : 'muted' }, days(x.dueInDays)),
+      h('td', { class: 'muted small' }, x.lastDone ? t('zuletzt {0}', new Date(x.lastDone).toLocaleDateString(LOCALE)) : ''),
+      h('td', {}, isAdmin() ? h('button', { class: `btn small ${x.due ? 'primary' : ''}`, onclick: async () => {
+        if (await run(() => api(`/devices/${S.route.id}/upkeep/${x.key}/done`, { method: 'POST', body: {} }), t('Als erledigt vermerkt.'))) refreshDeviceTab();
+      } }, t('erledigt')) : null)))))) : null,
+    isAdmin() ? h('details', {}, h('summary', { class: 'small' }, t('Abstände (Betriebstage, gilt für alle Miner)')),
+      h('div', { class: 'form' },
+        ...[['dustDays', t('Staub/Kühlkörper')], ['fanDays', t('Lüfter')], ['pasteDays', t('Wärmeleitpaste')]].map(([k, l]) =>
+          h('div', {}, h('label', {}, l), h('input', { type: 'number', min: 7, max: 3650, value: s[k], oninput: e => { s[k] = +e.target.value || s[k]; } })))),
+      checkInput(s, 'enabled', t('Wartungs-Erinnerungen (Push „Wartung“)')),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: async () => {
+        if (await run(() => api('/upkeep', { method: 'PUT', body: s }), t('Gespeichert.'))) refreshDeviceTab();
+      } }, t('Speichern')))) : null);
 }
 
 function suggestionBanner(d) {

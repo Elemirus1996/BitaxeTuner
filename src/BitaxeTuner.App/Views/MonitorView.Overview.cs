@@ -105,12 +105,33 @@ public partial class MonitorView
                 });
             }
 
+            // 0.9.16 Wartungs-Erinnerung; „erledigt“ per Rechtsklick
+            var device = _host.Hub.Device(host);
+            var due = device is null ? [] : _host.Hub.UpkeepOf(device).Where(t => t.Due).ToList();
+            if (due.Count > 0)
+                stack.Children.Add(new TextBlock
+                {
+                    Text = "🔧 " + L.T("Wartung fällig: {0}", string.Join(" · ", due.Select(t => t.Label))),
+                    Style = (Style)FindResource("TileSub"), Foreground = Gold, TextWrapping = TextWrapping.Wrap,
+                });
+
             var card = new Border
             {
                 Style = (Style)FindResource("Tile"), Child = stack, Cursor = Cursors.Hand,
                 BorderBrush = status, BorderThickness = new Thickness(3, 0, 0, 0),
                 ToolTip = L.T("{0} öffnen", s.Config.Name),
             };
+            if (due.Count > 0 && device is not null)
+            {
+                var menu = new ContextMenu();
+                foreach (var task in due)
+                {
+                    var item = new MenuItem { Header = L.T("Erledigt: {0}", task.Label) };
+                    item.Click += (_, _) => { _host.Hub.UpkeepDone(device, task.Key, L.T("Desktop")); RenderMinerCards(); };
+                    menu.Items.Add(item);
+                }
+                card.ContextMenu = menu;
+            }
             card.MouseLeftButtonUp += (_, _) => MinerRequested?.Invoke(host);
             MinerCards.Children.Add(card);
         }

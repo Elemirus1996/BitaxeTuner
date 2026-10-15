@@ -62,6 +62,8 @@ public sealed class SystemInfo
     // System
     public int blockFound { get; set; }
     public long uptimeSeconds { get; set; }
+    /// <summary>0.9.16: Gesamtlaufzeit laut ESP-Miner (über Neustarts hinweg), Startwert der Betriebsstunden; null = Firmware ohne Feld.</summary>
+    public long? totalUptimeSeconds { get; set; }
     public int wifiRSSI { get; set; }
     public string? wifiStatus { get; set; }
     public long freeHeap { get; set; }

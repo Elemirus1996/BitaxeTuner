@@ -217,6 +217,8 @@ public static class Dto
                 ? new { coin = hub.PoolSymbolOfSlug(pw.NowMining), mode = pw.Mode, merged = pw.MergedMining }
                 : null,
             automation = d.AutomationStatus,
+            // 0.9.16: fällige Wartung (Kurztext)
+            upkeepDue = hub.UpkeepOf(d).Where(t => t.Due).Select(t => t.Label).ToList(),
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
             suggestion = d.PendingSuggestion,
             benchmark = d.Benchmark is { } b ? Run(b) : null,

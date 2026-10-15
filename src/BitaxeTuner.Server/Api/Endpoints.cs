@@ -472,8 +472,19 @@ public static class Endpoints
             var scope = AuthContext.Of(http).Scope;
             return Results.Json(await hub.RunAsync(h =>
             {
-                var (findings, recent, @base) = h.HealthOf(Device(h, id, scope).Host, DateTime.Now);
-                return new { findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base };
+                var d = Device(h, id, scope);
+                var (findings, recent, @base) = h.HealthOf(d.Host, DateTime.Now);
+                return new
+                {
+                    findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base,
+                    // 0.9.16 Wartungs-Erinnerungen
+                    upkeep = new
+                    {
+                        hours = d.Config.Upkeep?.Hours,
+                        settings = h.Config.Upkeep,
+                        tasks = h.UpkeepOf(d).Select(t => new { key = t.Key, label = t.Label, intervalDays = t.IntervalDays, dueInDays = Math.Round(t.DueInDays, 1), due = t.Due, lastDone = t.LastDone }).ToList(),
+                    },
+                };
             }));
         });
 
@@ -1223,6 +1234,18 @@ public static class Endpoints
             h.DeleteDisplayPicture(null, L.T("Browser"));
             h.RequestDisplayRefresh();
             return new { ok = true };
+        })));
+
+        // 0.9.16 Wartungs-Erinnerungen: Aufgabe erledigt, Abstände einstellen
+        g.MapPost("/devices/{id}/upkeep/{task}/done", async (string id, string task, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.UpkeepDone(Device(h, id), task, L.T("Browser"));
+            return new { ok = true };
+        })));
+        g.MapPut("/upkeep", async (Core.Config.UpkeepSettings req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.SetUpkeepSettings(req, L.T("Browser"));
+            return new { ok = true, settings = h.Config.Upkeep };
         })));
 
         g.MapPost("/display/refresh", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
