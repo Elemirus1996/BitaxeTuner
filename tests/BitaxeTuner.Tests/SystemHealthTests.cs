@@ -31,8 +31,10 @@ public class SystemHealthTests
             ["/proc/meminfo"] = "MemTotal:        3884332 kB\nMemFree:          40000 kB\nMemAvailable:      61440 kB\n",
             ["/sys/class/thermal/thermal_zone0/temp"] = "86200\n",
             ["/sys/devices/platform/soc/soc:firmware/get_throttled"] = "0x50005\n",
+            ["/proc/mounts"] = $"/dev/mmcblk0p2 / ext4 rw,noatime 0 0\n/dev/sda1 {dir.Path.Replace('\\', '/')} ext4 ro,relatime 0 0\n",
         };
         hub.SystemFileReader = p => files.TryGetValue(p, out var v) ? v : null;
+        hub.SystemCommandRunner = (_, _) => "no";                          // Uhrzeit nicht synchronisiert
         try
         {
             var checks = hub.SystemChecks(now).ToDictionary(c => c.Key);
@@ -42,11 +44,18 @@ public class SystemHealthTests
             Assert.Equal("bad", checks["power"].State);                 // Unterspannung jetzt
             Assert.Equal("warn", checks["cert"].State);                 // Zusatzprüfung des Servers
             Assert.Equal("ok", checks["disk"].State);
+            Assert.Equal("bad", checks["readonly"].State);                // Datenordner liegt auf einem „ro“-Einhängepunkt
+            Assert.Equal("warn", checks["clock"].State);
+            Assert.False(checks.ContainsKey("restarts"));
+            // Drei Starts in 30 Minuten → Absturzschleife?
+            File.WriteAllText(Path.Combine(dir.Path, "starts.json"), System.Text.Json.JsonSerializer.Serialize(new[] { now.AddMinutes(-25), now.AddMinutes(-12), now.AddMinutes(-1) }));
+            Assert.Equal("warn", hub.SystemChecks(now).Single(c => c.Key == "restarts").State);
+            File.Delete(Path.Combine(dir.Path, "starts.json"));
 
             hub.TickSystemHealthForTest(now);
             hub.TickSystemHealthForTest(now.AddMinutes(5));            // erst nach 10 min erneut
             hub.TickSystemHealthForTest(now.AddMinutes(10));            // gleiche Probleme: Push höchstens einmal am Tag
-            Assert.Equal(["system:memory", "system:cpu-temp", "system:power", "system:cert"], sent);
+            Assert.Equal(["system:memory", "system:cpu-temp", "system:power", "system:readonly", "system:clock", "system:cert"], sent);
 
             // Wieder in Ordnung → Protokoll
             files["/sys/class/thermal/thermal_zone0/temp"] = "52000\n";

@@ -401,6 +401,7 @@ public sealed partial class MinerHub : IDisposable
         // Home Assistant bekommt auch im Pausenzustand Werte (Lüfter, Fühler, „pausiert“)
         if (Config.Mqtt.Enabled) _ = ApplyMqttSettingsAsync();
         LogEvent(null, EventCategories.System, L.T("Überwachung gestartet ({0} Miner)", Devices.Count));
+        RecordStart(Options.Clock?.Invoke() ?? DateTime.Now);   // 0.9.16: für „gehäufte Neustarts“ im Systemzustand
         // 0.9.16: einmalige Verkleinerung der history.db beim Öffnen
         if (History?.Compaction is { } hc)
             LogEvent(null, EventCategories.System, hc.Skipped is null

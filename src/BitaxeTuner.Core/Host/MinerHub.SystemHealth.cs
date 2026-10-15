@@ -28,6 +28,68 @@ public sealed partial class MinerHub
     /// <summary>Für Tests: Werte, die sonst aus /proc und /sys kommen (null = echte Dateien).</summary>
     internal Func<string, string?>? SystemFileReader { get; set; }
 
+    /// <summary>Für Tests: Ausgabe von Systembefehlen (z. B. timedatectl); null = Befehl wirklich ausführen.</summary>
+    internal Func<string, string[], string?>? SystemCommandRunner { get; set; }
+
+    /// <summary>Kurzer Systembefehl (höchstens 3 s), Ausgabe oder null.</summary>
+    private string? RunSystemCommand(string file, params string[] args)
+    {
+        if (SystemCommandRunner is { } f) return f(file, args);
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(file) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            using var p = System.Diagnostics.Process.Start(psi);
+            if (p is null) return null;
+            var output = p.StandardOutput.ReadToEndAsync();
+            if (!p.WaitForExit(3000)) { try { p.Kill(); } catch { /* egal */ } return null; }
+            return output.Result.Trim();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { return null; }
+    }
+
+    private string StartsFile => Path.Combine(DataDirectory, "starts.json");
+
+    /// <summary>0.9.16: Start merken (letzte 20) – mehrere Starts kurz hintereinander deuten auf eine Absturzschleife.</summary>
+    private void RecordStart(DateTime now)
+    {
+        try
+        {
+            var list = File.Exists(StartsFile) ? System.Text.Json.JsonSerializer.Deserialize<List<DateTime>>(File.ReadAllText(StartsFile)) ?? [] : [];
+            list.Add(now);
+            File.WriteAllText(StartsFile, System.Text.Json.JsonSerializer.Serialize(list.TakeLast(20).ToList()));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { /* nur Hinweis */ }
+    }
+
+    private int RecentStarts(DateTime now, TimeSpan window)
+    {
+        try
+        {
+            return File.Exists(StartsFile)
+                ? (System.Text.Json.JsonSerializer.Deserialize<List<DateTime>>(File.ReadAllText(StartsFile)) ?? []).Count(t => now - t < window && t <= now)
+                : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return 0; }
+    }
+
+    /// <summary>Einhängepunkt des Datenordners schreibgeschützt? (Linux: /proc/mounts, längster passender Einhängepunkt)</summary>
+    private bool? DataMountReadOnly()
+    {
+        if (ReadSystemFile("/proc/mounts") is not { } mounts) return null;
+        var full = Path.GetFullPath(DataDirectory).Replace('\\', '/').TrimEnd('/') + "/";
+        string? options = null;
+        var best = -1;
+        foreach (var line in mounts.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split(' ');
+            if (parts.Length < 4) continue;
+            var mp = parts[1].TrimEnd('/') + "/";
+            if (full.StartsWith(mp, StringComparison.Ordinal) && mp.Length > best) { best = mp.Length; options = parts[3]; }
+        }
+        return options?.Split(',').Contains("ro");
+    }
+
     private string? ReadSystemFile(string path)
     {
         if (SystemFileReader is { } f) return f(path);
@@ -124,6 +186,28 @@ public sealed partial class MinerHub
             list.Add(new SystemCheck("power", L.T("Stromversorgung (Pi)"), value, now0 || throttledNow ? "bad" : earlier ? "warn" : "ok",
                 now0 || throttledNow || earlier ? L.T("Original-Netzteil (5 V, 3 A bzw. 5 A beim Pi 5) und kurzes Kabel verwenden – Unterspannung kann die Speicherkarte beschädigen.") : null));
         }
+
+        // 0.9.16: Speicherkarte schreibgeschützt (stirbt eine SD-Karte, hängt Linux sie oft nur noch lesend ein)
+        if (DataMountReadOnly() is true)
+            list.Add(new SystemCheck("readonly", L.T("Speicherkarte"), L.T("schreibgeschützt"), "bad",
+                L.T("Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.")));
+
+        // Uhrzeit (Linux mit systemd): ohne Zeitabgleich scheitern Zertifikate und Kursabrufe
+        if (OperatingSystem.IsLinux() || SystemCommandRunner is not null)
+        {
+            var synced = ReadSystemFile("/run/systemd/timesync/synchronized") is not null
+                ? "yes"
+                : RunSystemCommand("timedatectl", "show", "-p", "NTPSynchronized", "--value");
+            if (synced is "yes" or "no")
+                list.Add(new SystemCheck("clock", L.T("Uhrzeit"), synced == "yes" ? L.T("synchronisiert") : L.T("nicht synchronisiert"), synced == "yes" ? "ok" : "warn",
+                    synced == "yes" ? null : L.T("Zeitabgleich (NTP) prüfen: „timedatectl“ im SSH-Terminal. Eine falsche Uhrzeit lässt Zertifikate und Kursabrufe scheitern.")));
+        }
+
+        // Gehäufte Neustarts (Absturzschleife)
+        var starts = RecentStarts(now, TimeSpan.FromMinutes(30));
+        if (starts >= 3)
+            list.Add(new SystemCheck("restarts", L.T("Neustarts"), L.T("{0} in 30 Minuten", starts), "warn",
+                L.T("Der Dienst startet auffällig oft neu – im Protokoll bzw. mit „journalctl -u bitaxetuner -n 100“ nach der Ursache sehen.")));
 
         // Abgebrochenes Update
         if (LastUpdateError is { } ue)
