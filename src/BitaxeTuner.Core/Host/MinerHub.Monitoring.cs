@@ -149,6 +149,7 @@ public sealed partial class MinerHub
         RecordHealth(now);
         TickSystemHealth(now);   // 0.9.16: Systemzustand alle 10 min
         TickPoolDeviations(now); // 0.9.16: Abweichung von der Pool-Vorlage
+        TickCoinbase();          // 0.9.16: zahlt die Coinbase an die eigene Adresse?
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

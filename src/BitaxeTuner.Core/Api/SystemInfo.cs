@@ -53,6 +53,12 @@ public sealed class SystemInfo
     public int fallbackStratumPort { get; set; }
     public string? fallbackStratumUser { get; set; }
 
+    // 0.9.16 ESP-Miner mit „Coinbase entschlüsseln“: zahlt die Coinbase des aktuellen Jobs an die eigene Adresse?
+    /// <summary>„verified“, „not_found“, „not_applicable“ (Benutzer ist keine Adresse) oder „unknown“; null = Firmware ohne Feld.</summary>
+    public string? coinbasePayoutStatus { get; set; }
+    public long? coinbaseValueTotalSatoshis { get; set; }
+    public long? coinbaseValueUserSatoshis { get; set; }
+
     // System
     public int blockFound { get; set; }
     public long uptimeSeconds { get; set; }

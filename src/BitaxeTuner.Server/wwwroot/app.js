@@ -696,7 +696,15 @@ function poolCoinRow(d) {
   const q = coin && S.status?.coins?.find(c => c.symbol === coin.toUpperCase());
   const price = q?.price != null ? h('span', { class: 'chip-badge', title: q.source === 'pool' ? t('Kurs laut Pool') : t('Kurs (CoinGecko), Veränderung in 24 Stunden') },
     h('span', { class: 'chip-text mono' }, coinPrice(q.price)), q.change != null ? h('span', { class: `small ${q.change >= 0 ? 'ok' : 'danger'}` }, ' ' + pct1(q.change)) : null) : null;
-  return h('div', { class: 'pool-row' }, pool, coinChip, price);
+  // 0.9.16 Coinbase-Prüfung: zahlt der Pool einen gefundenen Block an deine Adresse?
+  const cb = d.coinbase;
+  const sats = v => v == null ? '–' : n(v / 1e8, 8);
+  const coinbase = cb ? h('span', {
+    class: 'chip-badge', title: cb.status === 'verified'
+      ? t('Die Coinbase des aktuellen Jobs zahlt {0} von {1} an deine Adresse.', sats(cb.user), sats(cb.total))
+      : t('Die Coinbase des Pools zahlt nicht an deine Adresse – bei einem Solo-Pool bekämst du einen gefundenen Block nicht.'),
+  }, h('span', { class: `chip-text ${cb.status === 'verified' ? 'ok' : 'danger'}` }, cb.status === 'verified' ? '✓ ' + t('Coinbase an dich') : '⚠ ' + t('Coinbase nicht an dich'))) : null;
+  return h('div', { class: 'pool-row' }, pool, coinChip, price, coinbase);
 }
 
 /** Kurs mit passender Genauigkeit (BTC 74.000 €, DGB 0,0081 €). */

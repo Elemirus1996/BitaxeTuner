@@ -205,6 +205,10 @@ public static class Dto
             // 0.9.13: Coin des Miners (Pool-Konto, sonst Einstellung/Wallet-Adresse) und Pool mit Link zur Pool-Seite.
             // Der Link kann den Pool-Benutzer (Wallet-Adresse) enthalten – Pool daher nur für Admins
             coin = hub.PoolCoinSymbolOf(s) ?? MinerHub.ResolveCoin(s)?.Symbol(),
+            // 0.9.16 Coinbase-Prüfung (ESP-Miner mit „Coinbase entschlüsseln“)
+            coinbase = admin && i?.coinbasePayoutStatus is "verified" or "not_found"
+                ? new { status = i!.coinbasePayoutStatus, user = i.coinbaseValueUserSatoshis, total = i.coinbaseValueTotalSatoshis }
+                : null,
             poolInfo = admin && i is not null && Core.Monitoring.PoolIdentities.For(i) is { } pid
                 ? new { name = pid.Name, url = PoolPage(hub, s, pid)?.AbsoluteUri }
                 : null,

@@ -123,6 +123,33 @@ public sealed class PoolPresetTests : IDisposable
     }
 
     [Fact]
+    public async Task Coinbase_not_paying_to_own_address_is_reported()
+    {
+        // 0.9.16: Felder von ESP-Miner mit „Coinbase entschlüsseln“
+        var info = System.Text.Json.JsonSerializer.Deserialize<BitaxeTuner.Core.Api.SystemInfo>(
+            """{"coinbasePayoutStatus":"verified","coinbaseValueTotalSatoshis":312512345,"coinbaseValueUserSatoshis":312500000}""")!;
+        Assert.Equal(("verified", 312500000L), (info.coinbasePayoutStatus, info.coinbaseValueUserSatoshis));
+
+        _hub.Config.Notifications.Provider = "ntfy";
+        _hub.Config.Notifications.NtfyTopic = "t";
+        _hub.Notify.TransportOverride = (_, _, _) => Task.CompletedTask;
+        var sent = new List<string>();
+        _hub.Notify.Sending += (key, _, _, _) => sent.Add(key);
+        Assert.True(await _hub.PollNowAsync());
+        var d = _hub.Device("10.0.0.51")!;
+        d.State.Info!.coinbasePayoutStatus = "not_found";
+        _hub.TickCoinbaseForTest();
+        Assert.Empty(sent);                                              // einmal kann ein Pool-Wechsel sein
+        _hub.TickCoinbaseForTest();
+        _hub.TickCoinbaseForTest();
+        Assert.Equal([$"coinbase:{d.Host}"], sent);
+        Assert.Contains(d.LogLines, l => l.Contains("Coinbase-Prüfung") && l.Contains("nicht an die eingetragene Adresse"));
+        d.State.Info.coinbasePayoutStatus = "verified";
+        _hub.TickCoinbaseForTest();
+        Assert.Contains(d.LogLines, l => l.Contains("zahlt wieder an die eingetragene Adresse"));
+    }
+
+    [Fact]
     public async Task Legacy_firmware_gets_the_old_fields_and_same_preset_twice_is_refused()
     {
         Assert.True(await _hub.PollNowAsync());

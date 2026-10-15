@@ -86,6 +86,15 @@ public partial class MonitorView
                         line.Inlines.Add(new System.Windows.Documents.Run($"  {(ch >= 0 ? "+" : "")}{ch.ToString("0.0", De)} %") { Foreground = ch >= 0 ? Green : Red });
                     stack.Children.Add(line);
                 }
+                // 0.9.16 Coinbase-Prüfung (ESP-Miner mit „Coinbase entschlüsseln“)
+                if (i.coinbasePayoutStatus is "verified" or "not_found")
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = i.coinbasePayoutStatus == "verified" ? "✓ " + L.T("Coinbase an dich") : "⚠ " + L.T("Coinbase nicht an dich"),
+                        Style = (Style)FindResource("TileSub"), Foreground = i.coinbasePayoutStatus == "verified" ? Green : Red,
+                        ToolTip = i.coinbasePayoutStatus == "verified" ? null
+                            : L.T("Die Coinbase des Pools zahlt nicht an deine Adresse – bei einem Solo-Pool bekämst du einen gefundenen Block nicht."),
+                    });
             }
             else
             {
