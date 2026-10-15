@@ -4,8 +4,9 @@
 Quellen (nur öffentliche Daten, keine Nutzerdaten):
   firmware    – neue stabile Releases von ESP-Miner (Bitaxe) und ESP-Miner-NerdQAxePlus (NerdAxe-Familie)
   miner       – neue Miner-Modelle (tools/new-miners.txt aus dem täglichen Check)
-  solo        – Solo-Blockfunde: BTC einzeln über mempool.space (Solo CK, Public Pool, Braiins Solo),
-                BCH als Tagessumme über Blockchair („solo“ im Coinbase-Text)
+  solo        – Solo-Blockfunde: BTC einzeln über mempool.space (Solo CK, Public Pool, Braiins Solo) als
+                „Kleiner Miner, großer Fund“ (dort minen fast nur Heim-Miner), BCH als Tagessumme über Blockchair
+                („solo“ im Coinbase-Text)
   network     – Difficulty-Anpassungen im Bitcoin-Netzwerk (mempool.space)
   bitaxetuner – neue BitaxeTuner-Versionen und Einträge aus tools/news-manual.json
 
@@ -121,8 +122,13 @@ def solo_btc():
             pool = b.get('extras', {}).get('pool', {}).get('name', slug)
             reward = b.get('extras', {}).get('reward', 0) / 1e8
             h = b['height']
-            out.append(item(f'solo-btc-{h}', b['timestamp'], 'solo', f'Solo-Block BTC #{h} – {pool}', f'Solo block BTC #{h} – {pool}',
-                            f'Belohnung {num_de(reward, 3)} BTC', f'Reward {reward:,.3f} BTC', f"https://mempool.space/block/{b['id']}", 'BTC'))
+            # „Kleiner Miner, großer Fund“: Über Solo-Pools minen fast nur Heim-Miner (Bitaxe, NerdQAxe & Co.) –
+            # wie viel Hashrate der Finder hatte, verraten die Quellen nicht; daher zählt jeder Fund dort
+            out.append(item(f'solo-btc-{h}', b['timestamp'], 'solo',
+                            f'Kleiner Miner, großer Fund: Block #{h} ({pool})', f'Small miner, big find: block #{h} ({pool})',
+                            f'Solo-Block BTC, Belohnung {num_de(reward, 3)} BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.',
+                            f'Solo BTC block, reward {reward:,.3f} BTC – found via a solo pool where almost only home miners mine.',
+                            f"https://mempool.space/block/{b['id']}", 'BTC'))
     return out
 
 
