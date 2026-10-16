@@ -51,6 +51,10 @@ public static class Dto
             profit = role == Role.Admin && !scope.Restricted && hub.Profit(now) is { } pf
                 ? new { pf.Currency, pf.Source, windows = pf.Windows.Select(w => new { w.Key, w.Income, w.Cost, w.Net, w.Kwh, w.Partial }) }
                 : null,
+            // 0.9.20: weitere Pool-Konten (Panel „Pool-Konten“) – nur Admin, ohne Adresse/Schlüssel
+            extraPools = role == Role.Admin && !scope.Restricted && hub.ExtraPoolSummaries() is { Count: > 0 } xp
+                ? xp.Select(x => new { x.Id, x.Name, x.Provider, x.Coin, x.HashrateGh, x.Hashrate24hGh, x.Workers, x.Balance, x.Value, lastPayout = x.LastPayoutUtc, lastPayoutAmount = x.LastPayout, x.Error, lastPoll = x.LastPollUtc })
+                : null,
             look = new   // 0.9.14: Darstellung als Standard für alle Browser (eigene Werte je Browser haben Vorrang)
             {
                 bg = hub.Config.Appearance.Background,

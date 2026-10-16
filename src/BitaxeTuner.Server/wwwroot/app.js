@@ -1019,6 +1019,7 @@ function renderOverview() {
     news: () => newsCard(true),
     profit: () => profitCard(s.profit, tv.currency),
     coins: () => coinsCard(s.coins, tv.currency),
+    pools: () => s.extraPools?.length ? extraPoolsOverviewCard(s.extraPools, tv.currency) : null,
     text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
   };
   const grid = h('div', { class: `ov-grid${edit ? ' ov-edit' : ''}`, id: 'ovGrid' }, layout.panels.map((p, i) => {
@@ -1192,7 +1193,7 @@ const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'coins', 'miners', 'plugs',
 const OVERVIEW_TYPES = () => [['kpis', t('Kennzahlen-Reihe')], ['hashrate', t('Hashrate gesamt')], ['power', t('Leistung')], ['efficiency', t('Effizienz')],
   ['maxtemp', t('Max. Temperatur')], ['price', t('Strompreis')], ['cost', t('Stromkosten')], ['chart', t('Verlauf (Hashrate)')], ['miners', t('Miner')],
   ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')],
-  ['profit', t('Ertrag gegen Stromkosten')], ['coins', t('Kurse der geschürften Coins')]];
+  ['profit', t('Ertrag gegen Stromkosten')], ['coins', t('Kurse der geschürften Coins')], ['pools', t('Weitere Pool-Konten')]];
 
 /** 0.9.11 Übersicht-Designer: Panels anordnen (Breite im 12er-Raster), dazu die Reihenfolge der Miner. */
 function overviewDesignCard(devices) {
@@ -5242,6 +5243,26 @@ function profilesCard() {
 /** 0.9.20: weitere Pool-Konten neben Mining-Dutch – nur lesend; Schlüssel gehen nur zum Server (secrets.json). */
 const EXTRA_POOL_PROVIDERS = () => [['public-pool', t('public-pool.io (Solo, je Adresse)')], ['ckpool', t('solo.ckpool.org (Solo, je Adresse)')],
   ['ocean', t('OCEAN (je Adresse)')], ['braiins', t('Braiins Pool (Zugangs-Token)')], ['viabtc', t('ViaBTC (API-Schlüssel)')]];
+
+/** 0.9.20: Übersicht-Panel „Weitere Pool-Konten“ – je Konto Hashrate, Worker, Guthaben, letzte Auszahlung. */
+function extraPoolsOverviewCard(list, currency) {
+  const hashText = gh => gh == null ? '–' : gh >= 1000 ? `${n(gh / 1000, 2)} TH/s` : `${n(gh, 1)} GH/s`;
+  const prov = Object.fromEntries(EXTRA_POOL_PROVIDERS());
+  return h('div', { class: 'card stack' },
+    h('div', { class: 'row' }, h('h3', { style: 'margin:0;flex:1' }, t('Weitere Pool-Konten')),
+      isAdmin() ? h('a', { class: 'btn small', href: '#/settings/integr' }, t('Einstellungen')) : null),
+    h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {}, [t('Konto'), t('Hashrate'), t('24 h'), t('Worker'), t('Guthaben'), t('Letzte Auszahlung')].map(x => h('th', {}, x)))),
+      h('tbody', {}, list.map(x => h('tr', {},
+        h('td', {}, h('b', {}, x.name), h('div', { class: 'muted small' }, prov[x.provider] || x.provider),
+          x.error ? h('div', { class: 'small danger' }, x.error) : null),
+        h('td', { class: 'num' }, hashText(x.hashrateGh)),
+        h('td', { class: 'num' }, hashText(x.hashrate24hGh)),
+        h('td', { class: 'num' }, String(x.workers)),
+        h('td', { class: 'num' }, x.balance != null ? `${x.balance} ${x.coin}` : '–',
+          x.value != null ? h('div', { class: 'muted small' }, `≈ ${n(x.value, 2)} ${currency}`) : null),
+        h('td', {}, x.lastPayout ? `${x.lastPayoutAmount} ${x.coin} · ${time(x.lastPayout)}` : '–')))))));
+}
 
 function extraPoolsCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
