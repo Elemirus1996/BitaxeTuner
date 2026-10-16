@@ -5,7 +5,7 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Network;
 
 /// <summary>Eine Neuigkeit; Titel und Text in der Sprache der Oberfläche (Rückfall: Deutsch, dann Englisch).</summary>
-/// <param name="Kind">"firmware", "miner", "solo", "network", "bitaxetuner"; 0.9.16 lokal: "halving", "price".</param>
+/// <param name="Kind">"firmware", "miner", "solo", "network", "bitaxetuner"; 0.9.16 lokal: "halving", "price"; 0.9.20 lokal: "milestone".</param>
 public sealed record NewsItem(string Id, DateTime DateUtc, string Kind, string? Coin, string Title, string Text, string Url);
 
 /// <summary>
@@ -17,7 +17,7 @@ public sealed record NewsItem(string Id, DateTime DateUtc, string Kind, string? 
 public sealed class NewsFeed : IDisposable
 {
     public const string DefaultUrl = "https://raw.githubusercontent.com/Elemirus1996/BitaxeTuner/news/news.json";
-    public static readonly string[] Kinds = ["solo", "firmware", "miner", "network", "bitaxetuner", "halving", "price"];
+    public static readonly string[] Kinds = ["solo", "firmware", "miner", "network", "bitaxetuner", "halving", "price", "milestone"];
     private static readonly TimeSpan RefreshEvery = TimeSpan.FromHours(3);
 
     private readonly HttpClient _http;

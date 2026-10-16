@@ -25,6 +25,7 @@ public sealed partial class MinerHub
             if (_network is { } btc) HalvingNews("BTC", btc.Height, now);
             if (_bchNetwork is { } bch) HalvingNews("BCH", bch.Height, now);
             PriceMoveNews(now);
+            TickMilestones(now);   // 0.9.20: eigene Meilensteine
         }
         catch { /* Neuigkeiten sind nur Zusatz */ }
     }

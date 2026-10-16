@@ -4202,7 +4202,9 @@ function quickActions(fans, display) {
 const NEWS_KINDS = () => [['solo', t('Solo-Blockfunde')], ['firmware', t('Firmware-Releases')], ['miner', t('Neue Miner-Modelle')],
   ['network', t('Netzwerk (Difficulty)')], ['bitaxetuner', t('BitaxeTuner-Versionen')],
   // 0.9.16: erzeugt der Server selbst
-  ['halving', t('Halving-Countdown')], ['price', t('Große Kursbewegung')]];
+  ['halving', t('Halving-Countdown')], ['price', t('Große Kursbewegung')],
+  // 0.9.20: eigene Meilensteine (Rekord, erste Auszahlung, Betriebsjahre, kWh, erster Monat im Plus)
+  ['milestone', t('Eigene Meilensteine')]];
 
 /** Seite „Neuigkeiten“: welche Arten das E-Paper zeigt. */
 function newsKindsInput(s) {

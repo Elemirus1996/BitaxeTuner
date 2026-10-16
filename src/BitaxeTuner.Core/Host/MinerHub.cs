@@ -148,6 +148,7 @@ public sealed partial class MinerHub : IDisposable
         Benchmarks = new BenchmarkManager(this);
 
         SyncDevices();
+        if (EnsureMilestoneNewsKind()) Config.Save();   // 0.9.20: Meilensteine einmalig in die Neuigkeiten-Arten
     }
 
     public AppConfig Config { get; }
