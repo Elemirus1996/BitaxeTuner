@@ -480,6 +480,92 @@ public partial class ServerModeWindow : Window
         }
     }
 
+    // ---------- Umzug alter Server → neuer Server (0.9.20) ----------
+
+    /// <summary>Alten Server anmelden; bei selbst signiertem HTTPS-Zertifikat den Fingerabdruck bestätigen lassen.</summary>
+    private async Task<ServerClient?> ConnectOldAsync()
+    {
+        string? pinned = null;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var client = new ServerClient(OldUrlBox.Text, OldTokenBox.Password, pinned);
+            try
+            {
+                var info = await client.InfoAsync();
+                if (info.Name != "BitaxeTuner-Server") throw new ServerException(L.T("Unter dieser Adresse läuft kein BitaxeTuner-Server."));
+                if (string.IsNullOrWhiteSpace(OldTokenBox.Password))
+                    throw new ServerException(L.T("Bitte das API-Token des alten Servers eintragen (seine Oberfläche → Einstellungen → Desktop-App verbinden)."));
+                await client.StatusAsync(); // prüft das Token
+                Log(L.T("Alter Server: {0} {1} · {2} Miner", info.Name, info.Version, info.Devices));
+                return client;
+            }
+            catch (ServerException ex) when (attempt == 0 && client.PresentedFingerprint is { } fp && ex.Message.StartsWith(L.T("Zertifikat")))
+            {
+                client.Dispose();
+                if (MessageBox.Show(this,
+                        L.T("Der Server verwendet ein selbst signiertes Zertifikat.\n\nFingerabdruck (SHA-256):\n{0}\n\n", fp) +
+                        L.T("Vergleiche ihn mit dem Protokoll des Servers (Zeile „HTTPS-Zertifikat“). Nur bestätigen, wenn er übereinstimmt."),
+                        L.T("Zertifikat bestätigen"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                    return null;
+                pinned = fp;
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+        }
+        return null;
+    }
+
+    private async void MoveServer_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+        ServerClient? to = null, from = null;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(OldUrlBox.Text)) throw new ServerException(L.T("Bitte die Adresse des alten Servers eintragen."));
+            if (string.Equals(ServerClient.Normalize(OldUrlBox.Text).Host, ServerClient.Normalize(UrlBox.Text).Host, StringComparison.OrdinalIgnoreCase)
+                && ServerClient.Normalize(OldUrlBox.Text).Port == ServerClient.Normalize(UrlBox.Text).Port)
+                throw new ServerException(L.T("Alter und neuer Server haben dieselbe Adresse."));
+            var conn = await ConnectAsync();
+            if (conn is not { } c) return;
+            to = c.Client;
+            from = await ConnectOldAsync();
+            if (from is null) return;
+            if (MessageBox.Show(this,
+                    L.T("Daten vom alten Server ({0}) auf den neuen ({1}) übernehmen?\n\n", from.BaseUri, to.BaseUri) +
+                    L.T("• Der alte Server wird pausiert und bleibt es danach (laufende Benchmarks dort werden gestoppt).\n") +
+                    L.T("• Sein kompletter Stand wird geprüft und ersetzt den Stand des neuen Servers; hat der neue schon Daten, fragt die App vorher nach.\n") +
+                    L.T("• Zugangsdaten (Admin-Passwort, Tokens) und Passwörter in secrets.json bleiben auf dem jeweiligen Server – auf dem neuen ggf. neu eintragen."),
+                    L.T("Umzug auf einen neuen Server"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                return;
+            var message = await ServerMigration.CopyAsync(from, to,
+                msg => Dispatcher.Invoke(() => MessageBox.Show(this,
+                    msg + L.T("\n\nTrotzdem ersetzen? Der neue Server sichert seinen bisherigen Stand vorher."), L.T("Umzug auf einen neuen Server"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes),
+                new Progress<string>(Log));
+            Log(message);
+            MessageBox.Show(this, message + L.T("\n\nDer alte Server bleibt pausiert – du kannst ihn jetzt abschalten. Diese App verbindet sich mit dem neuen Server."),
+                L.T("Umzug auf einen neuen Server"), MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (OperationCanceledException ex)
+        {
+            Log(ex.Message);
+        }
+        catch (Exception ex) when (ex is ServerException or System.IO.IOException or System.IO.InvalidDataException)
+        {
+            Log(L.T("Abgebrochen: ") + ex.Message);
+            MessageBox.Show(this, ex.Message, L.T("Umzug auf einen neuen Server"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            from?.Dispose();
+            to?.Dispose();
+            SetBusy(false);
+        }
+    }
+
     // ---------- Server → Lokal ----------
 
     private async void DownloadAndSwitch_Click(object sender, RoutedEventArgs e)

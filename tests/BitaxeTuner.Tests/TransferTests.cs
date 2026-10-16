@@ -218,6 +218,54 @@ public class TransferTests
         return c;
     }
 
+    private static ServerClient Client(WebApplicationFactory<Program> f)
+    {
+        var auth = f.Services.GetRequiredService<AuthStore>();
+        if (auth.SetupCode is { } code) auth.Setup(code, "sehr-geheim-123");
+        var (_, token) = auth.CreateToken("PC");
+        return new ServerClient(f.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false }), token);
+    }
+
+    [Fact]
+    public async Task Moving_to_a_new_server_copies_everything_and_keeps_the_old_one_paused()
+    {
+        // 0.9.20: Umzug alter Server → neuer Server über die Desktop-App
+        using var oldDir = new TempDir();
+        using var newDir = new TempDir();
+        FillDataDirectory(oldDir.Path);
+        File.Delete(oldDir.File("server-auth.json"));
+        using var oldServer = Server(oldDir.Path);
+        using var newServer = Server(newDir.Path);
+        using var from = Client(oldServer);
+        using var to = Client(newServer);
+        var log = new List<string>();
+
+        var message = await ServerMigration.CopyAsync(from, to, _ => throw new InvalidOperationException("neuer Server ist leer"), new SyncProgress(log.Add));
+        Assert.Contains("1 Gerät", message);
+        Assert.True((await from.InfoAsync()).Paused);   // nie zwei Server für dieselben Miner
+        var status = await to.StatusAsync();
+        Assert.Equal("192.168.60.5", status.GetProperty("devices")[0].GetProperty("host").GetString());
+        Assert.Contains(log, l => l.StartsWith("Geprüft:"));
+
+        // Zweiter Umzug: neuer Server hat schon Daten → Nachfrage; Nein = nichts geändert, alter läuft wieder
+        await from.SetPausedAsync(false);
+        int Backups() => Directory.GetDirectories(newDir.Path).Count(d => Path.GetFileName(d).StartsWith("backup-"));
+        var before = Backups();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ServerMigration.CopyAsync(from, to, _ => false, new SyncProgress(log.Add)));
+        Assert.False((await from.InfoAsync()).Paused);
+        Assert.Equal(before, Backups());
+
+        // Ja = ersetzen, der neue Server sichert seinen Stand vorher
+        await ServerMigration.CopyAsync(from, to, _ => true, new SyncProgress(log.Add));
+        Assert.True(Backups() > before);
+        Assert.True((await from.InfoAsync()).Paused);
+    }
+
+    private sealed class SyncProgress(Action<string> report) : IProgress<string>
+    {
+        public void Report(string value) => report(value);
+    }
+
     [Fact]
     public async Task Server_accepts_import_when_empty_asks_otherwise_and_exports_again()
     {
