@@ -60,7 +60,8 @@ public class SystemHealthTests
             // Wieder in Ordnung → Protokoll
             files["/sys/class/thermal/thermal_zone0/temp"] = "52000\n";
             hub.TickSystemHealthForTest(now.AddMinutes(20));
-            var log = hub.History!.QueryEvents(now.AddDays(-1), now.AddDays(1)).Select(e => e.Message).ToList();
+            // Protokoll trägt die echte Uhrzeit ein, der Test arbeitet mit einem festen Datum → Fenster bis heute
+            var log = hub.History!.QueryEvents(now.AddDays(-1), DateTime.Now.AddDays(1)).Select(e => e.Message).ToList();
             Assert.Contains(log, m => m.Contains("CPU-Temperatur") && m.Contains("wieder in Ordnung"));
             Assert.Single(log, m => m.StartsWith("Systemzustand: Stromversorgung"));
 

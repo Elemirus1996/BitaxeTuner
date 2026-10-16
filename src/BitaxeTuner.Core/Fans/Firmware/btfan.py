@@ -61,7 +61,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8.3"
+VERSION = "8.4"
 FREQ = 25000
 WATCHDOG_MS = 5000
 PULSES_PER_REV = 2
@@ -965,9 +965,11 @@ try:
     while True:
         try:
             wdt.feed()
-            # read everything that is waiting (image transfers are large)
-            budget = 600
-            while budget > 0 and usb.poll(0 if budget < 600 else (5 if wlan is not None else 20)):
+            # read everything that is waiting (image transfers are large); 8.4: during an image transfer read much more per
+            # round - otherwise the server's USB write ran into its time limit with the larger Spectra 6 picture
+            start = 6000 if (spectra_stream or (img is not None and img_pos < len(img))) else 600
+            budget = start
+            while budget > 0 and usb.poll(0 if budget < start else (5 if wlan is not None else 20)):
                 budget -= 1
                 c = sys.stdin.read(1)
                 if c in ("\n", "\r"):
