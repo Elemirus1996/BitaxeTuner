@@ -66,6 +66,17 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.20
+
+- **Raspberry Pi 5 – Server-Lüfter**: Drehzahl und Stufe sehen und regeln (Firmware, CPU-Kurve oder nach Miner-Temperatur);
+  ein stehender Lüfter erscheint im Systemzustand, auch auf dem E-Paper.
+- **Weitere Pool-Konten**: public-pool.io, solo.ckpool.org, OCEAN, Braiins Pool und ViaBTC – mit Übersicht-Panel,
+  E-Paper-Seite „Pool“, Zuflüssen für die Steuer und Push bei Auszahlungen.
+- **Eigene Meilensteine** in den Neuigkeiten (Rekord, erste Auszahlung, Betriebsjahre, kWh, erster Monat im Plus).
+- **Neuer Server**: Sicherung gleich beim Einrichten einspielen; Umzug vom alten auf den neuen Server in der Desktop-App.
+- **Pi besser geschützt**: Bilder werden vorab verkleinert und speicherbegrenzt verarbeitet, Hardware-Watchdog,
+  Speichergrenze für den Dienst, Protokoll übersteht Abstürze, Schreiblast der Speicherkarte im Systemzustand.
+
 ### Neu in 0.9.19
 
 - **Spectra 6**: Das große Bild kommt jetzt sicher an, und die Lüfter drehen während der Übertragung nicht mehr kurz auf

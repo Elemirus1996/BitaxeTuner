@@ -69,6 +69,17 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.20
+
+- **Raspberry Pi 5 – server fan**: see and control speed and level (firmware, CPU curve or by miner temperature);
+  a stalled fan shows up in the system health, also on the e-paper.
+- **More pool accounts**: public-pool.io, solo.ckpool.org, OCEAN, Braiins Pool and ViaBTC – with an overview panel,
+  the e-paper page "Pool", tax income and push on payouts.
+- **Own milestones** in the news (record, first payout, years of operation, kWh, first month in profit).
+- **New server**: restore a backup right during setup; move from the old to the new server in the desktop app.
+- **Pi better protected**: pictures are shrunk beforehand and processed with a memory limit, hardware watchdog,
+  memory limit for the service, the log survives crashes, SD card write load in the system health.
+
 ### New in 0.9.19
 
 - **Spectra 6**: the large picture now arrives reliably, and the fans no longer spin up to 100 % for a moment during the
