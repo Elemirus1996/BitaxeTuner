@@ -142,6 +142,51 @@ public sealed class WalletMonitorService : IDisposable
     }
 
     /// <summary>
+    /// 0.9.20: Erträge weiterer Pool-Konten (OCEAN, Braiins, ViaBTC) als Zuflüsse übernehmen – nur ergänzend: was es schon
+    /// gibt (gleiche Wallet-Kennung und TxId) oder ignoriert wurde, bleibt unberührt; nie wird etwas verschoben oder gelöscht.
+    /// Neue Einträge werden bewertet (Kurs) und gemeldet. Liefert die Zahl neuer Zuflüsse.
+    /// </summary>
+    public async Task<int> ImportExternalRewardsAsync(IReadOnlyList<MinedReward> derived, bool fetchPrices = true, CancellationToken ct = default)
+    {
+        if (derived.Count == 0) return 0;
+        await _pollLock.WaitAsync(ct);
+        try
+        {
+            List<MinedReward> added;
+            lock (_walletLock)
+            {
+                var all = _repository.LoadRewards();
+                var ignored = _repository.LoadIgnoredTxKeys();
+                var existing = all.Select(r => (r.WalletAddressId, r.TxId)).ToHashSet();
+                added = derived.Where(d => !existing.Contains((d.WalletAddressId, d.TxId))
+                                           && !ignored.Contains(TaxLogRepository.TxKey(d.CoinSymbol, d.TxId))).ToList();
+                if (added.Count == 0) return 0;
+                all.AddRange(added);
+                _repository.SaveRewards(all);
+                foreach (var r in added) _knownTxKeys.Add(TaxLogRepository.TxKey(r.CoinSymbol, r.TxId));
+            }
+            foreach (var r in added.Where(r => r.Coin.HasPriceSource() && r.PriceIn("EUR") is null)
+                         .OrderByDescending(r => r.ReceivedAtUtc).Take(fetchPrices ? PriceRetriesPerPoll : 0))
+            {
+                var (quote, failure) = await _prices.GetEurPriceAsync(r.Coin, r.ReceivedAtUtc, ct);
+                if (quote is not null) r.SetPrice("EUR", quote.Value, quote.AtUtc, quote.Source);
+                var currency = CurrentCurrency();
+                if (currency != "EUR" && (await _prices.GetPriceAsync(r.Coin, r.ReceivedAtUtc, currency, ct)).Quote is { } other)
+                    r.SetPrice(currency, other.Value, other.AtUtc, other.Source);
+                if (failure is not null) r.Note += " · " + failure;
+                SaveReward(r);
+            }
+            foreach (var r in added.OrderBy(r => r.ReceivedAtUtc)) NewRewardDetected?.Invoke(r);
+            RewardsReloaded?.Invoke();
+            return added.Count;
+        }
+        finally
+        {
+            _pollLock.Release();
+        }
+    }
+
+    /// <summary>
     /// 0.9.12: Pool-Buchungen als Zuflüsse abgleichen (<see cref="PoolTaxSync"/>) und neue Einträge bewerten. Liefert die Zahl
     /// neuer Zuflüsse. Ohne Steuer-Übernahme (<paramref name="import"/> = false) wandern vorhandene Pool-Zuflüsse in den
     /// Speicher für die andere Art – sie gehen nicht verloren und kommen beim Wiedereinschalten zurück.

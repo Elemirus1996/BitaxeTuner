@@ -3704,6 +3704,7 @@ async function renderSettings() {
     plugsCard(),
     solarCard(),
     poolAccountCard(),
+    extraPoolsCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Admin-Passwort ändern')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Aktuell')), curPw), h('div', {}, h('label', {}, t('Neu (mind. 10 Zeichen)')), newPw),
@@ -3724,7 +3725,7 @@ const SETTINGS_SECTIONS = () => [
   ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Berichte und Log-Alarme')]],
   ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs'), t('PV-Anlage')]],
   ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
-  ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
+  ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Weitere Pool-Konten'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
   ['access', t('Zugang & Sicherheit'), 'shield', [t('Ansicht-PIN'), t('Ansicht-Zugänge'), t('Kiosk / Wand-Tablet'), t('Verbindung'), t('Admin-Passwort ändern')]],
   ['system', t('System'), 'server', [t('Systemzustand'), t('Abfrage und Speicher'), t('Sicherung'), t('Server-Update')]],
 ];
@@ -5238,6 +5239,88 @@ function profilesCard() {
 }
 
 /** 0.9.12 Pool-Konto (Mining-Dutch): Coin je Miner, Guthaben, Gutschriften/Auszahlungen; Buchungen als Zuflüsse für die Steuer. */
+/** 0.9.20: weitere Pool-Konten neben Mining-Dutch – nur lesend; Schlüssel gehen nur zum Server (secrets.json). */
+const EXTRA_POOL_PROVIDERS = () => [['public-pool', t('public-pool.io (Solo, je Adresse)')], ['ckpool', t('solo.ckpool.org (Solo, je Adresse)')],
+  ['ocean', t('OCEAN (je Adresse)')], ['braiins', t('Braiins Pool (Zugangs-Token)')], ['viabtc', t('ViaBTC (API-Schlüssel)')]];
+
+function extraPoolsCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const hashText = gh => gh == null ? '–' : gh >= 1000 ? `${n(gh / 1000, 2)} TH/s` : `${n(gh, 1)} GH/s`;
+  const render = d => {
+    const accounts = d.accounts.map(a => ({ ...a }));
+    const secrets = {};
+    const list = h('div', { class: 'stack' });
+    const statusView = (st, err) => {
+      if (err) return h('p', { class: 'small danger' }, err);
+      if (!st) return h('p', { class: 'small muted' }, t('noch nicht abgefragt'));
+      const parts = [t('Hashrate {0}', hashText(st.hashrateGh)), st.hashrate24hGh != null ? t('24 h {0}', hashText(st.hashrate24hGh)) : null,
+        t('{0} Worker aktiv', st.activeWorkers), st.bestDifficulty != null ? t('Best Diff {0}', n(st.bestDifficulty, 0)) : null,
+        st.balance != null ? t('Guthaben {0} {1}', st.balance, st.coin) : null].filter(Boolean);
+      return h('div', { class: 'stack' },
+        h('p', { class: 'small' }, parts.join(' · ')),
+        st.workers?.length ? h('p', { class: 'small muted' }, st.workers.map(w => `${w.name}: ${hashText(w.hashrateGh)}`).join(' · ')) : null,
+        st.earnings?.length ? h('p', { class: 'small muted' }, t('Letzte Erträge: {0}', st.earnings.slice(0, 3).map(e => `${time(e.time)} ${e.amount}`).join(', '))) : null,
+        st.payouts?.length ? h('p', { class: 'small muted' }, t('Letzte Auszahlung: {0} {1} ({2})', st.payouts[0].amount, st.coin, time(st.payouts[0].time))) : null);
+    };
+    const draw = () => fill(list, accounts.length ? accounts.map((a, i) => {
+      const prov = h('select', {}, EXTRA_POOL_PROVIDERS().map(([v, l]) => h('option', { value: v }, l)));
+      prov.value = a.provider;
+      const addr = h('input', { value: a.address || '', placeholder: 'bc1q…', oninput: e => { a.address = e.target.value; } });
+      const key = h('input', { type: 'password', autocomplete: 'new-password',
+        placeholder: a.keySet ? t('gespeichert – leer lassen = unverändert') : t('Zugangs-Token / API-Schlüssel (nur lesen)'),
+        oninput: e => { secrets[a.id || `new${i}`] = e.target.value; } });
+      const coin = h('select', {}, [['BTC', 'BTC'], ['BCH', 'BCH']].map(([v, l]) => h('option', { value: v }, l)));
+      coin.value = a.coin || 'BTC';
+      coin.addEventListener('change', () => { a.coin = coin.value; });
+      const base = h('input', { value: a.baseUrl || '', placeholder: t('leer = Standard des Pools'), oninput: e => { a.baseUrl = e.target.value; } });
+      const addrBox = h('div', {}, h('label', {}, t('Wallet-Adresse')), addr);
+      const keyBox = h('div', {}, h('label', {}, t('Zugang')), key);
+      const coinBox = h('div', {}, h('label', {}, t('Coin')), coin);
+      const show = () => {
+        a.provider = prov.value;
+        addrBox.hidden = !['public-pool', 'ckpool', 'ocean'].includes(a.provider);
+        keyBox.hidden = !['braiins', 'viabtc'].includes(a.provider);
+        coinBox.hidden = a.provider !== 'viabtc';
+      };
+      prov.addEventListener('change', show);
+      show();
+      const result = h('div', {}, statusView(a.status, a.error));
+      return h('div', { class: 'stack', style: 'border-top:1px solid var(--border);padding-top:10px' },
+        h('div', { class: 'form' },
+          h('div', {}, h('label', {}, t('Pool')), prov),
+          h('div', {}, h('label', {}, t('Name')), h('input', { value: a.name || '', maxlength: 40, oninput: e => { a.name = e.target.value; } })),
+          addrBox, keyBox, coinBox,
+          h('div', {}, h('label', {}, t('Adresse der Pool-API (optional, z. B. eigene public-pool-Instanz)')), base)),
+        h('div', { class: 'row', style: 'flex-wrap:wrap' },
+          checkInput(a, 'enabled', t('eingeschaltet')),
+          ['ocean', 'braiins', 'viabtc'].includes(a.provider) ? checkInput(a, 'taxImport', t('Erträge in die Steuer übernehmen')) : null,
+          checkInput(a, 'notifyPayouts', t('Push bei Auszahlung'))),
+        result,
+        h('div', { class: 'row' },
+          h('button', { class: 'btn small', onclick: async () => {
+            const st = await run(() => api('/extra-pools/test', { method: 'POST', body: { account: a, secret: secrets[a.id || `new${i}`] || null } }));
+            if (st) fill(result, statusView(st, null));
+          } }, t('Testen')),
+          h('button', { class: 'btn small danger', onclick: () => { accounts.splice(i, 1); draw(); } }, t('Entfernen'))));
+    }) : h('p', { class: 'muted small' }, t('Noch kein weiteres Pool-Konto.')));
+    draw();
+    fill(body,
+      h('p', { class: 'muted small' }, t('Neben Mining-Dutch: Solo-Pools (public-pool, solo.ckpool) zeigen Hashrate, Worker und beste Shares je Wallet-Adresse; OCEAN, Braiins und ViaBTC zusätzlich Guthaben, Erträge und Auszahlungen – auf Wunsch als Zuflüsse in die Steuer (nur ergänzend). Nur lesend; Schlüssel bleiben auf dem Server. Bei ViaBTC die IP-Freigabe für den Server eintragen.')),
+      list,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small', onclick: () => { accounts.push({ provider: 'public-pool', enabled: true, taxImport: true, notifyPayouts: true, coin: 'BTC' }); draw(); } }, t('Pool-Konto hinzufügen')),
+        h('span', { class: 'spacer' }),
+        h('button', { class: 'btn primary', onclick: async () => {
+          // Schlüssel neuer Konten (noch ohne Kennung) gehen über die vorläufige Kennung mit – der Server vergibt die echte
+          accounts.forEach((a, i) => { if (!a.id) a.id = Math.random().toString(16).slice(2, 10); if (secrets[`new${i}`]) { secrets[a.id] = secrets[`new${i}`]; delete secrets[`new${i}`]; } });
+          const r = await run(() => api('/extra-pools', { method: 'PUT', body: { accounts, secrets } }), t('Gespeichert.'));
+          if (r) render(r);
+        } }, t('Speichern'))));
+  };
+  api('/extra-pools').then(render).catch(e => fill(body, h('p', { class: 'error' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Weitere Pool-Konten')), body);
+}
+
 function poolAccountCard() {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
   const amt = v => n(v, Math.abs(v) >= 1000 ? 2 : Math.abs(v) >= 1 ? 4 : 8);

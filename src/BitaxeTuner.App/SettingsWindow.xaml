@@ -477,6 +477,14 @@
             </StackPanel>
         </Border>
 
+        <!-- Weitere Pool-Konten (0.9.20) -->
+        <Border x:Name="ExtraPoolsCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'Weitere Pool-Konten'}" Style="{StaticResource Section}"/>
+                <ContentControl x:Name="ExtraPoolsHost"/>
+            </StackPanel>
+        </Border>
+
         </StackPanel>
         </ScrollViewer>
 
