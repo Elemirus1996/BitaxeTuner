@@ -345,6 +345,7 @@ public static partial class StatusRenderer
         "bitaxetuner" => "BITAXETUNER",
         "halving" => L.T("HALVING"),
         "price" => L.T("KURS"),
+        "milestone" => L.T("MEILENSTEIN"),
         _ => kind.ToUpperInvariant(),
     };
 

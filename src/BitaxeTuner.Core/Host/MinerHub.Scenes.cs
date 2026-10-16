@@ -108,6 +108,7 @@ public sealed partial class MinerHub
     internal void OnBestDiffRecord(string miner, string coin, string previous, string current, DateTime now)
     {
         var record = new DisplayBestDiff(miner, coin, previous, current, now);
+        BestDiffMilestone(miner, coin, previous, current, now);   // 0.9.20: auch als Meilenstein in den Neuigkeiten
         foreach (var st in new[] { SceneState }.Concat(ExtraRuntimes().Select(x => x.State)))
         {
             st.BestDiff = record;
