@@ -219,6 +219,36 @@ public class TransferTests
     }
 
     [Fact]
+    public async Task Fresh_server_restores_backup_right_after_setup_and_keeps_new_password()
+    {
+        // 0.9.20: Einrichtungsseite – erst Admin-Passwort setzen, dann in derselben Sitzung die Sicherung einspielen
+        using var desktop = new TempDir();
+        using var serverDir = new TempDir();
+        FillDataDirectory(desktop.Path);
+        File.Delete(desktop.File("server-auth.json"));
+        using var f = Server(serverDir.Path);
+        var auth = f.Services.GetRequiredService<AuthStore>();
+        var browser = f.CreateClient();
+        var setup = await browser.PostAsJsonAsync("/api/v1/setup", new { code = auth.SetupCode, password = "neues-passwort-42" });
+        setup.EnsureSuccessStatusCode();
+        browser.DefaultRequestHeaders.Add(AuthContext.CsrfHeader, (await setup.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("csrf").GetString());
+
+        using (var zip = Archive(desktop.Path))
+        {
+            var content = new StreamContent(zip);
+            content.Headers.ContentType = new("application/zip");
+            var r = await browser.PostAsync("/api/v1/admin/import", content);
+            Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
+        }
+        var status = await browser.GetFromJsonAsync<JsonElement>("/api/v1/status");
+        Assert.Equal("192.168.60.5", status.GetProperty("devices")[0].GetProperty("host").GetString());
+
+        // Das beim Einrichten gesetzte Passwort gilt weiter
+        var fresh = f.CreateClient();
+        Assert.True((await fresh.PostAsJsonAsync("/api/v1/login", new { password = "neues-passwort-42" })).IsSuccessStatusCode);
+    }
+
+    [Fact]
     public async Task Server_accepts_import_when_empty_asks_otherwise_and_exports_again()
     {
         using var desktop = new TempDir();

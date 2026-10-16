@@ -500,11 +500,37 @@ function renderSetup() {
   const code = h('input', { autocomplete: 'one-time-code', placeholder: '1234-5678-9012' });
   const pw = h('input', { type: 'password', autocomplete: 'new-password' });
   const pw2 = h('input', { type: 'password', autocomplete: 'new-password' });
+  // 0.9.20: neuer Server – vorhandene Sicherung gleich beim Einrichten einspielen (optional)
+  const backup = h('input', { type: 'file', accept: '.zip,application/zip' });
+  const button = h('button', { class: 'btn primary', type: 'submit' }, t('Einrichten'));
   const submit = async e => {
     e.preventDefault();
     if (pw.value !== pw2.value) return toast(t('Die Passwörter stimmen nicht überein.'), 'error');
-    const r = await run(() => api('/setup', { method: 'POST', body: { code: code.value, password: pw.value } }));
-    if (r) { S.role = r.role; S.csrf = r.csrf; S.info.setupRequired = false; toast(t('Server eingerichtet.'), 'ok'); started(); }
+    const f = backup.files[0];
+    if (f && !/\.zip$/i.test(f.name)) return toast(t('Bitte zuerst eine Sicherungsdatei (.zip) wählen.'), 'error');
+    button.disabled = true;
+    try {
+      const r = await run(() => api('/setup', { method: 'POST', body: { code: code.value, password: pw.value } }));
+      if (!r) return;
+      S.role = r.role; S.csrf = r.csrf; S.info.setupRequired = false;
+      toast(t('Server eingerichtet.'), 'ok');
+      if (f) {
+        toast(t('Lade hoch, prüfe und spiele ein …'), 'info');
+        const done = await run(async () => {
+          const res = await fetch('/api/v1/admin/import', {
+            method: 'POST', credentials: 'same-origin', body: f,
+            headers: { 'Content-Type': 'application/zip', 'Accept-Language': LANG, 'X-CSRF-Token': S.csrf },
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok) throw new ApiError(data?.error || t('Fehler {0}', res.status), res.status);
+          return data;
+        });
+        // Fehlschlag: Server ist trotzdem eingerichtet, Sicherung lässt sich später unter Einstellungen → System einspielen
+        if (done) { toast(done.message, 'ok', 15000); setTimeout(() => location.reload(), 2500); return; }
+        toast(t('Die Sicherung wurde nicht eingespielt. Du kannst sie später unter Einstellungen → System → Sicherung erneut hochladen.'), 'error', 15000);
+      }
+      started();
+    } finally { button.disabled = false; }
   };
   mount(h('div', { class: 'login' }, h('form', { class: 'card stack', onsubmit: submit },
     h('h2', {}, t('Server einrichten')),
@@ -512,7 +538,9 @@ function renderSetup() {
     h('div', {}, h('label', {}, t('Einrichtungs-Code')), code),
     h('div', {}, h('label', {}, t('Admin-Passwort (mind. 10 Zeichen)')), pw),
     h('div', {}, h('label', {}, t('Passwort wiederholen')), pw2),
-    h('button', { class: 'btn primary', type: 'submit' }, t('Einrichten')))));
+    h('div', {}, h('label', {}, t('Sicherung einspielen (optional)')), backup,
+      h('p', { class: 'muted small' }, t('Umzug auf einen neuen Server: eine Sicherungsdatei (bitaxetuner-backup-….zip) wählen – sie wird nach dem Einrichten geprüft und eingespielt. Dein neues Admin-Passwort bleibt gültig.'))),
+    button)));
   code.focus();
 }
 
