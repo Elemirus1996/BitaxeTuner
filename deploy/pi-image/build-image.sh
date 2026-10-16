@@ -76,7 +76,8 @@ ln -sfn "$VERSION" "$R/opt/bitaxetuner/versions/active"
 ln -sfn versions/active "$R/opt/bitaxetuner/current"
 install -m 755 "$SRC/bitaxetuner-firstboot.sh" "$R/opt/bitaxetuner/bitaxetuner-firstboot.sh"
 for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-reboot.service bitaxetuner-firstboot.service bitaxetuner-usb@.service \
-         bitaxetuner-wifi.path bitaxetuner-wifi.service; do
+         bitaxetuner-wifi.path bitaxetuner-wifi.service \
+         bitaxetuner-pifan.path bitaxetuner-pifan.service bitaxetuner-pifan-guard.service bitaxetuner-pifan-guard.timer; do
     install -m 644 "$SRC/$u" "$R/etc/systemd/system/$u"
 done
 # USB-Stick für Sicherungen
@@ -84,12 +85,18 @@ install -d -m 755 "$R/usr/local/lib/bitaxetuner" "$R/media/bitaxetuner-usb"
 install -m 755 "$SRC/bitaxetuner-usb-mount.sh" "$R/usr/local/lib/bitaxetuner/usb-mount"
 # 0.9.17: WLAN des Servers für die Pico-Einrichtung (nur auf Anforderung)
 install -m 755 "$SRC/bitaxetuner-wifi.sh" "$R/usr/local/lib/bitaxetuner/wifi-read"
+# 0.9.20: Lüfter des Servers (Raspberry Pi 5)
+install -m 755 "$SRC/bitaxetuner-pifan.sh" "$R/usr/local/lib/bitaxetuner/pifan-set"
 install -m 644 "$SRC/99-bitaxetuner-usb.rules" "$R/etc/udev/rules.d/99-bitaxetuner-usb.rules"
 # Dienste aktivieren (wie "systemctl enable", ohne das Zielsystem zu starten)
 install -d "$R/etc/systemd/system/multi-user.target.wants"
-for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-firstboot.service; do
+for u in bitaxetuner.service bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-pifan.path bitaxetuner-firstboot.service; do
     ln -sfn "/etc/systemd/system/$u" "$R/etc/systemd/system/multi-user.target.wants/$u"
 done
+
+# 0.9.20: Wächter für den Server-Lüfter (Timer)
+install -d "$R/etc/systemd/system/timers.target.wants"
+ln -sfn /etc/systemd/system/bitaxetuner-pifan-guard.timer "$R/etc/systemd/system/timers.target.wants/bitaxetuner-pifan-guard.timer"
 
 echo "== Hostname $HOSTNAME_NEW =="
 echo "$HOSTNAME_NEW" > "$R/etc/hostname"

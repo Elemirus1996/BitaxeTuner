@@ -26,6 +26,7 @@ UNIT=/etc/systemd/system/bitaxetuner.service
 USB_RULE=/etc/udev/rules.d/99-bitaxetuner-usb.rules
 USB_HELPER=/usr/local/lib/bitaxetuner/usb-mount
 WIFI_HELPER=/usr/local/lib/bitaxetuner/wifi-read
+PIFAN_HELPER=/usr/local/lib/bitaxetuner/pifan-set
 
 # Dienste, Neustart per Taste/Browser und USB-Stick für Sicherungen (alles root-eigene Dateien)
 # Audit S9: Wurzel und „current“ root-eigen, nur versions/ (neue Versionen, Link „active“) gehört dem Dienst.
@@ -61,11 +62,16 @@ install_system() {
     install -m 755 "$HERE/bitaxetuner-wifi.sh" "$WIFI_HELPER"
     install -m 644 "$HERE/bitaxetuner-wifi.path" /etc/systemd/system/bitaxetuner-wifi.path
     install -m 644 "$HERE/bitaxetuner-wifi.service" /etc/systemd/system/bitaxetuner-wifi.service
-    rm -f "$DATA/reboot-request" "$DATA/wifi-request" "$DATA/wifi-answer.json"
+    # 0.9.20: Lüfter des Servers (Raspberry Pi 5) – Stufe auf Anforderung setzen, Wächter gibt an die Firmware zurück
+    install -m 755 "$HERE/bitaxetuner-pifan.sh" "$PIFAN_HELPER"
+    for u in bitaxetuner-pifan.path bitaxetuner-pifan.service bitaxetuner-pifan-guard.service bitaxetuner-pifan-guard.timer; do
+        install -m 644 "$HERE/$u" "/etc/systemd/system/$u"
+    done
+    rm -f "$DATA/reboot-request" "$DATA/wifi-request" "$DATA/wifi-answer.json" "$DATA/pifan-request"
     systemctl daemon-reload
     udevadm control --reload-rules 2>/dev/null || true
-    systemctl enable bitaxetuner bitaxetuner-reboot.path bitaxetuner-wifi.path >/dev/null
-    systemctl restart bitaxetuner-reboot.path bitaxetuner-wifi.path
+    systemctl enable bitaxetuner bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-pifan.path bitaxetuner-pifan-guard.timer >/dev/null
+    systemctl restart bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-pifan.path bitaxetuner-pifan-guard.timer
 }
 
 if [ "${1:-}" = "--system" ]; then
@@ -76,11 +82,14 @@ if [ "${1:-}" = "--system" ]; then
 fi
 
 if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "--purge" ]; then
-    systemctl disable --now bitaxetuner bitaxetuner-reboot.path bitaxetuner-wifi.path 2>/dev/null || true
+    systemctl disable --now bitaxetuner bitaxetuner-reboot.path bitaxetuner-wifi.path bitaxetuner-pifan.path bitaxetuner-pifan-guard.timer 2>/dev/null || true
+    [ -x "$PIFAN_HELPER" ] && echo auto > "$DATA/pifan-request" && "$PIFAN_HELPER" apply 2>/dev/null || true   # Lüfter zurück an die Firmware
     umount -l /media/bitaxetuner-usb 2>/dev/null || true
     rm -f "$UNIT" /etc/systemd/system/bitaxetuner-reboot.path /etc/systemd/system/bitaxetuner-reboot.service \
           /etc/systemd/system/bitaxetuner-usb@.service "$USB_RULE" "$USB_HELPER" \
-          /etc/systemd/system/bitaxetuner-wifi.path /etc/systemd/system/bitaxetuner-wifi.service "$WIFI_HELPER"
+          /etc/systemd/system/bitaxetuner-wifi.path /etc/systemd/system/bitaxetuner-wifi.service "$WIFI_HELPER" \
+          /etc/systemd/system/bitaxetuner-pifan.path /etc/systemd/system/bitaxetuner-pifan.service \
+          /etc/systemd/system/bitaxetuner-pifan-guard.service /etc/systemd/system/bitaxetuner-pifan-guard.timer "$PIFAN_HELPER"
     systemctl daemon-reload
     rm -rf "$ROOT"
     if [ "$1" = "--purge" ]; then
