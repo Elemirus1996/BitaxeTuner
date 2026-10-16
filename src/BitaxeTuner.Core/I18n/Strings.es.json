@@ -690,6 +690,7 @@
   "Darstellung …": "Apariencia …",
   "Das Admin-Passwort braucht mindestens 10 Zeichen und beide Eingaben müssen übereinstimmen.": "La contraseña de administrador necesita al menos 10 caracteres y ambas entradas deben coincidir.",
   "Das Admin-Passwort braucht mindestens 10 Zeichen.": "La contraseña de administrador necesita al menos 10 caracteres.",
+  "Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.": "La imagen tiene demasiados píxeles (como máximo unos 24 megapíxeles): redúcela antes.",
   "Das Bild ist zu groß (höchstens {0} MB).": "La imagen es demasiado grande (máximo {0} MB).",
   "Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen).": "La pantalla completa de bloque encontrado en el e-paper termina tras un número de horas configurable o – como los avisos – permanece hasta pulsar el botón 1 (Ventiladores y pantalla → pantallas especiales).",
   "Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.": "El sistema de archivos se montó solo lectura: suele indicar que la tarjeta falla. Ten a mano una copia del USB/NAS y cambia la tarjeta.",

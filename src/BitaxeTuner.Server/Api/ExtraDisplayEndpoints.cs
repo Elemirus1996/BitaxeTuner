@@ -96,11 +96,12 @@ public static class ExtraDisplayEndpoints
         // 0.9.16: eigenes Bild dieser Anzeige
         g.MapPost("/displays/{id}/image", async (string id, HttpContext http, HubService hub) =>
         {
-            var bytes = await Endpoints.ReadPicture(http);
+            // 0.9.19 (Issue #21): prüfen und verkleinern außerhalb des Hub-Ablaufs (mit Speichergrenze)
+            var png = await Task.Run(async () => DisplayPicture.Normalize(await Endpoints.ReadPicture(http)));
             return Results.Json(await hub.RunAsync(h =>
             {
                 var r = Find(h, id);
-                h.SaveDisplayPicture(r.Config.Id, bytes, L.T("Browser"));
+                h.SaveDisplayPicture(r.Config.Id, png, L.T("Browser"));
                 h.RequestExtraDisplayRefresh(r);
                 return View(r, true);
             }));

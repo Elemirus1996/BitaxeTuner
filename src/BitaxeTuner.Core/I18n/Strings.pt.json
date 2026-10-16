@@ -690,6 +690,7 @@
   "Darstellung …": "Aparência …",
   "Das Admin-Passwort braucht mindestens 10 Zeichen und beide Eingaben müssen übereinstimmen.": "A senha de administrador precisa de pelo menos 10 caracteres e as duas entradas devem ser iguais.",
   "Das Admin-Passwort braucht mindestens 10 Zeichen.": "A senha de administrador precisa de pelo menos 10 caracteres.",
+  "Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.": "A imagem tem pixels demais (no máximo cerca de 24 megapixels) – reduza-a antes.",
   "Das Bild ist zu groß (höchstens {0} MB).": "A imagem é grande demais (no máximo {0} MB).",
   "Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen).": "A tela cheia de bloco encontrado no e-paper termina após um número configurável de horas ou – como os avisos – permanece até o botão 1 ser pressionado (Ventoinhas e tela → telas especiais).",
   "Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.": "O sistema de arquivos foi montado somente leitura – muitas vezes sinal de que o cartão está falhando. Tenha um backup do pendrive/NAS e troque o cartão.",

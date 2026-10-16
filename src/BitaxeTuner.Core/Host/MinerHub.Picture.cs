@@ -19,10 +19,12 @@ public sealed partial class MinerHub
 
     public bool HasDisplayPicture(string? displayId) => File.Exists(PictureFile(displayId));
 
-    /// <summary>Bild hochladen (prüft und verkleinert); ersetzt ein vorhandenes Bild dieser Anzeige.</summary>
-    public void SaveDisplayPicture(string? displayId, byte[] upload, string by)
+    /// <summary>
+    /// Bild speichern; ersetzt ein vorhandenes Bild dieser Anzeige. 0.9.19 (Issue #21): erwartet das schon mit
+    /// <see cref="DisplayPicture.Normalize"/> geprüfte und verkleinerte PNG – das Umrechnen läuft außerhalb des Hub-Ablaufs.
+    /// </summary>
+    public void SaveDisplayPicture(string? displayId, byte[] png, string by)
     {
-        var png = DisplayPicture.Normalize(upload);
         var file = PictureFile(displayId);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         var tmp = file + ".tmp";
