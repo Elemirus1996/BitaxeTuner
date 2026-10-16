@@ -172,6 +172,20 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Fan_pico_streams_a_spectra_picture_over_wlan()
+    {
+        // 0.9.18: Spectra 6 an der Lüfterplatine – 192 000 Byte (doppelt so viel wie 7,5″) mit dem echten Pico-Programm
+        if (StartPico() is not var (port, key)) return;
+        using var device = PicoFanDevice.ConnectNetwork(NetworkLineTransport.Connect("127.0.0.1", port, key));
+        var data = new byte[BitaxeTuner.Core.Display.StatusRenderer.SpectraBytes];
+        Array.Fill(data, (byte)0x11);
+        await device.ShowImageAsync(data);
+        Assert.Equal(6, (await device.ExchangeAsync([10, 20, 30, 40, 50, 60])).Length);   // Lüfter laufen weiter
+        // Ein zweites Bild während des Aufbaus lehnt der Pico ab („busy“) – der Server wartet ohnehin mind. 3 Minuten
+        await Assert.ThrowsAsync<IOException>(() => device.ShowImageAsync(data));
+    }
+
+    [Fact]
     public async Task Display_pico_has_its_own_pins_and_no_fans()
     {
         if (StartPico("display") is not var (port, key)) return;

@@ -70,7 +70,10 @@ public sealed partial class MinerHub
                 if (display is null) _displayRefreshing = false; else display.Refreshing = false;
                 // 8.1: BUSY-Leitung meldete nie „beschäftigt“ – der Pico hat mit fester Wartezeit gearbeitet; einmal je Verbindung melden
                 if (e.Contains(" busy=0", StringComparison.Ordinal) && _busyWarned.Add(display?.Config.Id ?? ""))
-                    LogEvent(null, EventCategories.Fans, L.T("E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest 25 Sekunden. Steckverbindung zum Display prüfen (BUSY = GP13 beim Waveshare-Board)."));
+                    LogEvent(null, EventCategories.Fans, display is null && !Config.Display.OwnDevice
+                        // 0.9.18: am Lüfter-Pico liegt BUSY auf GP22 (GP13 gilt nur für den aufgesteckten Display-Pico)
+                        ? L.T("E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest. Leitung BUSY des Displays an GP22 der Lüfterplatine prüfen.")
+                        : L.T("E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest 25 Sekunden. Steckverbindung zum Display prüfen (BUSY = GP13 beim Waveshare-Board)."));
                 continue;
             }
             if (e.StartsWith("INFO ", StringComparison.Ordinal))

@@ -51,7 +51,17 @@ public sealed class SerialLineTransport : ILineTransport
         _port.Open();
     }
 
-    public void Write(string text) => _port.Write(text);
+    /// <summary>
+    /// 0.9.18: in Stücken schreiben – das Zeitlimit (2 s) gilt je Stück. Vorher lief ein großer Block (8000 Zeichen der
+    /// Bilddaten) beim Spectra 6 ins Limit, weil der Pico zwischen dem Lesen auch Lüfter, Tasten und Panel bedient.
+    /// </summary>
+    public void Write(string text)
+    {
+        for (var i = 0; i < text.Length; i += WriteChunk)
+            _port.Write(text.Substring(i, Math.Min(WriteChunk, text.Length - i)));
+    }
+
+    private const int WriteChunk = 1024;
 
     public string? ReadLine(TimeSpan timeout)
     {
@@ -101,7 +111,7 @@ public sealed class PicoUpdatedException(string message) : IOException(message);
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "8.3";
+    public const string FirmwareVersion = "8.4";
     public const string RoleFans = "fans";
     public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;

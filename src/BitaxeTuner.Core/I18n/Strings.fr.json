@@ -972,6 +972,7 @@
   "E-Paper in Farbe: Spectra 6": "E-paper en couleur : Spectra 6",
   "E-Paper-Anzeige": "Affichage e-paper",
   "E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest 25 Sekunden. Steckverbindung zum Display prüfen (BUSY = GP13 beim Waveshare-Board).": "E-paper : la ligne BUSY n'indique jamais « occupé » – le Pico attend donc 25 secondes fixes. Vérifiez la connexion à l'écran (BUSY = GP13 sur la carte Waveshare).",
+  "E-Paper: Die BUSY-Leitung meldet nie „beschäftigt“ – der Pico wartet deshalb fest. Leitung BUSY des Displays an GP22 der Lüfterplatine prüfen.": "E-paper : la ligne BUSY n'indique jamais « occupé » – le Pico attend donc un temps fixe. Vérifiez le fil BUSY de l'écran sur GP22 de la carte ventilateurs.",
   "EFFIZIENZ": "EFFICACITÉ",
   "Effizientester": "Le plus efficace",
   "Effizientester Miner (24 h): {0} ({1})": "Mineur le plus efficace (24 h) : {0} ({1})",

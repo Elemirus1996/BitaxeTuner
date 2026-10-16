@@ -42,6 +42,9 @@
 # Safe start for Thonny (8.1): press BOOTSEL within 3 s after plugging in (LED lit) - the program stops before the
 #   hardware watchdog starts.
 # Button 4 has no short press. Without SET for WATCHDOG_MS all fans go to 100 %.
+# 8.4: while an image transfer is running (image line within IMG_ALIVE_MS) the fans keep their setting for up to
+#   IMG_MAX_MS without SET - the server cannot send SET during the transfer (before: every Spectra 6 picture put all fans
+#   to 100 % for a moment).
 # Button 3 (short) sets 100 % locally even without server.
 #
 # WLAN (TCP port 8490, one server at a time): on connect the Pico sends "BTFAN <version> <role> <nonce_p>".
@@ -61,9 +64,11 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8.3"
+VERSION = "8.4"
 FREQ = 25000
 WATCHDOG_MS = 5000
+IMG_ALIVE_MS = 3000
+IMG_MAX_MS = 60000
 PULSES_PER_REV = 2
 DEBOUNCE_US = 1500
 BUTTON_PINS = (1, 3, 5, 7)
@@ -608,7 +613,7 @@ def upd_commit():
 
 
 def handle(line):
-    global last_cmd, last_fan, failsafe, img, img_pos, img_len
+    global last_cmd, last_fan, failsafe, img, img_pos, img_len, last_img
     parts = line.strip().split()
     if not parts:
         return
@@ -616,6 +621,8 @@ def handle(line):
     last_cmd = time.ticks_ms()
     if cmd == "SET":
         last_fan = last_cmd
+    if cmd in ("IMG", "D", "SHOW"):
+        last_img = last_cmd
     if cmd == "D":
         if spectra_stream and len(parts) > 1:
             try:
@@ -665,6 +672,7 @@ def handle(line):
                 img_pos = 0
                 img_len = size
                 reply(spectra_begin())
+                last_img = time.ticks_ms()      # the panel init can take a few seconds
                 return
             if size != 2 * PLANE:
                 reply("ERR size")
@@ -680,6 +688,7 @@ def handle(line):
             reply("ERR IMG")
     elif cmd == "SHOW":
         reply(epd_show())
+        last_img = time.ticks_ms()
     elif cmd == "NET":
         if wlan is not None and wlan.isconnected():
             reply("OK NET 1 " + wlan.ifconfig()[0])
@@ -934,6 +943,7 @@ usb.register(sys.stdin, select.POLLIN)
 buf = ""
 last_cmd = time.ticks_ms()
 last_fan = last_cmd
+last_img = last_cmd - IMG_ALIVE_MS - 1
 failsafe = True
 last_rpm = time.ticks_ms()
 # Safe start (8.1): BOOTSEL pressed within 3 s after power-up (LED on) -> stop before the watchdog starts, so the Pico
@@ -965,9 +975,11 @@ try:
     while True:
         try:
             wdt.feed()
-            # read everything that is waiting (image transfers are large)
-            budget = 600
-            while budget > 0 and usb.poll(0 if budget < 600 else (5 if wlan is not None else 20)):
+            # read everything that is waiting (image transfers are large); 8.4: during an image transfer read much more per
+            # round - otherwise the server's USB write ran into its time limit with the larger Spectra 6 picture
+            start = 6000 if (spectra_stream or (img is not None and img_pos < len(img))) else 600
+            budget = start
+            while budget > 0 and usb.poll(0 if budget < start else (5 if wlan is not None else 20)):
                 budget -= 1
                 c = sys.stdin.read(1)
                 if c in ("\n", "\r"):
@@ -993,7 +1005,8 @@ try:
                 for i in range(N):
                     rpm[i] = snap[i] * 60000 // (PULSES_PER_REV * dt)
                 last_rpm = now
-            if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS:
+            transfer = time.ticks_diff(now, last_img) < IMG_ALIVE_MS and time.ticks_diff(now, last_fan) < IMG_MAX_MS
+            if not failsafe and time.ticks_diff(now, last_fan) > WATCHDOG_MS and not transfer:
                 all_full()
                 failsafe = True
             poll_buttons(now)
