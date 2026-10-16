@@ -1,4 +1,5 @@
 using BitaxeTuner.Core.Config;
+using BitaxeTuner.Core.Display;
 using BitaxeTuner.Core.Fans;
 using BitaxeTuner.Core.Host;
 using BitaxeTuner.Core.Profiles;
@@ -150,5 +151,24 @@ public sealed class PiFanTests : IDisposable
         Assert.Equal("bad", check.State);
         Write("/sys/class/hwmon/hwmon2/fan1_input", "4100");
         Assert.Equal("ok", _hub.SystemChecks(DateTime.Now).Single(c => c.Key == "server-fan").State);
+    }
+
+    [Fact]
+    public void Server_fan_shows_on_the_epaper_system_page_with_who_controls_it()
+    {
+        // 0.9.20: E-Paper-Seite „Systemzustand“ zeigt Drehzahl, Stufe und wer regelt
+        // (Seite direkt gebaut – der Test-Miner ist offline, ComposeDisplay zeigte sonst die Alarmseite)
+        var page = new DisplayModel("BitaxeTuner", DateTime.Now, 0, 0, null, 0, 1, null, "", false, false, [], [])
+            { Scene = DisplayScene.System, System = _hub.SystemChecks(DateTime.Now) };
+        var fan = page.System!.Single(c => c.Key == "server-fan");
+        Assert.Equal("Server-Lüfter", fan.Label);
+        Assert.Equal("2.950 U/min · Stufe 1/4 · Firmware", fan.Value);
+        Assert.Equal(PicoFanDevice.ImageBytes, StatusRenderer.Render(page).Length);
+        var preview = Environment.GetEnvironmentVariable("BT_EPAPER_PREVIEW");
+        if (preview is not null) SixLabors.ImageSharp.ImageExtensions.SaveAsPng(StatusRenderer.RenderImage(page), Path.Combine(preview, "epaper-system-pifan.png"));
+
+        _config.PiFan = new PiFanSettings { Mode = "curve" };
+        Write("/sys/class/thermal/thermal_zone0/policy", "user_space");
+        Assert.EndsWith("· Kurve", _hub.SystemChecks(DateTime.Now).Single(c => c.Key == "server-fan").Value);
     }
 }

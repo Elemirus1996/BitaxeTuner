@@ -182,7 +182,10 @@ public sealed partial class MinerHub
             if (pf.Present)
             {
                 var stalled = pf.Level is > 0 && pf.Rpm == 0;
-                var value = (pf.Rpm is { } rpm ? L.T("{0} U/min", rpm.ToString("N0", L.Culture)) : "–") + " · " + L.T("Stufe {0}/{1}", pf.Level?.ToString(L.Culture) ?? "–", pf.MaxLevel);
+                // 0.9.20: wer regelt – auch auf der E-Paper-Seite „Systemzustand“ sichtbar
+                var by = pf.Firmware ? L.T("Firmware") : Config.PiFan.Mode == "miners" ? L.T("Miner") : L.T("Kurve");
+                var value = (pf.Rpm is { } rpm ? L.T("{0} U/min", rpm.ToString("N0", L.Culture)) : "–") + " · " + L.T("Stufe {0}/{1}", pf.Level?.ToString(L.Culture) ?? "–", pf.MaxLevel)
+                            + " · " + by;
                 list.Add(new SystemCheck("server-fan", L.T("Server-Lüfter"), value, stalled ? "bad" : pf.Error is not null ? "warn" : "ok",
                     stalled ? L.T("Der Lüfter des Servers soll laufen, dreht aber nicht – Stecker und Lüfter prüfen.") : pf.Error));
             }
