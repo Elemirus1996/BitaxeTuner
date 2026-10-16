@@ -175,6 +175,18 @@ public sealed partial class MinerHub
             list.Add(new SystemCheck("cpu-temp", L.T("CPU-Temperatur"), c.ToString("0.0", L.Culture) + " °C", c >= 85 ? "bad" : c >= 80 ? "warn" : "ok",
                 c >= 80 ? L.T("Der Rechner wird heiß – Kühlkörper/Lüfter prüfen, nicht direkt neben die Miner stellen.") : null));
         }
+        // 0.9.20: Lüfter des Servers (Raspberry Pi 5) – steht er, obwohl er laufen soll?
+        if (PiFanSysRoot.Length > 0 || OperatingSystem.IsLinux())
+        {
+            var pf = PiFan;
+            if (pf.Present)
+            {
+                var stalled = pf.Level is > 0 && pf.Rpm == 0;
+                var value = (pf.Rpm is { } rpm ? L.T("{0} U/min", rpm.ToString("N0", L.Culture)) : "–") + " · " + L.T("Stufe {0}/{1}", pf.Level?.ToString(L.Culture) ?? "–", pf.MaxLevel);
+                list.Add(new SystemCheck("server-fan", L.T("Server-Lüfter"), value, stalled ? "bad" : pf.Error is not null ? "warn" : "ok",
+                    stalled ? L.T("Der Lüfter des Servers soll laufen, dreht aber nicht – Stecker und Lüfter prüfen.") : pf.Error));
+            }
+        }
         if (ReadSystemFile("/sys/devices/platform/soc/soc:firmware/get_throttled") is { } thr
             && int.TryParse(thr.Trim().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var flags))
         {

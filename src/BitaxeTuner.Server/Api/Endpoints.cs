@@ -932,6 +932,7 @@ public static class Endpoints
         MqttEndpoints.Map(g);
         PlugEndpoints.Map(g);
         ExtraPoolEndpoints.Map(g);   // 0.9.20 weitere Pool-Konten
+        PiFanEndpoints.Map(g);   // 0.9.20 Lüfter des Servers (Pi 5)
         SolarEndpoints.Map(g);   // 0.9.17 PV-Quelle
         ReportEndpoints.Map(g);
         TaxEndpoints.Map(g);

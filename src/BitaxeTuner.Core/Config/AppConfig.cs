@@ -183,6 +183,9 @@ public sealed class AppConfig
     /// <summary>0.9.20: weitere Pool-Konten neben Mining-Dutch (nur lesend; Schlüssel in secrets.json). Additiv.</summary>
     public List<ExtraPoolAccount> ExtraPoolAccounts { get; set; } = [];
 
+    /// <summary>0.9.20: Lüfter des Servers (Raspberry Pi 5). Additiv.</summary>
+    public PiFanSettings PiFan { get; set; } = new();
+
     /// <summary>0.9.14: Darstellung (Hintergrund, Animationen) als Standard für alle Browser und die Desktop-App.</summary>
     public AppearanceSettings Appearance { get; set; } = new();
 
@@ -243,6 +246,7 @@ public sealed class AppConfig
         cfg.LastSeenPayoutTxid = null;
         cfg.PoolAccount ??= new();
         cfg.ExtraPoolAccounts ??= [];
+        cfg.PiFan ??= new();
         cfg.PoolAccount.Normalize();
         cfg.Appearance ??= new();
         cfg.Appearance.Normalize();

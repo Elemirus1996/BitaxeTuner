@@ -67,7 +67,9 @@ if (-not $SkipServer) {
         foreach ($f in 'bitaxetuner.service', 'bitaxetuner-reboot.path', 'bitaxetuner-reboot.service', 'bitaxetuner-firstboot.service', 'bitaxetuner-firstboot.sh',
                        'bitaxetuner-usb@.service', 'bitaxetuner-usb-mount.sh', '99-bitaxetuner-usb.rules',
                        'bitaxetuner-wifi.path', 'bitaxetuner-wifi.service', 'bitaxetuner-wifi.sh',
-                       'bitaxetuner-watchdog.conf', 'bitaxetuner-journald.conf') {
+                       'bitaxetuner-watchdog.conf', 'bitaxetuner-journald.conf',
+                       'bitaxetuner-pifan.sh', 'bitaxetuner-pifan.path', 'bitaxetuner-pifan.service',
+                       'bitaxetuner-pifan-guard.service', 'bitaxetuner-pifan-guard.timer') {
             Write-Lf (Join-Path $pkg $f) (Get-Content (Join-Path $root "deploy\linux\$f") -Raw -Encoding UTF8)
         }
         Write-Lf (Join-Path $pkg 'VERSION') "$Version`n"

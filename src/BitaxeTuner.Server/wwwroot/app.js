@@ -4157,6 +4157,39 @@ function poolComparisonCard() {
   return h('div', { class: 'card stack' }, h('div', { class: 'row' }, h('h2', { style: 'flex:1;margin:0' }, t('Pool-Vergleich')), seg), body);
 }
 
+/** 0.9.20: Lüfter des Servers (Raspberry Pi 5): Stand, Automatisch (Firmware), Kurve nach CPU oder nach Miner-Temperatur. */
+function piFanCard(d) {
+  const s = structuredClone(d.settings);
+  s.miners = s.miners || [];
+  const stateText = [d.rpm != null ? t('{0} U/min', n(d.rpm, 0)) : null, d.cpuTemp != null ? t('CPU {0} °C', n(d.cpuTemp, 1)) : null,
+    d.level != null ? t('Stufe {0}/{1}', d.level, d.maxLevel) : null, d.firmware ? t('Firmware regelt') : t('BitaxeTuner regelt')].filter(Boolean).join(' · ');
+  const mode = pageSelect(s, 'mode', [['auto', t('Automatisch (Firmware des Pi)')], ['curve', t('Kurve nach CPU-Temperatur')], ['miners', t('Nach Miner-Temperatur')]]);
+  const preset = pageSelect(s, 'preset', [['quiet', t('leise')], ['balanced', t('ausgewogen')], ['cool', t('kühl')]]);
+  const sensor = pageSelect(s, 'sensor', [['vr', t('VR-Temperatur')], ['asic', t('ASIC-Temperatur')]]);
+  const curveBox = h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Kurve')), preset));
+  const minersBox = h('div', { class: 'stack' },
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Temperatur')), sensor), ...curveInputs(s.curve)),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' }, d.miners.map(m => h('label', { class: 'row' },
+      h('input', { type: 'checkbox', checked: s.miners.includes(m.host), onchange: e => { s.miners = e.target.checked ? [...s.miners, m.host] : s.miners.filter(x => x !== m.host); } }),
+      h('span', {}, m.name)))),
+    h('p', { class: 'muted small' }, t('Ohne Haken zählen alle Miner. Die CPU-Kurve „ausgewogen“ gilt immer als Untergrenze, damit der Pi nicht zu warm wird.')));
+  const show = () => { curveBox.hidden = s.mode !== 'curve'; minersBox.hidden = s.mode !== 'miners'; };
+  mode.addEventListener('change', show);
+  show();
+  return h('div', { class: 'card stack' },
+    h('h2', {}, t('Server-Lüfter (Raspberry Pi)')),
+    h('p', { class: 'small' }, stateText),
+    d.reason ? h('p', { class: 'muted small' }, d.reason) : null,
+    d.error ? h('p', { class: 'small warn' }, d.error) : null,
+    d.canControl ? null : h('p', { class: 'muted small' }, t('Steuern geht erst mit aktuellen Systemdateien (Desktop-App → Server → „SSH ▾“ → „Systemdateien per SSH erneuern …“). Bis dahin regelt die Firmware.')),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Regelung')), mode)),
+    curveBox, minersBox,
+    h('p', { class: 'muted small' }, t('Meldet sich BitaxeTuner 3 Minuten nicht (z. B. nach einem Absturz), übernimmt automatisch wieder die Firmware des Pi.')),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
+      if (await run(() => api('/pifan', { method: 'PUT', body: s }), t('Gespeichert.'))) renderFans();
+    } }, t('Speichern'))));
+}
+
 async function renderFans() {
   mount(h('p', { class: 'muted' }, t('Lade …')));
   const data = await run(() => api('/fans'));
@@ -4164,6 +4197,9 @@ async function renderFans() {
   const status = h('div', { id: 'fan-status', class: 'stack' }, fanRows(data.status));
   const display = await run(() => api('/display'));
   const parts = [h('div', { class: 'card stack' }, h('h2', {}, t('Zusatzlüfter')), status)];
+  // 0.9.20: Lüfter des Servers (Raspberry Pi 5) – nur, wenn einer am Board steckt
+  const pifan = isAdmin() ? await api('/pifan').catch(() => null) : null;
+  if (pifan?.present) parts.push(piFanCard(pifan));
   if (isAdmin()) parts.push(quickActions(data.status, display));
   if (display?.status) parts.push(displayCard(display));   // Ansicht-Zugang mit Gruppen: keine E-Paper-Anzeige (Summen über alle Miner)
   if (display?.status) parts.push(await extraDisplaysCard());

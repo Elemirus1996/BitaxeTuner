@@ -73,6 +73,11 @@ public sealed partial class MinerHub
     /// <summary>Lüfter-Pico wird gebraucht: für Lüfter oder für eine Anzeige, die an ihm hängt.</summary>
     private bool NeedFanPico => Config.Fans.Enabled || (Config.Display.Enabled && !Config.Display.OwnDevice);
 
+    /// <summary>Temperaturen aller Miner für Lüfterregelungen (Zusatzlüfter, 0.9.20 Server-Lüfter).</summary>
+    internal List<MinerTemps> MinerTempsNow() => Devices.Select(d => new MinerTemps(d.Host, d.Title, d.State.Online,
+        d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk,
+        d.ProfileKnown ? d.Profile.MaxVrTempC : null)).ToList();
+
     internal async Task FanTickAsync()
     {
         if (_fanBusy) return;
@@ -121,9 +126,7 @@ public sealed partial class MinerHub
                 }
             }
 
-            var miners = Devices.Select(d => new MinerTemps(d.Host, d.Title, d.State.Online,
-                d.State.Online ? d.State.Info?.vrTemp : null, d.State.Online ? d.State.Info?.temp : null, d.State.LastOk,
-                d.ProfileKnown ? d.Profile.MaxVrTempC : null)).ToList();
+            var miners = MinerTempsNow();
             _fanController.Override = FanOverride;
             var sensors = SensorStatus(settings, now);
             _fanController.CaseTemperature = CaseTemperature(sensors);

@@ -1,0 +1,6 @@
+[Unit]
+Description=BitaxeTuner: Wächter für den Server-Lüfter (zurück an die Firmware, wenn BitaxeTuner schweigt)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/bitaxetuner/pifan-set guard

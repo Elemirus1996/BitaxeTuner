@@ -1,0 +1,9 @@
+[Unit]
+Description=BitaxeTuner: Lüfter des Servers (Raspberry Pi 5) auf Anforderung setzen
+
+[Path]
+# Der Dienst (ohne Root-Rechte) schreibt diese Datei, wenn sich die gewünschte Lüfterstufe ändert
+PathModified=/var/lib/bitaxetuner/pifan-request
+
+[Install]
+WantedBy=multi-user.target

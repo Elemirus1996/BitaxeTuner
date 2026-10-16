@@ -1,0 +1,6 @@
+[Unit]
+Description=BitaxeTuner: Lüfterstufe des Servers setzen
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/bitaxetuner/pifan-set apply
