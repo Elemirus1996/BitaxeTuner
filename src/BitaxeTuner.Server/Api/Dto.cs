@@ -342,6 +342,7 @@ public static class Dto
             {
                 c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.LogArchive, c.ProfileId,
                 monitorOnlyMode = c.MonitorOnly switch { true => "on", false => "off", null => "auto" },
+                purchase = c.Purchase is { } pu ? new { price = pu.Price, date = pu.Date?.ToString("yyyy-MM-dd"), warrantyMonths = pu.WarrantyMonths } : null,
                 presets = Copy(c.Presets),
                 thermalGuard = Copy(c.ThermalGuard),
                 thermalGuardApproved = c.ThermalGuard.IsApproved(d.Host),

@@ -389,6 +389,9 @@ public sealed class DeviceConfig
     /// <summary>0.9.16: Betriebsstunden und erledigte Wartung (null = noch nie online gesehen). Additiv.</summary>
     public DeviceUpkeep? Upkeep { get; set; }
 
+    /// <summary>0.9.21: Kaufpreis, Kaufdatum und Garantie (Amortisation, Garantie-Erinnerung). null = nicht eingetragen. Additiv.</summary>
+    public DevicePurchase? Purchase { get; set; }
+
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
     {
@@ -399,8 +402,22 @@ public sealed class DeviceConfig
         copy.Schedule = Schedule.Clone();
         copy.PoolAuto = PoolAuto.Clone();
         copy.Soak = Soak is null ? null : Soak with { };
+        copy.Purchase = Purchase is null ? null : Purchase with { };
         return copy;
     }
+}
+
+/// <summary>0.9.21: Kaufdaten eines Miners. Preis in der eingestellten Währung.</summary>
+public sealed record DevicePurchase
+{
+    public decimal? Price { get; set; }
+    public DateTime? Date { get; set; }
+    /// <summary>Garantie in Monaten ab Kaufdatum (z. B. 12 oder 24); null = keine Erinnerung.</summary>
+    public int? WarrantyMonths { get; set; }
+    /// <summary>Merker: Hinweis „Garantie endet bald“ schon gesendet.</summary>
+    public bool WarrantyNotified { get; set; }
+    /// <summary>Merker: „hat sich bezahlt gemacht“ schon gemeldet.</summary>
+    public bool PaidNotified { get; set; }
 }
 
 public sealed class NotificationSettings

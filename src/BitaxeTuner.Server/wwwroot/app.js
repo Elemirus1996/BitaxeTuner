@@ -2010,9 +2010,31 @@ function tabHealth() {
         h('thead', {}, h('tr', {}, [t('Wert'), t('letzte 7 Tage'), t('4 Wochen davor')].map(x => h('th', {}, x)))),
         h('tbody', {}, rows.map(([label, f, key]) => h('tr', {}, h('td', {}, label), h('td', { class: 'num' }, v(d.recent[key], f)), h('td', { class: 'num' }, v(d.base[key], f))))))),
       h('p', { class: 'muted small' }, t('Einmal am Tag geprüft; gemeldet wird nur eine deutliche Veränderung (Push „Gesundheit“ in den Einstellungen). Lüfter und abgelehnte Shares werden seit 0.7.0 erfasst – der Vergleich braucht einige Wochen Daten.')),
+      amortizationCard(d.amortization),
       upkeepCard(d.upkeep));
   }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
   return box;
+}
+
+/** 0.9.21: Amortisation – Ertragsanteil minus Strom seit dem Kauf, Prognose, Garantie. */
+function amortizationCard(a) {
+  if (!a) return isAdmin() ? h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('Amortisation')),
+    h('p', { class: 'muted small' }, t('Kaufpreis und Kaufdatum unter Einstellungen → Miner & Geräte → Details eintragen – dann rechnet BitaxeTuner aus, wann sich der Miner bezahlt gemacht hat.'))) : null;
+  const cur = a.currency;
+  const pct = Math.max(0, Math.min(100, a.progress * 100));
+  return h('div', { class: 'card stack' },
+    h('h3', { style: 'margin:0' }, t('Amortisation')),
+    h('div', { class: 'row' }, h('b', { class: a.paid ? 'ok' : '' }, a.paid ? t('Bezahlt gemacht') : t('Noch {0} {1}', n(a.remaining, 2), cur)),
+      h('span', { class: 'muted small' }, t('{0} % von {1} {2}', n(a.progress * 100, 0), n(a.price, 2), cur))),
+    h('div', { class: 'bar', title: `${n(pct, 0)} %` }, h('span', { style: `width:${pct}%;display:block;height:8px;border-radius:4px;background:var(--ok)` })),
+    h('p', { class: 'small' }, t('Ertragsanteil {0} − Strom {1} = {2} {3} seit {4}', n(a.income, 2), n(a.cost, 2), n(a.net, 2), cur, time(a.trackedFrom))),
+    a.netPerDay != null ? h('p', { class: 'small' }, t('Zurzeit {0} {1} je Tag', `${a.netPerDay >= 0 ? '+' : ''}${n(a.netPerDay, 2)}`, cur) +
+      (a.eta ? ' · ' + t('voraussichtlich bezahlt am {0}', new Date(a.eta).toLocaleDateString(LANG)) : !a.paid ? ' · ' + t('beim aktuellen Saldo nicht absehbar') : '')) : null,
+    a.warrantyUntil ? h('p', { class: 'small muted' }, t('Garantie bis {0}', new Date(a.warrantyUntil).toLocaleDateString(LANG))) : null,
+    h('p', { class: 'muted small' }, (a.source === 'pool' ? t('Ertrag: Gutschriften beim Pool-Konto (Kurs beim Abruf)') : t('Ertrag: dokumentierte Zuflüsse der Steuer')) +
+      ' · ' + t('Anteil des Miners nach geleisteter Hashrate; Strom aus seinem eigenen Verbrauch.') +
+      (new Date(a.trackedFrom) > new Date(a.purchaseDate) ? ' ' + t('Vor {0} gibt es keine Messwerte – diese Zeit fehlt in der Rechnung.', time(a.trackedFrom)) : '') +
+      (a.partial ? ' ' + t('Teilweise ohne Kurs bzw. ohne bekannten Ertrag.') : '')));
 }
 
 /** 0.9.16: Wartungs-Erinnerungen – Betriebsstunden, Aufgaben mit Fälligkeit, „erledigt“, Abstände. */
@@ -3601,6 +3623,10 @@ async function renderSettings() {
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       extra.monitorOnly = h('select', {}, [['auto', t('automatisch (nach Firmware)')], ['on', t('nur überwachen')], ['off', t('Tuning erlauben')]]
         .map(([v, l]) => h('option', { value: v, selected: (c.monitorOnlyMode || 'auto') === v }, l)));
+      // 0.9.21: Kaufdaten für Amortisation und Garantie-Erinnerung
+      extra.price = h('input', { type: 'number', min: 0, step: '0.01', value: c.purchase?.price ?? '', placeholder: t('leer = keine Angabe') });
+      extra.bought = h('input', { type: 'date', value: c.purchase?.date || '', max: new Date().toISOString().slice(0, 10) });
+      extra.warranty = h('input', { type: 'number', min: 0, max: 120, step: 1, value: c.purchase?.warrantyMonths ?? '', placeholder: t('z. B. 24') });
       fill(more.firstChild, h('div', { class: 'stack' },
         h('div', { class: 'form' },
           h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Wallet-Adresse')), extra.wallet),
@@ -3608,7 +3634,10 @@ async function renderSettings() {
           h('div', {}, h('label', {}, t('Firmware-Repository (GitHub)')), extra.repo),
           h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Gruppen (mit Komma getrennt)')), extra.groups),
           h('div', { title: t('Automatisch: Miner mit anderer Firmware als AxeOS oder NerdQAxe (z. B. ZyberOS) werden nur überwacht – alles außer Overclocking.') },
-            h('label', {}, t('Overclocking / Tuning')), extra.monitorOnly)),
+            h('label', {}, t('Overclocking / Tuning')), extra.monitorOnly),
+          h('div', {}, h('label', {}, t('Kaufpreis ({0})', status.totals?.currency || '')), extra.price),
+          h('div', {}, h('label', {}, t('Kaufdatum')), extra.bought),
+          h('div', { title: t('Erinnerung 30 Tage vor Ende der Garantie') }, h('label', {}, t('Garantie (Monate)')), extra.warranty)),
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
         h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)'))));
@@ -3616,7 +3645,9 @@ async function renderSettings() {
     const save = () => {
       const body = { name: name.value };
       if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked,
-        groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value });
+        groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value,
+        purchase: { price: extra.price.value === '' ? null : Number(extra.price.value), date: extra.bought.value || null,
+          warrantyMonths: extra.warranty.value === '' ? null : Number(extra.warranty.value) } });
       return run(() => api(`/devices/${d.id}`, { method: 'PUT', body }), t('Gespeichert.'));
     };
     return [h('tr', {}, h('td', {}, name), h('td', {}, d.host), h('td', {},
