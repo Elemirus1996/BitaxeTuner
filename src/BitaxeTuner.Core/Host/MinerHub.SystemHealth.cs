@@ -192,6 +192,9 @@ public sealed partial class MinerHub
             list.Add(new SystemCheck("readonly", L.T("Speicherkarte"), L.T("schreibgeschützt"), "bad",
                 L.T("Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.")));
 
+        // 0.9.20: Schreiblast auf der Speicherkarte (und Verschleiß bei eMMC)
+        list.AddRange(DiskWriteChecks(now));
+
         // Uhrzeit (Linux mit systemd): ohne Zeitabgleich scheitern Zertifikate und Kursabrufe
         if (OperatingSystem.IsLinux() || SystemCommandRunner is not null)
         {
@@ -223,6 +226,8 @@ public sealed partial class MinerHub
     {
         if (now - _systemCheckedAt < TimeSpan.FromMinutes(10)) return;
         _systemCheckedAt = now;
+        try { SampleDiskWrites(now); }
+        catch { /* nur Statistik */ }
         IReadOnlyList<SystemCheck> checks;
         try { checks = SystemChecks(now); }
         catch { return; }

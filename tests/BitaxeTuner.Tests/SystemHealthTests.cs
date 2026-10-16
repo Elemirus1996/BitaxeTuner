@@ -9,6 +9,61 @@ namespace BitaxeTuner.Tests;
 public class SystemHealthTests
 {
     [Fact]
+    public void Sd_card_writes_are_counted_per_day_across_reboots_and_warn_when_high()
+    {
+        // 0.9.20: Speicherkarte überwachen
+        using var dir = new TempDir();
+        var now = new DateTime(2026, 10, 10, 12, 0, 0);
+        var hub = new MinerHub(new AppConfig(), new MinerHubOptions { DataDirectory = dir.Path, OnlineChecks = false, Clock = () => now });
+        var data = dir.Path.Replace('\\', '/');
+        long sectors = 1_000_000;
+        var files = new Dictionary<string, string>
+        {
+            ["/proc/sys/kernel/random/boot_id"] = "aaaa",
+            ["/proc/self/mountinfo"] = $"25 1 179:2 / / rw,noatime shared:1 - ext4 /dev/root rw\n30 25 179:2 / {data} rw,noatime - ext4 /dev/root rw\n40 25 8:1 / /mnt/usb rw - vfat /dev/sda1 rw\n",
+        };
+        string Stats() => $" 179       0 mmcblk0 9 0 9 0 9 0 999999 0 0 0 0\n 179       2 mmcblk0p2 100 0 2000 50 300 0 {sectors} 900 0 0 0\n   8       1 sda1 1 0 1 0 1 0 77 0 0 0 0\n";
+        hub.SystemFileReader = p => p == "/proc/diskstats" ? Stats() : files.TryGetValue(p, out var v) ? v : null;
+        try
+        {
+            hub.SampleDiskWrites(now);                                   // erster Lauf: nur merken
+            Assert.DoesNotContain(hub.SystemChecks(now), c => c.Key == "disk-writes");
+            sectors += 2_048_000;                                         // ~1 GB
+            hub.SampleDiskWrites(now.AddMinutes(10));
+            var check = hub.SystemChecks(now).Single(c => c.Key == "disk-writes");
+            Assert.Equal("Schreiblast Speicherkarte", check.Label);
+            Assert.Equal("ok", check.State);
+            Assert.Contains("heute", check.Value);
+
+            // Neustart: Zähler beginnt bei 0, alles seit dem Start zählt
+            sectors = 4_096_000;                                          // ~2 GB seit dem Neustart (mehr als vorher)
+            files["/proc/sys/kernel/random/boot_id"] = "bbbb";
+            hub.SampleDiskWrites(now.AddHours(1));
+            var state = System.Text.Json.JsonSerializer.Deserialize<DiskWriteState>(File.ReadAllText(Path.Combine(dir.Path, "disk-writes.json")))!;
+            Assert.Equal("mmcblk0p2", state.Device);
+            Assert.Equal((2_048_000L + 4_096_000L) * 512, state.Days["2026-10-10"]);
+
+            // Am Folgetag: Schnitt der vollen Tage > 5 GB → Warnung
+            sectors += 20_000_000;
+            hub.SampleDiskWrites(now.AddHours(10));                      // 22:00 – noch der 10.
+            var next = now.AddDays(1);
+            var warn = hub.SystemChecks(next).Single(c => c.Key == "disk-writes");
+            Assert.Equal("warn", warn.State);
+            Assert.StartsWith("Ø", warn.Value);
+            Assert.NotNull(warn.Hint);
+
+            // Ohne passende Partition (z. B. Docker-Overlay) keine Zählung
+            files["/proc/self/mountinfo"] = "25 1 0:52 / / rw - overlay overlay rw\n";
+            hub.SampleDiskWrites(next);
+            Assert.Equal(state.Days.Count, System.Text.Json.JsonSerializer.Deserialize<DiskWriteState>(File.ReadAllText(Path.Combine(dir.Path, "disk-writes.json")))!.Days.Count);
+        }
+        finally
+        {
+            hub.Dispose();
+        }
+    }
+
+    [Fact]
     public void Pi_problems_are_reported_once_and_recovery_is_logged()
     {
         using var dir = new TempDir();

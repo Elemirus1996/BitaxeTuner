@@ -125,7 +125,8 @@ public static partial class StatusRenderer
         var value = Bold.Value.CreateFont(checks.Count > 8 ? 21 : 24);
         var row = Math.Min(40f, 330f / Math.Max(1, checks.Count));
         var y = 80f;
-        foreach (var c in checks.Take(9))
+        // 0.9.20: mehr als 9 Punkte → Probleme zuerst, damit keines unten abgeschnitten wird
+        foreach (var c in (checks.Count > 9 ? checks.OrderBy(c => c.Problem ? 0 : 1).ToList() : checks).Take(9))
         {
             var color = c.Problem ? Red : Ink;
             var dot = new SixLabors.ImageSharp.Drawing.EllipsePolygon(28, y + row / 2 - 2, 9);
