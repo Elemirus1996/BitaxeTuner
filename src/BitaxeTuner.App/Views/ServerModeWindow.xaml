@@ -87,6 +87,31 @@
                     </StackPanel>
                 </Border>
 
+                <Border Style="{StaticResource Card}" x:Name="MoveCard">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Section}" Text="{l:T 'Umzug auf einen neuen Server'}"/>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="{l:T 'Z. B. vom Raspberry Pi 3 auf einen Pi 5: Oben steht der NEUE Server (eingerichtet, mit API-Token). Hier den ALTEN Server eintragen. Die App pausiert den alten, holt seinen kompletten Stand, prüft ihn (SHA-256, integrity_check) und spielt ihn auf dem neuen ein. Der alte bleibt danach pausiert, damit nie zwei Server dieselben Miner abfragen; geht etwas schief, läuft er wieder an.'}"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{l:T 'ADRESSE DES ALTEN SERVERS'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="OldUrlBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{l:T 'API-TOKEN DES ALTEN SERVERS'}" Style="{StaticResource Label}"/>
+                                <PasswordBox x:Name="OldTokenBox"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="{l:T 'Daten vom alten Server übernehmen …'}" Click="MoveServer_Click"
+                                Style="{StaticResource PrimaryButton}" Padding="12,4" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource Card}" x:Name="SshCard">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="{l:T 'SSH-Terminal zum Server'}"/>

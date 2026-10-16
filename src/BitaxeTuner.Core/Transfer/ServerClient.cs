@@ -241,8 +241,8 @@ public sealed class ServerClient : IDisposable
     // Lange Übertragungen (history.db) ohne das kurze Standard-Timeout
     private async Task<HttpResponseMessage> SendLongAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        using var longClient = LongClient();
-        var response = await longClient.SendAsync(request, ct);
+        using var own = _injected ? null : LongClient();
+        var response = await (own ?? _http).SendAsync(request, ct);
         await response.Content.LoadIntoBufferAsync();
         return response;
     }
