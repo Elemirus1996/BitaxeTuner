@@ -422,6 +422,7 @@ public sealed partial class MinerHub : IDisposable
         _ = PollWalletsAsync();
         _ = PlugTickAsync();
         if (Config.PoolAccount.Enabled) _ = PoolAccountTickAsync();
+        _ = ExtraPoolsTickAsync();
     }
 
     /// <summary>
@@ -471,6 +472,7 @@ public sealed partial class MinerHub : IDisposable
         _ = RunLoopAsync(() => PlugInterval, PlugTickAsync, ct);
         _ = RunLoopAsync(() => TimeSpan.FromMinutes(Math.Clamp(Config.PoolAccount.IntervalMinutes, 10, 240)),
             async () => { if (Config.PoolAccount.Enabled) await PoolAccountTickAsync(); }, ct);
+        _ = RunLoopAsync(() => ExtraPoolInterval, ExtraPoolsTickAsync, ct);   // 0.9.20 weitere Pool-Konten
         // Audit I3: Steuer-Wallets nicht bei jedem „Einstellungen speichern“ neu abfragen (Blockchair/CoinGecko) –
         // nur beim ersten Start, nach einer Pause oder wenn sich der Abstand geändert hat
         var taxInterval = TimeSpan.FromMinutes(Math.Clamp(Config.TaxPollMinutes, 1, 1440));
