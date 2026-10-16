@@ -690,6 +690,7 @@
   "Darstellung …": "Apparence …",
   "Das Admin-Passwort braucht mindestens 10 Zeichen und beide Eingaben müssen übereinstimmen.": "Le mot de passe administrateur doit comporter au moins 10 caractères et les deux saisies doivent correspondre.",
   "Das Admin-Passwort braucht mindestens 10 Zeichen.": "Le mot de passe administrateur doit comporter au moins 10 caractères.",
+  "Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.": "L'image a trop de pixels (au maximum environ 24 mégapixels) – veuillez la réduire d'abord.",
   "Das Bild ist zu groß (höchstens {0} MB).": "L'image est trop grande (au maximum {0} Mo).",
   "Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen).": "Le plein écran de bloc trouvé sur l'e-paper se termine au choix après un nombre d'heures réglable ou – comme les avertissements – reste affiché jusqu'à l'appui sur le bouton 1 (Ventilateurs & affichage → écrans spéciaux).",
   "Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.": "Le système de fichiers est monté en lecture seule – souvent signe que la carte SD lâche. Gardez une sauvegarde de la clé USB/du NAS et remplacez la carte.",

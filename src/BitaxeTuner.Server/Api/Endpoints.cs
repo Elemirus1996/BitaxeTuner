@@ -1236,10 +1236,11 @@ public static class Endpoints
         // 0.9.16: eigenes Bild für die Seite „Eigenes Bild“ (Datei als Rohdaten im Body)
         g.MapPost("/display/image", async (HttpContext http, HubService hub) =>
         {
-            var bytes = await ReadPicture(http);
+            // 0.9.19 (Issue #21): prüfen und verkleinern außerhalb des Hub-Ablaufs (mit Speichergrenze)
+            var png = await Task.Run(async () => Core.Display.DisplayPicture.Normalize(await ReadPicture(http)));
             return Results.Json(await hub.RunAsync(h =>
             {
-                h.SaveDisplayPicture(null, bytes, L.T("Browser"));
+                h.SaveDisplayPicture(null, png, L.T("Browser"));
                 h.RequestDisplayRefresh();
                 return new { ok = true };
             }));

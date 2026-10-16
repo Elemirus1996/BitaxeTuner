@@ -1,5 +1,7 @@
 using BitaxeTuner.Core.I18n;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Memory;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -17,7 +19,22 @@ public static class DisplayPicture
 {
     public const long MaxUploadBytes = 15L * 1024 * 1024;
     private const int MaxSourcePixels = 12000;
+    /// <summary>0.9.19 (Issue #21): höchstens so viele Bildpunkte insgesamt (≈ 6000 × 4000) – sonst lief ein Pi 3B (1 GB) voll.</summary>
+    private const long MaxSourceArea = 24_000_000;
     private const int StoredMaxSide = 1600;
+
+    /// <summary>
+    /// Eigene Speicher-Einstellung für hochgeladene Bilder: kleiner Pool und harte Grenze je Anforderung – ein zu großes oder
+    /// bösartiges Bild bricht mit einer Meldung ab, statt den Arbeitsspeicher des Servers zu füllen.
+    /// </summary>
+    private static readonly Configuration UploadConfig = CreateUploadConfig();
+
+    private static Configuration CreateUploadConfig()
+    {
+        var c = Configuration.Default.Clone();
+        c.MemoryAllocator = MemoryAllocator.Create(new MemoryAllocatorOptions { MaximumPoolSizeMegabytes = 8, AllocationLimitMegabytes = 160 });
+        return c;
+    }
 
     private static readonly Rgb24 White = new(255, 255, 255);
     private static readonly Rgb24 Black = new(0, 0, 0);
@@ -30,10 +47,13 @@ public static class DisplayPicture
         if (upload.Length > MaxUploadBytes) throw new LocalizedException("Das Bild ist zu groß (höchstens {0} MB).", MaxUploadBytes / 1048576);
         try
         {
-            var info = Image.Identify(upload);
-            if (info.Width > MaxSourcePixels || info.Height > MaxSourcePixels || info.Width < 8 || info.Height < 8)
-                throw new LocalizedException("Das Bild ist zu groß (höchstens {0} MB).", MaxUploadBytes / 1048576);
-            using var img = Image.Load<Rgb24>(upload);
+            var options = new DecoderOptions { Configuration = UploadConfig };
+            var info = Image.Identify(options, upload);
+            if (info.Width > MaxSourcePixels || info.Height > MaxSourcePixels || info.Width < 8 || info.Height < 8
+                || (long)info.Width * info.Height > MaxSourceArea)
+                throw new LocalizedException("Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.");
+            // Schon beim Einlesen verkleinern (JPEG wird dabei direkt kleiner dekodiert) – spart auf dem Pi viel Speicher
+            using var img = Image.Load<Rgb24>(new DecoderOptions { Configuration = UploadConfig, TargetSize = new Size(StoredMaxSide, StoredMaxSide) }, upload);
             img.Mutate(x =>
             {
                 x.AutoOrient();
@@ -47,6 +67,10 @@ public static class DisplayPicture
         catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException or NotSupportedException)
         {
             throw new LocalizedException("Keine lesbare Bilddatei (PNG, JPEG, GIF, BMP oder WebP).");
+        }
+        catch (InvalidMemoryOperationException)
+        {
+            throw new LocalizedException("Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.");
         }
     }
 

@@ -271,6 +271,26 @@ public class DisplaySceneTests
     }
 
     [Fact]
+    public void Large_photos_are_scaled_while_loading_and_huge_ones_are_rejected()
+    {
+        // 0.9.19 (Issue #21): ein großes Handyfoto legte einen Pi 3B (1 GB) lahm
+        static byte[] Jpeg(int w, int h)
+        {
+            using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(w, h, SixLabors.ImageSharp.Color.SkyBlue);
+            using var ms = new MemoryStream();
+            SixLabors.ImageSharp.ImageExtensions.SaveAsJpeg(img, ms);
+            return ms.ToArray();
+        }
+        var photo = DisplayPicture.Normalize(Jpeg(5000, 4000));                  // 20 Megapixel → höchstens 1600 px
+        var info = SixLabors.ImageSharp.Image.Identify(photo);
+        Assert.True(info.Width <= 1600 && info.Height <= 1600, $"{info.Width}×{info.Height}");
+        Assert.Equal(1600, Math.Max(info.Width, info.Height));
+
+        var ex = Assert.Throws<LocalizedException>(() => DisplayPicture.Normalize(Jpeg(7000, 5000)));   // 35 Megapixel
+        Assert.Contains("Megapixel", ex.Message);
+    }
+
+    [Fact]
     public async Task Picture_page_shows_uploaded_image()
     {
         using var rig = new Rig();
@@ -282,7 +302,7 @@ public class DisplaySceneTests
         Assert.Null(empty.Picture!.Rgb);
         Assert.Equal(PicoFanDevice.ImageBytes, StatusRenderer.Render(empty).Length);   // Hinweis „noch kein Bild“
 
-        rig.Hub.SaveDisplayPicture(null, TestPicture(), "Test");
+        rig.Hub.SaveDisplayPicture(null, DisplayPicture.Normalize(TestPicture()), "Test");
         Assert.True(rig.Hub.HasDisplayPicture(null));
         Assert.True(DataArchive.IsTransferable(MinerHub.PictureDirectory + "/main.png"));   // in der Sicherung
         d.ImageCaption = "Mein Miner-Regal";

@@ -690,6 +690,7 @@
   "Darstellung …": "Appearance …",
   "Das Admin-Passwort braucht mindestens 10 Zeichen und beide Eingaben müssen übereinstimmen.": "The admin password needs at least 10 characters and both entries must match.",
   "Das Admin-Passwort braucht mindestens 10 Zeichen.": "The admin password needs at least 10 characters.",
+  "Das Bild hat zu viele Bildpunkte (höchstens etwa 24 Megapixel) – bitte vorher verkleinern.": "The image has too many pixels (at most about 24 megapixels) – please scale it down first.",
   "Das Bild ist zu groß (höchstens {0} MB).": "The image is too large (at most {0} MB).",
   "Das Blockfund-Vollbild auf dem E-Paper endet wahlweise nach einstellbaren Stunden oder bleibt – wie die Warnungen – stehen, bis Taste 1 gedrückt wird (Lüfter & Anzeige → Sonderanzeigen).": "The block found full screen on the e-paper ends either after a configurable number of hours or – like the warnings – stays until button 1 is pressed (Fans & display → special screens).",
   "Das Dateisystem wurde nur noch lesend eingehängt – oft ein Zeichen, dass die Speicherkarte ausfällt. Sicherung vom USB-Stick/NAS bereithalten und die Karte ersetzen.": "The file system was mounted read-only – often a sign that the SD card is failing. Keep a backup from the USB stick/NAS ready and replace the card.",
