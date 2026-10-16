@@ -186,6 +186,9 @@ public sealed class AppConfig
     /// <summary>0.9.20: Lüfter des Servers (Raspberry Pi 5). Additiv.</summary>
     public PiFanSettings PiFan { get; set; } = new();
 
+    /// <summary>0.9.21: Ruhezeit – Push sammeln, Zusatz-/Server-Lüfter begrenzen. Additiv, standardmäßig aus.</summary>
+    public QuietHoursSettings Quiet { get; set; } = new();
+
     /// <summary>0.9.14: Darstellung (Hintergrund, Animationen) als Standard für alle Browser und die Desktop-App.</summary>
     public AppearanceSettings Appearance { get; set; } = new();
 
@@ -247,6 +250,8 @@ public sealed class AppConfig
         cfg.PoolAccount ??= new();
         cfg.ExtraPoolAccounts ??= [];
         cfg.PiFan ??= new();
+        cfg.Quiet ??= new();
+        cfg.Quiet.Normalize();
         cfg.PoolAccount.Normalize();
         cfg.Appearance ??= new();
         cfg.Appearance.Normalize();

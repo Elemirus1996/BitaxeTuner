@@ -52,6 +52,15 @@ public sealed class NotificationService : IDisposable
 
     /// <summary>0.9.11: Miner im Wartungsmodus (vom Hub gesetzt) – keine Meldungen zu ihm außer Blockfunden.</summary>
     public Func<string, bool>? Muted { get; set; }
+    /// <summary>0.9.21: Ruhezeit jetzt aktiv (Ortszeit) – dann werden normale Meldungen je Ziel gesammelt.</summary>
+    public Func<DateTime, bool>? QuietAt { get; set; }
+
+    /// <summary>0.9.21: Datei der gesammelten Meldungen (übersteht Neustarts); null = nur im Speicher.</summary>
+    public string? DigestFile { get; set; }
+
+    /// <summary>Für Tests: Uhr der Ruhezeit-Prüfung.</summary>
+    internal Func<DateTime>? Clock { get; set; }
+
     /// <summary>Für Tests: Ziel-ID, Schlüssel und tatsächlich gesendeter Text.</summary>
     internal event Action<string, string, string>? Delivered;
 
@@ -112,8 +121,14 @@ public sealed class NotificationService : IDisposable
         Sending?.Invoke(key, title, targets[0].Message!, priority);
         var errors = new List<string>();
         var queued = 0;
+        var quiet = Collectable(category, priority) && QuietAt?.Invoke(Clock?.Invoke() ?? DateTime.Now) == true;
         foreach (var (target, message) in targets)
         {
+            if (quiet && !target.IgnoreQuiet)
+            {
+                AddDigest(new DigestEntry(target.Id, DateTime.UtcNow, title, message!));
+                continue;
+            }
             try
             {
                 await DeliverAsync(target, title, message!, priority);
@@ -136,6 +151,109 @@ public sealed class NotificationService : IDisposable
         return errors.Count == 0 ? SendOutcome.Delivered
             : errors.Count > queued ? SendOutcome.Failed
             : SendOutcome.Queued;
+    }
+
+    // ---------- Ruhezeit (0.9.21) ----------
+
+    /// <summary>In der Ruhezeit gesammelte Meldung für ein Ziel.</summary>
+    public sealed record DigestEntry(string TargetId, DateTime TimeUtc, string Title, string Message);
+
+    /// <summary>Was in der Ruhezeit warten darf: normale/niedrige Priorität, keine Funde und keine (bewusst geplanten) Berichte.</summary>
+    internal static bool Collectable(NotifyCategory category, NotifyPriority priority) =>
+        priority < NotifyPriority.High && category is not (NotifyCategory.Finds or NotifyCategory.DailyReport or NotifyCategory.MonthlyReport);
+
+    public const int DigestMaxLines = 20;
+    private readonly List<DigestEntry> _digest = [];
+    private bool _digestLoaded;
+    private int _flushing;
+
+    /// <summary>Gesammelte Meldungen (für Anzeige und Tests).</summary>
+    public IReadOnlyList<DigestEntry> Digest
+    {
+        get { lock (_digest) { LoadDigest(); return _digest.ToList(); } }
+    }
+
+    private void AddDigest(DigestEntry e)
+    {
+        lock (_digest)
+        {
+            LoadDigest();
+            _digest.Add(e);
+            while (_digest.Count > 500) _digest.RemoveAt(0);
+            SaveDigest();
+        }
+    }
+
+    /// <summary>
+    /// Nach der Ruhezeit (vom Hub minütlich): je Ziel eine Zusammenfassung senden. Schlägt das Senden fehl, kommt sie in die
+    /// normale Wiederholung. Liefert die Anzahl gesendeter Zusammenfassungen.
+    /// </summary>
+    public async Task<int> FlushDigestAsync(DateTime local)
+    {
+        if (QuietAt?.Invoke(local) == true) return 0;
+        if (Interlocked.Exchange(ref _flushing, 1) == 1) return 0;
+        try
+        {
+            List<DigestEntry> all;
+            lock (_digest)
+            {
+                LoadDigest();
+                if (_digest.Count == 0) return 0;
+                all = _digest.ToList();
+                _digest.Clear();
+                SaveDigest();
+            }
+            var targets = _settings().EffectiveTargets();
+            var sent = 0;
+            foreach (var g in all.GroupBy(e => e.TargetId))
+            {
+                if (targets.FirstOrDefault(t => t.Id == g.Key && t.Enabled && Providers.Contains(t.Provider)) is not { } target) continue;
+                var list = g.OrderBy(e => e.TimeUtc).ToList();
+                var lines = list.Take(DigestMaxLines).Select(e =>
+                    $"{e.TimeUtc.ToLocalTime():HH:mm} {e.Title} – {e.Message.Split('\n')[0]}").ToList();
+                if (list.Count > DigestMaxLines) lines.Add(L.T("… und {0} weitere", list.Count - DigestMaxLines));
+                var title = L.T("Ruhezeit: {0} Meldung(en)", list.Count);
+                var message = string.Join("\n", lines);
+                try
+                {
+                    await DeliverAsync(target, title, message, NotifyPriority.Normal);
+                    Delivered?.Invoke(target.Id, "quiet-digest", message);
+                    sent++;
+                }
+                catch (Exception ex)
+                {
+                    LastError = ex.Message;
+                    if (!IsPermanent(ex)) Enqueue(target.Id, title, message, NotifyPriority.Normal, DateTime.UtcNow);
+                }
+            }
+            return sent;
+        }
+        finally { Volatile.Write(ref _flushing, 0); }
+    }
+
+    private void LoadDigest()
+    {
+        if (_digestLoaded) return;
+        _digestLoaded = true;
+        if (DigestFile is null || !File.Exists(DigestFile)) return;
+        try
+        {
+            if (System.Text.Json.JsonSerializer.Deserialize<List<DigestEntry>>(File.ReadAllText(DigestFile)) is { } list) _digest.InsertRange(0, list);
+        }
+        catch { /* beschädigt: neu anfangen */ }
+    }
+
+    private void SaveDigest()
+    {
+        if (DigestFile is null) return;
+        try
+        {
+            if (_digest.Count == 0) { File.Delete(DigestFile); return; }
+            var tmp = DigestFile + ".tmp";
+            File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(_digest));
+            File.Move(tmp, DigestFile, overwrite: true);
+        }
+        catch { /* nicht kritisch */ }
     }
 
     /// <summary>Fehler, bei dem ein späterer Versuch nichts ändert: fehlende/ungültige Angaben oder 4xx (außer 408, 425, 429).</summary>

@@ -165,6 +165,12 @@ public sealed partial class MinerHub
                 ? L.T("keine aktuellen Miner-Temperaturen → volle Stufe")
                 : L.T("Miner {0} °C, CPU {1} °C → Stufe {2}", temps.Max().ToString("0.0", L.Culture), cpu.ToString("0.0", L.Culture), level);
         }
+        // 0.9.21 Ruhezeit: höchste Stufe begrenzen – nie ab 75 °C CPU
+        if (Config.Quiet.IsQuiet(now) && Config.Quiet.ServerFanMaxLevel is { } cap && cpu < QuietHoursSettings.ServerFanSafetyCpu && level > cap)
+        {
+            level = cap;
+            _piFanReason += L.T(", Ruhezeit max. Stufe {0}", cap);
+        }
         var changed = level != _piFanWanted || st.Firmware || st.Level != level;
         _piFanWanted = level;
         if (changed && now - _piFanRequestedAt > TimeSpan.FromSeconds(20)) RequestPiFan("level " + level, now);

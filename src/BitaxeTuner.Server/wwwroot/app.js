@@ -3686,6 +3686,7 @@ async function renderSettings() {
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: async () => { await save(); const r = await run(() => api('/notifications/test', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Testnachricht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Speichern & alle testen')),
         h('button', { class: 'btn', onclick: async () => { const r = await run(() => api('/report/send', { method: 'POST', body: {} })); if (r) toast(r.ok ? t('Tagesbericht gesendet.') : r.error, r.ok ? 'ok' : 'error'); } }, t('Tagesbericht jetzt senden')))),
+    quietCard(s),
     h('div', { class: 'card stack' }, h('h2', {}, t('Überwachung')),
       checkInput(wd, 'enabled', t('Watchdog: Miner ohne Hashrate neu starten')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('ohne Hashrate seit (min)')), text(wd, 'zeroHashMinutes', 'number')), h('div', {}, h('label', {}, t('Sperrzeit (min)')), text(wd, 'cooldownMinutes', 'number'))),
@@ -3751,7 +3752,7 @@ async function renderSettings() {
 const SETTINGS_SECTIONS = () => [
   ['miners', t('Miner & Geräte'), 'cpu', [t('Geräte'), t('Einstellungen übertragen'), t('Geräteprofile')]],
   ['look', t('Darstellung'), 'palette', [t('Darstellung'), t('Übersicht gestalten')]],
-  ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Berichte und Log-Alarme')]],
+  ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Ruhezeit'), t('Berichte und Log-Alarme')]],
   ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs'), t('PV-Anlage')]],
   ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
   ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Weitere Pool-Konten'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
@@ -3760,7 +3761,7 @@ const SETTINGS_SECTIONS = () => [
 ];
 /** Karten, deren Felder mit „Speichern“ übernommen werden (übrige Karten speichern selbst). */
 const SETTINGS_FORM_CARDS = () => [t('Strompreis'), t('Grenzwerte und Tuning'), t('Wallet-Abfrage'), t('Ansicht-PIN'), t('Abfrage und Speicher'),
-  t('Push-Benachrichtigungen'), t('Überwachung'), t('Berichte und Log-Alarme'), t('Strompreis-Quelle')];
+  t('Push-Benachrichtigungen'), t('Überwachung'), t('Berichte und Log-Alarme'), t('Strompreis-Quelle'), t('Ruhezeit')];
 /** Frühere Kartennamen (Hinweise, „Erste Schritte“) → heutige Karte. */
 const SETTINGS_ALIASES = () => ({ [t('Allgemein')]: t('Strompreis'), [t('Strom und Abfrage')]: t('Strompreis') });
 
@@ -4697,6 +4698,30 @@ function curveInputs(curve) {
  * Push-Ziele: mehrere Dienste gleichzeitig (z. B. ntfy privat + Discord für die Community), je Ziel eigene
  * Bereiche und Miner. Gespeichert wird mit „Einstellungen speichern“.
  */
+/** 0.9.21: Ruhezeit – Push sammeln, Zusatz- und Server-Lüfter begrenzen (gespeichert mit „Speichern“). */
+function quietCard(s) {
+  s.quiet = s.quiet || { enabled: false, fromHour: 22, toHour: 7, collectPush: true, caseFanMaxPercent: null, serverFanMaxLevel: null };
+  const q = s.quiet;
+  const hours = Array.from({ length: 24 }, (_, i) => [String(i), `${String(i).padStart(2, '0')}:00`]);
+  const hourSel = key => { const el = h('select', { onchange: e => { q[key] = Number(e.target.value); } }, hours.map(([v, l]) => h('option', { value: v }, l))); el.value = String(q[key]); return el; };
+  const fanPct = h('input', { type: 'number', min: 20, max: 100, step: 5, value: q.caseFanMaxPercent ?? '', placeholder: t('keine Grenze'),
+    oninput: e => { q.caseFanMaxPercent = e.target.value === '' ? null : Number(e.target.value); } });
+  const piLevel = h('select', { onchange: e => { q.serverFanMaxLevel = e.target.value === '' ? null : Number(e.target.value); } },
+    [['', t('keine Grenze')], ['1', t('Stufe {0}', 1)], ['2', t('Stufe {0}', 2)], ['3', t('Stufe {0}', 3)]].map(([v, l]) => h('option', { value: v }, l)));
+  piLevel.value = q.serverFanMaxLevel == null ? '' : String(q.serverFanMaxLevel);
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Ruhezeit')),
+    checkInput(q, 'enabled', t('Ruhezeit einschalten')),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('von')), hourSel('fromHour')),
+      h('div', {}, h('label', {}, t('bis')), hourSel('toHour'))),
+    checkInput(q, 'collectPush', t('Push-Meldungen sammeln und am Ende als eine Zusammenfassung senden')),
+    h('p', { class: 'muted small' }, t('Sofort kommen weiterhin: offline, Überhitzung und andere wichtige Meldungen, Blockfunde/Zuflüsse sowie Tages- und Monatsbericht. Je Push-Dienst lässt sich die Ruhezeit abschalten.')),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Zusatzlüfter höchstens (%)')), fanPct),
+      h('div', {}, h('label', {}, t('Server-Lüfter höchstens')), piLevel)),
+    h('p', { class: 'muted small' }, t('Die Lüftergrenzen gelten nie gegen die Sicherheit: Erreicht ein Miner die Volllast-Temperatur seiner Lüfterkurve bzw. die CPU des Servers 75 °C, wird wieder voll gekühlt. Der Nachtbetrieb je Lüftergruppe bleibt zusätzlich bestehen.')));
+}
+
 function pushTargetsEditor(nt, text, select, devices, save) {
   const cats = [['Offline', t('offline')], ['Overheat', t('Überhitzung')], ['Finds', t('Blockfund/Zufluss')], ['Maintenance', t('Watchdog/Automatik/Firmware')],
     ['Record', t('Rekorde')], ['LogAlerts', t('Log-Alarme')], ['Pool', t('Pool')], ['Plugs', t('Smart Plugs')], ['Health', t('Gesundheit')],
@@ -4742,6 +4767,7 @@ function pushTargetsEditor(nt, text, select, devices, save) {
         h('button', { class: 'btn small danger', onclick: () => { nt.targets.splice(i, 1); draw(); } }, t('Entfernen'))),
       notifyForm(tg, text, select, false),
       h('div', { class: 'small muted' }, t('Meldungen')), catBox,
+      checkInput(tg, 'ignoreQuiet', t('Ruhezeit für diesen Dienst nicht anwenden (Meldungen kommen sofort)')),
       h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList, groupBox,
       h('div', { class: 'small muted' }, t('Tages- und Monatsbericht enthalten')), partBox,
       h('div', { class: 'small muted' }, t('Mit Miner-Auswahl enthalten die Berichte nur diese Miner (Summen und Kosten nur für sie) und nie Zuflüsse.')));

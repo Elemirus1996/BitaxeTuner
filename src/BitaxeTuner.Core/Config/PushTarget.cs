@@ -59,6 +59,9 @@ public sealed class PushTarget
     /// </summary>
     public List<string> ReportExclude { get; set; } = [];
 
+    /// <summary>0.9.21: Ruhezeit für dieses Ziel nicht anwenden (Meldungen kommen sofort). Additiv.</summary>
+    public bool IgnoreQuiet { get; set; }
+
     /// <summary>0.9.1: Meldungen für alle Miner dieser Gruppen (zusätzlich zu <see cref="Miners"/>); neue Mitglieder automatisch.</summary>
     public List<string> Groups { get; set; } = [];
 

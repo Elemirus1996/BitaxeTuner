@@ -114,6 +114,20 @@ public partial class SettingsWindow : Window
         LogErrorsBox.IsChecked = config.LogAlerts.OnErrors;
         LogCooldownBox.Text = config.LogAlerts.CooldownMinutes.ToString();
         LogPatternsBox.Text = string.Join(Environment.NewLine, config.LogAlerts.Patterns);
+        // 0.9.21 Ruhezeit
+        for (var hour = 0; hour < 24; hour++)
+        {
+            QuietFromBox.Items.Add(new ComboBoxItem { Content = $"{hour:00}:00", Tag = hour });
+            QuietToBox.Items.Add(new ComboBoxItem { Content = $"{hour:00}:00", Tag = hour });
+        }
+        QuietFromBox.SelectedIndex = config.Quiet.FromHour;
+        QuietToBox.SelectedIndex = config.Quiet.ToHour;
+        QuietEnabledBox.IsChecked = config.Quiet.Enabled;
+        QuietPushBox.IsChecked = config.Quiet.CollectPush;
+        QuietFanBox.Text = config.Quiet.CaseFanMaxPercent?.ToString(CultureInfo.CurrentCulture) ?? "";
+        QuietPiFanBox.Items.Add(new ComboBoxItem { Content = L.T("keine Grenze"), Tag = 0 });
+        for (var lv = 1; lv <= 3; lv++) QuietPiFanBox.Items.Add(new ComboBoxItem { Content = L.T("Stufe {0}", lv), Tag = lv });
+        QuietPiFanBox.SelectedIndex = config.Quiet.ServerFanMaxLevel is { } ql and >= 1 and <= 3 ? ql : 0;
         PoolEnabledBox.IsChecked = config.PoolWatch.Enabled;
         PoolRejectBox.Text = config.PoolWatch.RejectPercent.ToString("0.##", CultureInfo.CurrentCulture);
         PoolWindowBox.Text = config.PoolWatch.WindowMinutes.ToString();
@@ -374,6 +388,17 @@ public partial class SettingsWindow : Window
         pool.WindowMinutes = poolWindow;
         pool.ResponseMs = poolResponse;
         _config.PoolWatch = pool;
+        var quiet = new QuietHoursSettings
+        {
+            Enabled = QuietEnabledBox.IsChecked == true,
+            FromHour = QuietFromBox.SelectedIndex < 0 ? 22 : QuietFromBox.SelectedIndex,
+            ToHour = QuietToBox.SelectedIndex < 0 ? 7 : QuietToBox.SelectedIndex,
+            CollectPush = QuietPushBox.IsChecked == true,
+            CaseFanMaxPercent = int.TryParse(QuietFanBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out var qf) ? qf : null,
+            ServerFanMaxLevel = QuietPiFanBox.SelectedIndex > 0 ? QuietPiFanBox.SelectedIndex : null,
+        };
+        quiet.Normalize();
+        _config.Quiet = quiet;
         var report = _config.DailyReport.Clone();
         report.Enabled = ReportEnabledBox.IsChecked == true;
         report.Monthly = MonthlyReportBox.IsChecked == true;

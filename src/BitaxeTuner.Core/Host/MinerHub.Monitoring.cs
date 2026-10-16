@@ -165,6 +165,7 @@ public sealed partial class MinerHub
         {
             _lastPushRetry = now;
             _ = Notify.RetryPendingAsync(DateTime.UtcNow);
+            _ = Notify.FlushDigestAsync(now);   // 0.9.21: nach der Ruhezeit die Zusammenfassung
         }
 
         if ((now - _lastPrune).TotalHours >= 24)

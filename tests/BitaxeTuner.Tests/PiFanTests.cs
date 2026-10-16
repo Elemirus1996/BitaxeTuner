@@ -69,6 +69,24 @@ public sealed class PiFanTests : IDisposable
     }
 
     [Fact]
+    public void Quiet_hours_cap_the_server_fan_but_not_from_75_degrees()
+    {
+        // 0.9.21 Ruhezeit: höchstens Stufe 1 – ab 75 °C CPU gilt die Grenze nicht
+        _config.Quiet = new QuietHoursSettings { Enabled = true, FromHour = 22, ToHour = 7, ServerFanMaxLevel = 1 };
+        _hub.SavePiFan(new PiFanSettings { Mode = "curve", Preset = "cool" }, "Test");
+        var night = new DateTime(2026, 10, 17, 23, 0, 0);
+        _hub.TickPiFan(night, []);
+        Assert.Equal("level 1", Request());                      // 65 °C „kühl“ wäre Stufe 4
+        Assert.Contains("Ruhezeit", _hub.PiFan.Reason);
+        Cpu(78);
+        _hub.TickPiFan(night.AddMinutes(1), []);
+        Assert.Equal("level 4", Request());                      // zu warm: volle Kühlung
+        Cpu(65);
+        _hub.TickPiFan(new DateTime(2026, 10, 18, 9, 0, 0), []);
+        Assert.Equal("level 4", Request());                      // tagsüber keine Grenze
+    }
+
+    [Fact]
     public void Cpu_curve_switches_up_at_once_and_down_with_three_degrees_margin()
     {
         var now = DateTime.Now;
