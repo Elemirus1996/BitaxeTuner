@@ -79,6 +79,8 @@ builder.Services.AddSingleton<ServerRestart>();
 builder.Services.AddSingleton<PublicCertificates>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PublicCertificates>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerUpdater>());
+// 0.9.20: Dienst-Watchdog für systemd – meldet nur, solange der Hub-Ablauf antwortet
+builder.Services.AddHostedService<SystemdWatchdog>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.PropertyNameCaseInsensitive = true;

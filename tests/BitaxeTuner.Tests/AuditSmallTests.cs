@@ -192,4 +192,24 @@ public class AuditSmallTests
         Assert.Contains($"bitaxetuner-server:{version}", compose);                             // Audit E3: kein ungeprüftes :latest
         Assert.Contains("mem_limit", compose);
     }
+
+    [Fact]
+    public void Pi_protection_files_are_installed_and_packaged()
+    {
+        // 0.9.20 (Lehre aus #21): Dienst-Watchdog, Speichergrenze, Hardware-Watchdog und dauerhaftes Protokoll
+        var unit = File.ReadAllText(RepoFile("deploy", "linux", "bitaxetuner.service"));
+        Assert.Contains("WatchdogSec=", unit);
+        Assert.Contains("MemoryMax=", unit);
+        Assert.Contains("RuntimeWatchdogSec=15", File.ReadAllText(RepoFile("deploy", "linux", "bitaxetuner-watchdog.conf")));
+        Assert.Contains("Storage=persistent", File.ReadAllText(RepoFile("deploy", "linux", "bitaxetuner-journald.conf")));
+        var install = File.ReadAllText(RepoFile("deploy", "linux", "install.sh"));
+        var build = File.ReadAllText(RepoFile("build.ps1"));
+        var image = File.ReadAllText(RepoFile("deploy", "pi-image", "build-image.sh"));
+        foreach (var f in new[] { "bitaxetuner-watchdog.conf", "bitaxetuner-journald.conf" })
+        {
+            Assert.Contains(f, install);
+            Assert.Contains(f, build);   // im Server-Paket
+            Assert.Contains(f, image);   // im Pi-Image
+        }
+    }
 }

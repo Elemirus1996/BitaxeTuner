@@ -26,6 +26,8 @@ UNIT=/etc/systemd/system/bitaxetuner.service
 USB_RULE=/etc/udev/rules.d/99-bitaxetuner-usb.rules
 USB_HELPER=/usr/local/lib/bitaxetuner/usb-mount
 WIFI_HELPER=/usr/local/lib/bitaxetuner/wifi-read
+WATCHDOG_CONF=/etc/systemd/system.conf.d/90-bitaxetuner-watchdog.conf
+JOURNAL_CONF=/etc/systemd/journald.conf.d/90-bitaxetuner.conf
 
 # Dienste, Neustart per Taste/Browser und USB-Stick für Sicherungen (alles root-eigene Dateien)
 # Audit S9: Wurzel und „current“ root-eigen, nur versions/ (neue Versionen, Link „active“) gehört dem Dienst.
@@ -61,7 +63,14 @@ install_system() {
     install -m 755 "$HERE/bitaxetuner-wifi.sh" "$WIFI_HELPER"
     install -m 644 "$HERE/bitaxetuner-wifi.path" /etc/systemd/system/bitaxetuner-wifi.path
     install -m 644 "$HERE/bitaxetuner-wifi.service" /etc/systemd/system/bitaxetuner-wifi.service
+    # 0.9.20: Hardware-Watchdog (Neustart bei eingefrorenem System) und Protokoll, das einen Neustart übersteht
+    install -d -m 755 /etc/systemd/system.conf.d /etc/systemd/journald.conf.d /var/log/journal
+    install -m 644 "$HERE/bitaxetuner-watchdog.conf" "$WATCHDOG_CONF"
+    install -m 644 "$HERE/bitaxetuner-journald.conf" "$JOURNAL_CONF"
     rm -f "$DATA/reboot-request" "$DATA/wifi-request" "$DATA/wifi-answer.json"
+    systemctl daemon-reexec 2>/dev/null || true
+    systemd-tmpfiles --create --prefix /var/log/journal 2>/dev/null || true
+    systemctl restart systemd-journald 2>/dev/null || true
     systemctl daemon-reload
     udevadm control --reload-rules 2>/dev/null || true
     systemctl enable bitaxetuner bitaxetuner-reboot.path bitaxetuner-wifi.path >/dev/null
@@ -71,7 +80,7 @@ install_system() {
 if [ "${1:-}" = "--system" ]; then
     install_system
     systemctl restart bitaxetuner
-    echo "Systemdateien eingerichtet (Dienst, Neustart-Funktion, USB-Sicherung, WLAN für Pico-Einrichtung)."
+    echo "Systemdateien eingerichtet (Dienst, Neustart-Funktion, USB-Sicherung, WLAN für Pico-Einrichtung, Watchdog, Protokoll)."
     exit 0
 fi
 
@@ -80,7 +89,8 @@ if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "--purge" ]; then
     umount -l /media/bitaxetuner-usb 2>/dev/null || true
     rm -f "$UNIT" /etc/systemd/system/bitaxetuner-reboot.path /etc/systemd/system/bitaxetuner-reboot.service \
           /etc/systemd/system/bitaxetuner-usb@.service "$USB_RULE" "$USB_HELPER" \
-          /etc/systemd/system/bitaxetuner-wifi.path /etc/systemd/system/bitaxetuner-wifi.service "$WIFI_HELPER"
+          /etc/systemd/system/bitaxetuner-wifi.path /etc/systemd/system/bitaxetuner-wifi.service "$WIFI_HELPER" \
+          "$WATCHDOG_CONF" "$JOURNAL_CONF"
     systemctl daemon-reload
     rm -rf "$ROOT"
     if [ "$1" = "--purge" ]; then
