@@ -66,7 +66,8 @@ if (-not $SkipServer) {
         Write-Lf (Join-Path $pkg 'install.sh') (Get-Content (Join-Path $root 'deploy\linux\install.sh') -Raw -Encoding UTF8)
         foreach ($f in 'bitaxetuner.service', 'bitaxetuner-reboot.path', 'bitaxetuner-reboot.service', 'bitaxetuner-firstboot.service', 'bitaxetuner-firstboot.sh',
                        'bitaxetuner-usb@.service', 'bitaxetuner-usb-mount.sh', '99-bitaxetuner-usb.rules',
-                       'bitaxetuner-wifi.path', 'bitaxetuner-wifi.service', 'bitaxetuner-wifi.sh') {
+                       'bitaxetuner-wifi.path', 'bitaxetuner-wifi.service', 'bitaxetuner-wifi.sh',
+                       'bitaxetuner-watchdog.conf', 'bitaxetuner-journald.conf') {
             Write-Lf (Join-Path $pkg $f) (Get-Content (Join-Path $root "deploy\linux\$f") -Raw -Encoding UTF8)
         }
         Write-Lf (Join-Path $pkg 'VERSION') "$Version`n"

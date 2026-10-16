@@ -19,6 +19,12 @@ Restart=always
 RestartSec=5
 # Beim Stoppen laufende Benchmarks beenden und Einstellungen der Miner wiederherstellen
 TimeoutStopSec=120
+# 0.9.20 (Lehre aus #21): Hängt der Hub-Ablauf, bleibt die Watchdog-Meldung aus → systemd startet den Dienst neu
+WatchdogSec=300
+# Speichergrenze: läuft der Dienst über, wird nur er beendet und neu gestartet – der Rechner bleibt bedienbar
+# (ab MemoryHigh wird gebremst; Prozent vom Arbeitsspeicher, passt zum Pi 3B mit 1 GB wie zu größeren Rechnern)
+MemoryHigh=60%
+MemoryMax=75%
 
 # Härtung: nur Datenordner und versions/ (Selbst-Update) beschreibbar; /opt/bitaxetuner und „current“ gehören root
 NoNewPrivileges=true

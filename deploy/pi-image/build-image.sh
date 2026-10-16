@@ -84,6 +84,10 @@ install -d -m 755 "$R/usr/local/lib/bitaxetuner" "$R/media/bitaxetuner-usb"
 install -m 755 "$SRC/bitaxetuner-usb-mount.sh" "$R/usr/local/lib/bitaxetuner/usb-mount"
 # 0.9.17: WLAN des Servers für die Pico-Einrichtung (nur auf Anforderung)
 install -m 755 "$SRC/bitaxetuner-wifi.sh" "$R/usr/local/lib/bitaxetuner/wifi-read"
+# 0.9.20: Hardware-Watchdog und Protokoll, das einen Neustart übersteht
+install -d -m 755 "$R/etc/systemd/system.conf.d" "$R/etc/systemd/journald.conf.d" "$R/var/log/journal"
+install -m 644 "$SRC/bitaxetuner-watchdog.conf" "$R/etc/systemd/system.conf.d/90-bitaxetuner-watchdog.conf"
+install -m 644 "$SRC/bitaxetuner-journald.conf" "$R/etc/systemd/journald.conf.d/90-bitaxetuner.conf"
 install -m 644 "$SRC/99-bitaxetuner-usb.rules" "$R/etc/udev/rules.d/99-bitaxetuner-usb.rules"
 # Dienste aktivieren (wie "systemctl enable", ohne das Zielsystem zu starten)
 install -d "$R/etc/systemd/system/multi-user.target.wants"
