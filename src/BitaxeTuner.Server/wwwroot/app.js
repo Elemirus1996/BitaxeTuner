@@ -4298,6 +4298,30 @@ function specialRulesTable(s) {
  * 0.9.16, Seite „Eigenes Bild“: Bild hochladen/entfernen und wie es umgerechnet wird.
  * pic = { base: '/display' bzw. '/displays/<id>', has, show: () => Vorschau auf das Bild stellen }.
  */
+/**
+ * 0.9.20 (Lehre aus #21): Bild schon im Browser auf höchstens 1600 px bringen (Drehung laut Kamera), damit der Server –
+ * z. B. ein Raspberry Pi 3B – nie ein großes Foto umrechnen muss. Fotos als JPEG, Grafiken (PNG/GIF/BMP) als PNG.
+ * Kann der Browser das Bild nicht lesen oder ist es schon klein genug, geht die Originaldatei (der Server prüft sie ohnehin).
+ */
+async function shrinkPicture(f, max = 1600) {
+  let bmp;
+  try { bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }); } catch { return f; }
+  try {
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (scale >= 1 && f.size <= 2 * 1024 * 1024) return f;
+    const w = Math.max(1, Math.round(bmp.width * scale)), hgt = Math.max(1, Math.round(bmp.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = hgt;
+    const ctx = canvas.getContext('2d');
+    const graphic = /png|gif|bmp/.test(f.type);
+    if (!graphic) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, hgt); }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bmp, 0, 0, w, hgt);
+    const blob = await new Promise(res => canvas.toBlob(res, graphic ? 'image/png' : 'image/jpeg', 0.92));
+    return blob && (scale < 1 || blob.size < f.size) ? blob : f;   // zu groß → immer die verkleinerte Fassung
+  } finally { bmp.close?.(); }
+}
+
 function pictureFields(s, pic) {
   const state = h('p', { class: 'muted small' }, pic.has ? t('Ein Bild ist hochgeladen.') : t('Noch kein Bild hochgeladen.'));
   const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/bmp,image/webp', style: 'width:auto' });
@@ -4305,9 +4329,10 @@ function pictureFields(s, pic) {
     const f = file.files?.[0];
     if (!f) { toast(t('Bitte zuerst eine Bilddatei wählen.'), 'error'); return; }
     const ok = await run(async () => {
-      const headers = { Accept: 'application/json', 'Accept-Language': LANG, 'Content-Type': f.type || 'application/octet-stream' };
+      const body = await shrinkPicture(f);
+      const headers = { Accept: 'application/json', 'Accept-Language': LANG, 'Content-Type': body.type || f.type || 'application/octet-stream' };
       if (S.csrf) headers['X-CSRF-Token'] = S.csrf;
-      const r = await fetch(`/api/v1${pic.base}/image`, { method: 'POST', headers, credentials: 'same-origin', body: f });
+      const r = await fetch(`/api/v1${pic.base}/image`, { method: 'POST', headers, credentials: 'same-origin', body });
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new ApiError(data?.error || t('Fehler {0}', r.status), r.status);
       return data;
