@@ -4567,7 +4567,9 @@ async function picoWlanSetup(role, displayId) {
   const serverBox = serverWifi?.ssid
     ? h('label', { class: 'row' }, h('input', { type: 'checkbox', checked: true, onchange: e => { useServer.on = e.target.checked; manual.hidden = useServer.on; } }),
         h('span', {}, t('WLAN des Servers übernehmen: „{0}“ (Passwort wird nicht angezeigt)', serverWifi.ssid)))
-    : serverWifi?.error ? h('p', { class: 'muted small' }, serverWifi.error) : null;
+    : serverWifi?.error ? h('p', { class: 'muted small' }, serverWifi.error)
+    // Ohne aktuelle Systemdateien (oder Windows/Docker): sagen, warum es das Kästchen nicht gibt
+    : serverWifi && !serverWifi.supported ? h('p', { class: 'muted small' }, t('WLAN übernehmen geht nur auf dem Raspberry Pi/Linux mit aktuellen Systemdateien (Desktop-App → Server → „SSH ▾“ → „Systemdateien per SSH erneuern …“).')) : null;
   const body = h('div', { class: 'stack' },
     h('p', {}, role === 'display'
       ? t('Display-Pico (Pico 2 WH, auf das E-Paper gesteckt) jetzt per USB-Datenkabel an diesen Server anschließen.')
