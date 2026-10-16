@@ -15,7 +15,11 @@ public sealed record DisplayBitcoin(long? Height, string? LastPool, DateTime? La
 public sealed record DisplayPoolMiner(string Name, string Coin, string? Pool, string? Mode);
 public sealed record DisplayPoolCoin(string Symbol, decimal Balance, decimal? Value);
 public sealed record DisplayPoolPage(IReadOnlyList<DisplayPoolMiner> Miners, IReadOnlyList<DisplayPoolCoin> Coins, string Currency,
-    DateTime? LastPayout, string? LastPayoutCoin, string? BestPool, string? BestPoolNote);
+    DateTime? LastPayout, string? LastPayoutCoin, string? BestPool, string? BestPoolNote)
+{
+    /// <summary>0.9.20: weitere Pool-Konten (public-pool, ckpool, OCEAN, Braiins, ViaBTC).</summary>
+    public IReadOnlyList<Host.ExtraPoolSummary> Extra { get; init; } = [];
+}
 
 /// <summary>0.9.16, Seite „Monatsvergleich“: je Monat Strom und – wenn bekannt – Ertrag.</summary>
 public sealed record DisplayMonthBar(DateTime Month, double Kwh, decimal Cost, decimal? Income);
@@ -77,15 +81,16 @@ public static partial class StatusRenderer
         var font = Regular.Value.CreateFont(21);
         var bold = Bold.Value.CreateFont(21);
         var y = 76f;
-        // Miner: Name · Coin · Pool/Abrechnung (höchstens 6)
-        foreach (var x in p.Miners.Take(6))
+        // Miner: Name · Coin · Pool/Abrechnung (höchstens 6; mit weiteren Pool-Konten weniger, damit sie Platz haben)
+        var maxMiners = p.Extra.Count == 0 ? 6 : p.Coins.Count > 0 ? 2 : 4 - Math.Min(2, p.Extra.Count - 1);
+        foreach (var x in p.Miners.Take(maxMiners))
         {
             Text(ctx, Fit(x.Name, bold, 230), bold, 16, y, Ink);
             Text(ctx, x.Coin, bold, 260, y, Ink);
             Text(ctx, Fit(string.Join(" · ", new[] { x.Pool, x.Mode }.Where(s => !string.IsNullOrEmpty(s))), font, Width - 360 - 16), font, 360, y, Ink);
             y += 30;
         }
-        if (p.Miners.Count > 6) { Text(ctx, L.T("… und {0} weitere", p.Miners.Count - 6), font, 16, y, Ink); y += 30; }
+        if (p.Miners.Count > maxMiners) { Text(ctx, L.T("… und {0} weitere", p.Miners.Count - maxMiners), font, 16, y, Ink); y += 30; }
         y += 4;
         ctx.Fill(Crisp, Rule, new RectangleF(16, y, Width - 32, 1));
         y += 10;
@@ -107,6 +112,27 @@ public static partial class StatusRenderer
         if (p.LastPayout is { } paid)
         {
             Text(ctx, Fit(L.T("Letzte Auszahlung: {0} · {1:g}", p.LastPayoutCoin ?? "", paid.ToLocalTime()), font, Width - 32), font, 16, y, Ink);
+            y += 30;
+        }
+        // 0.9.20: weitere Pool-Konten – je Zeile Name, Hashrate, Worker, Guthaben (so viele, wie über die Fußzeile passen)
+        if (p.Extra.Count > 0 && y <= 380)
+        {
+            Text(ctx, L.T("Weitere Pool-Konten"), font, 16, y, Ink);
+            y += 30;
+        }
+        foreach (var x in p.Extra)
+        {
+            if (y > 410) break;
+            Text(ctx, Fit(x.Name, bold, 250), bold, 16, y, x.Error is null ? Ink : Red);
+            var detail = x.Error is not null && x.HashrateGh is null
+                ? L.T("Abfrage fehlgeschlagen")
+                : string.Join(" · ", new[]
+                {
+                    x.HashrateGh is { } gh ? FormatHash(gh) : null,
+                    L.T("{0} Worker", x.Workers),
+                    x.Balance is { } b ? $"{b.ToString("0.########", De)} {x.Coin}" + (x.Value is { } v ? $" ≈ {v.ToString("N2", De)} {p.Currency}" : "") : null,
+                }.Where(s => s is not null));
+            TextRight(ctx, Fit(detail, font, Width - 290), font, Width - 16, y, x.Error is null ? Ink : Red);
             y += 30;
         }
         if (p.BestPool is { } best)

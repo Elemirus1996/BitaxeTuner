@@ -135,6 +135,19 @@ public sealed class ExtraPoolTests : IDisposable
         await hub.ExtraPoolsTickAsync();
         Assert.Single(sent, k => k.StartsWith("extra-pool-payout") && k.Contains("def"));
         Assert.Single(hub.TaxMonitor.LoadRewards(), r => r.TxId == "ocean-b1");          // nicht doppelt
+
+        // 0.9.20: Kurzstand für Übersicht und E-Paper-Seite „Pool“
+        var sum = Assert.Single(hub.ExtraPoolSummaries());
+        Assert.Equal("Mein OCEAN", sum.Name);
+        Assert.Equal(0.00007m, sum.LastPayout);
+        Assert.Equal(new DateTime(2026, 10, 16, 7, 0, 0), sum.LastPayoutUtc);
+        config.Display.Pages = new DisplayPages { Overview = false, Daily = false, Chart = false, Soak = false, PoolAccount = true };
+        var page = hub.ComposeDisplay(DateTime.Now, nextPage: true);
+        Assert.Equal(BitaxeTuner.Core.Display.DisplayScene.PoolAccount, page.Scene);
+        Assert.Single(page.PoolPage!.Extra);
+        Assert.Equal(BitaxeTuner.Core.Fans.PicoFanDevice.ImageBytes, BitaxeTuner.Core.Display.StatusRenderer.Render(page).Length);
+        var preview = Environment.GetEnvironmentVariable("BT_EPAPER_PREVIEW");
+        if (preview is not null) SixLabors.ImageSharp.ImageExtensions.SaveAsPng(BitaxeTuner.Core.Display.StatusRenderer.RenderImage(page), Path.Combine(preview, "epaper-pool-extra.png"));
     }
 
     [Fact]

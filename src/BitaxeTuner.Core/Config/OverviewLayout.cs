@@ -27,7 +27,7 @@ public static class OverviewLayouts
 {
     /// <summary>kpis = die Kennzahlen-Reihe wie bisher; einzelne Kennzahlen gibt es auch als eigene Panels.</summary>
     public static readonly string[] PanelTypes =
-        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit", "coins"];
+        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit", "coins", "pools"];
 
     public const int MaxPanels = 30;
 

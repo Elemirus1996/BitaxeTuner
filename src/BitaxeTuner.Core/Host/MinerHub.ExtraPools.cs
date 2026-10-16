@@ -16,8 +16,29 @@ public sealed record ExtraPoolView(ExtraPoolAccount Account, bool KeySet, ExtraP
 /// ergänzend (<see cref="Tax.Services.WalletMonitorService.ImportExternalRewardsAsync"/>). Neue Auszahlungen melden sich per
 /// Push (Kategorie Pool); bei der ersten Abfrage eines Kontos gelten alle bisherigen als bekannt (extra-pools.json).
 /// </summary>
+/// <summary>0.9.20: Kurzstand eines weiteren Pool-Kontos für Übersicht und E-Paper (ohne Adresse/Schlüssel).</summary>
+/// <param name="Value">Guthaben in der eingestellten Währung (Kurs der geschürften Coins), null = kein Kurs.</param>
+public sealed record ExtraPoolSummary(string Id, string Name, string Provider, string Coin, double? HashrateGh, double? Hashrate24hGh,
+    int Workers, decimal? Balance, decimal? Value, DateTime? LastPayoutUtc, decimal? LastPayout, string? Error, DateTime? LastPollUtc);
+
 public sealed partial class MinerHub
 {
+    /// <summary>0.9.20: eingeschaltete weitere Pool-Konten mit ihrem letzten Stand (Übersicht-Panel „Pool-Konten“, E-Paper „Pool“).</summary>
+    public IReadOnlyList<ExtraPoolSummary> ExtraPoolSummaries()
+    {
+        var quotes = CoinQuotes();
+        return ExtraPools.Where(v => v.Account.Enabled).Select(v =>
+        {
+            var st = v.Status;
+            var coin = st?.Coin ?? v.Account.Coin;
+            var price = quotes.FirstOrDefault(q => string.Equals(q.Symbol, coin, StringComparison.OrdinalIgnoreCase))?.Price;
+            var paid = st?.Payouts.MaxBy(p => p.TimeUtc);
+            return new ExtraPoolSummary(v.Account.Id, v.Account.DisplayName, v.Account.Provider, coin, st?.HashrateGh, st?.Hashrate24hGh,
+                st?.ActiveWorkers ?? 0, st?.Balance, st?.Balance is { } b && price is { } p ? Math.Round(b * p, 2) : null,
+                paid?.TimeUtc, paid?.Amount, v.Error, v.LastPollUtc);
+        }).ToList();
+    }
+
     public static readonly TimeSpan ExtraPoolInterval = TimeSpan.FromMinutes(10);
     private readonly Dictionary<string, (ExtraPoolStatus? Status, DateTime? At, string? Error)> _extraPools = [];
     private HttpClient? _extraPoolHttp;

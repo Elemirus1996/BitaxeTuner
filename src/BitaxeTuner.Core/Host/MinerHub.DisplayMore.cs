@@ -92,7 +92,10 @@ public sealed partial class MinerHub
             }
         }
         catch { /* ohne Vergleich */ }
-        return new DisplayPoolPage(miners, coins, cur.Symbol, lastPayout, lastCoin, best, note);
+        List<ExtraPoolSummary> extra;
+        try { extra = ExtraPoolSummaries().ToList(); }
+        catch { extra = []; }
+        return new DisplayPoolPage(miners, coins, cur.Symbol, lastPayout, lastCoin, best, note) { Extra = extra };
     }
 
     /// <summary>Strom (kWh, Kosten) und Ertrag der letzten Monate (6 bzw. 12), höchstens stündlich neu gerechnet.</summary>
