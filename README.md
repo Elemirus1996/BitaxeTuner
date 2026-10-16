@@ -66,6 +66,11 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.19
+
+- **Spectra 6**: Das große Bild kommt jetzt sicher an, und die Lüfter drehen während der Übertragung nicht mehr kurz auf
+  100 % (Pico-Programm 8.4, wird automatisch aufgespielt).
+
 ### Neu in 0.9.18
 
 - **Pico-WLAN vom Server**: Beim Einrichten eines Pico übernimmt der Raspberry Pi sein eigenes WLAN – kein Eintippen

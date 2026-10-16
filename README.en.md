@@ -69,6 +69,11 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.19
+
+- **Spectra 6**: the large picture now arrives reliably, and the fans no longer spin up to 100 % for a moment during the
+  transfer (Pico program 8.4, installed automatically).
+
 ### New in 0.9.18
 
 - **Pico Wi-Fi from the server**: when setting up a Pico, the Raspberry Pi passes on its own Wi-Fi – no more typing;
