@@ -166,7 +166,8 @@ app.Use(async (http, next) =>
     h["X-Frame-Options"] = "DENY";
     h["Referrer-Policy"] = "no-referrer";
     h["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; " +
-                                   "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+                                   // 0.9.23: „Verbindung prüfen“ ruft die DuckDNS-Adresse auch dann auf, wenn die Seite über die IP offen ist
+                                   $"connect-src 'self' https://*.duckdns.org:{settings.Port}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     http.Items[typeof(AuthContext)] = AuthContext.Resolve(http,
         http.RequestServices.GetRequiredService<SessionStore>(), http.RequestServices.GetRequiredService<AuthStore>(), DateTime.UtcNow);
     await next();
