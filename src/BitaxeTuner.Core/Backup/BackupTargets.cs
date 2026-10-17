@@ -20,7 +20,8 @@ public interface IBackupTarget
 
 public static partial class BackupNames
 {
-    [GeneratedRegex(@"^bitaxetuner-backup-\d{8}-\d{6}\.zip$")]
+    // 0.9.23: „.zip.enc“ = verschlüsselte Sicherung im Netz (WebDAV/S3)
+    [GeneratedRegex(@"^bitaxetuner-backup-\d{8}-\d{6}\.zip(\.enc)?$")]
     public static partial Regex Pattern();
 
     public static string For(DateTime time) => $"bitaxetuner-backup-{time:yyyyMMdd-HHmmss}.zip";

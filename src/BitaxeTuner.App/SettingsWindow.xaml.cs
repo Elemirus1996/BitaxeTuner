@@ -542,6 +542,7 @@ public partial class SettingsWindow : Window
             Keep = keep,
             Folder = new BackupFolderTarget { Enabled = BackupFolderEnabledBox.IsChecked == true, Path = folder },
             Smb = b.Smb,
+            Cloud = b.Cloud,   // 0.9.23: nur im Browser einstellbar – hier unverändert übernehmen
             LastRun = b.LastRun,
         };
     }

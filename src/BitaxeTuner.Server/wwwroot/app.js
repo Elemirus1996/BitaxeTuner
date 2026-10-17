@@ -5376,6 +5376,14 @@ async function restoreBackup(name) {
   if (r) { toast(r.message, 'ok', 15000); setTimeout(() => location.reload(), 2500); }
 }
 
+/** 0.9.23: Sicherung aus dem Netz holen, entschlüsseln, prüfen und einspielen. */
+async function restoreCloudBackup(name) {
+  if (!await confirmBox(t('Sicherung einspielen'), t('Sicherung {0} einspielen?', name) + '\n\n' + RESTORE_WARNING(), t('Einspielen'))) return;
+  toast(t('Sicherung wird geholt, entschlüsselt, geprüft und eingespielt …'), 'info');
+  const r = await run(() => api(`/backup/cloud/files/${encodeURIComponent(name)}/restore`, { method: 'POST', body: {} }));
+  if (r) { toast(r.message, 'ok', 15000); setTimeout(() => location.reload(), 2500); }
+}
+
 /**
  * Sicherungsdatei vom PC hochladen und einspielen – z. B. nach Ausfall der SD-Karte von USB-Stick, NAS oder
  * aus „Dokumente\BitaxeTuner-Sicherungen“. Gleicher geprüfter Weg wie die Übernahme aus der Desktop-App.
@@ -6002,6 +6010,10 @@ function backupCard() {
     if (!d) return;
     const s = d.settings, u = d.usb;
     const smbPw = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.smbPasswordSet ? t('gespeichert – leer lassen = unverändert') : t('Passwort') });
+    // 0.9.23 Sicherung ins Netz (WebDAV/S3), vor dem Hochladen verschlüsselt
+    s.cloud ||= { enabled: false, kind: 'webdav', url: '', user: '', endpoint: '', region: '', bucket: '', prefix: 'BitaxeTuner', accessKey: '' };
+    const cloudSecret = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.cloudSecretSet ? t('gespeichert – leer lassen = unverändert') : t('Passwort') });
+    const cloudEnc = h('input', { type: 'password', autocomplete: 'new-password', placeholder: d.cloudEncryptionSet ? t('gespeichert – leer lassen = unverändert') : t('mindestens 10 Zeichen') });
     const text = (obj, key, ph = '') => h('input', { value: obj[key] ?? '', placeholder: ph, oninput: e => { obj[key] = e.target.value; } });
     const st = d.status;
     const statusBox = h('div', { class: 'stack small' },
@@ -6010,8 +6022,37 @@ function backupCard() {
         : h('p', { class: 'muted' }, t('Noch keine Sicherung erstellt.')),
       (st.targets || []).map(tv => h('div', { class: tv.ok ? '' : 'danger' }, `${tv.ok ? '✓' : '✗'} ${tv.target}: ${tv.message}`)));
     const save = async () => {
-      const r = await run(() => api('/backup', { method: 'PUT', body: { settings: s, smbPassword: smbPw.value || null, clearSmbPassword: false } }), t('Sicherungs-Einstellungen gespeichert.'));
+      if (cloudEnc.value && d.cloudEncryptionSet && !await confirmBox(t('Verschlüsselungs-Passwort ändern?'),
+        t('Neue Sicherungen werden mit dem neuen Passwort verschlüsselt. Ältere Sicherungen im Netz lassen sich danach nur noch mit dem alten Passwort einspielen – notiere es dir.'), t('Ändern'))) return;
+      const r = await run(() => api('/backup', { method: 'PUT', body: { settings: s, smbPassword: smbPw.value || null, clearSmbPassword: false,
+        cloudSecret: cloudSecret.value || null, clearCloudSecret: false, cloudEncryption: cloudEnc.value || null } }), t('Sicherungs-Einstellungen gespeichert.'));
       if (r) load();
+    };
+    const cloudFields = h('div', { class: 'form' });
+    const drawCloud = () => fill(cloudFields, s.cloud.kind === 's3'
+      ? [h('div', {}, h('label', {}, t('Endpunkt')), text(s.cloud, 'endpoint', 'https://s3.eu-central-003.backblazeb2.com')),
+         h('div', {}, h('label', {}, t('Region')), text(s.cloud, 'region', 'eu-central-003')),
+         h('div', {}, h('label', {}, t('Bucket')), text(s.cloud, 'bucket')),
+         h('div', {}, h('label', {}, t('Präfix (Ordner)')), text(s.cloud, 'prefix', 'BitaxeTuner')),
+         h('div', {}, h('label', {}, t('Schlüssel-ID')), text(s.cloud, 'accessKey')),
+         h('div', {}, h('label', {}, t('Geheimer Schlüssel')), cloudSecret)]
+      : [h('div', {}, h('label', {}, t('Ordner-Adresse (WebDAV)')), text(s.cloud, 'url', 'https://cloud.example.org/remote.php/dav/files/NAME/BitaxeTuner/')),
+         h('div', {}, h('label', {}, t('Benutzer')), text(s.cloud, 'user')),
+         h('div', {}, h('label', {}, t('Passwort (am besten App-Passwort)')), cloudSecret)]);
+    drawCloud();
+    const kindSelect = h('select', { onchange: e => { s.cloud.kind = e.target.value; drawCloud(); } },
+      h('option', { value: 'webdav', selected: s.cloud.kind !== 's3' }, t('WebDAV (Nextcloud, ownCloud, Synology …)')),
+      h('option', { value: 's3', selected: s.cloud.kind === 's3' }, t('S3-kompatibel (Backblaze B2, MinIO, Wasabi …)')));
+    const cloudList = h('div', { class: 'stack' });
+    const showCloud = async () => {
+      fill(cloudList, h('p', { class: 'muted small' }, t('Lade …')));
+      const r = await api('/backup/cloud/files').catch(e => ({ ok: false, files: [], message: e.message }));
+      fill(cloudList, !r.ok ? h('p', { class: 'danger small' }, r.message)
+        : !r.files.length ? h('p', { class: 'muted small' }, t('Noch keine Sicherung im Netz.'))
+        : h('div', { class: 'table-wrap' }, h('table', {},
+            h('thead', {}, h('tr', {}, [t('Sicherung im Netz ({0})', r.name), ''].map(x => h('th', {}, x)))),
+            h('tbody', {}, r.files.map(f => h('tr', {}, h('td', { class: 'mono small' }, f),
+              h('td', {}, h('button', { class: 'btn small', onclick: () => restoreCloudBackup(f) }, t('Einspielen …')))))))));
     };
     const test = async target => {
       const r = await run(() => api('/backup/test', { method: 'POST', body: { target } }));
@@ -6027,7 +6068,7 @@ function backupCard() {
       h('div', { class: 'form' },
         h('div', {}, h('label', {}, t('ab Uhrzeit (Stunde)')), numInput(s, 'hour')),
         h('div', {}, h('label', {}, t('im Datenordner behalten')), numInput(s, 'localKeep')),
-        h('div', {}, h('label', {}, t('auf Ordner/USB/NAS behalten')), numInput(s, 'keep'))),
+        h('div', {}, h('label', {}, t('auf Ordner/USB/NAS/Netz behalten')), numInput(s, 'keep'))),
       h('h3', {}, t('Ordner oder USB-Stick')),
       checkInput(s.folder, 'enabled', t('Zusätzlich in einen Ordner sichern')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Zielordner (vollständiger Pfad)')), text(s.folder, 'path', u.available ? u.folder : t('D:\\Sicherungen\\BitaxeTuner')))),
@@ -6042,10 +6083,19 @@ function backupCard() {
         h('div', {}, h('label', {}, t('Benutzer')), text(s.smb, 'user')),
         h('div', {}, h('label', {}, t('Passwort')), smbPw),
         h('div', {}, h('label', {}, t('Domäne (meist leer)')), text(s.smb, 'domain'))),
+      h('h3', {}, t('Ins Netz (WebDAV oder S3), verschlüsselt')),
+      checkInput(s.cloud, 'enabled', t('Zusätzlich verschlüsselt ins Netz sichern')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Dienst')), kindSelect)),
+      cloudFields,
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Verschlüsselungs-Passwort')), cloudEnc)),
+      h('p', { class: 'muted small' }, t('Die Sicherung wird vor dem Hochladen auf diesem Server mit AES-256-GCM verschlüsselt; der Dienst sieht nur verschlüsselte Daten. Nach dem Hochladen wird sie wieder geholt und geprüft. Ohne das Verschlüsselungs-Passwort lässt sie sich nicht mehr einspielen – notiere es dir an einem sicheren Ort. Es bleibt nur in secrets.json und wird nie mitgesichert.')),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: showCloud }, t('Sicherungen im Netz anzeigen'))),
+      cloudList,
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: save }, t('Speichern')),
         h('button', { class: 'btn', onclick: () => test('folder') }, t('Ordner testen')),
         h('button', { class: 'btn', onclick: () => test('smb') }, t('Netzlaufwerk testen')),
+        h('button', { class: 'btn', onclick: () => test('cloud') }, t('Netz-Ziel testen')),
         h('button', {
           class: 'btn', onclick: async () => {
             toast(t('Sicherung läuft …'), 'info');

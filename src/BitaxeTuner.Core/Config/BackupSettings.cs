@@ -20,6 +20,8 @@ public sealed class BackupSettings
 
     public BackupFolderTarget Folder { get; set; } = new();
     public BackupSmbTarget Smb { get; set; } = new();
+    /// <summary>0.9.23: verschlüsselt ins Netz (WebDAV oder S3); Passwörter in secrets.json.</summary>
+    public BackupCloudTarget Cloud { get; set; } = new();
 
     /// <summary>Datum der letzten geplanten Sicherung (yyyy-MM-dd).</summary>
     public string? LastRun { get; set; }
@@ -30,6 +32,24 @@ public sealed class BackupFolderTarget
     public bool Enabled { get; set; }
     /// <summary>Zielordner, z. B. „D:\Sicherungen“ oder am Pi der USB-Stick „/media/bitaxetuner-usb/BitaxeTuner-Sicherungen“.</summary>
     public string Path { get; set; } = "";
+}
+
+/// <summary>
+/// 0.9.23: Sicherung ins Netz. „webdav“ (Nextcloud, Synology …: Ordner-Adresse, Benutzer, App-Passwort) oder „s3“
+/// (Backblaze B2, MinIO …: Endpunkt, Region, Bucket, Präfix, Schlüssel-ID). Zugangs-Passwort bzw. geheimer Schlüssel und das
+/// Verschlüsselungs-Passwort liegen in secrets.json.
+/// </summary>
+public sealed class BackupCloudTarget
+{
+    public bool Enabled { get; set; }
+    public string Kind { get; set; } = "webdav";
+    public string Url { get; set; } = "";
+    public string User { get; set; } = "";
+    public string Endpoint { get; set; } = "";
+    public string Region { get; set; } = "";
+    public string Bucket { get; set; } = "";
+    public string Prefix { get; set; } = "BitaxeTuner";
+    public string AccessKey { get; set; } = "";
 }
 
 public sealed class BackupSmbTarget

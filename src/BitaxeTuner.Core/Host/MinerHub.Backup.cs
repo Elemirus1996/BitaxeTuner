@@ -64,7 +64,23 @@ public sealed partial class MinerHub
         var list = new List<IBackupTarget>();
         if (s.Folder.Enabled && s.Folder.Path.Trim() is { Length: > 0 } path) list.Add(new FolderBackupTarget(L.T("Ordner/USB"), path));
         if (s.Smb.Enabled) list.Add(new SmbBackupTarget(s.Smb, Secrets.Get(SecretStore.SmbPassword) ?? ""));
+        if (s.Cloud.Enabled)
+        {
+            try { list.Add(CloudBackupTarget()); }
+            catch (InvalidOperationException ex) { list.Add(new FailedBackupTarget(L.T("Netz (WebDAV/S3)"), ex.Message)); }
+        }
         return list;
+    }
+
+    /// <summary>0.9.23: verschlüsseltes Ziel im Netz laut Einstellungen (auch ausgeschaltet – zum Einspielen).</summary>
+    public EncryptedBackupTarget CloudBackupTarget()
+    {
+        var c = Config.Backup.Cloud;
+        var secret = Secrets.Get(SecretStore.CloudSecret) ?? "";
+        IRemoteStore store = c.Kind == "s3"
+            ? new S3Store(c.Endpoint, c.Region, c.Bucket, c.Prefix, c.AccessKey, secret, Options.BackupHttpHandler)
+            : new WebDavStore(c.Url, c.User, secret, Options.BackupHttpHandler);
+        return new EncryptedBackupTarget(store, Secrets.Get(SecretStore.CloudEncryption) ?? "", Path.Combine(BackupDirectory, ".cloud"));
     }
 
     /// <summary>Einmal täglich ab der eingestellten Stunde (aus der Abfragerunde).</summary>
