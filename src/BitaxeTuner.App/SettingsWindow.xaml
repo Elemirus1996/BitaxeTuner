@@ -532,6 +532,13 @@
             </StackPanel>
         </Border>
 
+        <Border x:Name="ChatBotCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'Chat-Bots (Telegram, Discord)'}" Style="{StaticResource Section}"/>
+                <ContentControl x:Name="ChatBotHost"/>
+            </StackPanel>
+        </Border>
+
         </StackPanel>
         </ScrollViewer>
 

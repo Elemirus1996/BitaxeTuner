@@ -3791,6 +3791,7 @@ async function renderSettings() {
     solarCard(),
     poolAccountCard(),
     extraPoolsCard(),
+    chatBotCard(),
     updateCard(),
     h('div', { class: 'card stack' }, h('h2', {}, t('Admin-Passwort ändern')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Aktuell')), curPw), h('div', {}, h('label', {}, t('Neu (mind. 10 Zeichen)')), newPw),
@@ -3811,7 +3812,7 @@ const SETTINGS_SECTIONS = () => [
   ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Ruhezeit'), t('Berichte und Log-Alarme')]],
   ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs'), t('PV-Anlage')]],
   ['watch', t('Überwachung & Automatik'), 'gauge', [t('Überwachung'), t('Grenzwerte und Tuning')]],
-  ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Weitere Pool-Konten'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
+  ['integr', t('Integrationen'), 'plug', [t('Home Assistant / MQTT'), t('Prometheus / Grafana'), t('Pool-Konto'), t('Weitere Pool-Konten'), t('Chat-Bots (Telegram, Discord)'), t('Desktop-App verbinden (API-Token)'), t('Wallet-Abfrage')]],
   ['access', t('Zugang & Sicherheit'), 'shield', [t('Ansicht-PIN'), t('Ansicht-Zugänge'), t('Kiosk / Wand-Tablet'), t('Verbindung'), t('Admin-Passwort ändern')]],
   ['system', t('System'), 'server', [t('Systemzustand'), t('Abfrage und Speicher'), t('Sicherung'), t('Server-Update')]],
 ];
@@ -5439,6 +5440,71 @@ function extraPoolsOverviewCard(list, currency) {
         h('td', { class: 'num' }, x.balance != null ? `${x.balance} ${x.coin}` : '–',
           x.value != null ? h('div', { class: 'muted small' }, `≈ ${n(x.value, 2)} ${currency}`) : null),
         h('td', {}, x.lastPayout ? `${x.lastPayoutAmount} ${x.coin} · ${time(x.lastPayout)}` : '–')))))));
+}
+
+/** 0.9.24: Chat-Bots – Befehle wie /status in Telegram und Discord (nur lesend), angepinnte Live-Nachricht, Vorschau. */
+function chatBotCard() {
+  const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const render = d => {
+    const s = { ...d.settings };
+    const token = h('input', { type: 'password', autocomplete: 'new-password',
+      placeholder: d.discordTokenSet ? t('gespeichert – leer lassen = unverändert') : t('Bot-Token aus dem Discord Developer Portal') });
+    const guild = h('input', { value: s.discordGuildId || '', placeholder: t('Server-ID (für sofort verfügbare Befehle)'), oninput: e => { s.discordGuildId = e.target.value; } });
+    const channel = h('input', { value: s.discordChannelId || '', placeholder: t('Kanal-ID'), oninput: e => { s.discordChannelId = e.target.value; } });
+    const target = h('select', { onchange: e => { s.telegramTargetId = e.target.value; } },
+      [h('option', { value: '' }, '–'), ...d.telegramTargets.map(x => h('option', { value: x.id }, x.name + (x.ready ? '' : ' ⚠')))]);
+    target.value = s.telegramTargetId || '';
+    const minutes = h('input', { type: 'number', min: 2, max: 60, value: s.liveMinutes || 5, oninput: e => { s.liveMinutes = Number(e.target.value); } });
+    const previewCmd = h('select', {}, d.commands.map(c => h('option', { value: '/' + c.name + (c.name === 'miner' ? ' ' + (S.status?.devices?.[0]?.name || '') : '') }, '/' + c.name)));
+    const previewBox = h('div', { class: 'stack' });
+    const save = async () => {
+      const r = await run(() => api('/chatbot', { method: 'PUT', body: { settings: s, discordToken: token.value || null } }), t('Gespeichert.'));
+      if (r) render(r);
+    };
+    const setup = async () => {
+      const r = await run(() => api('/chatbot/discord/setup', { method: 'POST', body: { token: token.value || null, guildId: guild.value || null } }));
+      if (!r) return;
+      toast(t('Discord eingerichtet: {0} Befehle eingetragen.', r.commands), 'ok', 8000);
+      render(await api('/chatbot'));
+    };
+    fill(body,
+      h('p', { class: 'muted small' }, t('Frag BitaxeTuner im Chat: /status, /miner, /history, /records, /pool, /power, /system, /bitcoin, /help – mit Bild der passenden E-Paper-Seite. Nur lesen: keine Frequenz, Spannung oder Lüfter, keine IP-Adressen, Wallets oder Tokens. Der Bot läuft in BitaxeTuner selbst, ohne fremden Server und ohne Portfreigabe.')),
+      h('h3', {}, 'Telegram'),
+      checkInput(s, 'telegramEnabled', t('Telegram-Bot einschalten')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Bot des Push-Dienstes')), target)),
+      h('p', { class: 'muted small' }, d.telegramTargets.length
+        ? t('Es antwortet derselbe Bot wie bei den Push-Meldungen – nur im eingetragenen Chat. Andere Chats bekommen keine Antwort.')
+        : t('Zuerst unter Benachrichtigungen einen Push-Dienst „Telegram“ einrichten (Bot-Token vom BotFather und Chat-ID).')),
+      d.telegramStatus ? h('p', { class: 'small' }, t('Zustand: {0}', d.telegramStatus)) : null,
+      h('h3', {}, 'Discord'),
+      checkInput(s, 'discordEnabled', t('Discord-Bot einschalten')),
+      h('ol', { class: 'small' },
+        h('li', {}, t('Im Discord Developer Portal „New Application“ anlegen (Name egal), unter „Bot“ → „Reset Token“ das Token kopieren.'), ' ',
+          h('a', { href: 'https://discord.com/developers/applications', target: '_blank', rel: 'noopener' }, 'discord.com/developers')),
+        h('li', {}, t('Token hier einfügen und „Einrichten“ – BitaxeTuner setzt Name und Bild, trägt die Befehle ein und erzeugt den Einladungslink.')),
+        h('li', {}, t('Über den Einladungslink den Bot auf deinen Discord-Server holen.')),
+        h('li', {}, t('Kanal-ID eintragen (Discord: Einstellungen → Erweitert → Entwicklermodus, dann Rechtsklick auf den Kanal → „Kanal-ID kopieren“) und speichern.'))),
+      h('div', { class: 'form' },
+        h('div', { style: 'grid-column:span 2' }, h('label', {}, t('Bot-Token')), token),
+        h('div', {}, h('label', {}, t('Server-ID (optional)')), guild),
+        h('div', {}, h('label', {}, t('Kanal-ID')), channel)),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: setup }, t('Einrichten …')),
+        d.inviteUrl ? h('a', { class: 'btn', href: d.inviteUrl, target: '_blank', rel: 'noopener' }, t('Bot einladen')) : null),
+      d.discordStatus ? h('p', { class: 'small' }, t('Zustand: {0}', d.discordStatus)) : null,
+      h('h3', {}, t('Live-Status')),
+      checkInput(s, 'liveStatus', t('Angepinnte Nachricht mit dem aktuellen Stand pflegen')),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('alle (Minuten)')), minutes)),
+      h('p', { class: 'muted small' }, t('Berichte und Feiern (Rekord, Blockfund, Auszahlung) kommen wie bisher über die Push-Dienste – bei Telegram in denselben Chat, bei Discord über den Webhook.')),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: save }, t('Speichern'))),
+      h('h3', {}, t('Vorschau')),
+      h('div', { class: 'row' }, previewCmd, h('button', { class: 'btn', onclick: async () => {
+        const r = await run(() => api('/chatbot/preview', { method: 'POST', body: { command: previewCmd.value } }));
+        if (r) fill(previewBox, h('pre', { class: 'small', style: 'white-space:pre-wrap' }, r.text), r.image ? h('img', { src: r.image, style: 'max-width:100%;border-radius:8px' }) : null);
+      } }, t('Antwort ansehen'))),
+      previewBox);
+  };
+  api('/chatbot').then(render).catch(e => fill(body, h('p', { class: 'error' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Chat-Bots (Telegram, Discord)')), body);
 }
 
 function extraPoolsCard() {
