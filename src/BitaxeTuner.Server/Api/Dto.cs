@@ -225,6 +225,8 @@ public static class Dto
             automation = d.AutomationStatus,
             // 0.9.16: fällige Wartung (Kurztext)
             upkeepDue = hub.UpkeepOf(d).Where(t => t.Due).Select(t => t.Label).ToList(),
+            // 0.9.23 „Was ist los?“: erkannte Probleme mit Ursache und nächstem Schritt (keine Adressen)
+            problems = hub.ProblemsOf(d) is { Count: > 0 } pr ? pr.Select(p => new { p.Key, p.Severity, p.Title, p.Why, p.Check, p.Link }).ToList() : null,
             soak = d.Config.Soak is null ? null : new { status = d.SoakStatus, until = d.Config.Soak.Until },
             suggestion = d.PendingSuggestion,
             benchmark = d.Benchmark is { } b ? Run(b) : null,

@@ -505,3 +505,12 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .coin-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .coin-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 90px auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--alt); }
 .coin-row .mini-spark { width: 90px; height: 28px; }
+
+/* 0.9.23 „Was ist los?“ */
+.whatsup { cursor: pointer; font-weight: 600; }
+.whatsup:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.problem { padding: 8px 10px; border-radius: 10px; background: var(--alt); border-left: 3px solid var(--warn); display: grid; gap: 4px; }
+.problem.bad { border-left-color: var(--danger); }
+.problem .btn { justify-self: start; }
+.pill.warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.pill.danger { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }

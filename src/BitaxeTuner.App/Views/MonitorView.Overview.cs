@@ -63,6 +63,27 @@ public partial class MonitorView
             stack.Children.Add(head);
             var model = s.Info?.AsicModel is { Length: > 0 } asic ? asic : "";
             stack.Children.Add(new TextBlock { Text = model.Length > 0 ? $"{model} · {host}" : host, Style = (Style)FindResource("TileSub") });
+            // 0.9.23 „Was ist los?“: erkannte Probleme mit Ursache und nächstem Schritt
+            if (_host.Hub.Devices.FirstOrDefault(x => string.Equals(x.Host, host, StringComparison.OrdinalIgnoreCase)) is { } dev
+                && _host.Hub.ProblemsOf(dev) is { Count: > 0 } problems)
+            {
+                var bad = problems.Any(p => p.Severity == "bad");
+                var details = string.Join("\n\n", problems.Select(p => $"{(bad && p.Severity == "bad" ? "●" : "▲")} {p.Title}\n{p.Why}\n" + L.T("Prüfen: {0}", p.Check)));
+                var whatsUp = new TextBlock
+                {
+                    Text = "? " + L.T("Was ist los?") + "  " + string.Join(" · ", problems.Select(p => p.Title)),
+                    Foreground = bad ? Red : Gold, FontWeight = FontWeights.SemiBold, FontSize = 11, Cursor = System.Windows.Input.Cursors.Hand,
+                    TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0), ToolTip = details,
+                };
+                var name = s.Config.Name;
+                whatsUp.MouseLeftButtonUp += (_, e) =>
+                {
+                    e.Handled = true;
+                    MessageBox.Show(Window.GetWindow(this), details, L.T("Was ist los bei {0}?", name), MessageBoxButton.OK,
+                        bad ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                };
+                stack.Children.Add(whatsUp);
+            }
 
             if (s.Online && s.Info is { } i)
             {
