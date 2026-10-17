@@ -36,6 +36,13 @@ public sealed class DiscordBot : IDisposable
 
     public string? Status { get; private set; }
 
+    /// <summary>0.9.23: Minernamen für die Autovervollständigung von /miner und /history.</summary>
+    public Func<Task<IReadOnlyList<string>>>? MinerNames { get; init; }
+    /// <summary>0.9.23: Text für den Bot-Status unter dem Namen (null = keiner).</summary>
+    public Func<Task<string>>? Presence { get; init; }
+    /// <summary>0.9.23: Befehle, deren Antwort nur der Fragende sieht.</summary>
+    public IReadOnlySet<string> PrivateCommands { get; init; } = new HashSet<string>();
+
     public DiscordBot(string token, string channelId, HttpMessageHandler? handler, Func<string, Task<ChatReply>> answer, Func<Task<string>> live,
         TimeSpan? liveEvery, string stateFile)
     {
@@ -96,10 +103,12 @@ public sealed class DiscordBot : IDisposable
 
     private static object CommandJson(string name, string german)
     {
+        // 0.9.23: Minernamen per Autovervollständigung, Zeitraum als Auswahl
         var options = name switch
         {
-            "miner" => new object[] { Option("name", L.N("Name des Miners"), required: true) },
-            "history" => new object[] { Option("miner", L.N("Miner (leer = alle)"), required: false), Option("period", L.N("Zeitraum: 24h oder 7d"), required: false) },
+            "miner" => new object[] { Option("name", L.N("Name des Miners"), required: true, autocomplete: true) },
+            "history" => new object[] { Option("miner", L.N("Miner (leer = alle)"), required: false, autocomplete: true),
+                Option("period", L.N("Zeitraum"), required: false, choices: ["24h", "7d", "30d"]) },
             _ => [],
         };
         var nameLoc = german != name ? new Dictionary<string, string> { ["de"] = german } : null;
@@ -115,14 +124,20 @@ public sealed class DiscordBot : IDisposable
         };
     }
 
-    private static object Option(string name, string germanDescription, bool required) => new
+    private static Dictionary<string, object> Option(string name, string germanDescription, bool required, bool autocomplete = false, string[]? choices = null)
     {
-        name,
-        description = Clip(Loc.For("en").T(germanDescription)),
-        description_localizations = DiscordLocales.ToDictionary(kv => kv.Value, kv => Clip(Loc.For(kv.Key).T(germanDescription))),
-        type = 3,
-        required,
-    };
+        var o = new Dictionary<string, object>
+        {
+            ["name"] = name,
+            ["description"] = Clip(Loc.For("en").T(germanDescription)),
+            ["description_localizations"] = DiscordLocales.ToDictionary(kv => kv.Value, kv => Clip(Loc.For(kv.Key).T(germanDescription))),
+            ["type"] = 3,
+            ["required"] = required,
+        };
+        if (autocomplete) o["autocomplete"] = true;
+        if (choices is not null) o["choices"] = choices.Select(c => new { name = c, value = c }).ToArray();
+        return o;
+    }
 
     private static string Clip(string s) => s.Length <= 100 ? s : s[..99] + "…";
 
@@ -200,6 +215,7 @@ public sealed class DiscordBot : IDisposable
                     case 0 when root.GetProperty("t").GetString() == "READY":
                         Status = L.T("verbunden");
                         _ = Task.Run(() => LiveLoopAsync(linked.Token), linked.Token);
+                        if (Presence is { } presence) _ = Task.Run(() => PresenceLoopAsync(presence, Send, linked.Token), linked.Token);
                         break;
                     case 0 when root.GetProperty("t").GetString() == "INTERACTION_CREATE":
                         var d = root.GetProperty("d").Clone();
@@ -228,32 +244,57 @@ public sealed class DiscordBot : IDisposable
         }
     }
 
-    /// <summary>Slash-Befehl beantworten: erst „denkt nach …“, dann Text und ggf. Bild. Nur im gewählten Kanal.</summary>
+    /// <summary>
+    /// Slash-Befehl (2), Knopf (3) oder Autovervollständigung (4): erst „denkt nach …“, dann Karte/Text und ggf. Bild.
+    /// Nur im gewählten Kanal; Knöpfe und als privat gewählte Befehle sieht nur der Fragende.
+    /// </summary>
     internal async Task HandleInteractionAsync(JsonElement d, CancellationToken ct = default)
     {
-        if (d.GetProperty("type").GetInt32() != 2) return;   // nur Slash-Befehle
+        var type = d.GetProperty("type").GetInt32();
+        if (type is not (2 or 3 or 4)) return;
         var id = d.GetProperty("id").GetString();
         var token = d.GetProperty("token").GetString();
         var appId = d.GetProperty("application_id").GetString();
         var channel = d.TryGetProperty("channel_id", out var ch) ? ch.GetString() : null;
         var callback = $"{Api}/interactions/{id}/{token}/callback";
+        var data = d.GetProperty("data");
+        if (type == 4)
+        {
+            await AutocompleteAsync(callback, data, channel == _channelId, ct);
+            return;
+        }
         if (channel != _channelId)
         {
             using var _ = await _http.PostAsJsonAsync(callback, new { type = 4, data = new { content = L.T("BitaxeTuner antwortet nur im eingestellten Kanal."), flags = 64 } }, ct);
             return;
         }
-        using (var defer = await _http.PostAsJsonAsync(callback, new { type = 5 }, ct)) defer.EnsureSuccessStatusCode();
-        var data = d.GetProperty("data");
-        var args = data.TryGetProperty("options", out var opts)
-            ? string.Join(' ', opts.EnumerateArray().Select(o => o.GetProperty("value").ToString()))
-            : "";
-        var reply = await _answer("/" + data.GetProperty("name").GetString() + (args.Length > 0 ? " " + args : ""));
+        string command;
+        bool ephemeral;
+        if (type == 3)
+        {
+            if (ButtonCommand(data.TryGetProperty("custom_id", out var cid) ? cid.GetString() : null) is not { } fromButton) return;
+            command = fromButton;
+            ephemeral = true;
+        }
+        else
+        {
+            var name = data.GetProperty("name").GetString() ?? "";
+            var args = data.TryGetProperty("options", out var opts)
+                ? string.Join(' ', opts.EnumerateArray().Select(o => o.GetProperty("value").ToString()))
+                : "";
+            command = "/" + name + (args.Length > 0 ? " " + args : "");
+            ephemeral = PrivateCommands.Contains(name);
+        }
+        object defer = ephemeral ? new { type = 5, data = new { flags = 64 } } : new { type = 5 };
+        using (var deferred = await _http.PostAsJsonAsync(callback, defer, ct)) deferred.EnsureSuccessStatusCode();
+        var reply = await _answer(command);
         var edit = $"{Api}/webhooks/{appId}/{token}/messages/@original";
         using var form = new MultipartFormDataContent();
         var content = reply.Text.Length > 1900 ? reply.Text[..1900] + "…" : reply.Text;
-        var payload = reply.Png is null
-            ? JsonSerializer.Serialize(new { content })
-            : JsonSerializer.Serialize(new { content, attachments = new[] { new { id = 0, filename = "bitaxetuner.png" } } });
+        var message = new Dictionary<string, object> { ["content"] = reply.Embed is null ? content : "" };
+        if (reply.Embed is { } embed) message["embeds"] = new[] { EmbedJson(embed, reply.Png is not null) };
+        if (reply.Png is not null) message["attachments"] = new[] { new { id = 0, filename = "bitaxetuner.png" } };
+        var payload = JsonSerializer.Serialize(message);
         form.Add(new StringContent(payload, Encoding.UTF8, "application/json"), "payload_json");
         if (reply.Png is { } png)
         {
@@ -264,6 +305,86 @@ public sealed class DiscordBot : IDisposable
         using var resp = await _http.PatchAsync(edit, form, ct);
         resp.EnsureSuccessStatusCode();
     }
+
+    /// <summary>Farbe nach Zustand: grün, gelb, rot.</summary>
+    internal static int ColorOf(string state) => state switch { "bad" => 0xE5484D, "warn" => 0xF5A623, _ => 0x30A46C };
+
+    private static Dictionary<string, object> EmbedJson(ChatEmbed e, bool image)
+    {
+        var o = new Dictionary<string, object>
+        {
+            ["title"] = Clip256(e.Title),
+            ["color"] = ColorOf(e.State),
+            ["fields"] = e.Fields.Take(25).Select(f => new { name = Clip256(f.Name), value = f.Value.Length == 0 ? "–" : f.Value, inline = true }).ToArray(),
+            ["footer"] = new { text = "BitaxeTuner" },
+        };
+        if (image) o["image"] = new { url = "attachment://bitaxetuner.png" };
+        return o;
+    }
+
+    private static string Clip256(string s) => s.Length <= 256 ? s : s[..255] + "…";
+
+    /// <summary>„bt:m:Gamma“ → „/miner Gamma“, „bt:h:Gamma“ → „/history Gamma“, „bt:s“ → „/status“; sonst null.</summary>
+    internal static string? ButtonCommand(string? customId) => customId switch
+    {
+        "bt:s" => "/status",
+        { } c when c.StartsWith("bt:m:", StringComparison.Ordinal) => "/miner " + c[5..],
+        { } c when c.StartsWith("bt:h:", StringComparison.Ordinal) => "/history " + c[5..],
+        _ => null,
+    };
+
+    private async Task AutocompleteAsync(string callback, JsonElement data, bool ourChannel, CancellationToken ct)
+    {
+        var typed = "";
+        if (data.TryGetProperty("options", out var opts))
+            foreach (var o in opts.EnumerateArray())
+                if (o.TryGetProperty("focused", out var f) && f.ValueKind == JsonValueKind.True) typed = o.GetProperty("value").ToString();
+        // Minernamen nur im eingestellten Kanal verraten
+        var names = ourChannel && MinerNames is { } list ? await list() : [];
+        var choices = names.Where(n => n.Contains(typed, StringComparison.OrdinalIgnoreCase)).Take(25)
+            .Select(n => new { name = Clip(n), value = Clip(n) }).ToArray();
+        using var _ = await _http.PostAsJsonAsync(callback, new { type = 8, data = new { choices } }, ct);
+    }
+
+    /// <summary>0.9.23: Bot-Status (Presence) jede Minute, nur bei Änderung senden.</summary>
+    private static async Task PresenceLoopAsync(Func<Task<string>> presence, Func<object, Task> send, CancellationToken ct)
+    {
+        string? last = null;
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var text = Clip(await presence());
+                if (text != last)
+                {
+                    await send(PresencePayload(text));
+                    last = text;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException) { /* nächste Runde */ }
+            await Task.Delay(TimeSpan.FromMinutes(1), ct);
+        }
+    }
+
+    internal static object PresencePayload(string text) =>
+        new { op = 3, d = new { since = (long?)null, activities = new[] { new { name = "Custom Status", type = 4, state = text } }, status = "online", afk = false } };
+
+    /// <summary>0.9.23: Warnung in den Kanal – rote Karte mit Knöpfen [Details] [Verlauf] (nur zum Ansehen).</summary>
+    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default)
+    {
+        var buttons = miner is { Length: > 0 }
+            ? new[] { new { type = 2, style = 2, label = L.T("Details"), custom_id = "bt:m:" + Clip90(miner) }, new { type = 2, style = 2, label = L.T("Verlauf"), custom_id = "bt:h:" + Clip90(miner) } }
+            : new[] { new { type = 2, style = 2, label = L.T("Übersicht"), custom_id = "bt:s" } };
+        var body = new
+        {
+            embeds = new[] { new { title = Clip256("⚠ " + title), color = ColorOf("bad"), footer = new { text = "BitaxeTuner" } } },
+            components = new[] { new { type = 1, components = buttons } },
+        };
+        using var resp = await _http.PostAsJsonAsync($"{Api}/channels/{_channelId}/messages", body, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    private static string Clip90(string s) => s.Length <= 90 ? s : s[..90];
 
     private async Task LiveLoopAsync(CancellationToken ct)
     {

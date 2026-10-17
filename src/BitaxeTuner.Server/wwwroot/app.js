@@ -5555,6 +5555,19 @@ function chatBotCard() {
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: setup }, t('Einrichten …')),
         d.inviteUrl ? h('a', { class: 'btn', href: d.inviteUrl, target: '_blank', rel: 'noopener' }, t('Bot einladen')) : null),
       d.discordStatus ? h('p', { class: 'small' }, t('Zustand: {0}', d.discordStatus)) : null,
+      // 0.9.23 Ausbau: Bot-Status, private Antworten
+      checkInput(s, 'presence', t('Bot-Status unter dem Namen zeigen (z. B. „3/3 online · 3,2 TH/s“)')),
+      h('div', { class: 'stack' }, h('label', {}, t('Nur für den Fragenden sichtbar')),
+        h('div', { class: 'row', style: 'flex-wrap:wrap;gap:4px 14px' }, d.commands.filter(c => c.name !== 'help').map(c => {
+          s.privateCommands ||= [];
+          const box = h('input', { type: 'checkbox', checked: s.privateCommands.includes(c.name) });
+          box.addEventListener('change', () => { s.privateCommands = box.checked ? [...new Set([...s.privateCommands, c.name])] : s.privateCommands.filter(x => x !== c.name); });
+          return h('label', { class: 'check small' }, box, '/' + c.name);
+        }))),
+      h('p', { class: 'muted small' }, t('Antworten kommen bei Discord als farbige Karte (grün/gelb/rot nach Zustand); /miner und /history schlagen die Minernamen vor.')),
+      h('h3', {}, t('Warnungen mit Knöpfen')),
+      checkInput(s, 'alertButtons', t('Warnungen (offline, Überhitzung, Lüfter steht) zusätzlich in den Chat – mit Knöpfen [Details] [Verlauf]')),
+      h('p', { class: 'muted small' }, t('Die Knöpfe zeigen nur Werte und Verlauf an, sie ändern nichts. Telegram und Discord; dieselbe Warnung höchstens alle 30 Minuten.')),
       h('h3', {}, t('Live-Status')),
       checkInput(s, 'liveStatus', t('Angepinnte Nachricht mit dem aktuellen Stand pflegen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('alle (Minuten)')), minutes)),

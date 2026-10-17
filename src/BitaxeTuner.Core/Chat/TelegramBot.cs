@@ -9,7 +9,19 @@ using BitaxeTuner.Core.I18n;
 namespace BitaxeTuner.Core.Chat;
 
 /// <summary>Antwort eines Chat-Befehls: Text und optional ein Bild (PNG).</summary>
-public sealed record ChatReply(string Text, byte[]? Png = null);
+public sealed record ChatReply(string Text, byte[]? Png = null)
+{
+    /// <summary>0.9.23: farbige Karte mit Feldern (Discord-Embed); Telegram zeigt den Text.</summary>
+    public ChatEmbed? Embed { get; init; }
+}
+
+/// <summary>0.9.23: Karte für Discord – Titel, Zustand („ok“, „warn“, „bad“ → grün/gelb/rot) und Felder.</summary>
+public sealed record ChatEmbed(string Title, string State, IReadOnlyList<ChatField> Fields);
+
+public sealed record ChatField(string Name, string Value);
+
+/// <summary>0.9.23: Knopf unter einer Warnung – nur zum Ansehen („/miner Gamma“, „/history Gamma“, „/status“).</summary>
+public sealed record ChatButton(string Label, string Command);
 
 /// <summary>Ergebnis des Discord-Einrichtens.</summary>
 public sealed record DiscordSetupResult(string AppId, string BotName, string InviteUrl, int Commands);
@@ -86,7 +98,8 @@ public sealed class TelegramBot : IDisposable
     internal async Task PollOnceAsync(int timeoutSeconds, CancellationToken ct = default)
     {
         if (!_commandsSet) await SetCommandsAsync(ct);
-        using var resp = await _http.GetAsync(Url("getUpdates") + $"?offset={_offset}&timeout={timeoutSeconds}&allowed_updates=%5B%22message%22%5D", ct);
+        // 0.9.23: auch Knopfdrücke (callback_query) unter Warnungen
+        using var resp = await _http.GetAsync(Url("getUpdates") + $"?offset={_offset}&timeout={timeoutSeconds}&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D", ct);
         if (resp.StatusCode == HttpStatusCode.Unauthorized) throw new UnauthorizedAccessException(L.T("Telegram lehnt das Bot-Token ab."));
         if (resp.StatusCode == HttpStatusCode.Conflict)
             throw new InvalidOperationException(L.T("Der Bot wird schon woanders abgefragt (Webhook oder zweites Programm) – dort beenden."));
@@ -96,6 +109,11 @@ public sealed class TelegramBot : IDisposable
         foreach (var u in doc.RootElement.GetProperty("result").EnumerateArray())
         {
             _offset = Math.Max(_offset, u.GetProperty("update_id").GetInt64() + 1);
+            if (u.TryGetProperty("callback_query", out var cb))
+            {
+                await HandleButtonAsync(cb, ct);
+                continue;
+            }
             if (!u.TryGetProperty("message", out var msg) || !msg.TryGetProperty("text", out var t)) continue;
             var chat = msg.GetProperty("chat").GetProperty("id").GetRawText();
             var text = t.GetString() ?? "";
@@ -104,6 +122,43 @@ public sealed class TelegramBot : IDisposable
             await SendAsync(reply, ct);
         }
         SaveState();
+    }
+
+    /// <summary>„m:Gamma“ → „/miner Gamma“, „h:Gamma“ → „/history Gamma“, „s“ → „/status“.</summary>
+    internal static string? ButtonCommand(string? data) => data switch
+    {
+        "s" => "/status",
+        { } d when d.StartsWith("m:", StringComparison.Ordinal) => "/miner " + d[2..],
+        { } d when d.StartsWith("h:", StringComparison.Ordinal) => "/history " + d[2..],
+        _ => null,
+    };
+
+    private async Task HandleButtonAsync(JsonElement cb, CancellationToken ct)
+    {
+        var id = cb.GetProperty("id").GetString();
+        using (await _http.PostAsJsonAsync(Url("answerCallbackQuery"), new { callback_query_id = id }, ct)) { }
+        var chat = cb.TryGetProperty("message", out var m) ? m.GetProperty("chat").GetProperty("id").GetRawText() : null;
+        if (chat != _chatId) return;   // fremde Chats: keine Antwort
+        if (ButtonCommand(cb.TryGetProperty("data", out var d) ? d.GetString() : null) is not { } command) return;
+        await SendAsync(await _answer(command), ct);
+    }
+
+    /// <summary>0.9.23: Warnung in den Chat – mit Knöpfen [Details] [Verlauf] (nur zum Ansehen).</summary>
+    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default)
+    {
+        // callback_data höchstens 64 Byte
+        string Data(string prefix) => prefix + Clip(miner!, 60);
+        var keyboard = miner is { Length: > 0 }
+            ? new[] { new[] { new { text = L.T("Details"), callback_data = Data("m:") }, new { text = L.T("Verlauf"), callback_data = Data("h:") } } }
+            : new[] { new[] { new { text = L.T("Übersicht"), callback_data = "s" } } };
+        using var resp = await _http.PostAsJsonAsync(Url("sendMessage"), new { chat_id = _chatId, text = "⚠ " + title, reply_markup = new { inline_keyboard = keyboard } }, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    private static string Clip(string s, int maxBytes)
+    {
+        while (System.Text.Encoding.UTF8.GetByteCount(s) > maxBytes) s = s[..^1];
+        return s;
     }
 
     private async Task SetCommandsAsync(CancellationToken ct)
