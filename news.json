@@ -1,0 +1,807 @@
+{
+ "version": 1,
+ "updated": "2026-10-17T18:27:45Z",
+ "items": [
+  {
+   "id": "bt-v0.9.22",
+   "date": "2026-10-17T09:51:03Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.22 erschienen",
+    "en": "BitaxeTuner v0.9.22 released",
+    "es": "BitaxeTuner v0.9.22 publicado",
+    "pt": "BitaxeTuner v0.9.22 lançado",
+    "fr": "BitaxeTuner v0.9.22 est sorti",
+    "nl": "BitaxeTuner v0.9.22 verschenen"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app.",
+    "es": "Actualiza en Ajustes → Actualización del servidor o desde la app.",
+    "pt": "Atualize em Configurações → Atualização do servidor ou pelo app.",
+    "fr": "Mise à jour via Paramètres → Mise à jour du serveur ou l'application.",
+    "nl": "Bijwerken via Instellingen → Serverupdate of de app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.22"
+  },
+  {
+   "id": "bt-v0.9.21",
+   "date": "2026-10-17T09:12:57Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.21 erschienen",
+    "en": "BitaxeTuner v0.9.21 released",
+    "es": "BitaxeTuner v0.9.21 publicado",
+    "pt": "BitaxeTuner v0.9.21 lançado",
+    "fr": "BitaxeTuner v0.9.21 est sorti",
+    "nl": "BitaxeTuner v0.9.21 verschenen"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app.",
+    "es": "Actualiza en Ajustes → Actualización del servidor o desde la app.",
+    "pt": "Atualize em Configurações → Atualização do servidor ou pelo app.",
+    "fr": "Mise à jour via Paramètres → Mise à jour du serveur ou l'application.",
+    "nl": "Bijwerken via Instellingen → Serverupdate of de app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.21"
+  },
+  {
+   "id": "bt-v0.9.20",
+   "date": "2026-10-16T22:01:26Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.20 erschienen",
+    "en": "BitaxeTuner v0.9.20 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.20"
+  },
+  {
+   "id": "bt-v0.9.19",
+   "date": "2026-10-16T13:45:10Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.19 erschienen",
+    "en": "BitaxeTuner v0.9.19 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.19"
+  },
+  {
+   "id": "diff-971712",
+   "date": "2026-10-16T12:37:31Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +5,9 %",
+    "en": "Difficulty adjustment +5.9 %",
+    "es": "Ajuste de dificultad +5,9 %",
+    "pt": "Ajuste de dificuldade +5,9 %",
+    "fr": "Ajustement de la difficulté +5,9 %",
+    "nl": "Difficulty-aanpassing +5,9 %"
+   },
+   "text": {
+    "de": "Block #971712 · 140,6 T",
+    "en": "Block #971712 · 140.6 T",
+    "es": "Bloque #971712 · 140,6 T",
+    "pt": "Bloco #971712 · 140,6 T",
+    "fr": "Bloc #971712 · 140,6 T",
+    "nl": "Blok #971712 · 140,6 T"
+   },
+   "url": "https://mempool.space/block/971712",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-bch-day-2026-10-16",
+   "date": "2026-10-16T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 23 Solo-Blöcke am 16.10.",
+    "en": "BCH: 23 solo blocks on Oct 16",
+    "es": "BCH: 23 bloques en solitario el 16/10",
+    "pt": "BCH: 23 blocos solo em 16/10",
+    "fr": "BCH : 23 blocs en solo le 16/10",
+    "nl": "BCH: 23 soloblokken op 16-10"
+   },
+   "text": {
+    "de": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2",
+    "en": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2",
+    "es": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2",
+    "pt": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2",
+    "fr": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2",
+    "nl": "Solo 11, solopool.org 4, SOLO 4, solo.ckpool 2"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-16)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.18",
+   "date": "2026-10-15T23:32:44Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.18 erschienen",
+    "en": "BitaxeTuner v0.9.18 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.18"
+  },
+  {
+   "id": "bt-v0.9.17",
+   "date": "2026-10-15T22:41:41Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.17 erschienen",
+    "en": "BitaxeTuner v0.9.17 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.17"
+  },
+  {
+   "id": "solo-bch-day-2026-10-15",
+   "date": "2026-10-15T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 37 Solo-Blöcke am 15.10.",
+    "en": "BCH: 37 solo blocks on Oct 15"
+   },
+   "text": {
+    "de": "solo.ckpool 13, SOLO 8, solopool.org 5, Solo 4",
+    "en": "solo.ckpool 13, SOLO 8, solopool.org 5, Solo 4"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-15)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-14",
+   "date": "2026-10-14T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 24 Solo-Blöcke am 14.10.",
+    "en": "BCH: 24 solo blocks on Oct 14"
+   },
+   "text": {
+    "de": "Solo 6, solo.ckpool 6, SoloHash.co.uk 6, solopool.org 3",
+    "en": "Solo 6, solo.ckpool 6, SoloHash.co.uk 6, solopool.org 3"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-14)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-13",
+   "date": "2026-10-13T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 26 Solo-Blöcke am 13.10.",
+    "en": "BCH: 26 solo blocks on Oct 13"
+   },
+   "text": {
+    "de": "solo.ckpool 10, Solo 9, solopool.org 3, SOLO 3",
+    "en": "solo.ckpool 10, Solo 9, solopool.org 3, SOLO 3"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-13)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-12",
+   "date": "2026-10-12T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 30 Solo-Blöcke am 12.10.",
+    "en": "BCH: 30 solo blocks on Oct 12"
+   },
+   "text": {
+    "de": "Solo 12, solo.ckpool 6, SOLO 6, solopool.org 5",
+    "en": "Solo 12, solo.ckpool 6, SOLO 6, solopool.org 5"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-12)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.15",
+   "date": "2026-10-11T20:56:49Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.15 erschienen",
+    "en": "BitaxeTuner v0.9.15 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.15"
+  },
+  {
+   "id": "bt-v0.9.14",
+   "date": "2026-10-11T14:30:58Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.14 erschienen",
+    "en": "BitaxeTuner v0.9.14 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.14"
+  },
+  {
+   "id": "solo-bch-day-2026-10-11",
+   "date": "2026-10-11T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 28 Solo-Blöcke am 11.10.",
+    "en": "BCH: 28 solo blocks on Oct 11"
+   },
+   "text": {
+    "de": "solo.ckpool 11, solopool.org 6, Solo 5, SOLO 4",
+    "en": "solo.ckpool 11, solopool.org 6, Solo 5, SOLO 4"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-11)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-btc-970904",
+   "date": "2026-10-11T09:58:22Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #970904 (Braiins Solo)",
+    "en": "Small miner, big find: block #970904 (Braiins Solo)",
+    "es": "Minero pequeño, gran hallazgo: bloque #970904 (Braiins Solo)",
+    "pt": "Minerador pequeno, grande achado: bloco #970904 (Braiins Solo)",
+    "fr": "Petit mineur, grande trouvaille : bloc #970904 (Braiins Solo)",
+    "nl": "Kleine miner, grote vondst: blok #970904 (Braiins Solo)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,129 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.129 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,129 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,129 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,129 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,129 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/000000000000000000016d3757f864a84f128ba95e5bb883904546a4ecb1c862",
+   "coin": "BTC"
+  },
+  {
+   "id": "bt-v0.9.13",
+   "date": "2026-10-11T07:39:43Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.13 erschienen",
+    "en": "BitaxeTuner v0.9.13 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.13"
+  },
+  {
+   "id": "bt-v0.9.12",
+   "date": "2026-10-10T20:19:45Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.12 erschienen",
+    "en": "BitaxeTuner v0.9.12 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.12"
+  },
+  {
+   "id": "solo-bch-day-2026-10-10",
+   "date": "2026-10-10T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 23 Solo-Blöcke am 10.10.",
+    "en": "BCH: 23 solo blocks on Oct 10"
+   },
+   "text": {
+    "de": "solo.ckpool 8, Solo 7, solopool.org 4, SoloHash.co.uk 2",
+    "en": "solo.ckpool 8, Solo 7, solopool.org 4, SoloHash.co.uk 2"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-10)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-09",
+   "date": "2026-10-09T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 14 Solo-Blöcke am 09.10.",
+    "en": "BCH: 14 solo blocks on Oct 09"
+   },
+   "text": {
+    "de": "solopool.org 5, solo.ckpool 5, solopool.eu 1, SoloHash.co.uk 1",
+    "en": "solopool.org 5, solo.ckpool 5, solopool.eu 1, SoloHash.co.uk 1"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-09)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.11",
+   "date": "2026-10-08T18:49:32Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.11 erschienen",
+    "en": "BitaxeTuner v0.9.11 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.11"
+  },
+  {
+   "id": "solo-bch-day-2026-10-08",
+   "date": "2026-10-08T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 21 Solo-Blöcke am 08.10.",
+    "en": "BCH: 21 solo blocks on Oct 08"
+   },
+   "text": {
+    "de": "Solo 7, solo.ckpool 6, solopool.org 3, SOLO 2",
+    "en": "Solo 7, solo.ckpool 6, solopool.org 3, SOLO 2"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-08)",
+   "coin": "BCH"
+  },
+  {
+   "id": "solo-bch-day-2026-10-07",
+   "date": "2026-10-07T12:00:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "BCH: 20 Solo-Blöcke am 07.10.",
+    "en": "BCH: 20 solo blocks on Oct 07"
+   },
+   "text": {
+    "de": "Solo 8, solo.ckpool 6, solopool.org 3, SOLO 1",
+    "en": "Solo 8, solo.ckpool 6, solopool.org 3, SOLO 1"
+   },
+   "url": "https://blockchair.com/bitcoin-cash/blocks?q=time(2026-10-07)",
+   "coin": "BCH"
+  },
+  {
+   "id": "bt-v0.9.10",
+   "date": "2026-10-05T15:47:38Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.10 erschienen",
+    "en": "BitaxeTuner v0.9.10 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.10"
+  },
+  {
+   "id": "bt-v0.9.9",
+   "date": "2026-10-03T21:30:58Z",
+   "kind": "bitaxetuner",
+   "title": {
+    "de": "BitaxeTuner v0.9.9 erschienen",
+    "en": "BitaxeTuner v0.9.9 released"
+   },
+   "text": {
+    "de": "Update über Einstellungen → Server-Update bzw. die App.",
+    "en": "Update via Settings → Server update or the app."
+   },
+   "url": "https://github.com/Elemirus1996/BitaxeTuner/releases/tag/v0.9.9"
+  },
+  {
+   "id": "diff-969696",
+   "date": "2026-10-03T07:16:36Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −0,03 %",
+    "en": "Difficulty adjustment −0.03 %",
+    "es": "Ajuste de dificultad −0,03 %",
+    "pt": "Ajuste de dificuldade −0,03 %",
+    "fr": "Ajustement de la difficulté −0,03 %",
+    "nl": "Difficulty-aanpassing −0,03 %"
+   },
+   "text": {
+    "de": "Block #969696 · 132,7 T",
+    "en": "Block #969696 · 132.7 T",
+    "es": "Bloque #969696 · 132,7 T",
+    "pt": "Bloco #969696 · 132,7 T",
+    "fr": "Bloc #969696 · 132,7 T",
+    "nl": "Blok #969696 · 132,7 T"
+   },
+   "url": "https://mempool.space/block/969696",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-shufps/ESP-Miner-NerdQAxePlus-v1.1.0.1",
+   "date": "2026-09-24T05:36:59Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "en": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "es": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "pt": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "fr": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1",
+    "nl": "Firmware ESP-Miner NerdQAxe+ v1.1.0.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/shufps/ESP-Miner-NerdQAxePlus/releases/tag/v1.1.0.1"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.3",
+   "date": "2026-09-20T15:57:20Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "es": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "pt": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "fr": "Firmware ESP-Miner (Bitaxe) v2.15.3",
+    "nl": "Firmware ESP-Miner (Bitaxe) v2.15.3"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.3"
+  },
+  {
+   "id": "diff-967680",
+   "date": "2026-09-19T07:09:05Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +4,2 %",
+    "en": "Difficulty adjustment +4.2 %",
+    "es": "Ajuste de dificultad +4,2 %",
+    "pt": "Ajuste de dificuldade +4,2 %",
+    "fr": "Ajustement de la difficulté +4,2 %",
+    "nl": "Difficulty-aanpassing +4,2 %"
+   },
+   "text": {
+    "de": "Block #967680 · 132,8 T",
+    "en": "Block #967680 · 132.8 T",
+    "es": "Bloque #967680 · 132,8 T",
+    "pt": "Bloco #967680 · 132,8 T",
+    "fr": "Bloc #967680 · 132,8 T",
+    "nl": "Blok #967680 · 132,8 T"
+   },
+   "url": "https://mempool.space/block/967680",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-966351",
+   "date": "2026-09-10T11:06:46Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #966351 (Braiins Solo)",
+    "en": "Small miner, big find: block #966351 (Braiins Solo)",
+    "es": "Minero pequeño, gran hallazgo: bloque #966351 (Braiins Solo)",
+    "pt": "Minerador pequeno, grande achado: bloco #966351 (Braiins Solo)",
+    "fr": "Petit mineur, grande trouvaille : bloc #966351 (Braiins Solo)",
+    "nl": "Kleine miner, grote vondst: blok #966351 (Braiins Solo)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,147 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.147 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,147 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,147 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,147 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,147 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/000000000000000000014efb268b516c0f0dbbf7d45c1e3edbca9262f816b2ac",
+   "coin": "BTC"
+  },
+  {
+   "id": "diff-965664",
+   "date": "2026-09-05T20:32:47Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +1,3 %",
+    "en": "Difficulty adjustment +1.3 %",
+    "es": "Ajuste de dificultad +1,3 %",
+    "pt": "Ajuste de dificuldade +1,3 %",
+    "fr": "Ajustement de la difficulté +1,3 %",
+    "nl": "Difficulty-aanpassing +1,3 %"
+   },
+   "text": {
+    "de": "Block #965664 · 127,5 T",
+    "en": "Block #965664 · 127.5 T",
+    "es": "Bloque #965664 · 127,5 T",
+    "pt": "Bloco #965664 · 127,5 T",
+    "fr": "Bloc #965664 · 127,5 T",
+    "nl": "Blok #965664 · 127,5 T"
+   },
+   "url": "https://mempool.space/block/965664",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.1",
+   "date": "2026-08-29T10:57:02Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "es": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "pt": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "fr": "Firmware ESP-Miner (Bitaxe) v2.15.1",
+    "nl": "Firmware ESP-Miner (Bitaxe) v2.15.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.1"
+  },
+  {
+   "id": "fw-shufps/ESP-Miner-NerdQAxePlus-v1.1.0",
+   "date": "2026-08-29T07:50:55Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "en": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "es": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "pt": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "fr": "Firmware ESP-Miner NerdQAxe+ v1.1.0",
+    "nl": "Firmware ESP-Miner NerdQAxe+ v1.1.0"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/shufps/ESP-Miner-NerdQAxePlus/releases/tag/v1.1.0"
+  },
+  {
+   "id": "diff-963648",
+   "date": "2026-08-23T00:48:47Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −1,3 %",
+    "en": "Difficulty adjustment −1.3 %",
+    "es": "Ajuste de dificultad −1,3 %",
+    "pt": "Ajuste de dificuldade −1,3 %",
+    "fr": "Ajustement de la difficulté −1,3 %",
+    "nl": "Difficulty-aanpassing −1,3 %"
+   },
+   "text": {
+    "de": "Block #963648 · 125,8 T",
+    "en": "Block #963648 · 125.8 T",
+    "es": "Bloque #963648 · 125,8 T",
+    "pt": "Bloco #963648 · 125,8 T",
+    "fr": "Bloc #963648 · 125,8 T",
+    "nl": "Blok #963648 · 125,8 T"
+   },
+   "url": "https://mempool.space/block/963648",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.15.0",
+   "date": "2026-08-21T08:25:08Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "es": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "pt": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "fr": "Firmware ESP-Miner (Bitaxe) v2.15.0",
+    "nl": "Firmware ESP-Miner (Bitaxe) v2.15.0"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.15.0"
+  },
+  {
+   "id": "diff-961632",
+   "date": "2026-08-08T19:35:55Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung +1,0 %",
+    "en": "Difficulty adjustment +1.0 %",
+    "es": "Ajuste de dificultad +1,0 %",
+    "pt": "Ajuste de dificuldade +1,0 %",
+    "fr": "Ajustement de la difficulté +1,0 %",
+    "nl": "Difficulty-aanpassing +1,0 %"
+   },
+   "text": {
+    "de": "Block #961632 · 127,5 T",
+    "en": "Block #961632 · 127.5 T",
+    "es": "Bloque #961632 · 127,5 T",
+    "pt": "Bloco #961632 · 127,5 T",
+    "fr": "Bloc #961632 · 127,5 T",
+    "nl": "Blok #961632 · 127,5 T"
+   },
+   "url": "https://mempool.space/block/961632",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-960804",
+   "date": "2026-08-03T02:11:00Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #960804 (Solo CK)",
+    "en": "Small miner, big find: block #960804 (Solo CK)",
+    "es": "Minero pequeño, gran hallazgo: bloque #960804 (Solo CK)",
+    "pt": "Minerador pequeno, grande achado: bloco #960804 (Solo CK)",
+    "fr": "Petit mineur, grande trouvaille : bloc #960804 (Solo CK)",
+    "nl": "Kleine miner, grote vondst: blok #960804 (Solo CK)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,157 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.157 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,157 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,157 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,157 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,157 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/0000000000000000000081c26d870f8ac4a0217b8c6dab7b63c25f03b3882c52",
+   "coin": "BTC"
+  },
+  {
+   "id": "diff-959616",
+   "date": "2026-07-25T22:51:06Z",
+   "kind": "network",
+   "title": {
+    "de": "Difficulty-Anpassung −0,7 %",
+    "en": "Difficulty adjustment −0.7 %"
+   },
+   "text": {
+    "de": "Block #959616 · 126,2 T",
+    "en": "Block #959616 · 126.2 T"
+   },
+   "url": "https://mempool.space/block/959616",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-959115",
+   "date": "2026-07-22T09:06:37Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #959115 (Solo CK)",
+    "en": "Small miner, big find: block #959115 (Solo CK)",
+    "es": "Minero pequeño, gran hallazgo: bloque #959115 (Solo CK)",
+    "pt": "Minerador pequeno, grande achado: bloco #959115 (Solo CK)",
+    "fr": "Petit mineur, grande trouvaille : bloc #959115 (Solo CK)",
+    "nl": "Kleine miner, grote vondst: blok #959115 (Solo CK)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,161 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.161 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,161 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,161 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,161 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,161 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/0000000000000000000146c469ee9ebff4e4e3e075de978d25846005e5860e75",
+   "coin": "BTC"
+  },
+  {
+   "id": "solo-btc-957382",
+   "date": "2026-07-10T03:30:34Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #957382 (Public Pool)",
+    "en": "Small miner, big find: block #957382 (Public Pool)",
+    "es": "Minero pequeño, gran hallazgo: bloque #957382 (Public Pool)",
+    "pt": "Minerador pequeno, grande achado: bloco #957382 (Public Pool)",
+    "fr": "Petit mineur, grande trouvaille : bloc #957382 (Public Pool)",
+    "nl": "Kleine miner, grote vondst: blok #957382 (Public Pool)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,138 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.138 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,138 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,138 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,138 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,138 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/00000000000000000000f4f8c91a6c400c42a40577fafa2ca2231d78f1955424",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.14.2",
+   "date": "2026-07-08T18:44:24Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "es": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "pt": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "fr": "Firmware ESP-Miner (Bitaxe) v2.14.2",
+    "nl": "Firmware ESP-Miner (Bitaxe) v2.14.2"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.14.2"
+  },
+  {
+   "id": "solo-btc-955703",
+   "date": "2026-06-27T19:16:56Z",
+   "kind": "solo",
+   "title": {
+    "de": "Kleiner Miner, großer Fund: Block #955703 (Solo CK)",
+    "en": "Small miner, big find: block #955703 (Solo CK)",
+    "es": "Minero pequeño, gran hallazgo: bloque #955703 (Solo CK)",
+    "pt": "Minerador pequeno, grande achado: bloco #955703 (Solo CK)",
+    "fr": "Petit mineur, grande trouvaille : bloc #955703 (Solo CK)",
+    "nl": "Kleine miner, grote vondst: blok #955703 (Solo CK)"
+   },
+   "text": {
+    "de": "Solo-Block BTC, Belohnung 3,155 BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.",
+    "en": "Solo BTC block, reward 3.155 BTC – found via a solo pool where almost only home miners mine.",
+    "es": "Bloque BTC en solitario, recompensa 3,155 BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.",
+    "pt": "Bloco BTC solo, recompensa 3,155 BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.",
+    "fr": "Bloc BTC en solo, récompense 3,155 BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.",
+    "nl": "Solo-BTC-blok, beloning 3,155 BTC – gevonden via een solopool waar bijna alleen thuisminers minen."
+   },
+   "url": "https://mempool.space/block/00000000000000000001089806eb0365ac250e44bc0b306ba0339a6b63c63fc5",
+   "coin": "BTC"
+  },
+  {
+   "id": "fw-bitaxeorg/ESP-Miner-v2.14.1",
+   "date": "2026-06-19T20:47:00Z",
+   "kind": "firmware",
+   "title": {
+    "de": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "en": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "es": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "pt": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "fr": "Firmware ESP-Miner (Bitaxe) v2.14.1",
+    "nl": "Firmware ESP-Miner (Bitaxe) v2.14.1"
+   },
+   "text": {
+    "de": "Neue stabile Version erschienen.",
+    "en": "New stable release.",
+    "es": "Nueva versión estable publicada.",
+    "pt": "Nova versão estável lançada.",
+    "fr": "Nouvelle version stable publiée.",
+    "nl": "Nieuwe stabiele versie verschenen."
+   },
+   "url": "https://github.com/bitaxeorg/ESP-Miner/releases/tag/v2.14.1"
+  }
+ ]
+}
