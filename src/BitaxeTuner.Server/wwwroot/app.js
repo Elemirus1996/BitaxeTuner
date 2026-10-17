@@ -690,7 +690,7 @@ function route() {
   }
   if (view === 'compare') return renderCompare();
   if (view === 'help') return renderHelp();
-  if (view === 'fans') return renderFans();
+  if (view === 'fans') { S.route.sub = parts[1] || ''; return renderFans(); }
   if (view === 'pools' && isAdmin()) return renderPools();
   if (view === 'tax' && isAdmin()) return renderTax();
   if (view === 'reports' && isAdmin()) return renderReports();
@@ -4293,7 +4293,17 @@ function piFanCard(d) {
     } }, t('Speichern'))));
 }
 
+/** 0.9.23: Unterreiter in „Lüfter & Anzeige“ (Picos nur für den Admin). */
+function fanTabs() {
+  if (!isAdmin()) return null;
+  const sub = S.route?.sub || '';
+  return h('div', { class: 'tabs' },
+    h('a', { href: '#/fans', class: sub === '' ? 'active' : '' }, t('Lüfter & Anzeige')),
+    h('a', { href: '#/fans/picos', class: sub === 'picos' ? 'active' : '' }, t('Picos')));
+}
+
 async function renderFans() {
+  if (S.route?.sub === 'picos' && isAdmin()) return renderPicos();
   mount(h('p', { class: 'muted' }, t('Lade …')));
   const data = await run(() => api('/fans'));
   if (!data) return;
@@ -4308,7 +4318,83 @@ async function renderFans() {
   if (display?.status) parts.push(await extraDisplaysCard());
   if (isAdmin()) parts.push(fanEditor(data));
   else parts.push(h('p', { class: 'muted small' }, t('Einstellungen ändern kann nur der Admin.')));
-  mount(h('div', { class: 'stack' }, parts));
+  mount(h('div', { class: 'stack' }, fanTabs(), parts));
+}
+
+/** WLAN-Signal in Worten (dBm). */
+function rssiText(rssi) {
+  if (rssi == null) return '–';
+  return t('{0} dBm', rssi) + ' · ' + (rssi >= -60 ? t('gut') : rssi >= -72 ? t('mittel') : t('schwach'));
+}
+
+/** 0.9.23 Pico-Übersicht: welcher Pico ist wo, Programm, Signal; blinken, neu starten, Programm, Schlüssel, koppeln. */
+async function renderPicos() {
+  mount(h('div', { class: 'stack' }, fanTabs(), h('p', { class: 'muted' }, t('Lade …'))));
+  const d = await run(() => api('/picos'));
+  if (!d || S.route?.sub !== 'picos') return;
+  const post = (p, path, msg) => run(() => api(`/picos/${p.slot}/${path}`, { method: 'POST', body: {} }), msg);
+  const roleText = p => p.slot === 'fans' ? (p.panel ? t('Lüfter und Anzeige') : t('Lüfter')) : t('Anzeige');
+  const panelText = p => p.panel === 'spectra73' ? t('7,3″ Spectra 6 (Farbe)') : p.panel ? t('7,5″ schwarz/weiß/rot') : '–';
+
+  const pair = async p => {
+    if (!await confirmBox(t('Neu koppeln'), h('div', { class: 'stack' },
+      h('p', {}, t('Nötig, wenn der Schlüssel nicht mehr passt („Schlüssel passt nicht“). So geht es:')),
+      h('ol', {},
+        h('li', {}, t('Am Pico die Taste BOOTSEL 3 Sekunden halten (beim Display-Pico geht auch KEY0), bis die LED schnell blinkt.')),
+        h('li', {}, t('Innerhalb von 2 Minuten hier „Weiter“ wählen.')),
+        h('li', {}, t('Den angezeigten Code mit dem Pico vergleichen und bestätigen.'))),
+      p.slot === 'fans' ? h('p', { class: 'muted small' }, t('Während der Kopplung laufen die Lüfter zur Sicherheit auf 100 %.')) : null), t('Weiter'))) return;
+    const r = await post(p, 'pair');
+    if (!r) return renderPicos();
+    const ok = await confirmBox(t('Code vergleichen'), h('div', { class: 'stack' },
+      h('div', { class: 'pair-code' }, r.code),
+      h('p', {}, t('Zeigt der Pico denselben Code? Die LED blinkt jede Ziffer als Anzahl Blinker (0 = 10 ×), mit Pause dazwischen; eine 7,5″-Anzeige zeigt ihn als Text.')),
+      h('p', { class: 'muted small' }, t('Weicht er ab, hat sich ein anderes Gerät dazwischengeschaltet – dann abbrechen.'))), t('Stimmt – koppeln'));
+    if (ok) { if (await post(p, 'pair/confirm', t('Pico gekoppelt – er verbindet sich gleich mit dem neuen Schlüssel.'))) setTimeout(renderPicos, 3000); }
+    else { await post(p, 'pair/cancel'); renderPicos(); }
+  };
+
+  const card = p => h('div', { class: 'card stack' },
+    h('div', { class: 'titlebar' },
+      h('span', { class: `dot ${p.connected ? 'on' : 'off'}` }),
+      h('h2', { style: 'margin:0' }, p.slot === 'fans' ? t('Lüfter-Pico') : p.slot === 'display' ? t('Hauptanzeige') : p.name), h('span', { class: 'spacer' }),
+      p.pairing ? h('span', { class: 'pill warn' }, t('Kopplungsmodus')) : null,
+      p.outdated ? h('span', { class: 'pill warn' }, t('Programm veraltet')) : null,
+      h('span', { class: `pill ${p.connected ? '' : 'gray'}` }, p.connected ? t('verbunden') : t('nicht verbunden'))),
+    p.error ? h('p', { class: 'danger small' }, p.error) : null,
+    h('div', { class: 'kv' },
+      h('div', {}, h('span', {}, t('Aufgabe')), roleText(p)),
+      h('div', {}, h('span', {}, t('Verbindung')), p.connection === 'wlan' ? t('WLAN · {0}', p.address) : t('USB · {0}', p.address)),
+      h('div', {}, h('span', {}, t('IP-Adresse')), p.ip || '–'),
+      h('div', {}, h('span', {}, t('Programm')), p.version ? `v${p.version}` + (p.outdated ? ' → v' + d.firmware : '') : '–'),
+      h('div', {}, h('span', {}, t('Verbunden seit')), p.since ? time(p.since) : '–'),
+      h('div', {}, h('span', {}, t('Läuft seit')), p.uptime != null ? dur(p.uptime) : '–'),
+      h('div', {}, h('span', {}, t('WLAN-Signal')), p.connection === 'wlan' ? rssiText(p.rssi) : '–'),
+      h('div', {}, h('span', {}, t('Anzeige')), panelText(p))),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' },
+      h('button', { class: 'btn', disabled: !p.connected, title: t('Die LED dieses Pico blinkt 10 Sekunden.'),
+        onclick: () => post(p, 'blink', t('LED blinkt 10 Sekunden.')) }, t('Blinken – wo ist er?')),
+      h('button', { class: 'btn', disabled: !p.connected, onclick: async () => {
+        if (!await confirmBox(t('Neu starten'), t('{0} neu starten? Er verbindet sich nach einigen Sekunden wieder; Lüfter laufen solange auf 100 %.', p.name), t('Neu starten'))) return;
+        if (await post(p, 'restart', t('Pico startet neu.'))) setTimeout(renderPicos, 9000);
+      } }, t('Neu starten')),
+      h('button', { class: 'btn', disabled: !p.connected && p.connection === 'wlan', onclick: async () => {
+        const text = p.connection === 'wlan'
+          ? t('Programm v{0} über WLAN neu aufspielen? Größe und Prüfsumme werden geprüft, erst dann wird ersetzt; danach startet der Pico neu.', d.firmware)
+          : t('Programm v{0} per USB neu aufspielen? Der Pico wird dafür kurz angehalten.', d.firmware);
+        if (!await confirmBox(t('Programm aufspielen'), text, t('Aufspielen'))) return;
+        if (await post(p, 'reinstall', t('Programm wird aufgespielt …'))) setTimeout(renderPicos, 10000);
+      } }, t('Programm aufspielen')),
+      p.connection === 'wlan' ? h('button', { class: 'btn', disabled: !p.connected, title: t('Neuer Schlüssel über die geschützte Verbindung – nur, solange der alte noch passt.'), onclick: async () => {
+        if (!await confirmBox(t('Schlüssel erneuern'), t('Neuen WLAN-Schlüssel für {0} erzeugen? Er wird verschlüsselt übertragen; der alte gilt danach nicht mehr.', p.name), t('Erneuern'))) return;
+        await post(p, 'rotate-key', t('Neuer Schlüssel gesetzt.'));
+      } }, t('Schlüssel erneuern')) : null,
+      p.connection === 'wlan' ? h('button', { class: 'btn', onclick: () => pair(p) }, t('Neu koppeln')) : null));
+
+  mount(h('div', { class: 'stack' }, fanTabs(),
+    d.picos.length ? d.picos.map(card)
+      : h('div', { class: 'card' }, h('p', { class: 'muted' }, t('Noch kein Pico in Gebrauch – Lüfter oder eine Anzeige unter „Lüfter & Anzeige“ einschalten.'))),
+    h('p', { class: 'muted small' }, t('Umbenennen und Entfernen: weitere Anzeigen unter „Lüfter & Anzeige“, Lüfter-Pico und Hauptanzeige über ihre Einstellungen. Neue Picos per USB einrichten („Für WLAN einrichten“).'))));
 }
 
 /** Die vier Taster am Pico – hier auch per Klick. */

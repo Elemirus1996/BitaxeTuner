@@ -81,6 +81,11 @@ public sealed partial class MinerHub
                 if (PicoInfoText(e) is { } text) LogEvent(null, EventCategories.Fans, text);
                 continue;
             }
+            if (e.StartsWith("PAIR ", StringComparison.Ordinal))   // 0.9.23: Kopplungsmodus
+            {
+                LogPairEvent(e, display is not null ? L.T("Anzeige „{0}“", ExtraName(display.Config)) : L.T("Pico"));
+                continue;
+            }
             if (!(display?.Config.Settings ?? Config.Display).ButtonsEnabled) continue;
             switch (e)
             {

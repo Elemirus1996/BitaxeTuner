@@ -9,10 +9,21 @@ namespace BitaxeTuner.Core.Fans;
 /// <summary>Messwert eines Temperaturfühlers (DS18B20): Id = 1-Wire-Kennung (16 Hex-Zeichen), °C.</summary>
 public sealed record TempReading(string Id, double Celsius);
 
+/// <summary>0.9.23: Zustand laut Pico (Programm 8.5): WLAN-Signal (dBm), Laufzeit (s), freier Speicher, Kopplungsmodus.</summary>
+public sealed record PicoStat(int? Rssi, long Uptime, long Memory, bool Pairing);
+
 /// <summary>Pico-Zubehör: Lüfter, E-Paper-Anzeige, Taster.</summary>
 public interface IFanDevice : IDisposable
 {
     string Description { get; }
+    /// <summary>0.9.23: Programmversion auf dem Pico.</summary>
+    string Version => "";
+    /// <summary>0.9.23: über WLAN verbunden (sonst USB).</summary>
+    bool OverNetwork => false;
+    /// <summary>0.9.23 „Wo ist welcher?“: LED blinken lassen.</summary>
+    Task BlinkAsync(int seconds, CancellationToken ct = default) => Task.CompletedTask;
+    /// <summary>0.9.23: Zustand abfragen; null bei älterem Programm.</summary>
+    Task<PicoStat?> StatAsync(CancellationToken ct = default) => Task.FromResult<PicoStat?>(null);
     /// <summary>„fans“ (Lüfterplatine/Steckbrett) oder „display“ (Pico auf dem E-Paper aufgesteckt, keine Lüfter).</summary>
     string Role => PicoFanDevice.RoleFans;
     /// <summary>Prozentwerte für alle Kanäle setzen (setzt auch den Watchdog im Pico zurück); liefert U/min je Kanal.</summary>
@@ -111,7 +122,7 @@ public sealed class PicoUpdatedException(string message) : IOException(message);
 /// </summary>
 public sealed class PicoFanDevice : IFanDevice
 {
-    public const string FirmwareVersion = "8.4";
+    public const string FirmwareVersion = "8.5";
     public const string RoleFans = "fans";
     public const string RoleDisplay = "display";
     public const int ImageBytes = 2 * 800 * 480 / 8;
@@ -121,15 +132,18 @@ public sealed class PicoFanDevice : IFanDevice
 
     public IReadOnlyList<TempReading> Temperatures { get; private set; } = [];
 
-    private PicoFanDevice(ILineTransport io, string description, string role)
+    private PicoFanDevice(ILineTransport io, string description, string role, string version)
     {
         _io = io;
         Description = description;
         Role = role;
+        Version = version;
     }
 
     public string Description { get; }
     public string Role { get; }
+    public string Version { get; }
+    public bool OverNetwork => _io is NetworkLineTransport;
 
     public static string Firmware
     {
@@ -158,7 +172,7 @@ public sealed class PicoFanDevice : IFanDevice
             log?.Invoke(L.T("Pico an {0}: Lüfterprogramm v{1} läuft.", portName, version));
         }
         return new PicoFanDevice(io, role == RoleDisplay ? L.T("Display-Pico an {0} (Programm v{1})", portName, version)
-            : L.T("Pico an {0} (Programm v{1})", portName, version), role);
+            : L.T("Pico an {0} (Programm v{1})", portName, version), role, version!);
     }
 
     /// <summary>
@@ -176,7 +190,7 @@ public sealed class PicoFanDevice : IFanDevice
         }
         var role = io.Role == RoleDisplay ? RoleDisplay : RoleFans;
         return new PicoFanDevice(io, role == RoleDisplay ? L.T("Display-Pico {0} über WLAN (Programm v{1})", io.Endpoint, io.Version)
-            : L.T("Pico {0} über WLAN (Programm v{1})", io.Endpoint, io.Version), role);
+            : L.T("Pico {0} über WLAN (Programm v{1})", io.Endpoint, io.Version), role, io.Version);
     }
 
     /// <summary>Neues Programm über eine angemeldete Verbindung: PUT, F-Zeilen, COMMIT (prüft Größe und SHA-256), RESET.</summary>
@@ -423,6 +437,59 @@ public sealed class PicoFanDevice : IFanDevice
         }
     }
 
+    public Task BlinkAsync(int seconds, CancellationToken ct = default) => Task.Run(() =>
+    {
+        lock (_lock)
+        {
+            _io.Write($"BLINK {Math.Clamp(seconds, 1, 60)}\r\n");
+            Expect("OK BLINK", ReplyTimeout);
+        }
+    }, ct);
+
+    public Task<PicoStat?> StatAsync(CancellationToken ct = default) => Task.Run(() =>
+    {
+        lock (_lock)
+        {
+            _io.Write("STAT\r\n");
+            try { return ParseStat(Expect("OK STAT", ReplyTimeout)); }
+            catch (IOException ex) when (ex.Message.Contains("unknown", StringComparison.Ordinal)) { return null; }   // Programm vor 8.5
+        }
+    }, ct);
+
+    /// <summary>„OK STAT rssi=-55 up=123 mem=45678 pair=0“.</summary>
+    internal static PicoStat ParseStat(string line)
+    {
+        var v = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
+            .ToDictionary(p => p[0], p => p[1]);
+        long Num(string k) => v.TryGetValue(k, out var s) && long.TryParse(s, out var n) ? n : 0;
+        return new PicoStat(v.TryGetValue("rssi", out var r) && int.TryParse(r, out var rssi) ? rssi : null, Num("up"), Num("mem"), Num("pair") == 1);
+    }
+
+    /// <summary>
+    /// 0.9.23 Schlüssel erneuern (nur WLAN, alter Schlüssel muss passen): der neue geht maskiert über die angemeldete
+    /// Verbindung, der Pico bestätigt ihn mit einem Nachweis. Gilt ab der nächsten Verbindung.
+    /// </summary>
+    public Task RotateKeyAsync(byte[] newKey, CancellationToken ct = default) => Task.Run(() =>
+    {
+        if (_io is not NetworkLineTransport net) throw new LocalizedException("Den Schlüssel gibt es nur bei Picos im WLAN.");
+        if (System.Version.TryParse(Version, out var v) && v < new System.Version(8, 5)) throw new LocalizedException("Das Pico-Programm ist zu alt (ab 8.5) – es wird beim nächsten Verbinden aktualisiert.");
+        lock (_lock)
+        {
+            var (line, verify) = net.KeyLine(newKey);
+            _io.Write(line + "\r\n");
+            var reply = Expect("OK KEY", ReplyTimeout + TimeSpan.FromSeconds(3));
+            if (!verify(reply.Split(' ').ElementAtOrDefault(2) ?? ""))
+                throw new IOException(L.T("Der Pico hat den neuen Schlüssel nicht bestätigt."));
+        }
+    }, ct);
+
+    /// <summary>0.9.23: Programm über WLAN neu aufspielen (PUT/COMMIT, Größe und SHA-256 geprüft); der Pico startet danach neu.</summary>
+    public Task ReinstallOverNetworkAsync(CancellationToken ct = default) => Task.Run(() =>
+    {
+        if (_io is not NetworkLineTransport) throw new LocalizedException("Nur über WLAN – per USB wird beim Verbinden aufgespielt.");
+        lock (_lock) UpdateOverNetwork(_io, Firmware);
+    }, ct);
+
     /// <summary>Zeilen lesen, bis eine mit <paramref name="prefix"/> kommt; Ereignisse unterwegs einsammeln.</summary>
     private string Expect(string prefix, TimeSpan timeout)
     {
@@ -434,7 +501,8 @@ public sealed class PicoFanDevice : IFanDevice
             line = line.Trim();
             if (line.StartsWith(prefix, StringComparison.Ordinal)) return line;
             if (line.StartsWith("BTN ", StringComparison.Ordinal) || line.StartsWith("EPD DONE", StringComparison.Ordinal)
-                || line.StartsWith("INFO ", StringComparison.Ordinal))   // 8.1: EPD DONE mit Angaben, INFO = Neustart-Grund/Fehler
+                || line.StartsWith("INFO ", StringComparison.Ordinal)    // 8.1: EPD DONE mit Angaben, INFO = Neustart-Grund/Fehler
+                || line.StartsWith("PAIR ", StringComparison.Ordinal))   // 8.5: Kopplungsmodus an/aus/fertig
             {
                 lock (_events) _events.Add(line);
                 continue;
@@ -534,6 +602,17 @@ public sealed class SimulatedFanDevice(string role = PicoFanDevice.RoleFans) : I
     private readonly List<string> _events = new();
     public string Description => role == PicoFanDevice.RoleDisplay ? L.T("Simulierter Display-Pico") : L.T("Simulierter Pico");
     public string Role => role;
+    public string Version => PicoFanDevice.FirmwareVersion;
+    public int Blinks { get; private set; }
+
+    public Task BlinkAsync(int seconds, CancellationToken ct = default)
+    {
+        if (Fail) throw new IOException(L.T("Simulierter Pico getrennt"));
+        Blinks++;
+        return Task.CompletedTask;
+    }
+
+    public Task<PicoStat?> StatAsync(CancellationToken ct = default) => Task.FromResult<PicoStat?>(new PicoStat(null, 3600, 100_000, false));
     public List<byte[]> Images { get; } = [];
     public int Resets { get; private set; }
     /// <summary>Simulierte Temperaturfühler; leer = kein Fühler.</summary>

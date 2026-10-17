@@ -53,9 +53,11 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     /// <summary>Simulierten Pico starten; liefert Port und Schlüssel oder null ohne Python.</summary>
-    private (int Port, byte[] Key)? StartPico(string role = "fans", string? firmware = null)
+    /// <param name="bootsel">0.9.23: BOOTSEL-Taste nachbilden (Datei „bootsel.pressed“); der Start dauert dann 3 s länger.</param>
+    private (int Port, byte[] Key)? StartPico(string role = "fans", string? firmware = null, bool bootsel = false)
     {
         if (Python() is not { } python) return null;
+        if (bootsel) File.WriteAllText(_dir.File("rp2.enable"), "");
         var key = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
         var port = FreePort();
         File.WriteAllText(_dir.File("btcfg.json"),
@@ -149,10 +151,63 @@ public sealed class PicoNetworkTests : IDisposable
     }
 
     [Fact]
+    public async Task Blink_and_stat_answer_over_wlan()
+    {
+        if (StartPico() is not var (port, key)) return;
+        using var device = PicoFanDevice.ConnectNetwork(NetworkLineTransport.Connect("127.0.0.1", port, key));
+        Assert.Equal(PicoFanDevice.FirmwareVersion, device.Version);
+        Assert.True(device.OverNetwork);
+        await device.BlinkAsync(3);
+        var stat = await device.StatAsync();
+        Assert.NotNull(stat);
+        Assert.Equal(-55, stat!.Rssi);
+        Assert.False(stat.Pairing);
+        Assert.Equal(6, (await device.ExchangeAsync([10, 20, 30, 40, 50, 60])).Length);
+    }
+
+    [Fact]
+    public async Task Key_rotation_needs_the_old_key_and_replaces_it()
+    {
+        if (StartPico() is not var (port, key)) return;
+        var fresh = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        using (var device = PicoFanDevice.ConnectNetwork(NetworkLineTransport.Connect("127.0.0.1", port, key)))
+            await device.RotateKeyAsync(fresh);
+        Assert.Throws<PicoKeyMismatchException>(() => NetworkLineTransport.Connect("127.0.0.1", port, key));
+        using var again = NetworkLineTransport.Connect("127.0.0.1", port, fresh);
+        Assert.Equal(PicoFanDevice.FirmwareVersion, again.Version);
+        Assert.Contains(Convert.ToHexString(fresh).ToLowerInvariant(), File.ReadAllText(_dir.File("btcfg.json")));
+    }
+
+    [Fact]
+    public async Task Pairing_only_after_the_button_and_with_matching_code()
+    {
+        if (StartPico(bootsel: true) is not var (port, key)) return;
+        // ohne Tastendruck: kein neuer Schlüssel über WLAN
+        Assert.Throws<PicoNotPairingException>(() => PicoPairing.Start("127.0.0.1", port));
+
+        File.WriteAllText(_dir.File("bootsel.pressed"), "");
+        await Task.Delay(3600);                                                      // 3 s halten
+        File.Delete(_dir.File("bootsel.pressed"));
+        using (var device = PicoFanDevice.ConnectNetwork(NetworkLineTransport.Connect("127.0.0.1", port, key)))
+            Assert.True((await device.StatAsync())!.Pairing);                        // alter Schlüssel gilt bis zur Bestätigung
+
+        using var pairing = PicoPairing.Start("127.0.0.1", port);
+        Assert.Matches("^[0-9]{4}$", pairing.Code);
+        Assert.Equal(PicoFanDevice.RoleFans, pairing.Role);
+        pairing.Confirm();
+
+        Assert.Throws<PicoKeyMismatchException>(() => NetworkLineTransport.Connect("127.0.0.1", port, key));
+        using var io = NetworkLineTransport.Connect("127.0.0.1", port, pairing.Key);
+        using var paired = PicoFanDevice.ConnectNetwork(io);
+        Assert.False((await paired.StatAsync())!.Pairing);                           // Kopplungsmodus ist vorbei
+        Assert.Throws<PicoNotPairingException>(() => PicoPairing.Start("127.0.0.1", port));
+    }
+
+    [Fact]
     public void Wrong_key_is_rejected_and_nothing_runs()
     {
         if (StartPico() is not var (port, _)) return;
-        var ex = Assert.Throws<IOException>(() => NetworkLineTransport.Connect("127.0.0.1", port, new byte[32]));
+        var ex = Assert.Throws<PicoKeyMismatchException>(() => NetworkLineTransport.Connect("127.0.0.1", port, new byte[32]));
         Assert.Contains("Schlüssel", ex.Message);
     }
 

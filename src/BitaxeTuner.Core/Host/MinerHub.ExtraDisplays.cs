@@ -117,6 +117,7 @@ public sealed partial class MinerHub
             {
                 r.Device = await Task.Run(() => OpenExtraDevice(r.Config));
                 r.DeviceError = null;
+                _picoSince["extra-" + r.Config.Id] = now;
                 LogEvent(null, EventCategories.Fans, L.T("Display-Pico „{0}“ verbunden: {1}", ExtraName(r.Config), r.Device.Description));
                 r.Requested = true;
             }
@@ -153,7 +154,7 @@ public sealed partial class MinerHub
             throw new IOException(L.T("Weitere Anzeigen per USB brauchen einen festen Port (z. B. COM5 oder /dev/ttyACM1) – oder WLAN."));
         return s.Connection == "wlan"
             ? OpenNetworkPico(s.NetworkHost, s.NetworkIp, ExtraPicoKey(c.Id), PicoFanDevice.RoleDisplay, ip => s.NetworkIp = ip)
-            : OpenUsbPico(s.Port, PicoFanDevice.RoleDisplay, forceInstall: false);
+            : OpenUsbPico(s.Port, PicoFanDevice.RoleDisplay, forceInstall: TakeForceInstall("extra-" + c.Id));
     }
 
     public static string ExtraName(ExtraDisplayConfig c) => c.Name.Length > 0 ? c.Name : c.Id;

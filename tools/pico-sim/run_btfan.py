@@ -160,10 +160,20 @@ class WLAN:
     def ifconfig(self):
         return ("127.0.0.1", "255.0.0.0", "127.0.0.1", "127.0.0.1")
 
+    def status(self, what=None):
+        return -55 if what == "rssi" else 3
+
 
 network.WLAN = WLAN
 network.hostname = lambda name=None: None
 sys.modules["network"] = network
+
+# ---------- rp2 (8.5): BOOTSEL only when the work folder contains "rp2.enable" (otherwise the safe start waits 3 s);
+# the button counts as pressed while the file "bootsel.pressed" exists ----------
+if os.path.exists("rp2.enable"):
+    rp2 = types.ModuleType("rp2")
+    rp2.bootsel_button = lambda: 1 if os.path.exists("bootsel.pressed") else 0
+    sys.modules["rp2"] = rp2
 
 code = compile(open(source, encoding="utf-8").read(), "btfan.py", "exec")
 exec(code, {"__name__": "__main__"})
