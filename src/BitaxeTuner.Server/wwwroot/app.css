@@ -505,3 +505,9 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .coin-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .coin-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 90px auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--alt); }
 .coin-row .mini-spark { width: 90px; height: 28px; }
+
+/* 0.9.23 Suche in den Einstellungen */
+.settings-search { width: 100%; margin-bottom: 4px; }
+.settings-hits { margin: 0 0 6px; min-height: 1em; }
+.subnav .cnt { margin-left: auto; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); }
+mark.find { background: color-mix(in srgb, var(--warn) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }

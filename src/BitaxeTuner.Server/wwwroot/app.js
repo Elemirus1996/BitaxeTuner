@@ -3872,12 +3872,81 @@ function settingsSections(save) {
   const bar = h('div', { class: 'savebar', role: 'status' }, h('span', {}, t('Ungespeicherte Änderungen')), h('span', { style: 'flex:1' }),
     h('button', { class: 'btn ghost', onclick: () => { S.settingsDirty = false; renderSettings(); } }, t('Verwerfen')),
     h('button', { class: 'btn primary', onclick: async () => { await save(); } }, t('Speichern')));
-  const nav = h('nav', { class: 'subnav', 'aria-label': t('Bereiche') }, sections.map(([id, label, ic]) =>
+  // 0.9.23 Suchfeld: filtert über alle Bereiche (Kartentitel, Feldnamen, Hilfetexte) und markiert die Treffer
+  const search = h('input', { type: 'search', class: 'settings-search', placeholder: t('Einstellungen durchsuchen …'), 'aria-label': t('Einstellungen durchsuchen') });
+  const hits = h('p', { class: 'muted small settings-hits', 'aria-live': 'polite' });
+  const nav = h('nav', { class: 'subnav', 'aria-label': t('Bereiche') }, search, hits, sections.map(([id, label, ic]) =>
     h('button', { type: 'button', 'data-s': id, onclick: () => show(id) }, icon(ic, 17), h('span', {}, label))));
   const body = h('div', { class: 'stack settings-body' }, cards, bar);
   mount(h('div', { class: 'settings' }, nav, body));
 
+  function unmark() {
+    body.querySelectorAll('mark.find').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
+    body.normalize();
+    nav.querySelectorAll('.cnt').forEach(x => x.remove());
+    hits.textContent = '';
+  }
+  function markIn(root, q) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => n.parentElement?.closest('script,style,textarea,select,option,mark,svg') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    let first = null;
+    for (const n of nodes) {
+      const text = n.nodeValue, low = text.toLocaleLowerCase();
+      let i = low.indexOf(q);
+      if (i < 0) continue;
+      n.parentElement.closest('details')?.setAttribute('open', '');
+      const frag = document.createDocumentFragment();
+      let pos = 0;
+      while (i >= 0) {
+        const m = h('mark', { class: 'find' }, text.slice(i, i + q.length));
+        first ||= m;
+        frag.append(text.slice(pos, i), m);
+        pos = i + q.length;
+        i = low.indexOf(q, pos);
+      }
+      frag.append(text.slice(pos));
+      n.replaceWith(frag);
+    }
+    return first;
+  }
+  function find(raw) {
+    unmark();
+    const q = raw.trim().toLocaleLowerCase();
+    if (q.length < 2) { show(sec); return; }
+    const counts = {};
+    let first = null;
+    cards.forEach(c => {
+      const fields = [...c.querySelectorAll('input[placeholder], [title], [aria-label]')]
+        .map(e => `${e.getAttribute('placeholder') || ''} ${e.getAttribute('title') || ''} ${e.getAttribute('aria-label') || ''}`).join(' ');
+      const hit = (c.textContent + ' ' + fields).toLocaleLowerCase().includes(q);
+      c.hidden = !hit;
+      if (!hit) return;
+      counts[c.dataset.sec] = (counts[c.dataset.sec] || 0) + 1;
+      first ||= markIn(c, q) || c;
+    });
+    nav.querySelectorAll('button').forEach(b => {
+      b.classList.remove('on');
+      if (counts[b.dataset.s]) b.append(h('span', { class: 'cnt' }, String(counts[b.dataset.s])));
+    });
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    hits.textContent = total ? t('{0} Karten mit Treffern', total) : t('Nichts gefunden.');
+    $('#pageTitle').textContent = t('Suche: {0}', raw.trim());
+    if (first) first.scrollIntoView({ block: 'center' });
+  }
+  let findTimer = null;
+  // Manche Karten laden ihren Inhalt nach (z. B. Sicherung) – kurz danach noch einmal suchen
+  search.addEventListener('input', () => {
+    clearTimeout(findTimer);
+    const q = search.value;
+    findTimer = setTimeout(() => { find(q); findTimer = setTimeout(() => { if (search.value === q && q.trim().length >= 2) find(q); }, 1500); }, 150);
+  });
+  search.addEventListener('keydown', e => { if (e.key === 'Escape') { search.value = ''; find(''); } });
+
   function show(id) {
+    if (search.value) { search.value = ''; unmark(); }
     sec = id;
     S.route.sec = id;
     history.replaceState(null, '', `#/settings/${id}`);
