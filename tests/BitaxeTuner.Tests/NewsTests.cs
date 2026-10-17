@@ -51,6 +51,44 @@ public sealed class NewsTests : IDisposable
         Assert.Empty(NewsFeed.Parse("kein json", "de").Items);
     }
 
+    [Theory]
+    [InlineData("es", "Ajuste de dificultad +5,9 %")]
+    [InlineData("pt", "Ajuste de dificuldade +5,9 %")]
+    [InlineData("fr", "Ajustement de la difficulté +5,9 %")]
+    [InlineData("nl", "Difficulty-aanpassing +5,9 %")]
+    [InlineData("de", "Difficulty-Anpassung +5,9 %")]
+    [InlineData("en", "Difficulty adjustment +5.9 %")]
+    public void Feed_shows_every_ui_language(string lang, string title)
+    {
+        // 0.9.21: news-build.py schreibt alle sechs Sprachen der Oberfläche
+        var json = """
+            {"version":1,"updated":"2026-10-17T12:00:00Z","items":[{"id":"diff-1","date":"2026-10-17T10:00:00Z","kind":"network",
+             "title":{"de":"Difficulty-Anpassung +5,9 %","en":"Difficulty adjustment +5.9 %","es":"Ajuste de dificultad +5,9 %",
+                      "pt":"Ajuste de dificuldade +5,9 %","fr":"Ajustement de la difficulté +5,9 %","nl":"Difficulty-aanpassing +5,9 %"},
+             "text":{"de":"Block #1","en":"Block #1"},"url":"https://mempool.space/block/1"}]}
+            """;
+        var item = Assert.Single(NewsFeed.Parse(json, lang).Items);
+        Assert.Equal(title, item.Title);
+        Assert.Equal("Block #1", item.Text);                                         // fehlt die Sprache: Englisch
+    }
+
+    [Fact]
+    public void News_builder_has_templates_for_all_six_languages()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "news-build.py"));
+        Assert.Contains("LANGS = ['de', 'en', 'es', 'pt', 'fr', 'nl']", script);
+        Assert.Contains("Vorlagen ohne Übersetzung", script);                         // bricht ab, wenn eine Sprache fehlt
+        foreach (var lang in BitaxeTuner.Core.I18n.Loc.Languages.Where(l => l != "auto"))
+            Assert.Contains($"'{lang}'", script);
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "Directory.Build.props"))) dir = Path.GetDirectoryName(dir);
+        return dir ?? throw new DirectoryNotFoundException();
+    }
+
     [Fact]
     public async Task Feed_is_fetched_at_most_every_three_hours_and_cached_for_offline_starts()
     {

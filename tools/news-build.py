@@ -33,6 +33,62 @@ KEEP_DAYS = 120
 KEEP_ITEMS = 60
 NOW = datetime.datetime.now(datetime.timezone.utc)
 
+# Sprachen der Oberfläche (wie Strings.<lang>.json der App). Fehlt eine Sprache, zeigt die App Englisch, dann Deutsch.
+LANGS = ['de', 'en', 'es', 'pt', 'fr', 'nl']
+COMMA_LANGS = {'de', 'es', 'pt', 'fr', 'nl'}   # Dezimalkomma
+
+# Vorlagen je Sprache; {name} usw. werden je Sprache eingesetzt (Zahlen vorher sprachgerecht formatiert)
+T = {
+    'fw_title': {l: 'Firmware {name} {tag}' for l in LANGS},
+    'fw_text': {'de': 'Neue stabile Version erschienen.', 'en': 'New stable release.', 'es': 'Nueva versión estable publicada.',
+                'pt': 'Nova versão estável lançada.', 'fr': 'Nouvelle version stable publiée.', 'nl': 'Nieuwe stabiele versie verschenen.'},
+    'bt_title': {'de': 'BitaxeTuner {tag} erschienen', 'en': 'BitaxeTuner {tag} released', 'es': 'BitaxeTuner {tag} publicado',
+                 'pt': 'BitaxeTuner {tag} lançado', 'fr': 'BitaxeTuner {tag} est sorti', 'nl': 'BitaxeTuner {tag} verschenen'},
+    'bt_text': {'de': 'Update über Einstellungen → Server-Update bzw. die App.', 'en': 'Update via Settings → Server update or the app.',
+                'es': 'Actualiza en Ajustes → Actualización del servidor o desde la app.',
+                'pt': 'Atualize em Configurações → Atualização do servidor ou pelo app.',
+                'fr': "Mise à jour via Paramètres → Mise à jour du serveur ou l'application.",
+                'nl': 'Bijwerken via Instellingen → Serverupdate of de app.'},
+    'miner_title': {'de': 'Neues Miner-Modell: {model}', 'en': 'New miner model: {model}', 'es': 'Nuevo modelo de minero: {model}',
+                    'pt': 'Novo modelo de minerador: {model}', 'fr': 'Nouveau modèle de mineur : {model}', 'nl': 'Nieuw minermodel: {model}'},
+    'miner_text': {l: '{facts} ({source})' for l in LANGS},
+    'solo_title': {'de': 'Kleiner Miner, großer Fund: Block #{h} ({pool})', 'en': 'Small miner, big find: block #{h} ({pool})',
+                   'es': 'Minero pequeño, gran hallazgo: bloque #{h} ({pool})', 'pt': 'Minerador pequeno, grande achado: bloco #{h} ({pool})',
+                   'fr': 'Petit mineur, grande trouvaille : bloc #{h} ({pool})', 'nl': 'Kleine miner, grote vondst: blok #{h} ({pool})'},
+    'solo_text': {'de': 'Solo-Block BTC, Belohnung {reward} BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.',
+                  'en': 'Solo BTC block, reward {reward} BTC – found via a solo pool where almost only home miners mine.',
+                  'es': 'Bloque BTC en solitario, recompensa {reward} BTC: encontrado en un pool solo donde minan casi solo mineros domésticos.',
+                  'pt': 'Bloco BTC solo, recompensa {reward} BTC – encontrado num pool solo onde quase só mineradores domésticos mineram.',
+                  'fr': 'Bloc BTC en solo, récompense {reward} BTC – trouvé via un pool solo où minent presque uniquement des mineurs domestiques.',
+                  'nl': 'Solo-BTC-blok, beloning {reward} BTC – gevonden via een solopool waar bijna alleen thuisminers minen.'},
+    'bch_title': {'de': 'BCH: {total} Solo-Blöcke am {day}', 'en': 'BCH: {total} solo blocks on {day}', 'es': 'BCH: {total} bloques en solitario el {day}',
+                  'pt': 'BCH: {total} blocos solo em {day}', 'fr': 'BCH : {total} blocs en solo le {day}', 'nl': 'BCH: {total} soloblokken op {day}'},
+    'bch_text': {l: '{pools}' for l in LANGS},
+    'diff_title': {'de': 'Difficulty-Anpassung {pct} %', 'en': 'Difficulty adjustment {pct} %', 'es': 'Ajuste de dificultad {pct} %',
+                   'pt': 'Ajuste de dificuldade {pct} %', 'fr': 'Ajustement de la difficulté {pct} %', 'nl': 'Difficulty-aanpassing {pct} %'},
+    'diff_text': {'de': 'Block #{height} · {diff} T', 'en': 'Block #{height} · {diff} T', 'es': 'Bloque #{height} · {diff} T',
+                  'pt': 'Bloco #{height} · {diff} T', 'fr': 'Bloc #{height} · {diff} T', 'nl': 'Blok #{height} · {diff} T'},
+}
+_missing = [f'{k}:{l}' for k, v in T.items() for l in LANGS if not v.get(l)]
+if _missing:
+    raise SystemExit('Vorlagen ohne Übersetzung: ' + ', '.join(_missing))
+
+
+def num(v, digits, lang):
+    """Zahl sprachgerecht: 1,234.5 (en) bzw. 1 234,5 (übrige)."""
+    s = f'{v:,.{digits}f}'
+    return s.replace(',', ' ').replace('.', ',') if lang in COMMA_LANGS else s
+
+
+def tr(key, **kw):
+    """Vorlage in allen Sprachen; ein Wert darf ein Dict je Sprache sein (z. B. formatierte Zahlen)."""
+    return {l: T[key][l].format(**{k: (v[l] if isinstance(v, dict) else v) for k, v in kw.items()}) for l in LANGS}
+
+
+def day_text(day):
+    return {'de': day.strftime('%d.%m.'), 'en': day.strftime('%b %d'), 'es': day.strftime('%d/%m'), 'pt': day.strftime('%d/%m'),
+            'fr': day.strftime('%d/%m'), 'nl': day.strftime('%d-%m')}
+
 
 def fetch(url):
     headers = {'User-Agent': 'BitaxeTuner-news', 'Accept': 'application/json'}
@@ -53,15 +109,18 @@ def iso(ts):
     return ts.astimezone(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def item(id_, date, kind, de, en, text_de='', text_en='', url='', coin=None):
-    x = {'id': id_, 'date': iso(date), 'kind': kind, 'title': {'de': de, 'en': en}, 'text': {'de': text_de, 'en': text_en}, 'url': url}
+def complete(texts):
+    """Fehlende Sprachen (z. B. in news-manual.json) mit Englisch, sonst Deutsch auffüllen."""
+    texts = dict(texts or {})
+    fallback = texts.get('en') or texts.get('de') or ''
+    return {l: texts.get(l) or fallback for l in LANGS}
+
+
+def item(id_, date, kind, title, text=None, url='', coin=None):
+    x = {'id': id_, 'date': iso(date), 'kind': kind, 'title': complete(title), 'text': complete(text), 'url': url}
     if coin:
         x['coin'] = coin
     return x
-
-
-def num_de(v, digits):
-    return f'{v:,.{digits}f}'.replace(',', ' ').replace('.', ',')
 
 
 def firmware():
@@ -72,8 +131,7 @@ def firmware():
                 continue
             tag = r['tag_name']
             out.append(item(f'fw-{repo}-{tag}', r['published_at'], 'firmware',
-                            f'Firmware {name} {tag}', f'Firmware {name} {tag}',
-                            'Neue stabile Version erschienen.', 'New stable release.', r.get('html_url', '')))
+                            tr('fw_title', name=name, tag=tag), tr('fw_text'), r.get('html_url', '')))
     return out
 
 
@@ -83,13 +141,10 @@ def own_releases():
                 if not r.get('draft') and not r.get('prerelease') and r.get('published_at')]
     for r in releases[:2]:   # nur die neuesten – sonst füllen eigene Versionen die Seite
         tag = r['tag_name']
-        out.append(item(f'bt-{tag}', r['published_at'], 'bitaxetuner', f'BitaxeTuner {tag} erschienen', f'BitaxeTuner {tag} released',
-                        'Update über Einstellungen → Server-Update bzw. die App.', 'Update via Settings → Server update or the app.',
-                        r.get('html_url', '')))
+        out.append(item(f'bt-{tag}', r['published_at'], 'bitaxetuner', tr('bt_title', tag=tag), tr('bt_text'), r.get('html_url', '')))
     if os.path.exists(MANUAL):
         for m in json.load(open(MANUAL, encoding='utf-8')):
-            out.append(item(f"manual-{m['id']}", m['date'], m.get('kind', 'bitaxetuner'), m['title']['de'], m['title']['en'],
-                            m.get('text', {}).get('de', ''), m.get('text', {}).get('en', ''), m.get('url', '')))
+            out.append(item(f"manual-{m['id']}", m['date'], m.get('kind', 'bitaxetuner'), m['title'], m.get('text', {}), m.get('url', '')))
     return out
 
 
@@ -110,8 +165,7 @@ def new_miners():
         except ValueError:
             continue
         facts = re.sub(r'\s*·\s*Datei .*$', '', facts)
-        out.append(item(f'miner-{model}', date, 'miner', f'Neues Miner-Modell: {model}', f'New miner model: {model}',
-                        f'{facts} ({source})', f'{facts} ({source})'))
+        out.append(item(f'miner-{model}', date, 'miner', tr('miner_title', model=model), tr('miner_text', facts=facts, source=source)))
     return out
 
 
@@ -124,10 +178,8 @@ def solo_btc():
             h = b['height']
             # „Kleiner Miner, großer Fund“: Über Solo-Pools minen fast nur Heim-Miner (Bitaxe, NerdQAxe & Co.) –
             # wie viel Hashrate der Finder hatte, verraten die Quellen nicht; daher zählt jeder Fund dort
-            out.append(item(f'solo-btc-{h}', b['timestamp'], 'solo',
-                            f'Kleiner Miner, großer Fund: Block #{h} ({pool})', f'Small miner, big find: block #{h} ({pool})',
-                            f'Solo-Block BTC, Belohnung {num_de(reward, 3)} BTC – gefunden über einen Solo-Pool, auf dem fast nur Heim-Miner minen.',
-                            f'Solo BTC block, reward {reward:,.3f} BTC – found via a solo pool where almost only home miners mine.',
+            out.append(item(f'solo-btc-{h}', b['timestamp'], 'solo', tr('solo_title', h=h, pool=pool),
+                            tr('solo_text', reward={l: num(reward, 3, l) for l in LANGS}),
                             f"https://mempool.space/block/{b['id']}", 'BTC'))
     return out
 
@@ -152,9 +204,8 @@ def solo_bch(day=None):
     total = sum(counts.values())
     pools = ', '.join(f'{k} {v}' for k, v in sorted(counts.items(), key=lambda kv: -kv[1])[:4])
     date = datetime.datetime.combine(day, datetime.time(12, 0), datetime.timezone.utc)
-    return [item(f'solo-bch-day-{day.isoformat()}', date, 'solo',
-                 f'BCH: {total} Solo-Blöcke am {day.strftime("%d.%m.")}', f'BCH: {total} solo blocks on {day.strftime("%b %d")}',
-                 pools, pools, f'https://blockchair.com/bitcoin-cash/blocks?q=time({day.isoformat()})', 'BCH')]
+    return [item(f'solo-bch-day-{day.isoformat()}', date, 'solo', tr('bch_title', total=total, day=day_text(day)), tr('bch_text', pools=pools),
+                 f'https://blockchair.com/bitcoin-cash/blocks?q=time({day.isoformat()})', 'BCH')]
 
 
 def network():
@@ -163,9 +214,9 @@ def network():
         pct = (change - 1) * 100 if change > 0.5 else change   # mempool liefert das Verhältnis (z. B. 1.035)
         sign = '+' if pct >= 0 else '−'
         digits = 2 if abs(pct) < 0.1 else 1
-        out.append(item(f'diff-{height}', ts, 'network', f'Difficulty-Anpassung {sign}{abs(pct):.{digits}f} %'.replace('.', ','),
-                        f'Difficulty adjustment {sign}{abs(pct):.{digits}f} %', f'Block #{height} · {difficulty / 1e12:.1f} T'.replace('.', ','),
-                        f'Block #{height} · {difficulty / 1e12:.1f} T', f'https://mempool.space/block/{height}', 'BTC'))
+        out.append(item(f'diff-{height}', ts, 'network', tr('diff_title', pct={l: sign + num(abs(pct), digits, l) for l in LANGS}),
+                        tr('diff_text', height=height, diff={l: num(difficulty / 1e12, 1, l) for l in LANGS}),
+                        f'https://mempool.space/block/{height}', 'BTC'))
     return out
 
 
