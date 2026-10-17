@@ -153,6 +153,7 @@ public sealed partial class MinerHub
         TickUpkeep(now);         // 0.9.16: Betriebsstunden, Wartungs-Erinnerungen
         try { TickPiFan(now, MinerTempsNow()); } catch { /* 0.9.20: Server-Lüfter ist Zusatz */ }
         TickSolar(now);          // 0.9.17: PV-Leistung aus Home Assistant
+        TickRoomTemps(now);      // 0.9.21: Raumtemperaturen der Heiz-Automatik aus Home Assistant
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

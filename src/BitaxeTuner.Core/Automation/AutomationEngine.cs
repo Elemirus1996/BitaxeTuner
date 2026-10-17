@@ -56,6 +56,9 @@ public sealed class AutomationEngine
     /// <summary>0.9.17 PV-Modus: aktuelle PV-Leistung in W (null = unbekannt). Vom Hub gesetzt.</summary>
     public Func<DateTime, double?>? SolarPowerW { get; set; }
 
+    /// <summary>0.9.21 Heiz-Modus: Raumtemperatur in °C zum Fühler-Schlüssel (null = unbekannt). Vom Hub gesetzt.</summary>
+    public Func<string, DateTime, double?>? RoomTemp { get; set; }
+
     /// <summary>0.9.11: Einheit des Strompreises in der gewählten Währung (z. B. „ct/kWh“, „p/kWh“).</summary>
     public Func<string> CentPerKwh { get; set; } = () => "ct/kWh";
 
@@ -212,6 +215,20 @@ public sealed class AutomationEngine
                 : st.ScheduleTarget ?? schedule.ExpensivePreset;
             result.Status += L.T(" · PV {0} W", F(pv, "0"));
         }
+        else if (schedule.Mode == "heat")
+        {
+            if (string.IsNullOrWhiteSpace(schedule.HeatSensor) || RoomTemp?.Invoke(schedule.HeatSensor, now) is not { } room)
+            {
+                Notice(result, st, host, ruleName, L.T("Raumtemperatur gerade unbekannt (Fühler „{0}“) – Voreinstellung bleibt unverändert.", schedule.HeatSensor));
+                return result;
+            }
+            // Mit Abstand: zu kalt → volle Leistung (mehr Wärme), warm genug → Sparen, dazwischen bleibt es
+            var band = Math.Clamp(schedule.HeatHysteresisC, 0.1, 5);
+            presetName = room < schedule.HeatTargetC - band ? schedule.CheapPreset
+                : room > schedule.HeatTargetC + band ? schedule.ExpensivePreset
+                : st.ScheduleTarget ?? schedule.ExpensivePreset;
+            result.Status += L.T(" · Raum {0} °C / Ziel {1} °C", F(room, "0.0"), F(schedule.HeatTargetC, "0.0"));
+        }
         else
         {
             presetName = schedule.Entries.FirstOrDefault(e => e.Matches(now))?.Preset ?? schedule.DefaultPreset;
@@ -252,14 +269,14 @@ public sealed class AutomationEngine
             group is not null ? L.T("Gruppe „{0}“: „{1}“", group, preset.Name)
             : schedule.Mode == "price" ? L.T("Strompreis: „{0}“", preset.Name)
             : schedule.Mode == "profit" ? L.T("Ertrag: „{0}“", preset.Name)
-            : schedule.Mode == "solar" ? L.T("PV-Leistung: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
+            : schedule.Mode == "solar" ? L.T("PV-Leistung: „{0}“", preset.Name) : schedule.Mode == "heat" ? L.T("Heizung: „{0}“", preset.Name) : L.T("Zeitplan: „{0}“", preset.Name));
         return result;
     }
 
     private static string RuleName(PresetScheduleRule schedule, string? group)
     {
         var kind = schedule.Mode == "price" ? L.T("Strompreis") : schedule.Mode == "profit" ? L.T("Ertrags-Automatik")
-            : schedule.Mode == "solar" ? L.T("PV-Automatik") : L.T("Zeitplan");
+            : schedule.Mode == "solar" ? L.T("PV-Automatik") : schedule.Mode == "heat" ? L.T("Heiz-Automatik") : L.T("Zeitplan");
         return group is null ? kind : L.T("Gruppe „{0}“ ({1})", group, kind);
     }
 
@@ -279,7 +296,7 @@ public sealed class AutomationEngine
                 ? st.OriginalFrequency is { } o ? L.T("Temperaturschutz aktiv (abgesenkt, ursprünglich {0} MHz)", o) : L.T("Temperaturschutz bereit")
                 : L.T("Temperaturschutz: Freigabe fehlt"));
         var kind = group is not null ? L.T("Gruppen-Automatik „{0}“", group) : schedule.Mode == "price" ? L.T("Strompreis-Regel")
-            : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : schedule.Mode == "solar" ? L.T("PV-Automatik") : L.T("Zeitplan");
+            : schedule.Mode == "profit" ? L.T("Ertrags-Automatik") : schedule.Mode == "solar" ? L.T("PV-Automatik") : schedule.Mode == "heat" ? L.T("Heiz-Automatik") : L.T("Zeitplan");
         if (schedule.Enabled)
             parts.Add(scheduleOn
                 ? L.T("{0} aktiv{1}", kind, (st.ScheduleTarget is { } t ? L.T(" (Ziel „{0}“)", t) : ""))

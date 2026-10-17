@@ -28,6 +28,17 @@ public static class SolarEndpoints
     {
         g.MapGet("/solar", async (HubService hub) => Results.Json(await hub.RunAsync(Status)));
 
+        // 0.9.21 Heiz-Automatik: wählbare Fühler (Pico) und benutzte Home-Assistant-Sensoren mit aktuellem Wert
+        g.MapGet("/heat-sensors", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var now = DateTime.Now;
+            return new
+            {
+                sensors = h.RoomSensors(now).Select(s => new { s.Key, s.Name, s.Temp, error = h.RoomTempError(s.Key) }).ToList(),
+                haConfigured = h.Config.Solar.HaUrl.Length > 0 && h.Secrets.Has(MinerHub.SolarTokenKey),
+            };
+        })));
+
         g.MapPut("/solar", async (SolarRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             h.SaveSolarSettings(req.Settings ?? throw new InvalidOperationException(L.N("Einstellungen fehlen.")), req.Token, "Browser");
