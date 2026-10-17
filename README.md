@@ -66,6 +66,16 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.21
+
+- **Chat-Bots für Telegram und Discord**: /status, /miner, /history, /pool, /system … mit Bild der E-Paper-Seite, nur lesend;
+  für Discord ist BitaxeTuner selbst die Bot-Vorlage. Optional angepinnte Live-Nachricht.
+- **Ruhezeit**: nachts Push-Meldungen sammeln (Wichtiges sofort), Zusatz- und Server-Lüfter begrenzen.
+- **PV-Prognose** (Open-Meteo) für die PV-Automatik und neue Automatik-Art **Heizung** (Raumtemperatur regelt).
+- **Amortisation je Miner** mit Garantie-Erinnerung und Abschnitt im Monatsbericht.
+- **HTTPS-Assistent** („Verbindung prüfen“, DNS-Rebind-Hinweis) und Zugriff von unterwegs per VPN.
+- **Kurse ausblenden**; **Neuigkeiten in allen sechs Sprachen**.
+
 ### Neu in 0.9.20
 
 - **Raspberry Pi 5 – Server-Lüfter**: Drehzahl und Stufe sehen und regeln (Firmware, CPU-Kurve oder nach Miner-Temperatur);

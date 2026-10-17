@@ -69,6 +69,16 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.21
+
+- **Chat bots for Telegram and Discord**: /status, /miner, /history, /pool, /system … with a picture of the e-paper page,
+  read-only; for Discord, BitaxeTuner itself is the bot template. Optional pinned live message.
+- **Quiet hours**: collect push notifications at night (important ones at once), limit case and server fans.
+- **PV forecast** (Open-Meteo) for the PV automation and a new automation type **heating** (room temperature decides).
+- **Payback per miner** with warranty reminder and a section in the monthly report.
+- **HTTPS assistant** (“Check connection”, DNS rebind hint) and access on the go via VPN.
+- **Hide prices**; **news in all six languages**.
+
 ### New in 0.9.20
 
 - **Raspberry Pi 5 – server fan**: see and control speed and level (firmware, CPU curve or by miner temperature);
