@@ -772,10 +772,26 @@ function coinsCard(coins, currency) {
   if (!coins?.length && !isAdmin()) return null;
   // 0.9.16: geschürft, Merged Mining (Pool-Konto) oder frei gewählt
   const kindText = c => c.kind === 'merged' ? t('Merged Mining') : c.kind === 'watch' ? t('beobachtet') : t('{0} Miner', c.miners);
+  // 0.9.21: Kurse ausblenden (Kreuz je Zeile) und unter „Weitere Kurse …“ wieder anzeigen
+  const setHidden = async list => {
+    if (await run(() => api('/coins/hidden', { method: 'PUT', body: { coins: list } }), t('Gespeichert.'))) {
+      S.status = await api('/status').catch(() => S.status);
+      renderOverview();
+    }
+  };
+  const hide = async sym => {
+    const r = await api('/coins/watch').catch(() => ({ hidden: [] }));
+    await setHidden([...(r.hidden || []), sym]);
+  };
+  const hiddenBox = h('div', { class: 'row', style: 'flex-wrap:wrap' });
   const editor = isAdmin() ? (() => {
     const input = h('input', { placeholder: 'ETH, LTC, DOGE, XYZ=coingecko-id', style: 'flex:1;min-width:200px' });
-    api('/coins/watch').then(r => { input.value = (r.coins || []).join(', '); }).catch(() => {});
-    return h('details', {}, h('summary', { class: 'small muted' }, t('Weitere Kurse …')),
+    api('/coins/watch').then(r => {
+      input.value = (r.coins || []).join(', ');
+      fill(hiddenBox, (r.hidden || []).length ? [h('span', { class: 'small muted' }, t('Ausgeblendet:')),
+        ...r.hidden.map(sym => h('button', { class: 'btn small', title: t('Wieder anzeigen'), onclick: () => setHidden(r.hidden.filter(x => x !== sym)) }, sym + ' ↺'))] : []);
+    }).catch(() => {});
+    return h('details', {}, h('summary', { class: 'small muted' }, t('Weitere Kurse …')), hiddenBox,
       h('div', { class: 'row', style: 'flex-wrap:wrap' }, input, h('button', { class: 'btn small', onclick: async () => {
         const list = input.value.split(',').map(x => x.trim()).filter(Boolean);
         await run(() => api('/coins/watch', { method: 'PUT', body: { coins: list } }), t('Gespeichert – Kurse kommen mit der nächsten Abfrage.'));
@@ -789,7 +805,8 @@ function coinsCard(coins, currency) {
       h('div', { style: 'min-width:0' }, h('b', {}, c.symbol), h('div', { class: 'muted small' }, kindText(c) + (c.source === 'pool' ? ' · ' + t('Kurs laut Pool') : ''))),
       sparkEl(c.spark || [], c.change == null ? 'var(--muted)' : c.change >= 0 ? 'var(--ok)' : 'var(--danger)'),
       h('div', { style: 'text-align:right' }, h('div', { class: 'mono' }, c.price == null ? '–' : coinPrice(c.price)),
-        c.change != null ? h('div', { class: `small ${c.change >= 0 ? 'ok' : 'danger'}` }, pct1(c.change)) : h('div', { class: 'muted small' }, '–'))))),
+        c.change != null ? h('div', { class: `small ${c.change >= 0 ? 'ok' : 'danger'}` }, pct1(c.change)) : h('div', { class: 'muted small' }, '–')),
+      isAdmin() ? h('button', { class: 'btn small ghost', title: t('Kurs ausblenden'), 'aria-label': t('{0} ausblenden', c.symbol), onclick: () => hide(c.symbol) }, '×') : null))),
     editor);
 }
 

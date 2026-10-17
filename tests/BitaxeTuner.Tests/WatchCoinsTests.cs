@@ -40,5 +40,13 @@ public class WatchCoinsTests
         var eth = Assert.Single(quotes, q => q.Symbol == "ETH");
         Assert.Equal(("watch", 0), (eth.Kind, eth.Miners));
         Assert.DoesNotContain(quotes, q => q.Symbol == "XYZ");             // noch kein Kurs
+
+        // 0.9.21: Kurse ausblenden – weg aus der Anzeige, für Rechnungen weiter da
+        hub.SetHiddenCoins(["eth", " btc ", "bad;coin"], "Test");
+        Assert.Equal(["ETH", "BTC"], hub.Config.HiddenCoins);
+        Assert.DoesNotContain(hub.CoinQuotes(), q => q.Symbol is "ETH" or "BTC");
+        Assert.Contains(hub.AllCoinQuotes(), q => q.Symbol == "ETH");
+        hub.SetHiddenCoins(["BTC"], "Test");                              // ETH wieder anzeigen
+        Assert.Contains(hub.CoinQuotes(), q => q.Symbol == "ETH");
     }
 }

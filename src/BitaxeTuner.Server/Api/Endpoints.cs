@@ -1262,7 +1262,13 @@ public static class Endpoints
         })));
 
         // 0.9.16 weitere Kurse („ETH“ oder „XYZ=coingecko-id“)
-        g.MapGet("/coins/watch", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { coins = h.Config.WatchCoins })));
+        g.MapGet("/coins/watch", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { coins = h.Config.WatchCoins, hidden = h.Config.HiddenCoins })));
+        // 0.9.21: Kurse ausblenden / wieder anzeigen
+        g.MapPut("/coins/hidden", async (WatchCoinsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            h.SetHiddenCoins(req.Coins ?? [], L.T("Browser"));
+            return new { ok = true, hidden = h.Config.HiddenCoins };
+        })));
         g.MapPut("/coins/watch", async (WatchCoinsRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {
             h.SetWatchCoins(req.Coins ?? [], L.T("Browser"));

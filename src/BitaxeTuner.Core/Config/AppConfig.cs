@@ -27,6 +27,9 @@ public sealed class AppConfig
     /// <summary>0.9.16: weitere Kurse neben den geschürften Coins („ETH“ oder „XYZ=coingecko-id“). Additiv.</summary>
     public List<string> WatchCoins { get; set; } = [];
 
+    /// <summary>0.9.21: Kurse, die nicht angezeigt werden sollen (Kürzel, z. B. „SYS“) – Übersicht, E-Paper, Neuigkeiten. Additiv.</summary>
+    public List<string> HiddenCoins { get; set; } = [];
+
     /// <summary>0.9.16: Wartungs-Erinnerungen (Abstände in Betriebstagen). Additiv.</summary>
     public UpkeepSettings Upkeep { get; set; } = new();
 
