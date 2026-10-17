@@ -87,8 +87,10 @@ public partial class SettingsWindow : Window
             PoolAccountHost.Content = _poolPanel;
             _extraPoolsPanel = new Views.ExtraPoolsPanel(host);
             ExtraPoolsHost.Content = _extraPoolsPanel;
+            _chatBotPanel = new Views.ChatBotPanel(host, () => _pushPanel.Targets);
+            ChatBotHost.Content = _chatBotPanel;
         }
-        else PlugsCard.Visibility = SolarCard.Visibility = PoolAccountCard.Visibility = ExtraPoolsCard.Visibility = Visibility.Collapsed;
+        else PlugsCard.Visibility = SolarCard.Visibility = PoolAccountCard.Visibility = ExtraPoolsCard.Visibility = ChatBotCard.Visibility = Visibility.Collapsed;
 
         DeviceHint.Text = L.T("Host kann ein mDNS-Name (bitaxe.local) oder eine feste IP sein. ") +
                           L.T("Feste IP ist zuverlässiger.");
@@ -409,6 +411,12 @@ public partial class SettingsWindow : Window
             ScrollToSection(L.T("PV-Anlage"));
             return;
         }
+        if (_chatBotPanel?.Validate() is { } chatError)
+        {
+            ErrorText.Text = chatError;
+            ScrollToSection(L.T("Chat-Bots (Telegram, Discord)"));
+            return;
+        }
         if (_extraPoolsPanel?.Validate() is { } extraPoolError)
         {
             ErrorText.Text = extraPoolError;
@@ -425,6 +433,7 @@ public partial class SettingsWindow : Window
         _solarPanel?.Apply(_config);
         _poolPanel?.Apply(_config);
         _extraPoolsPanel?.Apply();
+        _chatBotPanel?.Apply(_config);
         _notify.Targets = _pushPanel.Targets;
         _notify.ApplyTargets(_config.Devices.Select(d => d.Host));
         _config.Notifications = _notify;
@@ -644,6 +653,7 @@ public partial class SettingsWindow : Window
     private readonly Views.SolarPanel? _solarPanel;
     private readonly Views.PoolAccountPanel? _poolPanel;
     private readonly Views.ExtraPoolsPanel? _extraPoolsPanel;
+    private readonly Views.ChatBotPanel? _chatBotPanel;
     private readonly AppHost? _host;
 
     private async void TestNotify_Click(object sender, RoutedEventArgs e)

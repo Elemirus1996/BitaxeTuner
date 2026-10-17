@@ -551,6 +551,7 @@ public sealed partial class MinerHub : IDisposable
 
     public void Dispose()
     {
+        StopChatBots();   // 0.9.24
         if (_disposed) return;
         _disposed = true;
         Config.SaveFailed -= OnConfigSaveFailed;
