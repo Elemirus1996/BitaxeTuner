@@ -65,6 +65,20 @@ public static class PublicHttpsEndpoints
             return new { ok = true, status = certs.Status(s, h.Secrets.Has(PublicCertificates.TokenKey)) };
         })));
 
+        // 0.9.21 HTTPS-Assistent: Server-Seite (löst der Name auf, zeigt er hierher?); die Browser-Seite prüft app.js
+        g.MapPost("/admin/public-https/check", async (HubService hub, PublicCertificates certs, ServerSettings settings) =>
+        {
+            var (host, status) = await hub.RunAsync(h => (h.Config.PublicHttps.HostName, certs.Status(h.Config.PublicHttps, h.Secrets.Has(PublicCertificates.TokenKey))));
+            var check = await HttpsDiagnosis.CheckAsync(host, Dns.GetHostAddressesAsync, Core.Discovery.NetworkScanner.LocalIPv4Addresses());
+            return Results.Json(new
+            {
+                check.Host, resolved = check.Resolved, serverIps = check.ServerIps, check.PointsHere, @private = check.Private, check.Error,
+                port = settings.Port, https = settings.Https,
+                url = host.Length > 0 ? $"https://{host}:{settings.Port}/" : null,
+                status,
+            });
+        });
+
         g.MapPost("/admin/public-https/issue", async (HubService hub, PublicCertificates certs) => Results.Json(await hub.RunAsync(h =>
         {
             if (!h.Config.PublicHttps.Enabled) throw new LocalizedException("HTTPS ohne Warnung ist nicht eingeschaltet.");

@@ -5291,9 +5291,49 @@ function connectionCard() {
     publicHttpsSection());
 }
 
+/**
+ * 0.9.21 HTTPS-Assistent: Server prüft DNS (zeigt der Name hierher?), der Browser prüft, ob DIESES Gerät die Adresse erreicht –
+ * scheitert nur das, ist es fast immer der DNS-Rebind-Schutz des Routers. Ergebnis als Liste mit Hinweisen.
+ */
+async function httpsCheck(box) {
+  fill(box, h('p', { class: 'muted small' }, t('Prüfe …')));
+  const r = await run(() => api('/admin/public-https/check', { method: 'POST', body: {} }));
+  if (!r) return fill(box);
+  let reach = null;
+  if (r.url) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 7000);
+    try { await fetch(r.url + 'api/v1/info', { mode: 'no-cors', cache: 'no-store', signal: ctl.signal }); reach = true; }
+    catch { reach = false; }
+    finally { clearTimeout(timer); }
+  }
+  const row = (ok, text, hint) => h('li', { class: ok ? 'ok' : 'danger' }, (ok ? '✓ ' : '✗ ') + text, hint ? h('div', { class: 'muted small' }, hint) : null);
+  const items = [];
+  if (!r.resolved.length) {
+    items.push(row(false, t('{0} löst nicht auf.', r.host), t('Name und Token auf duckdns.org prüfen; nach dem Speichern kann es ein paar Minuten dauern, bis DuckDNS die Adresse kennt.')));
+  } else {
+    items.push(row(r.pointsHere, t('{0} zeigt auf {1}.', r.host, r.resolved.join(', ')),
+      r.pointsHere ? null : t('Dieser Server hat {0} – unter „Heimnetz-Adresse“ die richtige eintragen und speichern.', r.serverIps.join(', ') || '–')));
+  }
+  if (reach != null) {
+    items.push(row(reach, reach ? t('Dieses Gerät erreicht {0}.', r.url) : t('Dieses Gerät erreicht {0} nicht.', r.url),
+      reach ? null : r.pointsHere && r.private
+        ? t('Fast immer der DNS-Rebind-Schutz des Routers: FRITZ!Box → Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz → „{0}“ als Ausnahme eintragen. Am Handy außerdem WLAN statt mobile Daten nutzen und „Privates DNS“ abschalten.', r.host)
+        : t('Gerät im selben Heimnetz? Adresse mit Port {0} öffnen.', r.port)));
+  }
+  const st = r.status || {};
+  const certOk = !!st.notAfter && !st.staging;
+  items.push(row(certOk, certOk ? t('Zertifikat gültig bis {0}.', new Date(st.notAfter).toLocaleDateString(LOCALE))
+    : st.staging ? t('Nur Testzertifikat – Browser warnen noch.') : t('Noch kein Zertifikat.'),
+    certOk ? null : t('„Testzertifikat“ abschalten, speichern und „Zertifikat jetzt holen“.')));
+  if (r.url) items.push(h('li', { class: 'small' }, t('Immer mit Port öffnen: '), h('a', { href: r.url }, r.url)));
+  fill(box, h('ul', { class: 'stack', style: 'list-style:none;padding:0' }, items));
+}
+
 /** 0.9.12 HTTPS ohne Warnung: Let's-Encrypt-Zertifikat für einen DuckDNS-Namen (DNS-01, kein offener Port nötig). */
 function publicHttpsSection() {
   const box = h('div', { class: 'stack' }, h('p', { class: 'muted' }, t('Lade …')));
+  const checkBox = h('div', { class: 'stack' });
   const load = () => api('/admin/public-https').then(d => {
     const s = { ...d.settings, token: '' };
     const st = d.status;
@@ -5322,14 +5362,21 @@ function publicHttpsSection() {
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: () => save() }, t('Speichern')),
         st.enabled ? h('button', { class: 'btn', onclick: async () => { if (await run(() => api('/admin/public-https/issue', { method: 'POST', body: {} }), t('Zertifikat wird geholt – das dauert etwa eine Minute.'))) setTimeout(load, 20000); } }, t('Zertifikat jetzt holen')) : null,
-        st.tokenSet ? h('button', { class: 'btn ghost', onclick: () => save({ token: '-', enabled: false }) }, t('Token löschen')) : null),
+        st.tokenSet ? h('button', { class: 'btn ghost', onclick: () => save({ token: '-', enabled: false }) }, t('Token löschen')) : null,
+        s.subdomain ? h('button', { class: 'btn', onclick: () => httpsCheck(checkBox) }, t('Verbindung prüfen')) : null),
+      checkBox,
       h('details', {}, h('summary', {}, t('So geht’s')),
         h('ol', { class: 'small' },
           h('li', {}, t('Auf duckdns.org kostenlos anmelden, einen Namen anlegen (z. B. meinminer) und das Token kopieren.')),
           h('li', {}, t('Hier Name und Token eintragen, einschalten, speichern. Der Server setzt den DuckDNS-Eintrag auf seine Heimnetz-Adresse und holt das Zertifikat – ohne offenen Port im Router, er bleibt im Heimnetz.')),
           h('li', {}, t('FRITZ!Box: Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz → „meinminer.duckdns.org“ als Ausnahme eintragen. Andere Router haben eine ähnliche Einstellung.')),
           h('li', {}, t('Danach die Oberfläche unter https://meinminer.duckdns.org:{0}/ öffnen – ohne Warnung. Per IP-Adresse bleibt das bisherige Zertifikat, die Desktop-App funktioniert mit beidem.', d.port))),
-        h('p', { class: 'muted small' }, t('Erneuert wird automatisch 30 Tage vor Ablauf. Daten gehen nur an DuckDNS (Name, Token, Heimnetz-Adresse) und Let\'s Encrypt (Name). Die Heimnetz-Adresse ist danach öffentlich abfragbar, von außen aber nicht erreichbar. Alternative ohne DuckDNS: Tailscale mit eigenem HTTPS-Zertifikat.'))));
+        h('p', { class: 'muted small' }, t('Erneuert wird automatisch 30 Tage vor Ablauf. Daten gehen nur an DuckDNS (Name, Token, Heimnetz-Adresse) und Let\'s Encrypt (Name). Die Heimnetz-Adresse ist danach öffentlich abfragbar, von außen aber nicht erreichbar. Alternative ohne DuckDNS: Tailscale mit eigenem HTTPS-Zertifikat.'))),
+      h('details', {}, h('summary', {}, t('Von unterwegs zugreifen')),
+        h('ul', { class: 'small' },
+          h('li', {}, t('Keinen Port im Router freigeben – BitaxeTuner gehört ins Heimnetz.')),
+          h('li', {}, t('FRITZ!Box: unter Internet → Freigaben → VPN (WireGuard) eine Verbindung für dein Handy anlegen und den QR-Code in der WireGuard-App scannen. Mit eingeschaltetem VPN funktioniert die Adresse oben auch unterwegs.')),
+          h('li', {}, t('Ohne FRITZ!Box: Tailscale auf dem Server und dem Handy installieren (kostenlos für private Nutzung) und BitaxeTuner über die Tailscale-Adresse öffnen.')))));
   }).catch(e => fill(box, h('p', { class: 'danger' }, e.message)));
   load();
   return h('div', { class: 'stack' }, h('h3', {}, t('HTTPS ohne Warnung (Let\'s Encrypt über DuckDNS)')), box);
