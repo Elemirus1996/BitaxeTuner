@@ -729,6 +729,21 @@ function termHelp(key) {
 /** Beschriftung mit „?“ (für tile()). */
 const termLabel = (label, ...keys) => h('span', { class: 'term' }, label, ...keys.map(termHelp));
 
+/**
+ * 0.9.23 Leerer Zustand: was fehlt, warum es leer ist bzw. wann Daten kommen, und ein Knopf zur passenden Stelle.
+ * action: { label, section } → Einstellungen (Kartentitel), { label, href } → beliebiger Link; admin: nur für den Admin.
+ */
+function emptyState(title, why, action, { icon: ic = 'help', card = true } = {}) {
+  const show = action && (action.admin === false || isAdmin());
+  const link = !show ? null : action.section
+    ? h('a', { class: 'btn small', href: '#/settings', onclick: () => { S.settingsSection = action.section; } }, action.label)
+    : h('a', { class: 'btn small', href: action.href }, action.label);
+  return h('div', { class: `empty-state${card ? ' card' : ''}` },
+    h('span', { class: 'empty-icon' }, icon(ic, 20)),
+    h('div', { class: 'stack', style: 'gap:4px;min-width:0' }, h('b', {}, title), why ? h('p', { class: 'muted small', style: 'margin:0' }, why) : null,
+      link ? h('div', { class: 'row', style: 'margin-top:4px' }, link) : null));
+}
+
 function tile(label, value, sub, cls) {
   return h('div', { class: 'tile' }, h('div', { class: 'label' }, label), h('div', { class: `value ${cls || ''}` }, value), sub ? h('div', { class: 'sub' }, sub) : null);
 }
@@ -1116,7 +1131,9 @@ function renderOverview() {
     miners: () => h('div', { class: 'stack' },
       groupChips(s.groups, s.devices, renderOverview),
       groupCard,
-      s.devices.length ? h('div', { class: 'devices', id: 'minerGrid' }, devs) : h('div', { class: 'card muted' }, t('Noch keine Miner eingetragen.'), isAdmin() ? t(' Unter Einstellungen → Geräte hinzufügen.') : '')),
+      s.devices.length ? h('div', { class: 'devices', id: 'minerGrid' }, devs)
+        : emptyState(t('Noch keine Miner eingetragen.'), t('Die Übersicht füllt sich, sobald ein Miner eingetragen ist. BitaxeTuner findet Bitaxe und NerdAxe im Heimnetz selbst.'),
+            { label: t('Miner hinzufügen'), section: t('Geräte') }, { icon: 'cpu' })),
     plugs: () => s.plugs?.length ? plugOverviewCard(s.plugs) : null,
     soak: () => isAdmin() && s.devices.length ? soakBatchCard(s.devices) : null,
     news: () => newsCard(true),
@@ -1473,7 +1490,7 @@ function renderJournal() {
               h('td', { class: 'msg' }, e.message, ' ', h('span', { class: 'muted small', 'aria-hidden': 'true' }, 'ⓘ')));
             return [row, detail];
           })))
-      : h('p', { class: 'muted', style: 'padding:8px' }, t('Keine Einträge für diese Auswahl.')));
+      : emptyState(t('Keine Einträge für diese Auswahl.'), t('Im gewählten Zeitraum und in den gewählten Kategorien ist nichts passiert. Zeitraum vergrößern oder Kategorien abwählen.'), null, { icon: 'list', card: false }));
   };
   const chips = h('div', { class: 'row', role: 'group', 'aria-label': t('Kategorien') }, JOURNAL_CATS().map(([k, l]) => {
     const b = h('button', { type: 'button', class: 'seg-btn chip' + (f.cats.has(k) ? ' on' : ''), 'aria-pressed': String(f.cats.has(k)), onclick: () => {
@@ -1506,7 +1523,10 @@ async function renderReports() {
   mount(h('div', { class: 'stack' }, h('div', { class: 'card stack' }, h('h2', {}, t('Berichte')), body)));
   let list;
   try { list = await api('/reports'); } catch (e) { fill(body, h('p', { class: 'danger' }, e.message)); return; }
-  if (!list.periods.length) { fill(body, h('p', { class: 'muted' }, t('Noch keine Messwerte für einen Bericht.'))); return; }
+  if (!list.periods.length) {
+    fill(body, emptyState(t('Noch keine Messwerte für einen Bericht.'), t('Berichte entstehen aus dem Verlauf. Nach dem ersten vollen Tag mit eingetragenen und erreichbaren Minern erscheint hier der erste Tagesbericht.'), null, { icon: 'chart', card: false }));
+    return;
+  }
   const label = p => p.length === 4 ? t('Jahr {0}', p) : new Date(`${p}-01T00:00:00`).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
   const sel = h('select', { style: 'width:auto' }, list.periods.map(p => h('option', { value: p }, label(p))));
   sel.value = S.reportPeriod && list.periods.includes(S.reportPeriod) ? S.reportPeriod : list.periods[Math.min(1, list.periods.length - 1)];
@@ -2558,7 +2578,8 @@ function sortedResults(results) {
 
 function tabResults() {
   const s = S.detail.session;
-  if (!s || !s.results.length) return h('div', { class: 'card muted' }, t('Noch keine Benchmark-Ergebnisse.'));
+  if (!s || !s.results.length) return emptyState(t('Noch keine Benchmark-Ergebnisse.'), t('Ein Benchmark testet Einstellungen Schritt für Schritt und findet die schnellste bzw. effizienteste stabile – die Ergebnisse erscheinen hier.'),
+    { label: t('Benchmark starten'), href: `#/device/${S.route?.id}/benchmark` }, { icon: 'gauge' });
   const best = s.ranking.balanced;
   const bestCard = (label, r, presetName) => r ? h('div', { class: 'tile' }, h('div', { class: 'label' }, label),
     h('div', { class: 'value' }, t('{0} MHz / {1} mV', r.frequencyMhz, r.coreVoltageMv)),
@@ -2603,7 +2624,7 @@ function tabCompare() {
       ? h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, [t('Zeit'), t('Quelle'), t('Änderung'), t('Vorher'), t('Nachher'), t('Differenz')].map(x => h('th', {}, x)))),
           h('tbody', {}, rows.map(r => h('tr', {}, h('td', {}, time(r.time)), h('td', {}, r.source), h('td', {}, r.change), h('td', {}, r.before), h('td', {}, r.after), h('td', {}, r.delta))))))
-      : h('p', { class: 'muted' }, t('Noch keine protokollierten Änderungen in den letzten 30 Tagen.')));
+      : emptyState(t('Noch keine protokollierten Änderungen in den letzten 30 Tagen.'), t('Hier erscheint jede Änderung von Frequenz und Spannung mit altem und neuem Wert – von Hand, durch einen Benchmark oder die Automatik.'), null, { icon: 'list', card: false }));
   }).catch(e => toast(e.message, 'error'));
   return box;
 }
@@ -3295,7 +3316,8 @@ async function renderGroups() {
       data.groups.length ? h('div', { class: 'row' }, data.groups.map(g => h('a', { class: `btn small${wanted && g.name.toLowerCase() === wanted.toLowerCase() ? ' primary' : ''}`, href: `#/groups/${encodeURIComponent(g.name)}` }, g.name)),
         wanted ? h('a', { class: 'btn small ghost', href: '#/groups' }, t('alle')) : null) : null),
     data.groups.length === 0
-      ? h('div', { class: 'card muted' }, t('Noch keine Miner-Gruppen. Gruppen vergibst du unter Einstellungen → Geräte.'))
+      ? emptyState(t('Noch keine Miner-Gruppen.'), t('Mit Gruppen (z. B. „Keller“, „Community“) lassen sich Summen, Automatik und Ansicht-Zugänge auf einen Teil der Miner beschränken. Gruppen vergibst du je Miner.'),
+          { label: t('Gruppen vergeben'), section: t('Geräte') }, { icon: 'layers' })
       : groups.flatMap(g => [groupAutomationCard(g), poolOf(g.name) ? groupPoolCard(poolOf(g.name)) : null])));
 }
 
@@ -3435,7 +3457,7 @@ function tabBackups() {
     ? h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, [t('Zeit'), t('Anlass'), t('Firmware'), ''].map(x => h('th', {}, x)))),
         h('tbody', {}, snaps.map(s => h('tr', {}, h('td', {}, time(s.takenAt)), h('td', {}, s.reason), h('td', {}, s.firmwareVersion || '–'),
           h('td', {}, h('button', { class: 'btn small', onclick: () => restore(s) }, t('Wiederherstellen …'))))))))
-    : h('p', { class: 'muted' }, t('Noch keine Sicherung.')))).catch(e => toast(e.message, 'error'));
+    : emptyState(t('Noch keine Sicherung.'), t('Vor jeder Änderung sichert BitaxeTuner die Einstellungen des Miners automatisch; hier lassen sie sich vergleichen und zurückspielen.'), null, { icon: 'download', card: false }))).catch(e => toast(e.message, 'error'));
   const restore = async snap => {
     const diff = await run(() => api(`/devices/${S.route.id}/snapshots/diff`, { method: 'POST', body: { file: snap.file } }));
     if (!diff) return;
@@ -3539,7 +3561,8 @@ function storedLogCard(id) {
       ? t('{0} Zeilen angezeigt · {1} gespeichert · Aufbewahrung {2} h', r.lines.length, r.total, r.keepHours)
       : t('Speichern ist für diesen Miner aus (Einstellungen → Geräte → Details).') + (r.total ? ' ' + t('{0} ältere Zeilen vorhanden.', r.total) : '');
     fill(box, ...(r.lines.length ? r.lines.map(l => h('div', { class: String(l.level || 'I')[0] }, `${new Date(l.time).toLocaleString(LOCALE)} ${l.tag ? l.tag + ': ' : ''}${l.message}`))
-      : [h('div', { class: 'muted' }, t('Keine gespeicherten Zeilen im Zeitraum.'))]));
+      : [emptyState(t('Keine gespeicherten Zeilen im Zeitraum.'), t('Miner-Logs werden nur gespeichert, wenn „Logs archivieren“ für diesen Miner eingeschaltet ist. Live-Zeilen siehst du trotzdem oben.'),
+          { label: t('Logs archivieren einschalten'), section: t('Geräte') }, { icon: 'list', card: false })]));
     box.scrollTop = box.scrollHeight;
   };
   q.addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
@@ -3632,7 +3655,8 @@ function taxRewardsCard(tv) {
     if (!await confirmBox(t('Eintrag entfernen'), t('Eintrag vom {0} über {1} {2} entfernen? Nur für Eingänge, die kein Mining-Ertrag sind. Die Transaktion wird danach dauerhaft ignoriert.', time(r.receivedAtUtc), sat8(r.amount), r.symbol), t('Entfernen'), true)) return;
     if (await run(() => api(`/tax/rewards/${r.id}`, { method: 'DELETE' }), t('Eintrag entfernt, Transaktion wird künftig ignoriert.'))) renderTax();
   };
-  if (!tv.rewards.length) return h('div', { class: 'card muted' }, t('Noch keine Zuflüsse erfasst.'));
+  if (!tv.rewards.length) return emptyState(t('Noch keine Zuflüsse erfasst.'), t('Zuflüsse kommen aus Blockfunden, Pool-Auszahlungen (Pool-Konto) und eingetragenen Wallets – jeweils mit Kurs zum Zuflusszeitpunkt. Wallet unten eintragen oder das Pool-Konto einrichten.'),
+    { label: t('Pool-Konto einrichten'), section: t('Pool-Konto') }, { icon: 'coins' });
   return h('div', { class: 'card table-wrap' }, h('table', {},
     h('thead', {}, h('tr', {}, [t('Datum'), 'Coin', t('Betrag'), t('Kurs ({0})', cur.code), t('Wert ({0})', cur.code), t('Rest'), t('Haltefrist'), t('Wallet'), t('Notiz'), ''].map(x => h('th', {}, x)))),
     h('tbody', {}, tv.rewards.map(r => h('tr', {},
@@ -3701,7 +3725,7 @@ function taxSalesCard(tv) {
           h('td', { class: 'num' }, d.otherCurrency ? '–' : n(d.taxableGainEur, 2)),
           h('td', { class: 'num' }, d.taxFreeAmount > 0 ? sat8(d.taxFreeAmount) : '–'), h('td', { class: 'small warn' }, hint(d)), h('td', { class: 'small' }, d.note || ''),
           h('td', {}, h('button', { class: 'btn small', title: t('Löschen'), onclick: () => remove(d) }, '✕')))))))
-        : h('p', { class: 'muted' }, t('Noch keine Verkäufe erfasst.'))));
+        : emptyState(t('Noch keine Verkäufe erfasst.'), t('Verkäufe trägst du selbst ein; BitaxeTuner rechnet dann Haltefrist und Gewinn nach FIFO.'), null, { icon: 'euro', card: false })));
 }
 
 /** Wallets: hinzufügen, aus den Minern übernehmen, umbenennen/Coin ändern, aus der Überwachung nehmen. */
@@ -3749,7 +3773,7 @@ function taxWalletsCard(tv) {
         h('td', { class: 'row', style: 'flex-wrap:nowrap' },
           h('button', { class: 'btn small', onclick: () => edit(w) }, t('Bearbeiten')),
           h('button', { class: 'btn small', title: t('Entfernen'), onclick: () => remove(w) }, '✕'))))))
-      : h('p', { class: 'muted' }, t('Noch keine Wallets eingetragen.'))));
+      : emptyState(t('Noch keine Wallets eingetragen.'), t('Mit einer Wallet-Adresse erfasst BitaxeTuner eingehende Zahlungen automatisch mit dem Kurs zum Zuflusszeitpunkt.'), null, { icon: 'wallet', card: false })));
 }
 
 /** Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen (aus den Monatsberichten). */
@@ -4718,7 +4742,8 @@ function newsCard(compact) {
           h('span', { class: 'muted small' }, new Date(i.date).toLocaleDateString(LOCALE)), ' ',
           i.url ? h('a', { href: i.url, target: '_blank', rel: 'noopener' }, i.title) : h('b', {}, i.title),
           i.text ? h('div', { class: 'muted small' }, i.text) : null)))
-      : h('p', { class: 'muted' }, d.error ? t('Neuigkeiten gerade nicht erreichbar ({0}).', d.error) : t('Noch keine Neuigkeiten geladen – sie werden alle paar Stunden geholt.')),
+      : d.error ? emptyState(t('Neuigkeiten gerade nicht erreichbar ({0}).', d.error), t('Der Server holt sie beim nächsten Mal erneut – meist liegt es an einer kurzen Störung der Internetverbindung.'), null, { icon: 'globe', card: false })
+        : emptyState(t('Noch keine Neuigkeiten geladen – sie werden alle paar Stunden geholt.'), t('Nach dem ersten Abruf stehen hier Solo-Blockfunde, Firmware-Releases und neue Miner-Modelle.'), null, { icon: 'globe', card: false }),
       d.updated ? h('p', { class: 'muted small' }, t('Stand {0}', time(d.updated))) : null);
   }).catch(e => fill(body, h('p', { class: 'danger' }, e.message)));
   return h('div', { class: 'card stack' }, h('h2', {}, t('Neuigkeiten aus der Solo-Mining-Welt')), body);
@@ -5191,7 +5216,7 @@ function pushTargetsEditor(nt, text, select, devices, save) {
       h('div', { class: 'small muted' }, t('Miner')), allMiners, minerList, groupBox,
       h('div', { class: 'small muted' }, t('Tages- und Monatsbericht enthalten')), partBox,
       h('div', { class: 'small muted' }, t('Mit Miner-Auswahl enthalten die Berichte nur diese Miner (Summen und Kosten nur für sie) und nie Zuflüsse.')));
-  }) : h('p', { class: 'muted small' }, t('Noch kein Push-Dienst eingerichtet.')));
+  }) : emptyState(t('Noch kein Push-Dienst eingerichtet.'), t('Ohne Push-Dienst siehst du Warnungen nur hier in der Glocke. Mit ntfy, Telegram, Discord oder Pushover kommen sie aufs Handy.'), null, { icon: 'bell', card: false }));
   draw();
   return h('div', { class: 'stack' },
     h('p', { class: 'muted small' }, t('Mehrere Dienste gleichzeitig möglich – z. B. ntfy für dich und Discord für eine Community-Gruppe. Je Dienst wählst du die Meldungen und die Miner.')),
@@ -5502,7 +5527,7 @@ function plugsCard() {
           h('div', {}, h('label', {}, t('Rolle')), role)),
         typeHint,
         minerBox);
-    }) : h('p', { class: 'muted small' }, t('Noch kein Smart Plug eingerichtet.')));
+    }) : emptyState(t('Noch kein Smart Plug eingerichtet.'), t('Eine Mess-Steckdose (Shelly, Tasmota, FRITZ!DECT) zeigt den echten Verbrauch an der Steckdose inklusive Netzteil – genauer als die Angabe des Miners. Nur lesen, nie schalten.'), null, { icon: 'plug', card: false }));
     draw();
     fill(body,
       h('p', { class: 'muted small' }, t('Steckdosen mit Leistungsmessung (Shelly, Tasmota, FRITZ!DECT) messen den echten Verbrauch inklusive Netzteil und Zusatzlüftern. BitaxeTuner liest nur – geschaltet wird nie.')),
@@ -5984,7 +6009,7 @@ function extraPoolsCard() {
             if (st) fill(result, statusView(st, null));
           } }, t('Testen')),
           h('button', { class: 'btn small danger', onclick: () => { accounts.splice(i, 1); draw(); } }, t('Entfernen'))));
-    }) : h('p', { class: 'muted small' }, t('Noch kein weiteres Pool-Konto.')));
+    }) : emptyState(t('Noch kein weiteres Pool-Konto.'), t('Für public-pool, ckpool, OCEAN, Braiins oder ViaBTC: Hashrate, Worker, Guthaben und Auszahlungen direkt vom Pool – nur lesen.'), null, { icon: 'layers', card: false }));
     draw();
     fill(body,
       h('p', { class: 'muted small' }, t('Neben Mining-Dutch: Solo-Pools (public-pool, solo.ckpool) zeigen Hashrate, Worker und beste Shares je Wallet-Adresse; OCEAN, Braiins und ViaBTC zusätzlich Guthaben, Erträge und Auszahlungen – auf Wunsch als Zuflüsse in die Steuer (nur ergänzend). Nur lesend; Schlüssel bleiben auf dem Server. Bei ViaBTC die IP-Freigabe für den Server eintragen.')),

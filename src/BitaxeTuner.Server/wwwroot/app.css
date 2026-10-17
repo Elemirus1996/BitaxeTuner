@@ -539,3 +539,7 @@ mark.find { background: color-mix(in srgb, var(--warn) 45%, transparent); color:
   background: transparent; color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1; cursor: help; }
 .term-help:hover, .term-help:focus-visible { color: var(--text); border-color: var(--accent); }
 @media (pointer: coarse) { .term-help { width: 24px; height: 24px; min-height: 0; font-size: 12px; } }
+/* 0.9.23 Leere Zustände: warum leer, was tun */
+.empty-state { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; }
+.empty-state:not(.card) { padding: 10px 4px; }
+.empty-state .empty-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--alt); color: var(--muted); }
