@@ -93,6 +93,28 @@
                             <ComboBoxItem Content="{l:T 'Tuning erlauben'}" Tag="off"/>
                         </ComboBox>
 
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{l:T 'KAUFPREIS'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="PurchasePriceBox" ToolTip="{l:T 'Für die Amortisation: wann hat sich der Miner bezahlt gemacht?'}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{l:T 'KAUFDATUM'}" Style="{StaticResource Label}"/>
+                                <DatePicker x:Name="PurchaseDateBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="{l:T 'GARANTIE (MONATE)'}" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="WarrantyBox" ToolTip="{l:T 'Erinnerung 30 Tage vor Ende der Garantie'}"/>
+                            </StackPanel>
+                        </Grid>
+
                         <TextBlock Text="{l:T 'GRUPPEN (MIT KOMMA GETRENNT, Z. B. COMMUNITY, KELLER)'}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="GroupsBox" Margin="0,0,0,10"/>
 

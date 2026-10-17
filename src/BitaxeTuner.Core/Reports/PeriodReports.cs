@@ -38,7 +38,14 @@ public sealed record PeriodReport(string Period, DateTime From, DateTime To, boo
         ? Miners.Where(m => m.AvgHashGh is not null).Sum(m => m.AvgHashGh!.Value * (m.Availability ?? 0))
         : null;
     public decimal IncomeEur => Income.Sum(i => i.Eur);
+
+    /// <summary>0.9.21: Amortisation je Miner (Stand beim Erstellen, nicht gespeichert). Leer = keine Kaufdaten.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<PeriodAmortization> Amortization { get; init; } = [];
 }
+
+/// <summary>0.9.21: Zeile „Amortisation“ im Bericht (Beträge in der eingestellten Währung).</summary>
+public sealed record PeriodAmortization(string Name, decimal Price, DateTime PurchaseDate, decimal Net, decimal Remaining, bool Paid, DateTime? Eta);
 
 /// <summary>Berichte bauen, abgeschlossene Monate in history.db ablegen.</summary>
 public static class PeriodReports

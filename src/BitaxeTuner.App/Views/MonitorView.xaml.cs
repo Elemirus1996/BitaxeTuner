@@ -937,6 +937,13 @@ public partial class MonitorView : UserControl
         {
             var findings = _host.Hub.HealthOf(host, DateTime.Now).Findings;
             if (findings.Count > 0) text = "\n" + string.Join("\n", findings.Select(f => "⚠ " + f.Title + " – " + f.Text));
+            // 0.9.21: Amortisation (Ertragsanteil − Strom seit Kauf)
+            if (_host.Hub.Devices.FirstOrDefault(d => string.Equals(d.Host, host, StringComparison.OrdinalIgnoreCase)) is { } dev
+                && _host.Hub.AmortizationOf(dev, DateTime.Now) is { } a)
+                text += "\n💶 " + (a.Paid
+                    ? L.T("Amortisation: bezahlt gemacht ({0} {1} über dem Kaufpreis)", (-a.Remaining).ToString("N2", L.Culture), _config.Currency)
+                    : L.T("Amortisation: noch {0} {1}", a.Remaining.ToString("N2", L.Culture), _config.Currency)
+                      + (a.Eta is { } eta ? L.T(" · voraussichtlich bezahlt am {0:d}", eta) : ""));
         }
         catch { /* Verlauf nicht lesbar */ }
         _healthCache[host] = (DateTime.Now, text);

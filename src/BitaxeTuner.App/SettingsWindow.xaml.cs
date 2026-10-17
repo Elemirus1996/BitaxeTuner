@@ -155,8 +155,13 @@ public partial class SettingsWindow : Window
         GroupsBox.Text = _current is null ? "" : string.Join(", ", _current.Groups);
         DeviceLogAlertsBox.IsChecked = _current?.LogAlerts == true;
         DeviceLogArchiveBox.IsChecked = _current?.LogArchive == true;
+        // 0.9.21: Kaufdaten (Amortisation, Garantie)
+        PurchasePriceBox.Text = _current?.Purchase?.Price?.ToString("0.##", L.Culture) ?? "";
+        PurchaseDateBox.SelectedDate = _current?.Purchase?.Date;
+        WarrantyBox.Text = _current?.Purchase?.WarrantyMonths?.ToString(L.Culture) ?? "";
 
         var enabled = _current is not null;
+        PurchasePriceBox.IsEnabled = PurchaseDateBox.IsEnabled = WarrantyBox.IsEnabled = enabled;
         NameBox.IsEnabled = HostBox.IsEnabled = WalletBox.IsEnabled = enabled;
         CoinBox.IsEnabled = RepoBox.IsEnabled = MonitorOnlyBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = GroupsBox.IsEnabled = enabled;
     }
@@ -176,6 +181,20 @@ public partial class SettingsWindow : Window
         _current.Groups = MinerGroups.Normalize(GroupsBox.Text.Split(','));
         _current.LogAlerts = DeviceLogAlertsBox.IsChecked == true;
         _current.LogArchive = DeviceLogArchiveBox.IsChecked == true;
+        decimal? price = decimal.TryParse(PurchasePriceBox.Text.Trim(), System.Globalization.NumberStyles.Number, L.Culture, out var pr) && pr is >= 0 and <= 1_000_000 ? pr : null;
+        DateTime? bought = PurchaseDateBox.SelectedDate is { } dt && dt.Date <= DateTime.Today ? dt.Date : null;
+        int? warranty = int.TryParse(WarrantyBox.Text.Trim(), out var wm) && wm is >= 0 and <= 120 ? wm : null;
+        if (price is null && bought is null && warranty is null) _current.Purchase = null;
+        else
+        {
+            var old = _current.Purchase;
+            _current.Purchase = new DevicePurchase
+            {
+                Price = price, Date = bought, WarrantyMonths = warranty,
+                WarrantyNotified = old is not null && old.Date == bought && old.WarrantyMonths == warranty && old.WarrantyNotified,
+                PaidNotified = old is not null && old.Price == price && old.Date == bought && old.PaidNotified,
+            };
+        }
 
         DeviceList.Items.Refresh();
     }

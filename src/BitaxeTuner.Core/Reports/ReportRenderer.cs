@@ -48,6 +48,14 @@ public static class ReportRenderer
             // 0.9.14: Ertrag gegen Stromkosten
             Line(L.T("Saldo (Zuflüsse − Stromkosten, {0})", r.IncomeSymbol), (r.IncomeEur - (decimal)r.Energy.Cost).ToString("0.00", C));
         }
+        if (r.Amortization.Count > 0)
+        {
+            sb.AppendLine();
+            Line(L.T("Amortisation (Stand heute)"), L.T("Kaufdatum"), L.T("Kaufpreis"), L.T("Saldo seit Kauf"), L.T("Rest"), L.T("voraussichtlich bezahlt"));
+            foreach (var a in r.Amortization)
+                Line(a.Name, a.PurchaseDate.ToString("d", C), a.Price.ToString("0.00", C), a.Net.ToString("0.00", C),
+                    a.Paid ? L.T("bezahlt gemacht") : a.Remaining.ToString("0.00", C), a.Eta?.ToString("d", C) ?? "");
+        }
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
     }
 
@@ -117,6 +125,16 @@ public static class ReportRenderer
                           $"<td>{E(i.Eur.ToString("0.00", C))}{(i.EurMissing > 0 ? E(L.T(" ({0} ohne Kurs)", i.EurMissing)) : "")}</td></tr>");
             sb.Append("</table>");
             sb.Append($"<p class=\"muted\">{E(L.T("Zuflüsse aus dem Steuer-Bereich (Kurs in {0} zum Zeitpunkt des Zuflusses). Keine Steuerberatung.", Config.Currencies.Get(r.IncomeCode).Code))}</p>");
+        }
+        if (r.Amortization.Count > 0)
+        {
+            sb.Append($"<h2>{E(L.T("Amortisation (Stand heute)"))}</h2><table><tr><th>{E(L.T("Miner"))}</th><th>{E(L.T("Kaufdatum"))}</th><th>{E(L.T("Kaufpreis"))}</th>" +
+                      $"<th>{E(L.T("Saldo seit Kauf"))}</th><th>{E(L.T("Rest"))}</th><th>{E(L.T("voraussichtlich bezahlt"))}</th></tr>");
+            foreach (var a in r.Amortization)
+                sb.Append($"<tr><td>{E(a.Name)}</td><td>{E(a.PurchaseDate.ToString("d", C))}</td><td>{E(a.Price.ToString("0.00", C))}</td><td>{E(a.Net.ToString("0.00", C))}</td>" +
+                          $"<td>{E(a.Paid ? L.T("bezahlt gemacht") : a.Remaining.ToString("0.00", C))}</td><td>{E(a.Eta?.ToString("d", C) ?? "–")}</td></tr>");
+            sb.Append("</table>");
+            sb.Append($"<p class=\"muted\">{E(L.T("Ertragsanteil nach geleisteter Hashrate minus eigener Stromverbrauch, seit Kauf bzw. ersten Messwerten."))}</p>");
         }
         sb.Append($"<p class=\"muted\">{E(L.T("Erstellt mit BitaxeTuner am {0}.", DateTime.Now.ToString("g", C)))}</p></body></html>");
         return sb.ToString();

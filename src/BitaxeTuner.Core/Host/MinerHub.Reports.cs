@@ -21,7 +21,11 @@ public sealed partial class MinerHub
         if (History is null) throw new LocalizedException("Verlaufsdatenbank nicht verfügbar.");
         List<Tax.Models.MinedReward> rewards;
         try { rewards = TaxRepository.LoadIncome(); } catch { rewards = []; }
-        return PeriodReports.Build(History, Config, ReportMiners(), rewards, period, now);
+        var report = PeriodReports.Build(History, Config, ReportMiners(), rewards, period, now);
+        // 0.9.21: Amortisation je Miner (Stand heute)
+        var amort = Devices.Select(d => (d, a: AmortizationOf(d, now))).Where(x => x.a is not null)
+            .Select(x => new PeriodAmortization(x.d.Title, x.a!.Price, x.a.PurchaseDate, x.a.Net, x.a.Remaining, x.a.Paid, x.a.Eta)).ToList();
+        return amort.Count > 0 ? report with { Amortization = amort } : report;
     }
 
     /// <summary>Monate eines Jahres (Stromkosten je Monat im Steuer-Bereich).</summary>

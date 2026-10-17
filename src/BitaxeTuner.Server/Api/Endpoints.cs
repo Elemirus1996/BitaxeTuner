@@ -29,7 +29,7 @@ public sealed record IdRequest(string Id);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
-    string? MonitorOnlyMode = null);
+    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -487,6 +487,10 @@ public static class Endpoints
                 return new
                 {
                     findings = findings.Select(f => new { f.Code, f.Title, f.Text }).ToList(), recent, @base,
+                    // 0.9.21 Amortisation (Ertragsanteil − Strom seit Kauf) – Erträge nur für Admin
+                    amortization = AuthContext.Of(http).Role == Role.Admin && !scope.Restricted && h.AmortizationOf(d, DateTime.Now) is { } am
+                        ? new { am.Price, am.PurchaseDate, am.TrackedFrom, am.Income, am.Cost, am.Net, am.Remaining, am.NetPerDay, am.Eta, am.Paid, am.Partial, am.Source, am.Currency, am.WarrantyUntil, progress = am.Progress }
+                        : null,
                     // 0.9.16 Wartungs-Erinnerungen
                     upkeep = new
                     {
@@ -635,6 +639,8 @@ public static class Endpoints
             // 0.9.17: „auto“ (nach Firmware), „on“ (nur überwachen), „off“ (Tuning erlauben)
             if (req.MonitorOnlyMode is "auto" or "on" or "off")
                 c.MonitorOnly = req.MonitorOnlyMode switch { "on" => true, "off" => false, _ => null };
+            // 0.9.21: Kaufpreis/-datum/Garantie (alle leer = löschen)
+            if (req.Purchase is { } purchase) h.SetPurchase(Device(h, id), purchase);
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
             return new { ok = true };
