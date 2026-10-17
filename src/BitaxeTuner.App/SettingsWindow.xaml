@@ -408,6 +408,31 @@
             </StackPanel>
         </Border>
 
+        <!-- 0.9.21 Ruhezeit -->
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{l:T 'Ruhezeit'}" Style="{StaticResource Section}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <CheckBox x:Name="QuietEnabledBox" Content="{l:T 'Ruhezeit einschalten'}" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                    <TextBlock Text="{l:T 'VON'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="QuietFromBox" Width="80" Margin="0,0,14,0"/>
+                    <TextBlock Text="{l:T 'BIS'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="QuietToBox" Width="80"/>
+                </StackPanel>
+                <CheckBox x:Name="QuietPushBox" Margin="0,0,0,4" Content="{l:T 'Push-Meldungen sammeln und am Ende als eine Zusammenfassung senden'}"/>
+                <TextBlock Text="{l:T 'Sofort kommen weiterhin: offline, Überhitzung und andere wichtige Meldungen, Blockfunde/Zuflüsse sowie Tages- und Monatsbericht. Je Push-Dienst lässt sich die Ruhezeit abschalten.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="{l:T 'ZUSATZLÜFTER HÖCHSTENS (%)'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="QuietFanBox" Width="60" Margin="0,0,20,0" ToolTip="{l:T 'keine Grenze'}"/>
+                    <TextBlock Text="{l:T 'SERVER-LÜFTER HÖCHSTENS'}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="QuietPiFanBox" Width="130"/>
+                </StackPanel>
+                <TextBlock Text="{l:T 'Die Lüftergrenzen gelten nie gegen die Sicherheit: Erreicht ein Miner die Volllast-Temperatur seiner Lüfterkurve bzw. die CPU des Servers 75 °C, wird wieder voll gekühlt. Der Nachtbetrieb je Lüftergruppe bleibt zusätzlich bestehen.'}"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
         <!-- Log-Alarme, Pool-Überwachung, Tagesbericht -->
         <Border Style="{StaticResource Card}">
             <StackPanel>

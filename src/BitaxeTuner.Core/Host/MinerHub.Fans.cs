@@ -130,6 +130,8 @@ public sealed partial class MinerHub
             _fanController.Override = FanOverride;
             var sensors = SensorStatus(settings, now);
             _fanController.CaseTemperature = CaseTemperature(sensors);
+            // 0.9.21 Ruhezeit: Obergrenze der Zusatzlüfter (nicht bei Volllast-Temperatur)
+            _fanController.QuietMaxPercent = Config.Quiet.IsQuiet(now) ? Config.Quiet.CaseFanMaxPercent : null;
             var targets = _fanController.Compute(settings, miners, now);
 
             if (_fanDevice is not null)

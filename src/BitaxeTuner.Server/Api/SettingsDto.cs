@@ -37,6 +37,8 @@ public sealed class SettingsDto
     public PoolWatchSettings PoolWatch { get; set; } = new();
     public DailyReportSettings DailyReport { get; set; } = new();
     public PriceSourceSettings PriceSource { get; set; } = new();
+    /// <summary>0.9.21 Ruhezeit; null (ältere Oberflächen) = unverändert lassen.</summary>
+    public QuietHoursSettings? Quiet { get; set; }
 
     /// <summary>Ist eine PIN für die Rolle „Nur ansehen“ gesetzt? (Die PIN selbst wird nie ausgeliefert.)</summary>
     public bool ViewerPinSet { get; set; }
@@ -74,6 +76,7 @@ public sealed class SettingsDto
         PoolWatch = c.PoolWatch,
         DailyReport = c.DailyReport,
         PriceSource = c.PriceSource,
+        Quiet = c.Quiet,
         ViewerPinSet = c.WebView.PinHash.Length > 0,
         ViewerPinLegacy = c.WebView.PinIsLegacy,
     };
@@ -118,6 +121,11 @@ public sealed class SettingsDto
         c.DailyReport = DailyReport;
         PriceSource.SurchargeCt = Math.Clamp(PriceSource.SurchargeCt, 0, 200);
         c.PriceSource = PriceSource;
+        if (Quiet is { } quiet)
+        {
+            quiet.Normalize();
+            c.Quiet = quiet;
+        }
     }
 }
 

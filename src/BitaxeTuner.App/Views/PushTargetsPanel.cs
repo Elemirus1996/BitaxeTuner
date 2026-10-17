@@ -173,8 +173,11 @@ public sealed class PushTargetsPanel : StackPanel
             return (x.Key, cb);
         }).ToList();
 
+        var ignoreQuiet = new CheckBox { Content = L.T("Ruhezeit für diesen Dienst nicht anwenden (Meldungen kommen sofort)"), IsChecked = t.IgnoreQuiet, Margin = new Thickness(0, 4, 0, 2) };
+
         PushTarget Read() => new()
         {
+            IgnoreQuiet = ignoreQuiet.IsChecked == true,
             Id = t.Id, Name = name.Text.Trim(), Enabled = enabled.IsChecked == true, Provider = provider.SelectedValue as string ?? "ntfy",
             NtfyServer = ntfyServer.Text.Trim(), NtfyTopic = ntfyTopic.Text.Trim(), TelegramBotToken = tgToken.Text.Trim(), TelegramChatId = tgChat.Text.Trim(),
             DiscordWebhookUrl = discord.Text.Trim(), PushoverUserKey = poUser.Text.Trim(), PushoverAppToken = poToken.Text.Trim(), WebhookUrl = hook.Text.Trim(),
@@ -222,6 +225,7 @@ public sealed class PushTargetsPanel : StackPanel
         content.Children.Add(cats);
         var minerLabel = new TextBlock { Text = L.T("Miner"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
         minerLabel.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+        content.Children.Add(ignoreQuiet);
         content.Children.Add(minerLabel);
         content.Children.Add(all);
         content.Children.Add(minerPanel);

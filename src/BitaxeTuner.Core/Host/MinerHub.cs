@@ -118,6 +118,9 @@ public sealed partial class MinerHub : IDisposable
             GroupsOf = GroupsOfHost,
             Muted = host => Maintenance.IsManual(host),
             QueueFile = Path.Combine(DataDirectory, "push-queue.json"),
+            // 0.9.21 Ruhezeit
+            QuietAt = local => Config.Quiet.CollectPush && Config.Quiet.IsQuiet(local),
+            DigestFile = Path.Combine(DataDirectory, "quiet-digest.json"),
         };
         InitWebPush();
         config.SaveFailed += OnConfigSaveFailed;

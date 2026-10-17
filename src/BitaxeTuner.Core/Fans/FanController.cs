@@ -43,6 +43,9 @@ public sealed class FanController
     /// <summary>Höchster Wert der Gehäusefühler (°C), null ohne Sensor.</summary>
     public double? CaseTemperature { get; set; }
 
+    /// <summary>0.9.21 Ruhezeit: Höchstwert in Prozent (null = keine Grenze); gilt nicht ab Volllast-Temperatur.</summary>
+    public int? QuietMaxPercent { get; set; }
+
     public IReadOnlyList<FanTarget> Compute(FanSettings settings, IReadOnlyList<MinerTemps> miners, DateTime now)
     {
         var result = new List<FanTarget>(FanSettings.ChannelCount);
@@ -147,6 +150,11 @@ public sealed class FanController
                 cp = Clamp(s.NightMaxPercent);
                 why += L.T(", Nachtbetrieb max. {0} %", cp);
             }
+            if (QuietMaxPercent is { } qc && ct < s.Curve.FullTemp && cp > qc)
+            {
+                cp = Clamp(qc);
+                why += L.T(", Ruhezeit max. {0} %", cp);
+            }
             return new FanTarget(channel, cp, why);
         }
 
@@ -184,6 +192,11 @@ public sealed class FanController
             {
                 pct = Clamp(s.NightMaxPercent);
                 reason += L.T(", Nachtbetrieb max. {0} %", pct);
+            }
+            if (QuietMaxPercent is { } q && max < s.Curve.FullTemp && pct > q)
+            {
+                pct = Clamp(q);
+                reason += L.T(", Ruhezeit max. {0} %", pct);
             }
             if (unknown.Count > 0 && pct < s.UnknownPercent)
             {
