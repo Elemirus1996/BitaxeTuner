@@ -606,7 +606,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     }
     public bool ScheduleIsTime
     {
-        get => Schedule.Mode is not ("price" or "profit" or "solar");
+        get => Schedule.Mode is not ("price" or "profit" or "solar" or "heat");
         set { if (value) SetScheduleMode("time"); }
     }
     /// <summary>0.9.15 Ertrags-Automatik.</summary>
@@ -621,6 +621,12 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         get => Schedule.Mode == "solar";
         set { if (value) SetScheduleMode("solar"); }
     }
+    /// <summary>0.9.21 Heiz-Automatik.</summary>
+    public bool ScheduleIsHeat
+    {
+        get => Schedule.Mode == "heat";
+        set { if (value) SetScheduleMode("heat"); }
+    }
     public bool ScheduleUsesLevels => Schedule.UsesPriceLevels;
 
     private void SetScheduleMode(string mode)
@@ -630,6 +636,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ScheduleIsTime));
         OnPropertyChanged(nameof(ScheduleIsProfit));
         OnPropertyChanged(nameof(ScheduleIsSolar));
+        OnPropertyChanged(nameof(ScheduleIsHeat));
         OnPropertyChanged(nameof(ScheduleUsesLevels));
     }
 
@@ -646,6 +653,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ScheduleIsTime));
         OnPropertyChanged(nameof(ScheduleIsProfit));
         OnPropertyChanged(nameof(ScheduleIsSolar));
+        OnPropertyChanged(nameof(ScheduleIsHeat));
         OnPropertyChanged(nameof(ScheduleUsesLevels));
         OnPropertyChanged(nameof(SoakActive));
     }

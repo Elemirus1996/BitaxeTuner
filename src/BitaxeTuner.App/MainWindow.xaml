@@ -591,7 +591,9 @@
                                                     <RadioButton Content="{l:T 'Ertrag'}" IsChecked="{Binding ScheduleIsProfit}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
                                                                  ToolTip="{l:T 'Sparsame Voreinstellung, sobald der Strom mehr kostet, als der Miner einbringt'}" Margin="0,0,16,0" />
                                                     <RadioButton Content="{l:T 'PV-Leistung'}" IsChecked="{Binding ScheduleIsSolar}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
-                                                                 ToolTip="{l:T 'Viel Sonne → volle Leistung, wenig Sonne → Stromsparen (Quelle unter Einstellungen → PV-Anlage)'}" />
+                                                                 ToolTip="{l:T 'Viel Sonne → volle Leistung, wenig Sonne → Stromsparen (Quelle unter Einstellungen → PV-Anlage)'}" Margin="0,0,16,0" />
+                                                    <RadioButton Content="{l:T 'Heizung'}" IsChecked="{Binding ScheduleIsHeat}" Foreground="{DynamicResource TextBrush}" GroupName="Mode"
+                                                                 ToolTip="{l:T 'Raum zu kalt → volle Leistung, warm genug → Sparen'}" />
                                                 </StackPanel>
 
                                                 <StackPanel Visibility="{Binding ScheduleIsTime, Converter={StaticResource BoolToVisibility}}">
@@ -614,6 +616,24 @@
                                                     </DockPanel>
                                                     <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                                Text="{l:T 'Erste passende Zeile gilt. „Bis“ ist ausschließlich; 22–6 läuft über Mitternacht (der Morgen zählt zum Vortag).'}" />
+                                                </StackPanel>
+
+                                                <StackPanel Visibility="{Binding ScheduleIsHeat, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,6">
+                                                    <DockPanel Margin="0,0,0,4">
+                                                        <TextBlock Text="{l:T 'Fühler'}" Style="{StaticResource FieldLabel}" Width="160" />
+                                                        <TextBox Text="{Binding Schedule.HeatSensor}"
+                                                                 ToolTip="{l:T 'pico:&lt;Id&gt; (Temperaturfühler am Pico, Id unter Lüfter → Fühler) oder ha:sensor.name (Home Assistant, Adresse und Token wie bei der PV-Anlage)'}" />
+                                                    </DockPanel>
+                                                    <DockPanel Margin="0,0,0,4">
+                                                        <TextBlock Text="{l:T 'Zieltemperatur (°C)'}" Style="{StaticResource FieldLabel}" Width="160" />
+                                                        <TextBox Text="{Binding Schedule.HeatTargetC}" Width="80" HorizontalAlignment="Left" />
+                                                    </DockPanel>
+                                                    <DockPanel Margin="0,0,0,4">
+                                                        <TextBlock Text="{l:T 'Abstand (± °C)'}" Style="{StaticResource FieldLabel}" Width="160" />
+                                                        <TextBox Text="{Binding Schedule.HeatHysteresisC}" Width="80" HorizontalAlignment="Left" />
+                                                    </DockPanel>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
+                                                               Text="{l:T 'Heizung: unter Ziel − Abstand gilt „günstig →“ (volle Leistung = mehr Wärme), über Ziel + Abstand gilt „teuer →“ (Sparen); dazwischen bleibt es. Höchstens alle 10 Minuten ein Wechsel. Fühler: Temperaturfühler am Pico oder ein Home-Assistant-Sensor (Adresse und Token wie bei der PV-Anlage). Ohne aktuellen Messwert bleibt die Voreinstellung.'}" />
                                                 </StackPanel>
 
                                                 <Grid Visibility="{Binding ScheduleUsesLevels, Converter={StaticResource BoolToVisibility}}">

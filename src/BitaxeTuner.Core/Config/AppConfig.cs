@@ -798,7 +798,7 @@ public sealed class ScheduleEntry
 
 public sealed class PresetScheduleRule : AutomationRule
 {
-    /// <summary>"time" (Wochenplan), "price" (Strompreis), "profit" (0.9.15: Strom teurer als der Ertrag) oder "solar" (0.9.17: PV-Leistung).</summary>
+    /// <summary>"time" (Wochenplan), "price" (Strompreis), "profit" (0.9.15: Strom teurer als der Ertrag), "solar" (0.9.17: PV-Leistung) oder "heat" (0.9.21: Raumtemperatur).</summary>
     public string Mode { get; set; } = "time";
     public List<ScheduleEntry> Entries { get; set; } = [];
     /// <summary>Voreinstellung, wenn kein Eintrag passt (leer = nichts tun).</summary>
@@ -820,16 +820,26 @@ public sealed class PresetScheduleRule : AutomationRule
     public double SolarHighW { get; set; } = 300;
     public double SolarLowW { get; set; } = 100;
 
+    /// <summary>
+    /// 0.9.21 Heiz-Modus („heat“): Raumtemperatur unter <see cref="HeatTargetC"/> − Hysterese → <see cref="CheapPreset"/>
+    /// (volle Leistung = mehr Wärme), über Ziel + Hysterese → <see cref="ExpensivePreset"/>; dazwischen bleibt es.
+    /// Fühler: „pico:&lt;Id&gt;“ (Temperaturfühler am Pico) oder „ha:sensor.name“ (Home Assistant, Adresse/Token der PV-Anlage).
+    /// </summary>
+    public string HeatSensor { get; set; } = "";
+    public double HeatTargetC { get; set; } = 20;
+    public double HeatHysteresisC { get; set; } = 0.5;
+
     /// <summary>Nutzt die Regel günstig/teuer statt Zeitfenster?</summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool UsesPriceLevels => Mode is "price" or "profit" or "solar";
+    public bool UsesPriceLevels => Mode is "price" or "profit" or "solar" or "heat";
 
     // Der Zusatz für „profit“ hängt nur dort an – bestehende Freigaben (time/price) bleiben gültig
     public override string Describe() => FormattableString.Invariant(
         $"schedule|{Mode}|{DefaultPreset}|{ThresholdCt}|{CheapPreset}|{ExpensivePreset}|") +
         string.Join(";", Entries.Select(e => FormattableString.Invariant($"{e.Days},{e.FromHour},{e.ToHour},{e.Preset}"))) +
         (Mode == "profit" ? FormattableString.Invariant($"|margin:{ProfitMarginPercent}") : "") +
-        (Mode == "solar" ? FormattableString.Invariant($"|solar:{SolarLowW},{SolarHighW}") : "");
+        (Mode == "solar" ? FormattableString.Invariant($"|solar:{SolarLowW},{SolarHighW}") : "") +
+        (Mode == "heat" ? FormattableString.Invariant($"|heat:{HeatSensor},{HeatTargetC},{HeatHysteresisC}") : "");
 
     /// <summary>
     /// Nutzt der Zeitplan diese Voreinstellung? Die Freigabe merkt sich nur den Namen – wer eine benutzte Voreinstellung

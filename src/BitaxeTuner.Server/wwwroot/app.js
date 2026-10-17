@@ -2512,14 +2512,14 @@ function tabAutomation() {
     h('div', { class: 'card stack' },
       h('div', { class: 'titlebar' }, h('h3', {}, t('Zeitplan / Strompreis')), h('span', { class: `pill ${c.scheduleApproved ? '' : 'gray'}` }, c.scheduleApproved ? t('freigegeben') : t('nicht freigegeben'))),
       checkInput(sched, 'enabled', t('eingeschaltet')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)'))); s.value = sched.mode; return s; })())),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)')), h('option', { value: 'heat' }, t('Heizung (Raumtemperatur)'))); s.value = sched.mode; return s; })())),
       h('h3', {}, t('Zeitplan')), entries,
       h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: presets[0]?.name || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
         h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
       h('h3', {}, t('Strompreis')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
         h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
-      profitRuleBox(sched), solarRuleBox(sched),
+      profitRuleBox(sched), solarRuleBox(sched), heatRuleBox(sched),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: () => approve('schedule') }, t('Speichern & freigeben …')))),
     h('div', { class: 'card stack' },
       h('h3', {}, t('Dauertest')),
@@ -3163,14 +3163,14 @@ function groupAutomationCard(g) {
     h('div', { class: 'row' }, nowPreset, h('button', { class: 'btn', onclick: switchNow }, t('Vorschau und umschalten …'))),
     h('h3', {}, t('Regel')),
     checkInput(sched, 'enabled', t('eingeschaltet')),
-    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)'))); s.value = sched.mode || 'time'; return s; })())),
+    h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Art')), (() => { const s = h('select', { onchange: e => { sched.mode = e.target.value; } }, h('option', { value: 'time' }, t('Zeitplan')), h('option', { value: 'price' }, t('Strompreis (Schwelle)')), h('option', { value: 'profit' }, t('Ertrag (Strom teurer als Ertrag)')), h('option', { value: 'solar' }, t('PV-Leistung (Sonne)')), h('option', { value: 'heat' }, t('Heizung (Raumtemperatur)'))); s.value = sched.mode || 'time'; return s; })())),
     h('h3', {}, t('Zeitplan')), entries,
     h('div', { class: 'form' }, h('button', { class: 'btn small', onclick: () => { sched.entries.push({ days: 127, fromHour: 22, toHour: 6, preset: names[0] || '' }); renderEntries(); } }, t('Zeitfenster hinzufügen')),
       h('div', {}, h('label', {}, t('sonst')), presetSelect(sched, 'defaultPreset'))),
     h('h3', {}, t('Strompreis')),
     h('div', { class: 'form' }, h('div', {}, h('label', {}, cents(t('günstig bis (ct/kWh)'))), numInput(sched, 'thresholdCt', 0.1)),
       h('div', {}, h('label', {}, t('günstig →')), presetSelect(sched, 'cheapPreset')), h('div', {}, h('label', {}, t('teuer →')), presetSelect(sched, 'expensivePreset'))),
-    profitRuleBox(sched), solarRuleBox(sched),
+    profitRuleBox(sched), solarRuleBox(sched), heatRuleBox(sched),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: save }, t('Speichern')), h('button', { class: 'btn primary', onclick: approve }, t('Speichern & freigeben …'))));
 }
 
@@ -3192,6 +3192,31 @@ function solarRuleBox(sched) {
     h('div', { class: 'form' }, h('div', {}, h('label', {}, t('viel Sonne ab (W)')), numInput(sched, 'solarHighW', 10)),
       h('div', {}, h('label', {}, t('wenig Sonne bis (W)')), numInput(sched, 'solarLowW', 10))),
     h('p', { class: 'muted small' }, t('PV-Leistung: ab „viel Sonne“ gilt „günstig →“ (volle Leistung), bis „wenig Sonne“ gilt „teuer →“ (z. B. eine Stromspar-Voreinstellung); dazwischen bleibt es, wie es ist. Die Quelle (Messsteckdose oder Home Assistant, auch Anker Solix) wird unter Einstellungen → Strom & Kosten → PV-Anlage eingestellt.')));
+}
+
+/** 0.9.21 Heiz-Automatik: Raum zu kalt → „günstig →“ (volle Leistung = mehr Wärme), warm genug → „teuer →“ (Sparen). */
+function heatRuleBox(sched) {
+  if (sched.heatTargetC == null) sched.heatTargetC = 20;
+  if (sched.heatHysteresisC == null) sched.heatHysteresisC = 0.5;
+  sched.heatSensor = sched.heatSensor || '';
+  const sensor = h('select', { onchange: e => { sched.heatSensor = e.target.value; ha.hidden = e.target.value !== 'ha:'; if (e.target.value === 'ha:') sched.heatSensor = 'ha:' + haEntity.value.trim(); } },
+    h('option', { value: '' }, t('Lade …')));
+  const haEntity = h('input', { placeholder: 'sensor.wohnzimmer_temperatur', value: sched.heatSensor.startsWith('ha:') ? sched.heatSensor.slice(3) : '',
+    oninput: e => { sched.heatSensor = 'ha:' + e.target.value.trim(); } });
+  const ha = h('div', { hidden: !sched.heatSensor.startsWith('ha:') }, h('label', {}, t('Home-Assistant-Sensor (Temperatur)')), haEntity);
+  api('/heat-sensors').then(list => {
+    const opts = [['', '–'], ...list.sensors.filter(x => x.key.startsWith('pico:')).map(x => [x.key, x.name + (x.temp != null ? ` (${n(x.temp, 1)} °C)` : '')]),
+      ['ha:', t('Home Assistant …')]];
+    fill(sensor, opts.map(([v, l]) => h('option', { value: v }, l)));
+    sensor.value = sched.heatSensor.startsWith('ha:') ? 'ha:' : sched.heatSensor;
+  }).catch(() => fill(sensor, h('option', { value: sched.heatSensor }, sched.heatSensor || '–')));
+  return h('div', { class: 'stack' },
+    h('h3', {}, t('Heizung')),
+    h('div', { class: 'form' },
+      h('div', {}, h('label', {}, t('Fühler')), sensor), ha,
+      h('div', {}, h('label', {}, t('Zieltemperatur (°C)')), numInput(sched, 'heatTargetC', 0.5)),
+      h('div', {}, h('label', {}, t('Abstand (± °C)')), numInput(sched, 'heatHysteresisC', 0.1))),
+    h('p', { class: 'muted small' }, t('Heizung: unter Ziel − Abstand gilt „günstig →“ (volle Leistung = mehr Wärme), über Ziel + Abstand gilt „teuer →“ (Sparen); dazwischen bleibt es. Höchstens alle 10 Minuten ein Wechsel. Fühler: Temperaturfühler am Pico oder ein Home-Assistant-Sensor (Adresse und Token wie bei der PV-Anlage). Ohne aktuellen Messwert bleibt die Voreinstellung.')));
 }
 
 // ---------- Sicherungen ----------

@@ -147,6 +147,59 @@ public class SolarTests
     }
 
     [Fact]
+    public void Heat_rule_follows_room_temperature_with_a_band_and_waits_without_reading()
+    {
+        // 0.9.21 Miner als Heizung
+        var now = new DateTime(2026, 10, 15, 12, 0, 0);
+        double? room = 18;
+        var d = new DeviceConfig { Name = "G", Host = "10.0.0.1" };
+        d.Presets = [new("Voll", 750, 1260), new("Spar", 500, 1100)];
+        d.Schedule.Enabled = true; d.Schedule.Mode = "heat"; d.Schedule.HeatSensor = "pico:wz"; d.Schedule.HeatTargetC = 20; d.Schedule.HeatHysteresisC = 0.5;
+        d.Schedule.CheapPreset = "Voll"; d.Schedule.ExpensivePreset = "Spar";
+        d.Schedule.Approve(d.Host);
+        var asked = new List<string>();
+        var engine = new AutomationEngine(null) { RoomTemp = (key, _) => { asked.Add(key); return room; } };
+
+        var cold = engine.Evaluate(d, I(500, 1100), Gamma, now, false, false);
+        Assert.Equal(750, cold.Action!.FrequencyMhz);                     // zu kalt → volle Leistung
+        Assert.Contains("Raum", cold.Status);
+        Assert.Equal("pico:wz", asked[0]);
+        room = 20.3;
+        Assert.Null(engine.Evaluate(d, I(750, 1260), Gamma, now.AddMinutes(20), false, false).Action);   // im Band: bleibt
+        room = 20.6;
+        Assert.Equal(500, engine.Evaluate(d, I(750, 1260), Gamma, now.AddMinutes(40), false, false).Action!.FrequencyMhz);   // warm → Sparen
+        room = null;
+        var unknown = engine.Evaluate(d, I(500, 1100), Gamma, now.AddMinutes(60), false, false);
+        Assert.Null(unknown.Action);
+        Assert.Single(unknown.Notices);
+
+        // Ziel, Band und Fühler gehören zur Freigabe
+        d.Schedule.HeatTargetC = 21;
+        Assert.False(d.Schedule.IsApproved(d.Host));
+    }
+
+    [Fact]
+    public async Task Room_temperature_comes_from_a_pico_sensor_or_home_assistant()
+    {
+        using var dir = new TempDir();
+        using var hub = Hub(dir, new Fake(r => (HttpStatusCode.OK, r.RequestUri!.AbsolutePath.EndsWith("sensor.wz_temp")
+            ? """{"state":"19.4","attributes":{"unit_of_measurement":"°C"}}""" : "{}")));
+        hub.SaveSolarSettings(Ha, "token", "Test");
+        hub.Config.Devices.Add(new DeviceConfig { Name = "G", Host = "10.0.0.1" });
+        hub.Config.Devices[0].Schedule.Enabled = true;
+        hub.Config.Devices[0].Schedule.Mode = "heat";
+        hub.Config.Devices[0].Schedule.HeatSensor = "ha:sensor.wz_temp";
+        var now = DateTime.Now;
+        Assert.Null(hub.RoomTemp("ha:sensor.wz_temp", now));
+        await hub.PollRoomTempsAsync(["ha:sensor.wz_temp"], now);
+        Assert.Equal(19.4, hub.RoomTemp("ha:sensor.wz_temp", now.AddMinutes(5)));
+        Assert.Null(hub.RoomTemp("ha:sensor.wz_temp", now.AddMinutes(11)));   // zu alt
+        Assert.Contains(hub.RoomSensors(now), s => s.Key == "ha:sensor.wz_temp");
+        Assert.Null(hub.RoomTemp("pico:fehlt", now));
+        Assert.Null(hub.RoomTemp("anders", now));
+    }
+
+    [Fact]
     public void Solar_rule_switches_with_hysteresis_and_waits_when_unknown()
     {
         var now = new DateTime(2026, 10, 15, 12, 0, 0);
