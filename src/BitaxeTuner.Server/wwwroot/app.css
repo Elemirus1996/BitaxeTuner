@@ -505,3 +505,8 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .coin-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .coin-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 90px auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--alt); }
 .coin-row .mini-spark { width: 90px; height: 28px; }
+
+/* 0.9.23 Leere Zustände: warum leer, was tun */
+.empty-state { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; }
+.empty-state:not(.card) { padding: 10px 4px; }
+.empty-state .empty-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--alt); color: var(--muted); }

@@ -80,7 +80,7 @@ public sealed class SmartPlugsPanel : StackPanel
     private void ShowEmptyHint()
     {
         if (_rows.Count == 0 && _list.Children.Count == 0)
-            _list.Children.Add(new TextBlock { Text = L.T("Noch kein Smart Plug eingerichtet."), Margin = new Thickness(0, 4, 0, 4) });
+            _list.Children.Add(new TextBlock { Text = L.T("Noch kein Smart Plug eingerichtet.") + "\n" + L.T("Eine Mess-Steckdose (Shelly, Tasmota, FRITZ!DECT) zeigt den echten Verbrauch an der Steckdose inklusive Netzteil – genauer als die Angabe des Miners. Nur lesen, nie schalten."), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) });
     }
 
     private void AddRow(SmartPlugConfig plug)

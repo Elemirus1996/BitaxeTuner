@@ -69,7 +69,8 @@ public sealed class ReportWindow : Window
         root.Children.Add(buttons);
         Content = root;
 
-        if (periods.Count == 0) _summary.Text = L.T("Noch keine Messwerte für einen Bericht.");
+        if (periods.Count == 0) _summary.Text = L.T("Noch keine Messwerte für einen Bericht.") + "\n" +
+            L.T("Berichte entstehen aus dem Verlauf. Nach dem ersten vollen Tag mit eingetragenen und erreichbaren Minern erscheint hier der erste Tagesbericht.");   // 0.9.23
         else _period.SelectedIndex = Math.Min(1, periods.Count - 1); // Vormonat
     }
 

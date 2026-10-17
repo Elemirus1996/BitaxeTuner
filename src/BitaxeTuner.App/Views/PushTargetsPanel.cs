@@ -79,7 +79,7 @@ public sealed class PushTargetsPanel : StackPanel
         _list.Children.Clear();
         _readers.Clear();
         if (_targets.Count == 0)
-            _list.Children.Add(new TextBlock { Text = L.T("Noch kein Push-Dienst eingerichtet."), Margin = new Thickness(0, 4, 0, 4) });
+            _list.Children.Add(new TextBlock { Text = L.T("Noch kein Push-Dienst eingerichtet.") + "\n" + L.T("Ohne Push-Dienst siehst du Warnungen nur hier in der Glocke. Mit ntfy, Telegram, Discord oder Pushover kommen sie aufs Handy."), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) });
         for (var i = 0; i < _targets.Count; i++) _list.Children.Add(Card(_targets[i], i));
     }
 
