@@ -901,6 +901,37 @@ function kpiTile(label, ic, value, sub, opts = {}) {
     opts.spark ? h('div', { class: 'spark' }, sparkEl(opts.spark, opts.color || 'var(--ok)', '')) : null);
 }
 
+/** 0.9.23 „Was ist los?“: Knopf auf der Miner-Karte, sobald etwas auffällt (die Karte selbst ist ein Link). */
+function whatsUpButton(d) {
+  if (!d.problems?.length) return null;
+  const bad = d.problems.some(p => p.severity === 'bad');
+  const open = e => { e.preventDefault(); e.stopPropagation(); showProblems(d); };
+  return h('span', {
+    class: `pill ${bad ? 'danger' : 'warn'} whatsup`, role: 'button', tabindex: '0', title: d.problems.map(p => p.title).join(' · '),
+    onclick: open, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') open(e); },
+  }, '? ' + t('Was ist los?'));
+}
+
+/** Ziel eines Problem-Links („device:automation“, „fans“, „pools“, „settings:miners“). */
+function problemHref(d, link) {
+  if (!link) return null;
+  const [area, sub] = link.split(':');
+  return area === 'device' ? `#/device/${d.id}/${sub || 'live'}` : area === 'settings' ? `#/settings/${sub || ''}` : `#/${area}`;
+}
+
+function problemList(d) {
+  return h('div', { class: 'stack' }, d.problems.map(p => h('div', { class: `problem ${p.severity}` },
+    h('b', { class: p.severity === 'bad' ? 'danger' : 'warn' }, (p.severity === 'bad' ? '● ' : '▲ ') + p.title),
+    h('div', { class: 'small' }, p.why),
+    h('div', { class: 'small muted' }, t('Prüfen: {0}', p.check)),
+    problemHref(d, p.link) && (p.link.startsWith('device') || isAdmin())
+      ? h('a', { class: 'btn small', href: problemHref(d, p.link), onclick: () => $('#dialog').close() }, t('Dorthin')) : null)));
+}
+
+async function showProblems(d) {
+  await confirmBox(t('Was ist los bei {0}?', d.name), problemList(d), t('Schließen'));
+}
+
 /** Miner-Karte (0.9.14): Status-Rand, große Hashrate mit Verlauf, drei Werte, Pool/Coin, Zusatzzeilen. */
 function minerCard(d, tempWarn) {
   const [hv, hu] = hashParts(d.hashrate);
@@ -919,7 +950,8 @@ function minerCard(d, tempWarn) {
       // 0.9.17: Firmware ohne Tuning (z. B. ZyberOS) bzw. von Hand „nur überwachen“
       d.monitorOnly ? h('span', { class: 'pill gray', title: t('Nur überwachen ({0}) – kein Benchmark, keine Änderung an Frequenz und Spannung.', d.monitorOnly) }, '👁 ' + t('Nur überwachen')) : null,
       webUiIcon(d),
-      d.poolInfo ? null : poolLinkIcon(d)),
+      d.poolInfo ? null : poolLinkIcon(d),
+      whatsUpButton(d)),
     d.online
       ? h('div', { class: 'hashline' }, h('span', { class: 'big', 'data-tw': 'h-' + d.id, 'data-to': hu === 'TH/s' ? d.hashrate / 1000 : d.hashrate, 'data-dec': hu === 'TH/s' ? 2 : 0 }, hv),
           h('span', { class: 'unit' }, hu), sparkEl((d.history || []).map(p => p[1]), hot ? 'var(--warn)' : 'var(--ok)'))
@@ -1934,6 +1966,8 @@ function renderDevice() {
           d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
           h('span', { class: 'pill', title: t('Geräteprofil') }, S.detail.profile.name)))),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
+    // 0.9.23 „Was ist los?“ auf der Geräteseite gleich sichtbar
+    d.problems?.length ? h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('Was ist los?')), problemList(d)) : null,
     h('div', { class: 'tabs' }, TABS().filter(tabOk).map(([k, label]) =>
       h('a', { href: `#/device/${d.id}/${k}`, class: k === tab ? 'active' : null }, label))),
     h('div', {
