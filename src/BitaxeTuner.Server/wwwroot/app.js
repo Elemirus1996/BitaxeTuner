@@ -16,6 +16,8 @@ const money = () => S.status?.money || { code: 'EUR', symbol: '€', cent: 'ct' 
 const cents = s => money().code === 'EUR' ? s : s.replaceAll('ct/kWh', money().cent + '/kWh');
 const $ = (sel, root = document) => root.querySelector(sel);
 const isAdmin = () => S.role === 'Admin';
+/** 0.9.23: Admin oder Bedien-Zugang (Pause, Voreinstellung, Neustart, Wartung). */
+const canOperate = () => S.role === 'Admin' || S.role === 'Operator';
 
 // ---------- DOM ----------
 
@@ -1086,12 +1088,20 @@ function renderOverview() {
       h('p', { class: 'small' }, t('Änderungen gehen beim nächsten Neustart verloren. Bitte Speicherplatz und Schreibrechte des Datenordners prüfen.'))) : null,
     !s.running ? h('div', { class: 'banner row' },
       h('span', { style: 'flex:1' }, t('Der Motor ist pausiert – der Server fragt keine Miner ab (z. B. weil die Desktop-App im Modus „Lokal“ läuft oder Daten übertragen werden).')),
-      isAdmin() ? h('button', {
+      canOperate() && !S.viewGroups?.length ? h('button', {
         class: 'btn primary small', onclick: async () => {
           if (!await confirmBox(t('Motor fortsetzen'), t('Server-Abfragen wieder starten?\n\nLäuft die Desktop-App noch im Modus „Lokal“, würden die Miner doppelt abgefragt. Stelle sie vorher auf „Server“ um oder beende sie.'), t('Fortsetzen'))) return;
-          run(() => api('/admin/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
+          run(() => api('/operate/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
         },
       }, t('Fortsetzen …')) : null) : null,
+    // 0.9.23 Bedien-Zugang: Motor anhalten (Admins haben das in den Einstellungen)
+    s.running && S.role === 'Operator' && !S.viewGroups?.length ? h('div', { class: 'row', style: 'justify-content:flex-end' },
+      h('button', {
+        class: 'btn small', onclick: async () => {
+          if (!await confirmBox(t('Motor pausieren'), t('Server-Abfragen anhalten? Solange fragt der Server keine Miner ab – keine Meldungen, keine Automatik. Die Miner selbst laufen weiter.'), t('Pausieren'))) return;
+          run(() => api('/operate/pause', { method: 'POST', body: { paused: true } }), t('Motor pausiert.'));
+        },
+      }, t('Motor pausieren …'))) : null,
     edit ? ovEditBar() : null,
     grid,
     isAdmin() && !edit ? h('div', { class: 'row', style: 'justify-content:flex-end' },
@@ -1930,7 +1940,7 @@ function renderDevice() {
       h('div', { class: 'dev-hero-side' },
         poolCoinRow(d),
         h('div', { class: 'row', style: 'justify-content:flex-end' },
-          isAdmin() ? maintenanceToggle(d) : d.maintenanceMode ? h('span', { class: 'pill gray' }, '🔧 ' + maintText(d)) : null,
+          canOperate() ? maintenanceToggle(d) : d.maintenanceMode ? h('span', { class: 'pill gray' }, '🔧 ' + maintText(d)) : null,
           d.webUrl ? h('a', { class: 'btn small', href: d.webUrl, target: '_blank', rel: 'noopener', title: t('AxeOS von {0} öffnen', d.name) }, t('AxeOS öffnen ↗')) : null,
           h('span', { class: 'pill', title: t('Geräteprofil') }, S.detail.profile.name)))),
     d.suggestion && isAdmin() ? suggestionBanner(d) : null,
@@ -2151,7 +2161,32 @@ function tabLive() {
         }, t('Miner neu starten'))),
       profileSel ? h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Profil')), profileSel)) : null,
       S.detail.profile.notes ? h('p', { class: 'muted small' }, S.detail.profile.notes) : null) : null,
+    S.role === 'Operator' ? operateCard(d) : null,
     isAdmin() && d.online ? minerFanCard(d) : null);
+}
+
+/** 0.9.23 Bedien-Zugang: gespeicherte Voreinstellung anwenden (Vorschau alt → neu) und Neustart – keine freien Werte. */
+function operateCard(d) {
+  const choices = S.detail?.presetChoices || [];
+  const sel = h('select', {}, choices.map(p => h('option', { value: p.name }, t('{0} ({1} MHz / {2} mV)', p.name, p.frequencyMhz, p.coreVoltageMv))));
+  const apply = async () => {
+    const pv = await run(() => api(`/devices/${d.id}/presets/preview`, { method: 'POST', body: { name: sel.value } }));
+    if (!pv || !await confirmBox(t('Voreinstellung anwenden'), pv.confirmText, t('Anwenden'))) return;
+    run(() => api(`/devices/${d.id}/presets/apply`, { method: 'POST', body: { name: sel.value } }), t('Voreinstellung angewendet.'));
+  };
+  return h('div', { class: 'card stack' },
+    h('h3', {}, t('Bedienen')),
+    choices.length
+      ? h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Voreinstellung')), sel),
+          h('button', { class: 'btn primary', disabled: d.benchmark?.running, onclick: apply }, t('Prüfen & anwenden')))
+      : h('p', { class: 'muted small' }, t('Für diesen Miner sind keine Voreinstellungen gespeichert – die legt der Admin unter Automatik an.')),
+    h('div', { class: 'row' }, h('button', {
+      class: 'btn', onclick: async () => {
+        if (!await confirmBox(t('Neustart'), t('{0} neu starten? Watchdog und Offline-Meldung pausieren dabei.', d.name), t('Neu starten'))) return;
+        run(() => api(`/devices/${d.id}/restart`, { method: 'POST', body: {} }), t('Neustart ausgelöst.'));
+      },
+    }, t('Miner neu starten'))),
+    h('p', { class: 'muted small' }, t('Mit diesem Zugang: Voreinstellungen anwenden, neu starten, Wartungsmodus. Frequenz und Spannung frei einstellen, Einstellungen und Steuer bleiben dem Admin vorbehalten.')));
 }
 
 /**
@@ -5779,9 +5814,11 @@ function viewersCard(groups) {
     const name = h('input', { placeholder: t('z. B. Werkstatt') });
     const pin = h('input', { type: 'password', inputmode: 'numeric', autocomplete: 'new-password', placeholder: t('mind. 6 Ziffern') });
     const picks = groups.map(g => ({ g, box: h('input', { type: 'checkbox' }) }));
+    // 0.9.23: Stufe – nur ansehen oder bedienen
+    const level = h('select', {}, h('option', { value: 'view' }, t('Nur ansehen')), h('option', { value: 'operate' }, t('Bedienen (Pause, Voreinstellung, Neustart, Wartung)')));
     const add = async () => {
       const chosen = picks.filter(p => p.box.checked).map(p => p.g);
-      const r = await run(() => api('/viewers', { method: 'POST', body: { name: name.value, pin: pin.value, groups: chosen } }),
+      const r = await run(() => api('/viewers', { method: 'POST', body: { name: name.value, pin: pin.value, groups: chosen, level: level.value } }),
         t('Ansicht-Zugang angelegt.'));
       if (r) load();
     };
@@ -5791,14 +5828,16 @@ function viewersCard(groups) {
     };
     fill(body,
       list.length ? h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, [t('Name'), t('sieht'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
+        h('thead', {}, h('tr', {}, [t('Name'), t('darf'), t('sieht'), t('erstellt'), t('zuletzt benutzt'), ''].map(x => h('th', {}, x)))),
         h('tbody', {}, list.map(v => h('tr', {},
           h('td', {}, v.name),
+          h('td', {}, v.level === 'operate' ? t('bedienen') : t('ansehen')),
           h('td', {}, v.groups.length ? v.groups.join(', ') : t('alle Miner')),
           h('td', { class: 'nowrap' }, time(v.createdUtc)),
           h('td', { class: 'nowrap' }, v.lastUsedUtc ? time(v.lastUsedUtc) : t('noch nie')),
           h('td', {}, h('button', { class: 'btn small danger', onclick: () => revoke(v) }, t('Widerrufen')))))))) : h('p', { class: 'muted small' }, t('Noch keine eigenen Zugänge.')),
-      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name), h('div', {}, h('label', {}, t('PIN')), pin)),
+      h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), name), h('div', {}, h('label', {}, t('PIN')), pin),
+        h('div', {}, h('label', {}, t('Darf')), level)),
       groups.length
         ? h('div', { class: 'stack' }, h('label', {}, t('Nur diese Gruppen (keine = alle Miner)')),
             h('div', { class: 'row' }, picks.map(p => h('label', { class: 'check' }, p.box, ' ', p.g))))

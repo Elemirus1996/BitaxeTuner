@@ -12,8 +12,13 @@ public enum Role
     None = 0,
     /// <summary>Nur ansehen (wie die bisherige Handy-Ansicht, ohne Wallet-Adressen).</summary>
     Viewer = 1,
+    /// <summary>
+    /// 0.9.23 Bedienen: zusätzlich Motor pausieren, Voreinstellung anwenden, Neustart, Wartungsmodus – keine freien
+    /// Frequenz-/Spannungswerte, keine Einstellungen, keine Tokens, keine Steuer. Nur über einen eigenen Zugang mit PIN.
+    /// </summary>
+    Operator = 2,
     /// <summary>Alles, auch Frequenz/Spannung, Regeln, Einstellungen.</summary>
-    Admin = 2,
+    Admin = 3,
 }
 
 /// <summary>API-Token für die Desktop-App (gespeichert wird nur der SHA-256-Hash).</summary>
@@ -40,6 +45,12 @@ public sealed class ViewerAccess
     public List<string> Groups { get; set; } = [];
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastUsedUtc { get; set; }
+    /// <summary>0.9.23: „view“ = nur ansehen, „operate“ = bedienen (<see cref="Role.Operator"/>). Additiv, Standard „view“.</summary>
+    public string Level { get; set; } = LevelView;
+
+    public const string LevelView = "view";
+    public const string LevelOperate = "operate";
+    public Role Role => Level == LevelOperate ? Role.Operator : Role.Viewer;
 }
 
 /// <summary>
@@ -200,7 +211,7 @@ public sealed class AuthStore
                 if (_data.Viewers.FirstOrDefault(x => x.Id == v.Id) is not { } current) break; // gerade widerrufen
                 current.LastUsedUtc = DateTime.UtcNow;
                 Save();
-                return new LoginResult(Role.Viewer, Clone(current));
+                return new LoginResult(current.Role, Clone(current));
             }
         }
         var pinHash = _config().WebView.PinHash;
@@ -221,7 +232,7 @@ public sealed class AuthStore
     /// Neuer Ansicht-Zugang. Die PIN braucht mindestens 6 Ziffern und darf weder das Admin-Passwort noch die allgemeine
     /// PIN noch die PIN eines anderen Zugangs sein (sonst wäre unklar, wer was sehen darf).
     /// </summary>
-    public ViewerAccess CreateViewer(string name, string pin, IEnumerable<string>? groups)
+    public ViewerAccess CreateViewer(string name, string pin, IEnumerable<string>? groups, string? level = null)
     {
         pin = (pin ?? "").Trim();
         if (pin.Length < ViewerAccess.MinPinLength || !pin.All(char.IsAsciiDigit))
@@ -244,6 +255,7 @@ public sealed class AuthStore
                 PinHash = HashPassword(pin),
                 Groups = MinerGroups.Normalize(groups),
                 CreatedUtc = DateTime.UtcNow,
+                Level = level == ViewerAccess.LevelOperate ? ViewerAccess.LevelOperate : ViewerAccess.LevelView,
             };
             _data.Viewers.Add(entry);
             Save();
@@ -266,8 +278,15 @@ public sealed class AuthStore
 
     private static ViewerAccess Clone(ViewerAccess v) => new()
     {
-        Id = v.Id, Name = v.Name, PinHash = v.PinHash, Groups = v.Groups.ToList(), CreatedUtc = v.CreatedUtc, LastUsedUtc = v.LastUsedUtc,
+        Id = v.Id, Name = v.Name, PinHash = v.PinHash, Groups = v.Groups.ToList(), CreatedUtc = v.CreatedUtc, LastUsedUtc = v.LastUsedUtc, Level = v.Level,
     };
+
+    /// <summary>Name eines Zugangs (für das Protokoll „wer hat was ausgelöst“).</summary>
+    public string? ViewerName(string? id)
+    {
+        if (id is null) return null;
+        lock (_lock) return _data.Viewers.FirstOrDefault(v => v.Id == id)?.Name;
+    }
 
     // ---------- Kiosk-Links ----------
 

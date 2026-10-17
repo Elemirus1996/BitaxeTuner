@@ -1071,4 +1071,113 @@ public sealed class ServerTests : IDisposable
     [InlineData("2001:4860::8888", false)]
     public void Only_home_network_and_vpn_are_private(string ip, bool expected) =>
         Assert.Equal(expected, NetworkRules.IsPrivate(IPAddress.Parse(ip)));
+
+    private async Task<HttpClient> LoginAsync(string pin)
+    {
+        var client = _factory.CreateClient();
+        var r = await Json(await client.PostAsJsonAsync("/api/v1/login", new { password = pin }));
+        client.DefaultRequestHeaders.Add(AuthContext.CsrfHeader, r.GetProperty("csrf").GetString()!);
+        return client;
+    }
+
+    /// <summary>0.9.23: Routen, die ein Bedien-Zugang zusätzlich zu „Nur ansehen“ aufrufen darf – sonst keine.</summary>
+    private static readonly string[] OperatorOnly =
+    [
+        "POST /api/v1/operate/pause",
+        "POST /api/v1/devices/{id}/maintenance",
+        "POST /api/v1/devices/{id}/restart",
+        "POST /api/v1/devices/{id}/presets/preview",
+        "POST /api/v1/devices/{id}/presets/apply",
+    ];
+
+    [Fact]
+    public async Task Operator_may_only_the_operate_routes_and_nothing_else_of_the_admin()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        await Json(await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Bedienung", pin = "135792", level = "operate" }));
+        await Json(await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Schauen", pin = "975310" }));
+        var op = await LoginAsync("135792");
+        var view = await LoginAsync("975310");
+        Assert.Equal("Operator", (await Json(await op.GetAsync("/api/v1/session"))).GetProperty("role").GetString());
+
+        // Jede Route der Anwendung aufrufen: Was der Bedien-Zugang darf, „Nur ansehen“ aber nicht, sind genau die Bedien-Routen
+        var sources = _factory.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>();
+        var routes = sources.Endpoints.OfType<Microsoft.AspNetCore.Routing.RouteEndpoint>()
+            .Where(e => e.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
+            .SelectMany(e => (e.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()?.HttpMethods ?? ["GET"]).Select(m => (Method: m, Pattern: e.RoutePattern.RawText!)))
+            .Where(r => !r.Pattern.Contains("events") && !r.Pattern.Contains("logout") && !r.Pattern.Contains("login") && !r.Pattern.Contains("setup")
+                        && !r.Pattern.Contains("token-session") && !r.Pattern.Contains("/live"))
+            .Distinct().ToList();
+        Assert.True(routes.Count > 100);
+
+        async Task<HttpStatusCode> Call(HttpClient c, string method, string pattern)
+        {
+            var url = System.Text.RegularExpressions.Regex.Replace(pattern.Replace("{id}", id), @"\{[^}]+\}", "x");
+            using var req = new HttpRequestMessage(new HttpMethod(method), url);
+            if (method is "POST" or "PUT" or "PATCH") req.Content = JsonContent.Create(new { });
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { using var r = await c.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token); return r.StatusCode; }
+            catch (OperationCanceledException) { return HttpStatusCode.RequestTimeout; }
+        }
+
+        var extra = new List<string>();
+        foreach (var (method, pattern) in routes)
+        {
+            var asOperator = await Call(op, method, pattern);
+            if (asOperator is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized) continue;
+            var asViewer = await Call(view, method, pattern);
+            if (asViewer is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized) extra.Add($"{method} {pattern}");
+        }
+        Assert.Equal(OperatorOnly.Order(), extra.Distinct().Order());
+        // und der Admin darf sie weiterhin
+        Assert.NotEqual(HttpStatusCode.Forbidden, await Call(admin, "POST", "/api/v1/devices/{id}/restart"));
+    }
+
+    [Fact]
+    public async Task Operator_applies_a_saved_preset_with_preview_and_is_named_in_the_log()
+    {
+        var admin = await AdminAsync();
+        var id = await DeviceIdAsync(admin);
+        await Json(await admin.PostAsJsonAsync($"/api/v1/devices/{id}/presets", new { name = "Leise", frequencyMhz = 450, coreVoltageMv = 1100 }));
+        await Json(await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Werkstatt-Team", pin = "864213", level = "operate" }));
+        var op = await LoginAsync("864213");
+
+        var detail = await Json(await op.GetAsync($"/api/v1/devices/{id}"));
+        Assert.Equal("Leise", detail.GetProperty("presetChoices")[0].GetProperty("name").GetString());
+        Assert.True(!detail.TryGetProperty("config", out var cfg) || cfg.ValueKind == JsonValueKind.Null);   // keine Einstellungen
+
+        var preview = await Json(await op.PostAsJsonAsync($"/api/v1/devices/{id}/presets/preview", new { name = "leise" }));
+        Assert.Contains("450", preview.GetProperty("confirmText").GetString());
+        await Json(await op.PostAsJsonAsync($"/api/v1/devices/{id}/presets/apply", new { name = "Leise" }));
+        Assert.Equal(HttpStatusCode.NotFound, (await op.PostAsJsonAsync($"/api/v1/devices/{id}/presets/apply", new { name = "Gibtsnicht" })).StatusCode);
+        // freie Werte nie
+        Assert.Equal(HttpStatusCode.Forbidden, (await op.PostAsJsonAsync($"/api/v1/devices/{id}/change", new { frequency = 600, voltage = 1300 })).StatusCode);
+
+        await Json(await op.PostAsJsonAsync($"/api/v1/devices/{id}/maintenance", new { on = true, hours = 1 }));
+        await Json(await op.PostAsJsonAsync("/api/v1/operate/pause", new { paused = true }));
+        await Json(await op.PostAsJsonAsync("/api/v1/operate/pause", new { paused = false }));
+        var journal = (await Json(await admin.GetAsync("/api/v1/journal?range=24h"))).GetRawText();
+        Assert.Contains("Werkstatt-Team", journal);
+        Assert.Contains("Leise", journal);
+    }
+
+    [Fact]
+    public async Task Operator_with_groups_operates_only_its_miners_and_not_the_motor()
+    {
+        var admin = await AdminAsync();
+        var keller = (await Json(await admin.PostAsJsonAsync("/api/v1/devices", new { name = "Supra Keller", host = "192.168.50.11" }))).GetProperty("id").GetString()!;
+        var wohnen = await DeviceIdAsync(admin);
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{keller}", new { groups = new[] { "Keller" } }));
+        await Json(await admin.PutAsJsonAsync($"/api/v1/devices/{wohnen}", new { groups = new[] { "Wohnung" } }));
+        await Json(await admin.PostAsJsonAsync("/api/v1/viewers", new { name = "Keller-Team", pin = "112358", groups = new[] { "Keller" }, level = "operate" }));
+        var op = await LoginAsync("112358");
+
+        await Json(await op.PostAsJsonAsync($"/api/v1/devices/{keller}/restart", new { }));
+        Assert.Equal(HttpStatusCode.NotFound, (await op.PostAsJsonAsync($"/api/v1/devices/{wohnen}/restart", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await op.PostAsJsonAsync($"/api/v1/devices/{wohnen}/maintenance", new { on = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await op.PostAsJsonAsync("/api/v1/operate/pause", new { paused = true })).StatusCode);
+        var list = await Json(await admin.GetAsync("/api/v1/viewers"));
+        Assert.Equal("operate", list[0].GetProperty("level").GetString());
+    }
 }

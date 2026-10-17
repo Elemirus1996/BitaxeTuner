@@ -134,6 +134,7 @@ public sealed class EventStream : IDisposable
     public async Task ServeAsync(HttpContext http, Role role, ViewScope? scope = null)
     {
         scope = role == Role.Admin ? ViewScope.All : scope ?? ViewScope.All;
+        if (role == Role.Operator) role = Role.Viewer;   // 0.9.23: Bedienen sieht dasselbe wie „Nur ansehen“
         http.Response.Headers.ContentType = "text/event-stream";
         http.Response.Headers.CacheControl = "no-cache";
         http.Response.Headers["X-Accel-Buffering"] = "no";
