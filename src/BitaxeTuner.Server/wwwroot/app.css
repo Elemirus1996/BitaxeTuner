@@ -514,3 +514,15 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .problem .btn { justify-self: start; }
 .pill.warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
 .pill.danger { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+/* 0.9.23 Handy-Bedienung: Nachbar-Miner, Tippflächen mind. 44 px bei Touch */
+.dev-nav { display: flex; gap: 4px; margin-left: auto; flex: none; }
+.dev-nav .btn { font-size: 20px; line-height: 1; padding: 4px 12px; }
+@media (pointer: coarse) {
+  .btn, .btn.small { min-height: 44px; }
+  .btn.small { padding-left: 12px; padding-right: 12px; }
+  .tabs a { padding: 12px 14px; }
+  .pill[role=button] { padding: 8px 12px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  select, input:not([type=checkbox]):not([type=radio]) { min-height: 44px; }
+  .tabbar a, .tabbar button { min-height: 48px; }
+}

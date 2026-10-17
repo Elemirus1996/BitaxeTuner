@@ -471,6 +471,7 @@ async function boot() {
   });
   $('#lang').addEventListener('change', switchLanguage);
   window.addEventListener('hashchange', () => { closePopovers(); route(); });
+  setupSwipe();   // 0.9.23
 
   // Kiosk-Link: Schlüssel merken und sofort aus der Adresszeile entfernen
   const kiosk = location.hash.match(/^#\/kiosk\?k=([A-Za-z0-9_-]+)/);
@@ -1945,6 +1946,35 @@ async function loadDevice(full) {
 
 function summaryOf(id) { return S.status?.devices.find(d => d.id === id) || S.detail?.summary; }
 
+/** 0.9.23: Nachbar-Miner in der Reihenfolge der Übersicht (gewählte Gruppe) – für ‹ › und Wischen. */
+function neighborDevice(id, dir) {
+  const list = (S.status?.devices || []).filter(x => inGroup(x, S.group));
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0 || list.length < 2) return null;
+  return list[(i + dir + list.length) % list.length];
+}
+
+function goNeighbor(dir) {
+  const next = neighborDevice(S.route?.id, dir);
+  if (next) location.hash = `#/device/${next.id}/${S.route.tab || 'live'}`;
+}
+
+/** 0.9.23: auf der Geräteseite seitlich wischen = nächster/vorheriger Miner (nicht in Tabellen, Diagrammen, Eingaben). */
+function setupSwipe() {
+  let x0 = null, y0 = 0, t0 = 0;
+  const skip = el => el.closest('.tabs, .table-wrap, .chart, canvas, input, select, textarea, .ov-grid, dialog, .popover');
+  document.addEventListener('touchstart', e => {
+    if (S.route?.view !== 'device' || e.touches.length !== 1 || skip(e.target)) { x0 = null; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (x0 == null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dy) < 50 && Date.now() - t0 < 700) goNeighbor(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
 function renderDevice() {
   const d = S.detail.summary;
   // 0.9.17: „Nur überwachen“ – kein Benchmark-Reiter
@@ -1956,8 +1986,12 @@ function renderDevice() {
     h('div', { class: 'card dev-hero', id: 'dev-hero' },
       h('div', { class: 'dev-hero-who' },
         h('span', { id: 'dev-dot', class: `dot ${dotClass(d)}` }),
-        h('div', { style: 'min-width:0' }, h('h2', { style: 'margin:0' }, d.name),
-          h('div', { class: 'muted small' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · ')))),
+        h('div', { style: 'min-width:0;flex:1' }, h('h2', { style: 'margin:0' }, d.name),
+          h('div', { class: 'muted small' }, [d.model, d.firmware, isAdmin() ? d.host : null].filter(Boolean).join(' · '))),
+        // 0.9.23: zum vorherigen/nächsten Miner (auf dem Handy auch per Wischen)
+        neighborDevice(d.id, 1) ? h('div', { class: 'dev-nav' },
+          h('button', { class: 'btn small ghost', title: t('Vorheriger Miner'), 'aria-label': t('Vorheriger Miner'), onclick: () => goNeighbor(-1) }, '‹'),
+          h('button', { class: 'btn small ghost', title: t('Nächster Miner'), 'aria-label': t('Nächster Miner'), onclick: () => goNeighbor(1) }, '›')) : null),
       h('div', { id: 'dev-hash', class: 'dev-hero-hash' }, devHeroHash(d)),
       h('div', { class: 'dev-hero-side' },
         poolCoinRow(d),
