@@ -1055,6 +1055,7 @@ public sealed class ServerTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         Assert.Equal("text/html", r.Content.Headers.ContentType?.MediaType);
         Assert.Contains("frame-ancestors 'none'", r.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Matches(@"connect-src 'self' https://\*\.duckdns\.org:\d+;", r.Headers.GetValues("Content-Security-Policy").Single());
         Assert.Equal("DENY", r.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/gibtsnicht")).StatusCode);
     }
