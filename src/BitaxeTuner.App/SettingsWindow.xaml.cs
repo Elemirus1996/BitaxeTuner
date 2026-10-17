@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using BitaxeTuner.App.Services;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Monitoring;
@@ -778,6 +780,79 @@ public partial class SettingsWindow : Window
         _tocScrolling = true;
         TocList.SelectedIndex = current;
         _tocScrolling = false;
+    }
+
+    // ---------- Suche (0.9.23) ----------
+
+    private readonly Dictionary<UIElement, Visibility> _searchVisibility = new();
+    private readonly Dictionary<TextBlock, Brush?> _searchMarked = new();
+    private static readonly Brush SearchMark = new SolidColorBrush(Color.FromArgb(0x70, 0xF5, 0xA6, 0x23));
+
+    private void SearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || SearchBox.Text.Length == 0) return;
+        SearchBox.Text = "";
+        e.Handled = true;
+    }
+
+    /// <summary>Alle Texte eines Teilbaums: TextBlocks, Beschriftungen, Kopfzeilen, Tooltips, Listeneinträge.</summary>
+    private static IEnumerable<string> TextsOf(DependencyObject node)
+    {
+        switch (node)
+        {
+            case TextBlock tb: yield return tb.Text; break;
+            case HeaderedContentControl { Header: string header }: yield return header; break;
+            case ContentControl { Content: string content }: yield return content; break;
+        }
+        if (node is FrameworkElement { ToolTip: string tip }) yield return tip;
+        foreach (var child in LogicalTreeHelper.GetChildren(node).OfType<DependencyObject>())
+            foreach (var text in TextsOf(child)) yield return text;
+    }
+
+    private static IEnumerable<TextBlock> TextBlocksOf(DependencyObject node)
+    {
+        if (node is TextBlock tb) yield return tb;
+        foreach (var child in LogicalTreeHelper.GetChildren(node).OfType<DependencyObject>())
+            foreach (var t in TextBlocksOf(child)) yield return t;
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var q = SearchBox.Text.Trim();
+        SearchHint.Visibility = SearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var (tb, brush) in _searchMarked) tb.Background = brush;
+        _searchMarked.Clear();
+        var cards = SettingsContent.Children.OfType<UIElement>().ToList();
+        if (q.Length < 2)
+        {
+            foreach (var (card, visibility) in _searchVisibility) card.Visibility = visibility;
+            _searchVisibility.Clear();
+            SearchResult.Visibility = Visibility.Collapsed;
+            BuildToc();
+            return;
+        }
+        if (_searchVisibility.Count == 0)
+            foreach (var card in cards) _searchVisibility[card] = card.Visibility;
+        var found = 0;
+        UIElement? first = null;
+        foreach (var card in cards)
+        {
+            // Karten, die sonst ausgeblendet sind (z. B. nur im Server-Modus), bleiben es
+            var hit = _searchVisibility[card] == Visibility.Visible && TextsOf(card).Any(t => t.Contains(q, StringComparison.CurrentCultureIgnoreCase));
+            card.Visibility = hit ? Visibility.Visible : Visibility.Collapsed;
+            if (!hit) continue;
+            found++;
+            first ??= card;
+            foreach (var tb in TextBlocksOf(card).Where(t => t.Text.Contains(q, StringComparison.CurrentCultureIgnoreCase)))
+            {
+                _searchMarked[tb] = tb.Background;
+                tb.Background = SearchMark;
+            }
+        }
+        SearchResult.Text = found > 0 ? L.T("{0} Karten mit Treffern", found) : L.T("Nichts gefunden.");
+        SearchResult.Visibility = Visibility.Visible;
+        BuildToc();
+        SettingsScroll.ScrollToTop();
     }
 
     // ---------- Hilfen ----------

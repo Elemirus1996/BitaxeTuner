@@ -528,3 +528,8 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 }
 /* 0.9.23 Pico-Kopplung */
 .pair-code { font-size: 44px; font-weight: 800; letter-spacing: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+/* 0.9.23 Suche in den Einstellungen */
+.settings-search { width: 100%; margin-bottom: 4px; }
+.settings-hits { margin: 0 0 6px; min-height: 1em; }
+.subnav .cnt { margin-left: auto; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); }
+mark.find { background: color-mix(in srgb, var(--warn) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
