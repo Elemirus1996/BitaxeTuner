@@ -1020,7 +1020,7 @@ function renderOverview() {
   // 0.9.11 Übersicht-Designer: Panels aus dem gespeicherten Aufbau (Standard = bisheriger Aufbau)
   if (S.overviewLayout === undefined) {
     S.overviewLayout = null;
-    api('/overview-layout').then(d => { S.overviewLayout = d.layout; if (S.route?.view === 'overview') renderOverview(); }).catch(() => {});
+    api('/overview-layout').then(d => { S.overviewLayout = d.layout; S.ovMeta = d; if (S.route?.view === 'overview') renderOverview(); }).catch(() => {});
   }
   const edit = S.ovEdit;
   const layout = edit ? S.ovDraft : (S.overviewLayout || OVERVIEW_DEFAULT);
@@ -1066,6 +1066,9 @@ function renderOverview() {
     coins: () => coinsCard(s.coins, tv.currency),
     pools: () => s.extraPools?.length ? extraPoolsOverviewCard(s.extraPools, tv.currency) : null,
     text: p => h('div', { class: 'card' }, h('p', { class: 'help-text' }, p.text || '')),
+    // 0.9.23 für die Vorlage „Technik“
+    fans: () => ovFansCard(),
+    health: () => isAdmin() ? ovHealthCard() : null,
   };
   const grid = h('div', { class: `ov-grid${edit ? ' ov-edit' : ''}`, id: 'ovGrid' }, layout.panels.map((p, i) => {
     const content = panels[p.type]?.(p) ?? (edit ? h('div', { class: 'card muted small' }, t('{0} – derzeit leer', ovTypeName(p.type))) : null);
@@ -1107,10 +1110,11 @@ const ovTypeName = type => (OVERVIEW_TYPES().find(x => x[0] === type) || [type, 
 
 async function ovStartEdit() {
   // Erst den gespeicherten Aufbau holen – sonst würde der Standard bearbeitet und ein eigener Aufbau überschrieben
-  if (!S.overviewLayout) {
+  if (!S.overviewLayout || !S.ovMeta) {
     const d = await run(() => api('/overview-layout'));
     if (!d) return;
     S.overviewLayout = d.layout;
+    S.ovMeta = d;   // 0.9.23: Vorlagen
   }
   const base = S.overviewLayout || OVERVIEW_DEFAULT;
   S.ovDraft = { panels: base.panels.map(p => ({ ...p })) };
@@ -1137,6 +1141,7 @@ function ovEditBar() {
     h('div', { style: 'flex:1;min-width:200px' }, h('b', {}, t('Übersicht bearbeiten')),
       h('div', { class: 'small muted' }, t('Panels am Griff ziehen, Breite am orangen Rand ziehen, Miner-Karten direkt verschieben. Gilt für alle Browser.'))),
     add, h('button', { class: 'btn small', onclick: () => { S.ovDraft.panels.push({ type: add.value, colSpan: 6, title: '', text: '' }); renderOverview(); } }, icon('plus', 16), t('Panel hinzufügen')),
+    ovTemplatePicker(layout => { S.ovDraft = structuredClone(layout); renderOverview(); }),
     h('button', { class: 'btn small ghost', onclick: async () => {
       if (!await confirmBox(t('Standardaufbau'), t('Übersicht auf den Standardaufbau zurücksetzen?'), t('Zurücksetzen'))) return;
       const r = await run(() => api('/overview-layout', { method: 'PUT', body: { panels: [], reset: true } }), t('Übersicht zurückgesetzt.'));
@@ -1238,7 +1243,61 @@ const OVERVIEW_DEFAULT = { panels: ['kpis', 'chart', 'coins', 'miners', 'plugs',
 const OVERVIEW_TYPES = () => [['kpis', t('Kennzahlen-Reihe')], ['hashrate', t('Hashrate gesamt')], ['power', t('Leistung')], ['efficiency', t('Effizienz')],
   ['maxtemp', t('Max. Temperatur')], ['price', t('Strompreis')], ['cost', t('Stromkosten')], ['chart', t('Verlauf (Hashrate)')], ['miners', t('Miner')],
   ['plugs', t('Smart Plugs')], ['soak', t('Dauertest für mehrere Miner')], ['news', t('Neuigkeiten')], ['text', t('Eigener Text')],
-  ['profit', t('Ertrag gegen Stromkosten')], ['coins', t('Kurse der geschürften Coins')], ['pools', t('Weitere Pool-Konten')]];
+  ['profit', t('Ertrag gegen Stromkosten')], ['coins', t('Kurse der geschürften Coins')], ['pools', t('Weitere Pool-Konten')],
+  ['fans', t('Lüfter und Fühler')], ['health', t('Systemzustand')]];
+
+/** 0.9.23 Panel „Lüfter und Fühler“: Zusatzlüfter mit Drehzahl, Temperaturfühler (lädt nach, höchstens alle 10 s neu). */
+function ovFansCard() {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted small' }, t('Lade …')));
+  const draw = d => {
+    const st = d?.status;
+    if (!st || (!st.channels?.length && !st.sensors?.length)) return fill(box, h('p', { class: 'muted small' }, t('Keine Zusatzlüfter eingerichtet.')),
+      isAdmin() ? h('a', { class: 'btn small', href: '#/fans' }, t('Lüfter & Anzeige')) : null);
+    fill(box,
+      st.connected ? null : h('p', { class: 'warn small' }, t('Pico nicht verbunden – Lüfter laufen zur Sicherheit auf 100 %.')),
+      (st.channels || []).map(c => h('div', { class: 'row small', style: 'gap:8px' },
+        h('span', { style: 'flex:1' }, c.name), h('span', { class: 'mono' }, `${c.percent} %`),
+        h('span', { class: `mono ${c.stalled ? 'danger' : 'muted'}` }, c.stalled ? t('steht!') : c.rpm != null ? t('{0} U/min', c.rpm) : '–'))),
+      (st.sensors || []).map(x => h('div', { class: 'row small', style: 'gap:8px' },
+        h('span', { style: 'flex:1' }, x.name), h('span', { class: `mono ${x.hot ? 'danger' : ''}` }, x.temp != null ? t('{0} °C', n(x.temp, 1)) : '–'))));
+  };
+  if (S.ovFans && Date.now() - S.ovFans.at < 10000) draw(S.ovFans.d);
+  else api('/fans').then(d => { S.ovFans = { at: Date.now(), d }; draw(d); }).catch(e => fill(box, h('p', { class: 'danger small' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('Lüfter und Fühler')), box);
+}
+
+/** 0.9.23 Panel „Systemzustand“ (nur Admin): Speicher, Temperatur, Sicherung, Zertifikat, Update … */
+function ovHealthCard() {
+  const box = h('div', { class: 'stack' }, h('p', { class: 'muted small' }, t('Lade …')));
+  const draw = d => fill(box, (d.checks || []).map(c => h('div', { class: 'row small', style: 'gap:8px', title: c.hint || '' },
+    h('span', { class: c.state === 'bad' ? 'danger' : c.state === 'warn' ? 'warn' : 'ok' }, c.state === 'ok' ? '✓' : c.state === 'warn' ? '▲' : '●'),
+    h('span', { style: 'flex:1' }, c.label), h('span', { class: 'muted' }, c.value))));
+  if (S.ovHealth && Date.now() - S.ovHealth.at < 30000) draw(S.ovHealth.d);
+  else api('/system/health').then(d => { S.ovHealth = { at: Date.now(), d }; draw(d); }).catch(e => fill(box, h('p', { class: 'danger small' }, e.message)));
+  return h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('Systemzustand')), box);
+}
+
+/** 0.9.23 Vorlagen für die Übersicht: übernehmen (eigener Aufbau wird gesichert) oder gesicherten Aufbau zurückholen. */
+function ovTemplatePicker(after) {
+  const meta = S.ovMeta || {};
+  const templates = meta.templates || [];
+  if (!templates.length) return null;
+  const sel = h('select', { style: 'width:auto' }, templates.map(x => h('option', { value: x.id, title: x.hint }, x.name)));
+  const apply = async () => {
+    const tpl = templates.find(x => x.id === sel.value);
+    if (!await confirmBox(t('Vorlage „{0}“', tpl.name), h('div', { class: 'stack' }, h('p', {}, tpl.hint),
+      h('p', { class: 'muted small' }, t('Dein bisheriger Aufbau wird gesichert und lässt sich mit „Eigenen Aufbau zurückholen“ wiederherstellen. Danach ist alles frei anpassbar.'))), t('Übernehmen'))) return;
+    const r = await run(() => api('/overview-layout', { method: 'PUT', body: { panels: [], reset: false, template: tpl.id } }), t('Vorlage übernommen.'));
+    if (r) { S.overviewLayout = r.layout; S.ovMeta = { ...meta, hasBackup: r.hasBackup }; after(r.layout); }
+  };
+  const restore = async () => {
+    const r = await run(() => api('/overview-layout', { method: 'PUT', body: { panels: [], reset: false, restore: true } }), t('Eigener Aufbau zurückgeholt.'));
+    if (r) { S.overviewLayout = r.layout; S.ovMeta = { ...meta, hasBackup: r.hasBackup }; after(r.layout); }
+  };
+  return h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('span', { class: 'small muted' }, t('Vorlage:')), sel,
+    h('button', { class: 'btn small', onclick: apply }, t('Übernehmen …')),
+    meta.hasBackup ? h('button', { class: 'btn small ghost', onclick: restore, title: t('Den Aufbau vor der letzten Vorlage wiederherstellen') }, t('Eigenen Aufbau zurückholen')) : null);
+}
 
 /** 0.9.11 Übersicht-Designer: Panels anordnen (Breite im 12er-Raster), dazu die Reihenfolge der Miner. */
 function overviewDesignCard(devices) {

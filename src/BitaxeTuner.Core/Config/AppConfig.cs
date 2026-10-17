@@ -164,6 +164,8 @@ public sealed class AppConfig
 
     /// <summary>0.9.11: Aufbau der Übersicht im Browser (Übersicht-Designer); null = Standardaufbau. Additiv.</summary>
     public OverviewLayout? OverviewLayout { get; set; }
+    /// <summary>0.9.23: eigener Aufbau vor dem Übernehmen einer Vorlage (zum Zurückholen). Additiv.</summary>
+    public OverviewLayout? OverviewLayoutBackup { get; set; }
 
     /// <summary>0.9.12: HTTPS ohne Warnung über DuckDNS und Let's Encrypt (nur Server). Additiv.</summary>
     public PublicHttpsSettings PublicHttps { get; set; } = new();
