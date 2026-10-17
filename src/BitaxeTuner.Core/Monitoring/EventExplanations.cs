@@ -61,7 +61,7 @@ public static class EventExplanations
             L.T("Miner wieder erreichbar"),
             L.T("Der Miner antwortet wieder. Die Dauer des Ausfalls ergibt sich aus dem Abstand zur Meldung „offline“."),
             L.T("Nichts zu tun. Häufen sich Ausfälle, lohnt ein Blick auf WLAN-Empfang und Stromversorgung."))),
-        new("restart", EventCategories.Connection, "Neustart ausgelöst (Browser).", () => E("restart",
+        new("restart", EventCategories.Connection, "Neustart ausgelöst ({0}).", () => E("restart",
             L.T("Neustart von Hand"),
             L.T("Der Miner wurde über die Oberfläche neu gestartet. Watchdog und Offline-Meldung pausieren dabei kurz."),
             L.T("Nichts zu tun."))),

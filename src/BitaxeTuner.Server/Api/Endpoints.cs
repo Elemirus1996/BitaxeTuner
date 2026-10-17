@@ -39,7 +39,9 @@ public sealed record AppearanceRequest(string? Bg, int Veil, bool Anim, bool Num
 public sealed record PoolAccountRequest(bool Enabled, int IntervalMinutes, string? TaxBasis, bool TaxImport, string? ApiKey, bool? AutoExchange = null,
     bool? NotifyCoinSwitch = null);
 public sealed record HttpsRequest(bool Enable);
-public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups);
+public sealed record ViewerRequest(string? Name, string? Pin, List<string>? Groups, string? Level = null);
+public sealed record PresetApplyRequest(string? Name);
+public sealed record OperatePauseRequest(bool Paused);
 public sealed record SnapshotRequest(string File, List<string>? Fields);
 public sealed record PauseRequest(bool Paused);
 public sealed record FanFirmwareRequest(bool Reinstall);
@@ -68,6 +70,10 @@ public static class Endpoints
         KioskEndpoints.MapViewer(viewer);
         ExtraDisplayEndpoints.MapViewer(viewer);
         OverviewEndpoints.MapViewer(viewer);
+
+        // 0.9.23 Bedienen ohne Admin-Rechte (Admins dürfen das natürlich auch)
+        var operate = api.MapGroup("").AddEndpointFilter(Require(Role.Operator));
+        MapOperator(operate);
 
         var admin = api.MapGroup("").AddEndpointFilter(Require(Role.Admin));
         MapDevices(admin);
@@ -144,7 +150,7 @@ public static class Endpoints
     {
         var auth = AuthContext.Of(ctx.HttpContext);
         if (auth.Role == Role.None) return Error(401, L.N("Bitte anmelden."));
-        if (auth.Role < role) return Error(403, L.N("Dafür sind Admin-Rechte nötig."));
+        if (auth.Role < role) return Error(403, role == Role.Admin ? L.N("Dafür sind Admin-Rechte nötig.") : L.N("Dafür sind Bedien-Rechte nötig."));
         if (!auth.CsrfOk(ctx.HttpContext.Request)) return Error(403, L.N("CSRF-Prüfung fehlgeschlagen – Seite neu laden."));
         return await next(ctx);
     };
@@ -277,6 +283,76 @@ public static class Endpoints
         Dto.Find(hub, id) is { } d && scope.Allows(d) ? d : throw new KeyNotFoundException(L.N("Gerät nicht gefunden."));
 
     private static string Client(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "?";
+
+    /// <summary>0.9.23: Wer hat es ausgelöst – „Browser“ (Admin) oder der Name des Bedien-Zugangs (fürs Protokoll).</summary>
+    internal static string Who(HttpContext http)
+    {
+        var auth = AuthContext.Of(http);
+        if (auth.Role == Role.Admin) return L.T("Browser");
+        var name = http.RequestServices.GetService<AuthStore>()?.ViewerName(auth.Session?.AccessId);
+        return L.T("Zugang „{0}“", name ?? "?");
+    }
+
+    // ---------- Bedienen (0.9.23) ----------
+
+    /// <summary>
+    /// Bedien-Zugang: Motor pausieren, Wartungsmodus, Neustart, gespeicherte Voreinstellung anwenden (mit Vorschau alt → neu).
+    /// Miner außerhalb der Gruppen des Zugangs gelten als nicht vorhanden. Keine freien Frequenz-/Spannungswerte.
+    /// </summary>
+    private static void MapOperator(RouteGroupBuilder g)
+    {
+        // Motor betrifft alle Miner – nur ohne Gruppen-Beschränkung
+        g.MapPost("/operate/pause", async (OperatePauseRequest req, HttpContext http, HubService hub) =>
+        {
+            if (AuthContext.Of(http).Scope.Restricted) return Error(403, L.N("Den Motor dürfen nur Zugänge für alle Miner pausieren."));
+            await hub.SetPausedAsync(req.Paused);
+            var who = Who(http);
+            await hub.RunAsync(h => { h.LogEvent(null, EventCategories.Settings, req.Paused ? L.T("Motor pausiert ({0}).", who) : L.T("Motor läuft wieder ({0}).", who)); return true; });
+            return Results.Json(new { paused = req.Paused });
+        });
+
+        // 0.9.11 Wartungsmodus: Überwachung des Miners pausieren, während an ihm gearbeitet wird
+        g.MapPost("/devices/{id}/maintenance", async (string id, MaintenanceRequest req, HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(h =>
+        {
+            var d = Device(h, id, AuthContext.Of(http).Scope);
+            h.SetMaintenanceMode(d, req.On, req.Hours, Who(http));
+            return new { ok = true, text = MinerHub.MaintenanceText(d.Config), until = d.Config.MaintenanceUntil is { } mu ? new DateTimeOffset(mu) : (DateTimeOffset?)null };
+        })));
+
+        g.MapPost("/devices/{id}/restart", async (string id, HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var d = Device(h, id, AuthContext.Of(http).Scope);
+            if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
+            await d.Connection.RestartAsync(); // öffnet das Wartungsfenster: keine Offline-Meldung
+            d.AddLog(L.T("Neustart ausgelöst ({0}).", Who(http)), EventCategories.Connection);
+            return new { ok = true };
+        })));
+
+        // Gespeicherte Voreinstellung anwenden: erst Vorschau (alter → neuer Wert), dann bestätigt ausführen
+        g.MapPost("/devices/{id}/presets/preview", async (string id, PresetApplyRequest req, HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var d = Device(h, id, AuthContext.Of(http).Scope);
+            var p = Preset(d, req.Name);
+            return await h.PreviewChangeAsync(d, p.FrequencyMhz, p.CoreVoltageMv, L.T("Voreinstellung „{0}“", p.Name));
+        })));
+
+        g.MapPost("/devices/{id}/presets/apply", async (string id, PresetApplyRequest req, HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var d = Device(h, id, AuthContext.Of(http).Scope);
+            var p = Preset(d, req.Name);
+            await h.ApplyChangeAsync(d, p.FrequencyMhz, p.CoreVoltageMv);
+            d.AddLog(L.T("Voreinstellung „{0}“ angewendet ({1}).", p.Name, Who(http)), EventCategories.Automation);
+            return new { ok = true };
+        })));
+    }
+
+    private static TuningPreset Preset(HubDevice d, string? name)
+    {
+        var p = d.Config.Presets.FirstOrDefault(x => string.Equals(x.Name, (name ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? throw new LocalizedException("Voreinstellung nicht gefunden.") { Status = 404 };
+        if (MinerHub.CheckPreset(d, p) is { } error) throw new InvalidOperationException(error);
+        return p;
+    }
 
     // ---------- Prometheus ----------
 
@@ -678,22 +754,6 @@ public static class Endpoints
             return new { ok = true };
         })));
 
-        // 0.9.11 Wartungsmodus: Überwachung des Miners pausieren, während an ihm gearbeitet wird
-        g.MapPost("/devices/{id}/maintenance", async (string id, MaintenanceRequest req, HubService hub) => Results.Json(await hub.RunAsync(h =>
-        {
-            var d = Device(h, id);
-            h.SetMaintenanceMode(d, req.On, req.Hours, L.T("Browser"));
-            return new { ok = true, text = MinerHub.MaintenanceText(d.Config), until = d.Config.MaintenanceUntil is { } mu ? new DateTimeOffset(mu) : (DateTimeOffset?)null };
-        })));
-
-        g.MapPost("/devices/{id}/restart", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>
-        {
-            var d = Device(h, id);
-            if (d.IsBenchmarkRunning) throw new InvalidOperationException(L.N("Während eines Benchmarks nicht möglich."));
-            await d.Connection.RestartAsync(); // öffnet das Wartungsfenster: keine Offline-Meldung
-            d.AddLog(L.T("Neustart ausgelöst (Browser)."), EventCategories.Connection);
-            return new { ok = true };
-        })));
 
         // Benchmark
         // Lüfter des Miners (AxeOS/NerdQAxe): Automatik mit Zieltemperatur oder fester Wert – Bestätigung im Browser
@@ -1135,19 +1195,21 @@ public static class Endpoints
 
         // Eigene Ansicht-Zugänge (PIN je Person, optional auf Gruppen beschränkt); die PIN wird nie zurückgegeben
         g.MapGet("/viewers", (AuthStore auth) =>
-            Results.Json(auth.Viewers.Select(v => new { v.Id, v.Name, v.Groups, v.CreatedUtc, v.LastUsedUtc })));
+            Results.Json(auth.Viewers.Select(v => new { v.Id, v.Name, v.Groups, v.CreatedUtc, v.LastUsedUtc, v.Level })));
 
         g.MapPost("/viewers", async (ViewerRequest req, AuthStore auth, HubService hub) =>
         {
-            var v = auth.CreateViewer(req.Name ?? "", req.Pin ?? "", req.Groups);
+            var v = auth.CreateViewer(req.Name ?? "", req.Pin ?? "", req.Groups, req.Level);
             await hub.RunAsync(h =>
             {
                 h.LogEvent(null, EventCategories.Settings, v.Groups.Count == 0
                     ? L.T("Ansicht-Zugang „{0}“ angelegt (alle Miner).", v.Name)
                     : L.T("Ansicht-Zugang „{0}“ angelegt (Gruppen: {1}).", v.Name, string.Join(", ", v.Groups)));
+                if (v.Level == ViewerAccess.LevelOperate)
+                    h.LogEvent(null, EventCategories.Settings, L.T("Zugang „{0}“ darf bedienen (Pause, Voreinstellung, Neustart, Wartung).", v.Name));
                 return true;
             });
-            return Results.Json(new { v.Id, v.Name, v.Groups, v.CreatedUtc });
+            return Results.Json(new { v.Id, v.Name, v.Groups, v.CreatedUtc, v.Level });
         });
 
         // Kiosk-Links (Wand-Tablet): der Schlüssel wird nur beim Anlegen einmal zurückgegeben

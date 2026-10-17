@@ -337,6 +337,8 @@ public static class Dto
                 p.MaxChipTempC, p.MaxPowerW,
             },
             profiles = admin ? hub.ProfilesFor(d).Select(x => new { x.Id, x.Name }).ToList() : null,
+            // 0.9.23 Bedienen: gespeicherte Voreinstellungen zum Anwenden (keine freien Werte)
+            presetChoices = role >= Role.Operator ? c.Presets.Select(x => new { x.Name, x.FrequencyMhz, x.CoreVoltageMv }).ToList() : null,
             benchmarkDefaults = admin ? BenchmarkSettings.FromProfile(p) : null,
             estimatedDuration = BenchmarkManager.EstimatedDurationText(BenchmarkSettings.FromProfile(p)),
             session = session is null ? null : Session(session),
