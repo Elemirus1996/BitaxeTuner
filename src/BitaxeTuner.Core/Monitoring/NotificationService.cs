@@ -41,6 +41,9 @@ public sealed class NotificationService : IDisposable
     /// <summary>Jede Meldung, die die Sperrzeit passiert hat (für Meldungsverlauf im Browser und Tests).</summary>
     public event Action<string, string, string, NotifyPriority>? Sending;
 
+    /// <summary>0.9.23: jede Meldung (auch ohne Push-Ziel, vor der Sperrzeit) – für Warnungen mit Knöpfen im Chat-Bot.</summary>
+    public event Action<string, string, string?>? Raised;
+
     /// <summary>Nur für Tests: statt ntfy/Telegram aufrufen (einmal je Ziel).</summary>
     internal Func<string, string, NotifyPriority, Task>? TransportOverride { get; set; }
 
@@ -101,6 +104,7 @@ public sealed class NotificationService : IDisposable
                                 NotifyCategory category = NotifyCategory.Other, string? host = null)
     {
         if (host is not null && category != NotifyCategory.Finds && Muted?.Invoke(host) == true) return SendOutcome.NoTarget;
+        Raised?.Invoke(key, title, host);
         var accepting = _settings().EffectiveTargets().Where(t => Providers.Contains(t.Provider) && t.Accepts(category, host, GroupsOf)).ToList();
         if (accepting.Count == 0) return SendOutcome.NoTarget;
 

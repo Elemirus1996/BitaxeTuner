@@ -19,6 +19,9 @@ public sealed class ChatBotPanel : StackPanel
     private readonly Func<IReadOnlyList<PushTarget>> _targets;
     private readonly CheckBox _tg = new() { Margin = new Thickness(0, 4, 0, 4) }, _dc = new() { Margin = new Thickness(0, 8, 0, 4) };
     private readonly CheckBox _live = new() { Margin = new Thickness(0, 8, 0, 4) };
+    // 0.9.23
+    private readonly CheckBox _presence = new() { Margin = new Thickness(0, 4, 0, 4) }, _alerts = new() { Margin = new Thickness(0, 8, 0, 4) };
+    private readonly Dictionary<string, CheckBox> _private = new();
     private readonly ComboBox _tgTarget = new() { DisplayMemberPath = "Title", SelectedValuePath = "Id", Margin = new Thickness(0, 0, 0, 6) };
     private readonly PasswordBox _token = new() { Margin = new Thickness(0, 0, 0, 6) };
     private readonly TextBox _guild = new() { Margin = new Thickness(0, 0, 0, 6) }, _channel = new() { Margin = new Thickness(0, 0, 0, 6) };
@@ -70,6 +73,25 @@ public sealed class ChatBotPanel : StackPanel
         row.Children.Add(_result);
         Children.Add(row);
         _invite.IsEnabled = InviteUrl() is not null;
+
+        // 0.9.23 Bot-Status, private Antworten, Warnungen mit Knöpfen
+        _presence.Content = L.T("Bot-Status unter dem Namen zeigen (z. B. „3/3 online · 3,2 TH/s“)");
+        _presence.IsChecked = s.Presence;
+        Children.Add(_presence);
+        Children.Add(Label(L.T("Nur für den Fragenden sichtbar")));
+        var priv = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+        foreach (var (name, _) in MinerHub.ChatCommandNames.Where(c => c.Name != "help"))
+        {
+            var box = new CheckBox { Content = "/" + name, IsChecked = s.PrivateCommands.Contains(name), Margin = new Thickness(0, 2, 14, 2) };
+            _private[name] = box;
+            priv.Children.Add(box);
+        }
+        Children.Add(priv);
+        Children.Add(Muted(L.T("Antworten kommen bei Discord als farbige Karte (grün/gelb/rot nach Zustand); /miner und /history schlagen die Minernamen vor.")));
+        _alerts.Content = L.T("Warnungen (offline, Überhitzung, Lüfter steht) zusätzlich in den Chat – mit Knöpfen [Details] [Verlauf]");
+        _alerts.IsChecked = s.AlertButtons;
+        Children.Add(_alerts);
+        Children.Add(Muted(L.T("Die Knöpfe zeigen nur Werte und Verlauf an, sie ändern nichts. Telegram und Discord; dieselbe Warnung höchstens alle 30 Minuten.")));
 
         _live.Content = L.T("Angepinnte Nachricht mit dem aktuellen Stand pflegen");
         _live.IsChecked = s.LiveStatus;
@@ -146,6 +168,9 @@ public sealed class ChatBotPanel : StackPanel
             DiscordAppId = config.ChatBot.DiscordAppId,
             LiveStatus = _live.IsChecked == true,
             LiveMinutes = int.TryParse(_minutes.Text.Trim(), out var m) ? m : 5,
+            Presence = _presence.IsChecked == true,
+            AlertButtons = _alerts.IsChecked == true,
+            PrivateCommands = _private.Where(x => x.Value.IsChecked == true).Select(x => x.Key).ToList(),
         };
         s.Normalize();
         config.ChatBot = s;
