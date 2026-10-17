@@ -4936,7 +4936,37 @@ function solarCard() {
     const show = () => { plugBox.style.display = src.value === 'plug' ? '' : 'none'; haBox.style.display = src.value === 'homeassistant' ? '' : 'none'; };
     src.addEventListener('change', show);
     show();
-    const req = () => ({ settings: { source: src.value, plugId: plug.value, haUrl: url.value, haEntity: entity.value }, token: token.value || null });
+    // 0.9.21: Prognose (Open-Meteo)
+    const fc = { forecastEnabled: !!s.forecastEnabled, smoothClouds: s.smoothClouds !== false, latitude: s.latitude ?? '', longitude: s.longitude ?? '',
+      peakKw: s.peakKw || '', tiltDeg: s.tiltDeg ?? 30, azimuthDeg: s.azimuthDeg ?? 0 };
+    const numBox = (key, step, ph) => h('input', { type: 'number', step, value: fc[key], placeholder: ph || '', oninput: e => { fc[key] = e.target.value; } });
+    const azimuth = h('select', { onchange: e => { fc.azimuthDeg = Number(e.target.value); } },
+      [[0, t('Süden')], [-45, t('Südosten')], [45, t('Südwesten')], [-90, t('Osten')], [90, t('Westen')], [180, t('Norden')]].map(([v, l]) => h('option', { value: v }, l)));
+    azimuth.value = String(fc.azimuthDeg);
+    const f = d.forecast;
+    const forecastView = f ? h('div', { class: 'stack' },
+      f.error ? h('p', { class: 'small warn' }, f.error) : null,
+      f.hours?.length ? h('div', { class: 'row', style: 'align-items:center;gap:12px' },
+        sparkEl(f.hours.map(x => x.w), 'var(--warn)'),
+        h('span', { class: 'small' }, t('jetzt erwartet {0} W', n(f.nowW ?? 0, 0)))) : null,
+      h('p', { class: 'small' }, f.outlook
+        ? t('Heute etwa {0}–{1} Uhr viel Sonne (ab {2} W) – volle Leistung zu erwarten.', new Date(f.outlook.from).getHours(), new Date(f.outlook.to).getHours(), n(f.highW, 0))
+        : f.hours?.length ? t('Heute keine Stunde mit viel Sonne (ab {0} W) mehr erwartet.', n(f.highW, 0)) : t('Prognose wird geladen …'))) : null;
+    const fcBox = h('div', { class: 'stack' },
+      checkInput(fc, 'forecastEnabled', t('PV-Prognose nutzen (Open-Meteo, kostenlos, ohne Konto)')),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('Breitengrad')), numBox('latitude', '0.01', '52.52')),
+        h('div', {}, h('label', {}, t('Längengrad')), numBox('longitude', '0.01', '13.40')),
+        h('div', {}, h('label', {}, t('Anlagengröße (kWp)')), numBox('peakKw', '0.1', '0.8')),
+        h('div', {}, h('label', {}, t('Neigung (Grad)')), numBox('tiltDeg', '1', '30')),
+        h('div', {}, h('label', {}, t('Ausrichtung')), azimuth)),
+      checkInput(fc, 'smoothClouds', t('Kurze Wolken überbrücken (Messwert kurz niedrig, Prognose sonnig → bis zu 20 min nicht herunterschalten)')),
+      h('p', { class: 'muted small' }, t('An Open-Meteo gehen nur der auf etwa 1 km gerundete Standort sowie Neigung und Ausrichtung – keine Adresse, keine Messwerte.')),
+      forecastView);
+    const num = v => v === '' || v == null ? null : Number(v);
+    const req = () => ({ settings: { source: src.value, plugId: plug.value, haUrl: url.value, haEntity: entity.value,
+      forecastEnabled: fc.forecastEnabled, smoothClouds: fc.smoothClouds, latitude: num(fc.latitude), longitude: num(fc.longitude),
+      peakKw: num(fc.peakKw) || 0, tiltDeg: num(fc.tiltDeg) ?? 30, azimuthDeg: Number(fc.azimuthDeg) || 0 }, token: token.value || null });
     const now = d.settings.source === 'none' ? t('keine Quelle eingestellt')
       : d.powerW != null ? t('aktuell {0} W', n(d.powerW, 0)) : d.error ? t('Fehler: {0}', d.error) : t('noch kein Wert');
     fill(body,
@@ -4944,6 +4974,7 @@ function solarCard() {
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Quelle')), src)),
       plugBox, haBox,
       h('p', { class: 'small' }, now),
+      h('h3', {}, t('Prognose')), fcBox,
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: async () => {
           const r = await run(() => api('/solar/test', { method: 'POST', body: req() }));

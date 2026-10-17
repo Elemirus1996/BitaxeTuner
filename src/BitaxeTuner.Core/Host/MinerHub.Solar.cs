@@ -116,14 +116,31 @@ public sealed partial class MinerHub
             if (!HaEntityPattern().IsMatch((s.HaEntity ?? "").Trim()))
                 throw new LocalizedException("Home Assistant: Sensor im Format „sensor.name“ eintragen.");
         }
-        return new SolarSettings { Source = s.Source, PlugId = (s.PlugId ?? "").Trim(), HaUrl = (s.HaUrl ?? "").Trim().TrimEnd('/'), HaEntity = (s.HaEntity ?? "").Trim() };
+        // 0.9.21 Prognose
+        if (s.ForecastEnabled)
+        {
+            if (s.Latitude is not (>= -90 and <= 90) || s.Longitude is not (>= -180 and <= 180))
+                throw new LocalizedException("PV-Prognose: bitte Breiten- und Längengrad des Standorts eintragen (z. B. 52,52 und 13,40).");
+            if (s.PeakKw is <= 0 or > 1000) throw new LocalizedException("PV-Prognose: bitte die Anlagengröße in kWp eintragen.");
+        }
+        return new SolarSettings
+        {
+            Source = s.Source, PlugId = (s.PlugId ?? "").Trim(), HaUrl = (s.HaUrl ?? "").Trim().TrimEnd('/'), HaEntity = (s.HaEntity ?? "").Trim(),
+            ForecastEnabled = s.ForecastEnabled,
+            Latitude = s.Latitude is { } la ? Math.Round(la, 4) : null, Longitude = s.Longitude is { } lo ? Math.Round(lo, 4) : null,
+            PeakKw = Math.Clamp(s.PeakKw, 0, 1000), TiltDeg = Math.Clamp(s.TiltDeg, 0, 90), AzimuthDeg = Math.Clamp(s.AzimuthDeg, -180, 180),
+            SmoothClouds = s.SmoothClouds,
+        };
     }
 
     /// <summary>Übernehmen (ohne zu speichern); Token nur, wenn neu eingegeben (leer = unverändert). Setzt den Lesestand zurück.</summary>
     public void ApplySolarSettings(SolarSettings normalized, string? newToken)
     {
         if (!string.IsNullOrWhiteSpace(newToken)) Secrets.Set(SolarTokenKey, newToken.Trim());
+        string? Key(SolarSettings x) => SolarForecastConfigured(x) ? SolarForecastUrl(x) + "|" + x.PeakKw : null;
+        var forecastChanged = Key(normalized) != Key(Config.Solar);
         Config.Solar = normalized;
+        if (forecastChanged) { _solarForecast = []; _solarForecastAt = null; _solarForecastError = null; _solarForecastTried = DateTime.MinValue; }
         _solarHa = null;
         _solarError = null;
         _solarPolledAt = DateTime.MinValue;

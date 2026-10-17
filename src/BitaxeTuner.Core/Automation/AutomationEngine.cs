@@ -38,6 +38,8 @@ public sealed class AutomationEngine
         public int? OriginalFrequency;
         public DateTime LastAction = DateTime.MinValue;
         public string? ScheduleTarget;
+        /// <summary>0.9.21: seit wann die PV-Leistung trotz sonniger Prognose niedrig ist (kurze Wolke?).</summary>
+        public DateTime? SolarLowSince;
         public int Attempts;
         public string? LastNotice;
     }
@@ -55,6 +57,9 @@ public sealed class AutomationEngine
 
     /// <summary>0.9.17 PV-Modus: aktuelle PV-Leistung in W (null = unbekannt). Vom Hub gesetzt.</summary>
     public Func<DateTime, double?>? SolarPowerW { get; set; }
+
+    /// <summary>0.9.21: erwartete PV-Leistung der laufenden Stunde (Prognose; null = keine). Vom Hub gesetzt.</summary>
+    public Func<DateTime, double?>? SolarForecastW { get; set; }
 
     /// <summary>0.9.11: Einheit des Strompreises in der gewählten Währung (z. B. „ct/kWh“, „p/kWh“).</summary>
     public Func<string> CentPerKwh { get; set; } = () => "ct/kWh";
@@ -211,6 +216,17 @@ public sealed class AutomationEngine
                 : pv <= schedule.SolarLowW ? schedule.ExpensivePreset
                 : st.ScheduleTarget ?? schedule.ExpensivePreset;
             result.Status += L.T(" · PV {0} W", F(pv, "0"));
+            // 0.9.21: kurze Wolke – Messwert niedrig, Prognose sonnig → höchstens 20 min beim bisherigen Ziel bleiben
+            if (pv <= schedule.SolarLowW && SolarForecastW?.Invoke(now) is { } fc && fc >= high && st.ScheduleTarget is { } keep)
+            {
+                st.SolarLowSince ??= now;
+                if (now - st.SolarLowSince < TimeSpan.FromMinutes(20))
+                {
+                    presetName = keep;
+                    result.Status += L.T(" · Prognose {0} W – vermutlich eine kurze Wolke, Voreinstellung bleibt", F(fc, "0"));
+                }
+            }
+            else st.SolarLowSince = null;
         }
         else
         {

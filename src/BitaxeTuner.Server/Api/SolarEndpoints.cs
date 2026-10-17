@@ -21,6 +21,26 @@ public static class SolarEndpoints
             at = st.At,
             error = st.Error,
             plugs = h.Config.Plugs.Items.Select(p => new { id = p.Id, name = p.Name, role = p.Role }).ToList(),
+            // 0.9.21 Prognose: nächste 24 Stunden und „viel Sonne“ heute
+            forecast = ForecastDto(h, now),
+        };
+    }
+
+    private static object? ForecastDto(MinerHub h, DateTime now)
+    {
+        var f = h.SolarForecast;
+        if (!h.Config.Solar.ForecastEnabled) return null;
+        var start = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
+        var high = h.SolarOutlookThresholdW();
+        var outlook = h.SolarOutlook(now, high);
+        return new
+        {
+            hours = f.Hours.Where(x => x.Hour >= start && x.Hour < start.AddHours(24)).Select(x => new { hour = x.Hour, w = x.ExpectedW }).ToList(),
+            nowW = h.SolarForecastW(now),
+            fetchedAt = f.FetchedAt,
+            error = f.Error,
+            highW = high,
+            outlook = outlook is { } o ? new { from = o.From, to = o.To } : null,
         };
     }
 

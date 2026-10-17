@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using BitaxeTuner.App.Services;
 using BitaxeTuner.Core.Config;
 using BitaxeTuner.Core.Host;
@@ -21,6 +22,13 @@ public sealed class SolarPanel : StackPanel
     private readonly TextBox _entity = new() { Margin = new Thickness(0, 0, 0, 6), ToolTip = "sensor.pv_power" };
     private readonly PasswordBox _token = new() { Margin = new Thickness(0, 0, 0, 6) };
     private readonly StackPanel _plugBox = new(), _haBox = new();
+    // 0.9.21 Prognose (Open-Meteo)
+    private readonly CheckBox _forecast = new() { Margin = new Thickness(0, 8, 0, 6) };
+    private readonly CheckBox _smooth = new() { Margin = new Thickness(0, 4, 0, 6) };
+    private readonly TextBox _lat = new() { Margin = new Thickness(0, 0, 0, 6) }, _lon = new() { Margin = new Thickness(0, 0, 0, 6) };
+    private readonly TextBox _kwp = new() { Margin = new Thickness(0, 0, 0, 6) }, _tilt = new() { Margin = new Thickness(0, 0, 0, 6) };
+    private readonly ComboBox _azimuth = new() { DisplayMemberPath = "Label", SelectedValuePath = "Value", Margin = new Thickness(0, 0, 0, 6) };
+    private readonly TextBlock _outlook = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 6) };
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
 
     public SolarPanel(AppHost host)
@@ -58,6 +66,37 @@ public sealed class SolarPanel : StackPanel
         _haBox.Children.Add(Muted(L.T("Token in Home Assistant unter Profil → Sicherheit → Langlebige Zugriffstoken erstellen. Anker Solix: über die Anker-Solix-Integration in Home Assistant, dann deren Sensor für die PV-Leistung eintragen.")));
         Children.Add(_haBox);
 
+        // 0.9.21 Prognose
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        _forecast.Content = L.T("PV-Prognose nutzen (Open-Meteo, kostenlos, ohne Konto)");
+        _forecast.IsChecked = s.ForecastEnabled;
+        _smooth.Content = new TextBlock { Text = L.T("Kurze Wolken überbrücken (Messwert kurz niedrig, Prognose sonnig → bis zu 20 min nicht herunterschalten)"), TextWrapping = TextWrapping.Wrap };
+        _smooth.IsChecked = s.SmoothClouds;
+        _lat.Text = s.Latitude?.ToString("0.####", c) ?? "";
+        _lon.Text = s.Longitude?.ToString("0.####", c) ?? "";
+        _kwp.Text = s.PeakKw > 0 ? s.PeakKw.ToString("0.##", c) : "";
+        _tilt.Text = s.TiltDeg.ToString(c);
+        _azimuth.ItemsSource = new[]
+        {
+            new { Value = 0, Label = L.T("Süden") }, new { Value = -45, Label = L.T("Südosten") }, new { Value = 45, Label = L.T("Südwesten") },
+            new { Value = -90, Label = L.T("Osten") }, new { Value = 90, Label = L.T("Westen") }, new { Value = 180, Label = L.T("Norden") },
+        };
+        _azimuth.SelectedValue = s.AzimuthDeg is 0 or -45 or 45 or -90 or 90 or 180 ? s.AzimuthDeg : 0;
+        Children.Add(_forecast);
+        var grid = new UniformGrid { Columns = 5 };
+        foreach (var (label, box) in new (string, FrameworkElement)[] { (L.T("Breitengrad"), _lat), (L.T("Längengrad"), _lon), (L.T("Anlagengröße (kWp)"), _kwp), (L.T("Neigung (Grad)"), _tilt), (L.T("Ausrichtung"), _azimuth) })
+        {
+            var cell = new StackPanel { Margin = new Thickness(0, 0, 8, 0) };
+            cell.Children.Add(Label(label));
+            cell.Children.Add(box);
+            grid.Children.Add(cell);
+        }
+        Children.Add(grid);
+        Children.Add(_smooth);
+        Children.Add(Muted(L.T("An Open-Meteo gehen nur der auf etwa 1 km gerundete Standort sowie Neigung und Ausrichtung – keine Adresse, keine Messwerte.")));
+        Children.Add(_outlook);
+        ShowOutlook();
+
         var test = new Button { Content = L.T("Testen"), Padding = new Thickness(12, 4, 12, 4) };
         test.Click += async (_, _) => await TestAsync();
         var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
@@ -88,13 +127,34 @@ public sealed class SolarPanel : StackPanel
         _haBox.Visibility = src == "homeassistant" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private SolarSettings Read() => new()
+    private SolarSettings Read()
     {
-        Source = _source.SelectedValue as string ?? "none",
-        PlugId = _plug.SelectedValue as string ?? "",
-        HaUrl = _url.Text,
-        HaEntity = _entity.Text,
-    };
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        double? Num(TextBox b) => double.TryParse(b.Text.Trim(), System.Globalization.NumberStyles.Float, c, out var v) ? v : null;
+        return new()
+        {
+            Source = _source.SelectedValue as string ?? "none",
+            PlugId = _plug.SelectedValue as string ?? "",
+            HaUrl = _url.Text,
+            HaEntity = _entity.Text,
+            ForecastEnabled = _forecast.IsChecked == true,
+            SmoothClouds = _smooth.IsChecked == true,
+            Latitude = Num(_lat), Longitude = Num(_lon), PeakKw = Num(_kwp) ?? 0,
+            TiltDeg = (int)Math.Round(Num(_tilt) ?? 30), AzimuthDeg = _azimuth.SelectedValue is int az ? az : 0,
+        };
+    }
+
+    /// <summary>Vorschau aus der zuletzt geholten Prognose.</summary>
+    private void ShowOutlook()
+    {
+        var hub = _host.Hub;
+        if (!hub.Config.Solar.ForecastEnabled) { _outlook.Text = ""; return; }
+        var f = hub.SolarForecast;
+        var high = hub.SolarOutlookThresholdW();
+        _outlook.Text = f.Error ?? (hub.SolarOutlook(DateTime.Now, high) is { } o
+            ? L.T("Heute etwa {0}–{1} Uhr viel Sonne (ab {2} W) – volle Leistung zu erwarten.", o.From.Hour, o.To.Hour, high.ToString("0"))
+            : f.Hours.Count > 0 ? L.T("Heute keine Stunde mit viel Sonne (ab {0} W) mehr erwartet.", high.ToString("0")) : L.T("Prognose wird geladen …"));
+    }
 
     private async Task TestAsync()
     {

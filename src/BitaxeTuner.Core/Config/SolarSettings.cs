@@ -25,5 +25,24 @@ public sealed class SolarSettings
     /// <summary>Sensor mit der PV-Leistung, z. B. sensor.pv_leistung (W oder kW).</summary>
     public string HaEntity { get; set; } = "";
 
+    /// <summary>0.9.21: PV-Prognose (Open-Meteo) nutzen. Additiv, standardmäßig aus.</summary>
+    public bool ForecastEnabled { get; set; }
+
+    /// <summary>Standort der Anlage; gesendet wird nur auf 2 Nachkommastellen gerundet (etwa 1 km).</summary>
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
+    /// <summary>Anlagengröße in kWp.</summary>
+    public double PeakKw { get; set; }
+
+    /// <summary>Neigung der Module in Grad (0 = waagerecht).</summary>
+    public int TiltDeg { get; set; } = 30;
+
+    /// <summary>Ausrichtung in Grad: 0 = Süden, −90 = Osten, 90 = Westen.</summary>
+    public int AzimuthDeg { get; set; }
+
+    /// <summary>Kurze Wolken überbrücken: Messwert niedrig, Prognose hoch → höchstens 20 min nicht herunterschalten.</summary>
+    public bool SmoothClouds { get; set; } = true;
+
     public static readonly string[] Sources = ["none", "plug", "homeassistant"];
 }
