@@ -26,7 +26,7 @@ public sealed partial class MinerHub
     /// <summary>0.9.20: eingeschaltete weitere Pool-Konten mit ihrem letzten Stand (Übersicht-Panel „Pool-Konten“, E-Paper „Pool“).</summary>
     public IReadOnlyList<ExtraPoolSummary> ExtraPoolSummaries()
     {
-        var quotes = CoinQuotes();
+        var quotes = AllCoinQuotes();   // Gegenwert auch bei ausgeblendetem Kurs
         return ExtraPools.Where(v => v.Account.Enabled).Select(v =>
         {
             var st = v.Status;

@@ -28,8 +28,12 @@ public sealed partial class MinerHub
     /// <summary>Coin, den der Miner gerade schürft (Pool-Konto, sonst laut Pool/Einstellung; unbekannt = BTC, da SHA-256-Miner).</summary>
     public string MinedSymbolOf(MinerState s) => PoolCoinSymbolOf(s) ?? ResolveCoin(s)?.Symbol() ?? "BTC";
 
-    /// <summary>Kurse aller gerade geschürften Coins, meistgeschürfte zuerst.</summary>
-    public IReadOnlyList<CoinQuote> CoinQuotes()
+    /// <summary>Kurse aller gerade geschürften Coins, meistgeschürfte zuerst – ohne ausgeblendete (<see cref="AppConfig.HiddenCoins"/>).</summary>
+    public IReadOnlyList<CoinQuote> CoinQuotes() => AllCoinQuotes()
+        .Where(c => !(Config.HiddenCoins ?? []).Contains(c.Symbol, StringComparer.OrdinalIgnoreCase)).ToList();
+
+    /// <summary>Alle Kurse inklusive ausgeblendeter – für Rechnungen (Gegenwert von Guthaben), nicht für die Anzeige.</summary>
+    public IReadOnlyList<CoinQuote> AllCoinQuotes()
     {
         var cur = Currencies.Of(Config).Code;
         var active = States.Where(s => s.Online).Select(MinedSymbolOf)
@@ -60,6 +64,16 @@ public sealed partial class MinerHub
     private IEnumerable<(string Symbol, string Kind)> ExtraQuoteSymbols() =>
         _mergedSymbols.Select(s => (s, "merged"))
             .Concat(Config.WatchCoins.Select(e => Network.CoinCatalog.Parse(e)).OfType<(string Symbol, string Id)>().Select(p => (p.Symbol, "watch")));
+
+    /// <summary>0.9.21: Kurse ausblenden bzw. wieder anzeigen (Kürzel, Groß-/Kleinschreibung egal).</summary>
+    public void SetHiddenCoins(IReadOnlyList<string> symbols, string by)
+    {
+        var list = symbols.Select(s => (s ?? "").Trim().ToUpperInvariant()).Where(s => s.Length is > 0 and <= 12 && s.All(char.IsLetterOrDigit))
+            .Distinct().Take(50).ToList();
+        Config.HiddenCoins = list;
+        Config.Save();
+        LogEvent(null, EventCategories.Settings, L.T("Ausgeblendete Kurse: {0} – {1}", list.Count == 0 ? "–" : string.Join(", ", list), by));
+    }
 
     /// <summary>0.9.16: weitere Kurse speichern (ungültige Einträge werden gemeldet, nichts gespeichert).</summary>
     public void SetWatchCoins(IReadOnlyList<string> entries, string by)
