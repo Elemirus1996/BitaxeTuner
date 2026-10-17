@@ -295,6 +295,8 @@ public partial class RemoteWindow : Window
         try
         {
             await SshKeyService.EnsureKeyAsync();
+            // 0.9.22: geänderter Host-Schlüssel (z. B. neuer Pi unter derselben Adresse) – bestätigen statt „Keine SSH-Verbindung“
+            if (!await SshKeyService.EnsureHostKeyAsync(this, _config.Server.SshUser, host, title)) return;
             var ssh = new SshUpdateService(_config.Server.SshUser, host, _updateHttp, text => Dispatcher.Invoke(() => UpdateButton.Content = text));
             await work(ssh);
         }

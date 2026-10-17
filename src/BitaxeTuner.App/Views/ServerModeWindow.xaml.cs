@@ -453,6 +453,7 @@ public partial class ServerModeWindow : Window
         try
         {
             await SshKeyService.EnsureKeyAsync();
+            if (!await SshKeyService.EnsureHostKeyAsync(this, t.User, t.Host, L.T("SSH-Terminal zum Server"))) return;
             SshKeyService.OpenTerminal(t.User, t.Host);
             Log(L.T("SSH-Terminal zu {0}@{1} geöffnet.", t.User, t.Host));
         }
@@ -465,13 +466,28 @@ public partial class ServerModeWindow : Window
     private async void SshInstall_Click(object sender, RoutedEventArgs e)
     {
         if (SshTarget() is not { } t) return;
-        if (MessageBox.Show(this,
-                L.T("Den SSH-Schlüssel dieses PCs bei {0}@{1} eintragen?\n\nEs öffnet sich ein Konsolenfenster; dort einmal das Passwort des Servers eingeben. Danach meldet sich „SSH-Terminal öffnen“ ohne Passwort an.", t.User, t.Host),
-                L.T("SSH-Terminal zum Server"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
-            return;
         try
         {
+            // 0.9.22: erst prüfen – ist der Schlüssel schon eingetragen, braucht es kein Passwort
             await SshKeyService.EnsureKeyAsync();
+            var title = L.T("SSH-Terminal zum Server");
+            if (!await SshKeyService.EnsureHostKeyAsync(this, t.User, t.Host, title)) return;
+            switch (await SshKeyService.ProbeAsync(t.User, t.Host))
+            {
+                case Core.Transfer.SshProbeResult.Ok:
+                    Log(L.T("SSH-Schlüssel ist bei {0}@{1} schon eingetragen.", t.User, t.Host));
+                    MessageBox.Show(this, L.T("Der SSH-Schlüssel dieses PCs ist bei {0}@{1} schon eingetragen – „SSH-Terminal öffnen“ und „Systemdateien per SSH erneuern“ funktionieren ohne Passwort.", t.User, t.Host),
+                        title, MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                case Core.Transfer.SshProbeResult.Unreachable:
+                    MessageBox.Show(this, L.T("{0} ist per SSH nicht erreichbar – läuft der Server, stimmt die Adresse?", t.Host), title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+            }
+            if (MessageBox.Show(this,
+                    L.T("Den SSH-Schlüssel dieses PCs bei {0}@{1} eintragen?\n\nEs öffnet sich ein Konsolenfenster; dort einmal das Passwort des Servers eingeben. Danach meldet sich „SSH-Terminal öffnen“ ohne Passwort an.", t.User, t.Host) + "\n\n" +
+                    L.T("Hinweis: Wurde der Pi mit „SSH-Schlüssel dieses PCs eintragen“ vorbereitet, ist die Anmeldung per Passwort ausgeschaltet – dann den Benutzernamen prüfen (wie beim Vorbereiten) oder den Pi von dem PC aus erreichen, mit dem er vorbereitet wurde."),
+                    title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                return;
             SshKeyService.InstallOnPi(t.User, t.Host);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException)

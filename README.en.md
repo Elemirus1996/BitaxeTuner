@@ -69,6 +69,12 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.22
+
+- **SSH fix after replacing the Pi**: the desktop app detects a changed SSH key of the server (new Pi at the same address),
+  shows the old and new fingerprint and accepts the new one after confirmation; “Transfer key” first checks whether the key
+  is already registered.
+
 ### New in 0.9.21
 
 - **Chat bots for Telegram and Discord**: /status, /miner, /history, /pool, /system … with a picture of the e-paper page,

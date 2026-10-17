@@ -66,6 +66,12 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.22
+
+- **Fehlerbehebung SSH nach Pi-Tausch**: Die Desktop-App erkennt einen geänderten SSH-Schlüssel des Servers (neuer Pi unter
+  derselben Adresse), zeigt alten und neuen Fingerabdruck und übernimmt den neuen nach Bestätigung; „Schlüssel übertragen“
+  prüft zuerst, ob der Schlüssel schon eingetragen ist.
+
 ### Neu in 0.9.21
 
 - **Chat-Bots für Telegram und Discord**: /status, /miner, /history, /pool, /system … mit Bild der E-Paper-Seite, nur lesend;
