@@ -462,6 +462,29 @@ public sealed class ServerTests : IDisposable
     private AuthStore Auth => _factory.Services.GetRequiredService<AuthStore>();
 
     /// <summary>Eingerichteter Server, angemeldeter Admin-Browser (mit CSRF-Wert).</summary>
+    [Fact]
+    public async Task Overview_templates_back_up_the_own_layout_and_can_restore_it()
+    {
+        // 0.9.23 Vorlagen: alle gültig; der eigene Aufbau wird beim Übernehmen gesichert und lässt sich zurückholen
+        foreach (var (id, _, _) in BitaxeTuner.Core.Config.OverviewLayouts.Templates)
+            BitaxeTuner.Core.Config.OverviewLayouts.Validate(BitaxeTuner.Core.Config.OverviewLayouts.Template(id)!);
+        var admin = await AdminAsync();
+        var own = new[] { new { type = "text", colSpan = 12, title = "", text = "Mein Aufbau" }, new { type = "miners", colSpan = 12, title = "", text = "" } };
+        await Json(await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels = own, reset = false }));
+        var meta = await Json(await admin.GetAsync("/api/v1/overview-layout"));
+        Assert.Equal(4, meta.GetProperty("templates").GetArrayLength());
+        Assert.False(meta.GetProperty("hasBackup").GetBoolean());
+
+        var tech = await Json(await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels = Array.Empty<object>(), reset = false, template = "tech" }));
+        Assert.True(tech.GetProperty("hasBackup").GetBoolean());
+        Assert.Contains(tech.GetProperty("layout").GetProperty("panels").EnumerateArray(), p => p.GetProperty("type").GetString() == "fans");
+
+        var back = await Json(await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels = Array.Empty<object>(), reset = false, restore = true }));
+        Assert.Equal("Mein Aufbau", back.GetProperty("layout").GetProperty("panels")[0].GetProperty("text").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/v1/overview-layout", new { panels = Array.Empty<object>(), reset = false, template = "gibtsnicht" })).StatusCode);
+        Assert.Contains("Vorlage", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+    }
+
     private async Task<HttpClient> AdminAsync()
     {
         var client = _factory.CreateClient();

@@ -27,7 +27,8 @@ public static class OverviewLayouts
 {
     /// <summary>kpis = die Kennzahlen-Reihe wie bisher; einzelne Kennzahlen gibt es auch als eigene Panels.</summary>
     public static readonly string[] PanelTypes =
-        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit", "coins", "pools"];
+        ["kpis", "hashrate", "power", "efficiency", "maxtemp", "price", "cost", "chart", "miners", "plugs", "soak", "news", "text", "profit", "coins", "pools",
+         "fans", "health"];   // 0.9.23: Lüfter und Systemzustand (für die Vorlage „Technik“)
 
     public const int MaxPanels = 30;
 
@@ -36,6 +37,27 @@ public static class OverviewLayouts
     {
         Panels = [new() { Type = "kpis" }, new() { Type = "chart" }, new() { Type = "coins" }, new() { Type = "miners" }, new() { Type = "plugs" }, new() { Type = "soak" }],
     };
+
+    /// <summary>0.9.23: fertige Aufbauten – nach dem Übernehmen frei anpassbar.</summary>
+    public static readonly (string Id, string Name, string Hint)[] Templates =
+    [
+        ("compact", L.N("Kompakt"), L.N("Kennzahlen und Miner – sonst nichts.")),
+        ("yield", L.N("Ertrag"), L.N("Gewinn, Stromkosten, Kurse und Pool-Konten.")),
+        ("tech", L.N("Technik"), L.N("Temperaturen, Lüfter, Systemzustand und Steckdosen.")),
+        ("wall", L.N("Wand-Tablet"), L.N("Große Zahlen, Verlauf und Miner – für einen Bildschirm an der Wand.")),
+    ];
+
+    public static OverviewLayout? Template(string id) => id switch
+    {
+        "compact" => Of(("kpis", 12), ("miners", 12)),
+        "yield" => Of(("hashrate", 4), ("cost", 4), ("price", 4), ("profit", 12), ("coins", 6), ("pools", 6), ("miners", 12)),
+        "tech" => Of(("hashrate", 3), ("power", 3), ("efficiency", 3), ("maxtemp", 3), ("fans", 6), ("health", 6), ("miners", 12), ("plugs", 12)),
+        "wall" => Of(("hashrate", 4), ("efficiency", 4), ("maxtemp", 4), ("chart", 12), ("miners", 12), ("news", 12)),
+        _ => null,
+    };
+
+    private static OverviewLayout Of(params (string Type, int Span)[] panels) =>
+        new() { Panels = panels.Select(p => new OverviewPanel { Type = p.Type, ColSpan = p.Span }).ToList() };
 
     /// <summary>Eingaben aus dem Browser prüfen und begrenzen.</summary>
     public static void Validate(OverviewLayout layout)
