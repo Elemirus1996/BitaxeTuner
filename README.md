@@ -66,6 +66,20 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.23
+
+- **„Was ist los?“** auf der Miner-Karte: Ursache, was zu prüfen ist, Knopf zur passenden Stelle (Browser und Desktop).
+- **Rollen**: Ansicht-Zugänge, die **bedienen** dürfen – Motor pausieren, Voreinstellung anwenden, Neustart, Wartungsmodus,
+  optional je Gruppe; Frequenz/Spannung frei, Einstellungen und Steuer bleiben beim Admin.
+- **Verschlüsselte Sicherung ins Netz**: WebDAV (Nextcloud, Synology) oder S3 (Backblaze B2, MinIO), AES-256-GCM mit eigenem
+  Passwort, nach dem Hochladen geprüft, aus der Liste einspielbar.
+- **Pico-Übersicht**: welcher Pico ist wo, Blinken, Neustart, Programm und Schlüssel über WLAN; neu koppeln per
+  BOOTSEL-Taste mit Code zum Vergleichen (Pico-Programm 8.5).
+- **Chat-Bots**: Discord mit farbigen Karten, Minernamen-Vorschlägen, Bot-Status und privaten Antworten; Warnungen mit
+  Knöpfen [Details] [Verlauf] in Discord und Telegram.
+- **Übersicht-Vorlagen** (Kompakt, Ertrag, Technik, Wand-Tablet), **Suchfeld in den Einstellungen**, **„?“ an
+  Fachbegriffen**, **Hinweise statt leerer Seiten**, **Wischen zwischen Minern** auf dem Handy.
+
 ### Neu in 0.9.22
 
 - **Fehlerbehebung SSH nach Pi-Tausch**: Die Desktop-App erkennt einen geänderten SSH-Schlüssel des Servers (neuer Pi unter

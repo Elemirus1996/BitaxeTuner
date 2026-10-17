@@ -590,7 +590,7 @@
     </ul>
     <h3>If it doesn't work</h3>
     <dl>
-      <dt>“key does not match”</dt><dd>The Pico was set up again elsewhere or the server was reinstalled → set the Pico up for WLAN again via USB.</dd>
+      <dt>“key does not match”</dt><dd>The Pico was set up again elsewhere or the server was reinstalled → from Pico program 8.5 without USB: hold <b>BOOTSEL</b> on the Pico (display Pico also <b>KEY0</b>) for 3 seconds until the LED blinks fast, then “Fans &amp; display → Picos” → “Pair again” and compare the code with the LED or display. Otherwise set the Pico up for WLAN again via USB.</dd>
       <dt>“does not answer (WLAN?)”</dt><dd>Check WLAN name/password, is the 2.4 GHz network on? Look up the Pico's IP in the router and enter it.</dd>
       <dt>“is set up as display Pico”</dt><dd>Fan and display Pico swapped → use the other setup button.</dd>
       <dt>Display stays blank</dt><dd>Check first: Pico orientation on the module (USB socket away from the ribbon cable, VBUS on VBUS), ribbon cable fully inserted and locked, switch “Interface Config” at 0, role “display” (see above). To check the hardware without a server: open <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny and "Run" – after 20–30 s a test picture with a black and a red bar appears; the output says “(BUSY ok)” when the display answers. The program on the Pico stays unchanged.</dd>

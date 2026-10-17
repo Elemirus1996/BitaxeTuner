@@ -590,7 +590,7 @@
     </ul>
     <h3>Wenn es nicht klappt</h3>
     <dl>
-      <dt>„Schlüssel passt nicht“</dt><dd>Pico wurde woanders neu eingerichtet oder der Server neu installiert → Pico per USB erneut „für WLAN einrichten“.</dd>
+      <dt>„Schlüssel passt nicht“</dt><dd>Pico wurde woanders neu eingerichtet oder der Server neu installiert → ab Pico-Programm 8.5 ohne USB: am Pico <b>BOOTSEL</b> (Display-Pico auch <b>KEY0</b>) 3 Sekunden halten, bis die LED schnell blinkt, dann unter „Lüfter &amp; Anzeige → Picos“ → „Neu koppeln“ und den Code mit der LED bzw. Anzeige vergleichen. Sonst per USB erneut „für WLAN einrichten“.</dd>
       <dt>„antwortet nicht (WLAN?)“</dt><dd>WLAN-Name/Passwort prüfen, 2,4-GHz-Netz aktiv? Im Router nachsehen, ob der Pico eine IP hat, und diese eintragen.</dd>
       <dt>„ist als Display-Pico eingerichtet“</dt><dd>Lüfter- und Display-Pico vertauscht → den jeweils anderen Einrichtungsknopf verwenden, auch ohne WLAN: „Pico per USB als Lüfter-Pico einrichten …“ bzw. „Display-Pico per USB einrichten (ohne WLAN) …“.</dd>
       <dt>Display bleibt leer</dt><dd>Zuerst prüfen: Lage des Pico auf dem Modul (USB-Buchse vom Flachbandkabel weg, VBUS auf VBUS), Flachbandkabel ganz eingesteckt und verriegelt, Schalter „Interface Config“ auf 0, Rolle „Display“ (siehe oben). Zum Prüfen der Hardware ohne Server: <a href="https://github.com/Elemirus1996/BitaxeTuner/blob/main/tools/epaper-test/epd_test.py">epd_test.py</a> in Thonny öffnen und „Ausführen“ – nach 20–30 s erscheint ein Testbild mit schwarzem und rotem Balken; die Ausgabe meldet „(BUSY ok)“, wenn das Display antwortet. Das Programm des Pico bleibt dabei unverändert.</dd>

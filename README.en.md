@@ -69,6 +69,20 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.23
+
+- **“What’s wrong?”** on the miner card: cause, what to check, button to the right place (browser and desktop).
+- **Roles**: view accesses that may **operate** – pause the engine, apply a preset, restart, maintenance mode, optionally
+  per group; free frequency/voltage, settings and tax stay with the admin.
+- **Encrypted backup to the network**: WebDAV (Nextcloud, Synology) or S3 (Backblaze B2, MinIO), AES-256-GCM with your own
+  password, verified after upload, restorable from the list.
+- **Pico overview**: which Pico is where, blink, restart, program and key over WLAN; pair again with the BOOTSEL button and
+  a code to compare (Pico program 8.5).
+- **Chat bots**: Discord with coloured cards, miner name suggestions, bot status and private answers; warnings with buttons
+  [Details] [History] in Discord and Telegram.
+- **Overview templates** (compact, income, technical, wall tablet), **search in the settings**, **“?” on technical terms**,
+  **hints instead of empty pages**, **swipe between miners** on the phone.
+
 ### New in 0.9.22
 
 - **SSH fix after replacing the Pi**: the desktop app detects a changed SSH key of the server (new Pi at the same address),
