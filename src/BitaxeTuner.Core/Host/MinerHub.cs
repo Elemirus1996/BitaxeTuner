@@ -38,6 +38,8 @@ public sealed class MinerHubOptions
 
     /// <summary>Nur für Tests: Lüfter-Hardware ersetzen (Parameter: eingestellter Port).</summary>
     public Func<string, Fans.IFanDevice>? FanDeviceFactory { get; init; }
+    /// <summary>0.9.23 Tests: HTTP für die Sicherung ins Netz (WebDAV/S3).</summary>
+    public HttpMessageHandler? BackupHttpHandler { get; init; }
 
     /// <summary>Tests: Display-Pico statt echter Hardware (Argument: Port bzw. WLAN-Adresse).</summary>
     public Func<string, Fans.IFanDevice>? DisplayDeviceFactory { get; init; }

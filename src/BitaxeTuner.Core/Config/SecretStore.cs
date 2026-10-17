@@ -13,6 +13,10 @@ public sealed class SecretStore(string dataDirectory)
 {
     public const string SmbPassword = "backup.smb.password";
     public const string MqttPassword = "mqtt.password";
+    /// <summary>0.9.23: WebDAV-Passwort bzw. geheimer S3-Schlüssel.</summary>
+    public const string CloudSecret = "backup.cloud.secret";
+    /// <summary>0.9.23: Passwort, mit dem die Sicherung vor dem Hochladen verschlüsselt wird.</summary>
+    public const string CloudEncryption = "backup.cloud.encryption";
     private static readonly byte[] Entropy = "BitaxeTuner.Secrets.v1"u8.ToArray();
 
     /// <summary>

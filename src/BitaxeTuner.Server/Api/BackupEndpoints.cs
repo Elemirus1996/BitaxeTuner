@@ -6,7 +6,8 @@ using BitaxeTuner.Core.Transfer;
 
 namespace BitaxeTuner.Server.Api;
 
-public sealed record BackupRequest(BackupSettings Settings, string? SmbPassword, bool ClearSmbPassword);
+public sealed record BackupRequest(BackupSettings Settings, string? SmbPassword, bool ClearSmbPassword,
+    string? CloudSecret = null, bool ClearCloudSecret = false, string? CloudEncryption = null);
 public sealed record BackupTestRequest(string Target);
 
 /// <summary>Sicherung: Einstellungen (Passwort nur schreibbar), Status, „Jetzt sichern“, Verbindungstest, Download.</summary>
@@ -50,6 +51,8 @@ public static class BackupEndpoints
         {
             settings = Dto.Copy(h.Config.Backup),
             smbPasswordSet = h.Secrets.Has(SecretStore.SmbPassword),
+            cloudSecretSet = h.Secrets.Has(SecretStore.CloudSecret),
+            cloudEncryptionSet = h.Secrets.Has(SecretStore.CloudEncryption),
             status = h.BackupStatus,
             files = h.LocalBackups().Select(f => new { name = f.Name, size = f.Length, time = f.LastWriteTime }).ToList(),
             usb = Usb(),
@@ -100,19 +103,51 @@ public static class BackupEndpoints
             s.Smb.Domain = (s.Smb.Domain ?? "").Trim();
             if (s.Smb.Enabled && (s.Smb.Server.Length == 0 || s.Smb.Share.Length == 0)) throw new InvalidOperationException(L.N("Netzlaufwerk: Server und Freigabe angeben."));
             if (s.Smb.Folder.Contains("..")) throw new InvalidOperationException(L.N("Netzlaufwerk: ungültiger Unterordner."));
+            // 0.9.23 Sicherung ins Netz
+            s.Cloud ??= new BackupCloudTarget();
+            var c = s.Cloud;
+            c.Kind = c.Kind == "s3" ? "s3" : "webdav";
+            c.Url = (c.Url ?? "").Trim();
+            c.User = (c.User ?? "").Trim();
+            c.Endpoint = (c.Endpoint ?? "").Trim();
+            c.Region = (c.Region ?? "").Trim();
+            c.Bucket = (c.Bucket ?? "").Trim();
+            c.Prefix = (c.Prefix ?? "").Trim().Trim('/');
+            c.AccessKey = (c.AccessKey ?? "").Trim();
+            if (c.Prefix.Contains("..")) throw new InvalidOperationException(L.N("S3: ungültiges Präfix."));
+            if (c.Enabled)
+            {
+                if (c.Kind == "webdav" && !(Uri.TryCreate(c.Url, UriKind.Absolute, out var u) && u.Scheme is "https" or "http"))
+                    throw new InvalidOperationException(L.N("WebDAV: vollständige Adresse des Ordners angeben (https://…)."));
+                if (c.Kind == "s3" && (!Uri.TryCreate(c.Endpoint, UriKind.Absolute, out var ep) || ep.Scheme is not ("https" or "http") || c.Bucket.Length == 0 || c.AccessKey.Length == 0))
+                    throw new InvalidOperationException(L.N("S3: Endpunkt, Bucket und Schlüssel-ID angeben."));
+                if (string.IsNullOrEmpty(req.CloudEncryption) && !h.Secrets.Has(SecretStore.CloudEncryption))
+                    throw new InvalidOperationException(L.N("Für die Sicherung ins Netz fehlt das Verschlüsselungs-Passwort."));
+            }
+            if (req.CloudEncryption is { Length: > 0 } enc && enc.Length < 10)
+                throw new InvalidOperationException(L.N("Verschlüsselungs-Passwort: mindestens 10 Zeichen."));
             s.LastRun = h.Config.Backup.LastRun; // nur der Server setzt das
             h.Config.Backup = s;
             if (req.ClearSmbPassword) h.Secrets.Set(SecretStore.SmbPassword, null);
             else if (!string.IsNullOrEmpty(req.SmbPassword)) h.Secrets.Set(SecretStore.SmbPassword, req.SmbPassword);
+            if (req.ClearCloudSecret) h.Secrets.Set(SecretStore.CloudSecret, null);
+            else if (!string.IsNullOrEmpty(req.CloudSecret)) h.Secrets.Set(SecretStore.CloudSecret, req.CloudSecret);
+            if (!string.IsNullOrEmpty(req.CloudEncryption)) h.Secrets.Set(SecretStore.CloudEncryption, req.CloudEncryption);
             h.Config.Save();
-            return new { ok = true, smbPasswordSet = h.Secrets.Has(SecretStore.SmbPassword) };
+            return new { ok = true, smbPasswordSet = h.Secrets.Has(SecretStore.SmbPassword), cloudSecretSet = h.Secrets.Has(SecretStore.CloudSecret),
+                cloudEncryptionSet = h.Secrets.Has(SecretStore.CloudEncryption) };
         })));
 
         g.MapPost("/backup/run", async (HubService hub) => Results.Json(await hub.RunAsync(h => h.RunBackupAsync(DateTime.Now))));
 
         g.MapPost("/backup/test", async (BackupTestRequest req, HubService hub, HttpContext http) =>
         {
-            var target = await hub.RunAsync(h => h.BackupTargets().FirstOrDefault(t => req.Target == "smb" ? t is SmbBackupTarget : t is FolderBackupTarget));
+            var target = await hub.RunAsync(h => h.BackupTargets().FirstOrDefault(t => req.Target switch
+            {
+                "smb" => t is SmbBackupTarget,
+                "cloud" => t is EncryptedBackupTarget or FailedBackupTarget,   // 0.9.23
+                _ => t is FolderBackupTarget,
+            }));
             if (target is null) return Endpoints.Error(400, L.N("Dieses Ziel ist nicht eingeschaltet (erst speichern)."));
             try
             {
@@ -131,6 +166,59 @@ public static class BackupEndpoints
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException)
             {
                 return Results.Json(new { ok = false, message = $"{target.Name}: {Endpoints.LangOf(http).T(ex.Message)}" });
+            }
+        });
+
+        // 0.9.23: Sicherungen im Netz auflisten und (entschlüsselt, geprüft) einspielen
+        g.MapGet("/backup/cloud/files", async (HubService hub, HttpContext http) =>
+        {
+            var target = await hub.RunAsync(h => h.CloudBackupTarget());
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var files = (await target.ListAsync(cts.Token)).Where(n => BackupNames.IsBackup(n) && n.EndsWith(BackupCrypto.Extension, StringComparison.Ordinal))
+                    .OrderByDescending(n => n, StringComparer.Ordinal).ToList();
+                return Results.Json(new { ok = true, name = target.Name, files });
+            }
+            catch (Exception ex) when (ex is IOException or HttpRequestException or InvalidOperationException or OperationCanceledException or System.Xml.XmlException)
+            {
+                return Results.Json(new { ok = false, name = target.Name, files = new List<string>(), message = Endpoints.LangOf(http).T(ex.Message) });
+            }
+        });
+
+        g.MapPost("/backup/cloud/files/{name}/restore", async (string name, HubService hub, HttpContext http) =>
+        {
+            if (!BackupNames.IsBackup(name) || !name.EndsWith(BackupCrypto.Extension, StringComparison.Ordinal)) return Endpoints.Error(404, L.N("Sicherung nicht gefunden."));
+            var (target, dir) = await hub.RunAsync(h => (h.CloudBackupTarget(), h.DataDirectory));
+            var stamp = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..24];
+            var zipFile = Path.Combine(dir, $"restore-{stamp}.zip");
+            var staging = Path.Combine(dir, $"restore-{stamp}");
+            try
+            {
+                ArchiveManifest manifest;
+                try
+                {
+                    await target.DownloadAsync(name, zipFile, http.RequestAborted);
+                    await using var zip = File.OpenRead(zipFile);
+                    manifest = DataArchive.ExtractAndVerify(zip, staging);
+                }
+                catch (InvalidDataException ex) { return Endpoints.Error(400, L.N("Archiv abgelehnt: {0}"), Endpoints.LangOf(http).T(ex.Message)); }
+                catch (Exception ex) when (ex is IOException or HttpRequestException)
+                {
+                    return Endpoints.Error(502, L.N("Sicherung ins Netz: {0}"), Endpoints.LangOf(http).T(ex.Message));
+                }
+                var previous = await hub.ReplaceDataAsync(staging);
+                return Results.Json(new
+                {
+                    ok = true,
+                    message = Endpoints.LangOf(http).T("Sicherung {0} eingespielt: {1} Gerät(e), {2:N0} Verlaufswerte. Vorheriger Stand gesichert in {3}.",
+                        name, manifest.Devices, manifest.HistoryRows.GetValueOrDefault("samples"), Path.GetFileName(previous)),
+                });
+            }
+            finally
+            {
+                try { if (File.Exists(zipFile)) File.Delete(zipFile); } catch { /* egal */ }
+                try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { /* egal */ }
             }
         });
 
