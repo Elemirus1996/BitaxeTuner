@@ -1239,6 +1239,7 @@ public static class Endpoints
         })));
 
         ExtraDisplayEndpoints.MapAdmin(g);
+        PicoEndpoints.MapAdmin(g);   // 0.9.23
         OverviewEndpoints.MapAdmin(g);
         PublicHttpsEndpoints.Map(g);
 

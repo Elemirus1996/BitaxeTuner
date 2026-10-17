@@ -35,6 +35,11 @@
 #   COMMIT               -> OK COMMIT | ERR ... (checks size and SHA-256, then replaces main.py; RESET starts it)
 #   NET                  -> OK NET <1|0> <ip|->   (WLAN connected and IP address)
 #   RESET                -> OK RESET, then the Pico restarts
+#   BLINK [s]            -> OK BLINK            (8.5: onboard LED blinks for s seconds, default 10 - "which Pico is it?")
+#   STAT                 -> OK STAT rssi=<dBm|-> up=<s> mem=<bytes> pair=<1|0>   (8.5)
+#   KEY <64 hex>         -> OK KEY <proof>      (8.5, WLAN only: new key = hex XOR hmac(sk, 'K|'+counter of this line);
+#                                               proof = first 16 hex of hmac(new key, 'KEYOK|'+counter); saved in btcfg.json,
+#                                               used from the next connection on)
 # Unsolicited: BTN <n> (short press 1-3, 5 = redraw), BTN 3 LONG (held 5 s), BTN 4 LONG (held 3 s),
 #   EPD DONE busy=<1|0> ms=<n> (refresh finished; busy=0: the BUSY line never reported "busy" - fixed wait time used),
 #   INFO reset=<power|wdt|other> err=<text|-> (8.1: why the Pico last started and the last caught error; once after HELLO
@@ -54,6 +59,15 @@
 # "<payload> ~<counter> <tag>", tag = first 8 bytes (hex) of hmac(sk, dir + counter + '|' + payload),
 # dir 'c' (server -> Pico) or 'p' (Pico -> server), counters start at 1 and must increase by exactly 1.
 # A wrong tag or counter closes the connection. Lines without valid tag are never executed.
+#
+# Pairing (8.5) when the key no longer matches: BOOTSEL (every Pico) or KEY0 of the Waveshare board held 3 s starts a
+# 2-minute window ("PAIR ON" event, LED blinks fast). Only then a new connection may answer the greeting with
+# "PAIR <A>" instead of AUTH (A = X25519 public key of the server, 64 hex). The Pico answers "PAIRB <B>"; both derive
+# k = sha256('BTPAIR|' + nonce_p + '|' + A + B + shared), new key = hmac(k, 'key'), code = hmac(k, 'code')[:4] mod 10000.
+# The Pico shows the 4-digit code (LED: each digit as n blinks, 0 = 10; e-Paper 7.5" B: text), the server shows it too -
+# the user compares and confirms. The server then sends "PAIROK <hmac(new key, 'OK|'+nonce_p)>", the Pico saves the key
+# and answers "PAIRED <hmac(new key, 'DONE|'+nonce_p)>". Without the button press a key can only be changed with the
+# old key (KEY) or over USB.
 
 import sys
 import time
@@ -64,7 +78,7 @@ import hashlib
 import os
 from machine import Pin, PWM
 
-VERSION = "8.4"
+VERSION = "8.5"
 FREQ = 25000
 WATCHDOG_MS = 5000
 IMG_ALIVE_MS = 3000
@@ -83,6 +97,8 @@ SPECTRA_BYTES = EPD_W * EPD_H // 2
 SERVER_LOST_MS = 10 * 60 * 1000
 NET_PORT = 8490
 AUTH_TIMEOUT_MS = 5000
+PAIR_MS = 120000
+PAIR_HOLD_MS = 3000
 
 # ---------- Diagnosis (8.1) ----------
 
@@ -155,8 +171,9 @@ else:
     # Keys of the Waveshare board: KEY0 GP2 = next page, KEY1 GP3 = redraw (held 3 s: restart).
     # Extra buttons on GP1/GP5/GP7 keep their meaning (GP3 is KEY1 here).
     BUTTON_PINS = (2, 3, 1, 5, 7)
-    LONG_MS = (0, 3000, 0, 5000, 3000)
-    BTN_EVENTS = (("BTN 1", None), ("BTN 5", "BTN 4 LONG"), ("BTN 1", None), ("BTN 3", "BTN 3 LONG"), (None, "BTN 4 LONG"))
+    LONG_MS = (PAIR_HOLD_MS, 3000, 0, 5000, 3000)
+    # 8.5: KEY0 held 3 s = pairing mode (like BOOTSEL)
+    BTN_EVENTS = (("BTN 1", "PAIR"), ("BTN 5", "BTN 4 LONG"), ("BTN 1", None), ("BTN 3", "BTN 3 LONG"), (None, "BTN 4 LONG"))
 
 N = len(PWM_PINS)
 
@@ -282,6 +299,7 @@ try:
 except Exception:
     led = Pin(25, Pin.OUT)
 led_off_at = 0
+blink_until = 0      # 8.5 BLINK: LED blinks until then
 
 buttons = [Pin(p, Pin.IN, Pin.PULL_UP) for p in BUTTON_PINS]
 btn_down = [0] * len(buttons)      # ticks when pressed, 0 = released
@@ -303,7 +321,10 @@ def poll_buttons(now):
         elif pressed and LONG_MS[i] and not btn_long_sent[i] and time.ticks_diff(now, btn_down[i]) >= LONG_MS[i]:
             btn_long_sent[i] = True
             blink(1000)
-            event(BTN_EVENTS[i][1])
+            if BTN_EVENTS[i][1] == "PAIR":
+                pair_start(now)
+            else:
+                event(BTN_EVENTS[i][1])
         elif not pressed and btn_down[i] != 0:
             held = time.ticks_diff(now, btn_down[i])
             btn_down[i] = 0
@@ -517,10 +538,10 @@ def epd_poll():
         event("EPD DONE busy=%d ms=%d" % (1 if epd_busy_seen else 0, elapsed))
 
 
-def draw_server_lost():
-    # No server for a long time: write a red note into the last picture (built-in 8x8 font, scaled x3)
+def draw_server_lost(text="KEINE VERBINDUNG ZUM SERVER"):
+    # No server for a long time: write a red note into the last picture (built-in 8x8 font, scaled x3);
+    # 8.5: also the pairing code
     import framebuf
-    text = "KEINE VERBINDUNG ZUM SERVER"
     small = bytearray(len(text) * 8 * 8 // 8)
     fb = framebuf.FrameBuffer(small, len(text) * 8, 8, framebuf.MONO_HLSB)
     fb.fill(0)
@@ -613,7 +634,7 @@ def upd_commit():
 
 
 def handle(line):
-    global last_cmd, last_fan, failsafe, img, img_pos, img_len, last_img
+    global last_cmd, last_fan, failsafe, img, img_pos, img_len, last_img, blink_until
     parts = line.strip().split()
     if not parts:
         return
@@ -698,6 +719,45 @@ def handle(line):
         reply(upd_start(parts))
     elif cmd == "COMMIT":
         reply(upd_commit())
+    elif cmd == "BLINK":
+        try:
+            secs = max(1, min(60, int(parts[1]))) if len(parts) > 1 else 10
+        except ValueError:
+            secs = 10
+        blink_until = time.ticks_add(time.ticks_ms(), secs * 1000) or 1
+        reply("OK BLINK")
+    elif cmd == "STAT":
+        rssi = "-"
+        try:
+            if wlan is not None and wlan.isconnected():
+                rssi = str(wlan.status("rssi"))
+        except Exception:
+            pass
+        try:
+            import gc
+            mem = gc.mem_free()
+        except Exception:
+            mem = -1
+        reply("OK STAT rssi=%s up=%d mem=%d pair=%d" % (rssi, time.time() - BOOT_S, mem, 1 if pair_until else 0))
+    elif cmd == "KEY":
+        # 8.5 key rotation: only over an authenticated WLAN connection (proves the old key), new key arrives masked
+        if not via_net or net is None or len(parts) != 2 or len(parts[1]) != 64:
+            reply("ERR KEY")
+            return
+        try:
+            enc = ubinascii.unhexlify(parts[1])
+        except Exception:
+            reply("ERR KEY")
+            return
+        ctr = net.rx
+        mask = hmac(net.sk, ("K|%d" % ctr).encode())
+        new = bytes(x ^ y for x, y in zip(enc, mask))
+        try:
+            save_key(new)
+        except Exception as e:
+            reply("ERR KEY " + str(e))
+            return
+        reply("OK KEY " + hexs(hmac(new, ("KEYOK|%d" % ctr).encode()))[:16])
     elif cmd == "RESET":
         reply("OK RESET")
         all_full()
@@ -889,7 +949,11 @@ def net_poll(now):
             if lines is None:
                 pending = None
             elif lines:
-                if pending.auth(lines[0].decode().strip()):
+                first = lines[0].decode().strip()
+                if pair_until and first.startswith("PAIR "):
+                    pair_begin(pending, first)     # 8.5: only within the window after the button press
+                    pending = None
+                elif pending.auth(first):
                     if net is not None:
                         net.close()
                     net = pending
@@ -910,6 +974,10 @@ def net_poll(now):
                     break
     if net is not None and net.sock is None:
         net = None
+    pair_poll(now)
+
+
+via_net = False      # 8.5: the current command came over the authenticated WLAN connection
 
 
 def net_line(raw):
@@ -923,17 +991,264 @@ def net_line(raw):
     payload = net.unwrap(line)
     if payload is None:
         return
+    global via_net
     reply = net.send
+    via_net = True
     try:
         handle(payload)
     finally:
         reply = usb_send
+        via_net = False
 
 
 def poll_ready(sock):
     p = select.poll()
     p.register(sock, select.POLLIN)
     return bool(p.poll(0))
+
+# ---------- Pairing (8.5) ----------
+
+P25519 = (1 << 255) - 19
+X25519_BASE = b"\x09" + bytes(31)
+
+
+def _le_int(b):
+    n = 0
+    for i in range(len(b) - 1, -1, -1):
+        n = (n << 8) | b[i]
+    return n
+
+
+def _le_bytes(n):
+    out = bytearray(32)
+    for i in range(32):
+        out[i] = n & 255
+        n >>= 8
+    return bytes(out)
+
+
+def x25519(scalar, u):
+    # RFC 7748 Montgomery ladder (big integers; well below one second on the RP2040)
+    k = bytearray(scalar)
+    k[0] &= 248
+    k[31] &= 127
+    k[31] |= 64
+    k = _le_int(k)
+    ub = bytearray(u)
+    ub[31] &= 127
+    x1 = _le_int(ub) % P25519
+    p = P25519
+    x2, z2, x3, z3, swap = 1, 0, x1, 1, 0
+    for t in range(254, -1, -1):
+        kt = (k >> t) & 1
+        swap ^= kt
+        if swap:
+            x2, x3 = x3, x2
+            z2, z3 = z3, z2
+        swap = kt
+        a = (x2 + z2) % p
+        aa = a * a % p
+        b = (x2 - z2) % p
+        bb = b * b % p
+        e = (aa - bb) % p
+        c = (x3 + z3) % p
+        d = (x3 - z3) % p
+        da = d * a % p
+        cb = c * b % p
+        s = (da + cb) % p
+        x3 = s * s % p
+        s = (da - cb) % p
+        z3 = x1 * (s * s % p) % p
+        x2 = aa * bb % p
+        z2 = e * ((aa + 121665 * e) % p) % p
+        if t % 64 == 0:
+            try:
+                wdt.feed()
+            except Exception:
+                pass
+    if swap:
+        x2, x3 = x3, x2
+        z2, z3 = z3, z2
+    r, e, base = 1, p - 2, z2         # z2^(p-2) = 1/z2
+    while e:
+        if e & 1:
+            r = r * base % p
+        base = base * base % p
+        e >>= 1
+    return _le_bytes(x2 * r % p)
+
+
+pair_until = 0       # ticks until the pairing window ends, 0 = off
+pair_conn = None     # connection that sent PAIR and waits for the user's confirmation
+pair_key = None
+pair_code = None
+pair_seq = None
+bootsel_down = 0
+bootsel_sent = False
+bootsel_checked = 0
+
+
+def save_key(key):
+    # new WLAN key into btcfg.json (write a copy first, then replace); used from the next connection on
+    global NET_KEY
+    import json
+    cfg["key"] = hexs(key)
+    with open("btcfg.tmp", "w") as f:
+        json.dump(cfg, f)
+    try:
+        os.rename("btcfg.tmp", "btcfg.json")
+    except OSError:
+        os.remove("btcfg.json")
+        os.rename("btcfg.tmp", "btcfg.json")
+    NET_KEY = key
+
+
+def pair_start(now):
+    global pair_until, pair_code, pair_seq
+    if wlan is None:
+        event("PAIR NOWLAN")
+        blink(2000)
+        return
+    pair_until = time.ticks_add(now, PAIR_MS) or 1
+    pair_code = None
+    pair_seq = None
+    event("PAIR ON")
+
+
+def pair_stop():
+    global pair_until, pair_conn, pair_code, pair_key, pair_seq
+    pair_until = 0
+    pair_code = None
+    pair_key = None
+    pair_seq = None
+    if pair_conn is not None:
+        pair_conn.close()
+        pair_conn = None
+    led.value(0)
+
+
+def pair_begin(conn, line):
+    global pair_conn, pair_key, pair_code, pair_seq
+    parts = line.split()
+    try:
+        a = ubinascii.unhexlify(parts[1]) if len(parts) == 2 and len(parts[1]) == 64 else None
+    except Exception:
+        a = None
+    if a is None:
+        conn.close()
+        return
+    if pair_conn is not None:
+        pair_conn.close()
+    b = os.urandom(32)
+    pub = x25519(b, X25519_BASE)
+    shared = x25519(b, a)
+    if shared == bytes(32):
+        conn.close()
+        return
+    k = hashlib.sha256(b"BTPAIR|" + conn.nonce.encode() + b"|" + a + pub + shared).digest()
+    pair_key = hmac(k, b"key")
+    c = hmac(k, b"code")
+    pair_code = "%04d" % ((((c[0] << 24) | (c[1] << 16) | (c[2] << 8) | c[3])) % 10000)
+    pair_seq = None
+    pair_conn = conn
+    conn.raw("PAIRB " + hexs(pub))
+    event("PAIR CODE")
+    # e-Paper 7.5" B: show the code too (Spectra 6 keeps no picture in memory - LED only)
+    if img is not None and img_pos == len(img) and epd_state == 0:
+        try:
+            draw_server_lost("KOPPLUNG  CODE " + pair_code)
+            epd_show()
+        except Exception as e:
+            note_error("pair", e)
+
+
+def pair_poll(now):
+    global pair_conn
+    if pair_until and time.ticks_diff(now, pair_until) > 0:
+        pair_stop()
+        event("PAIR OFF")
+        return
+    if pair_conn is None:
+        return
+    if pair_conn.sock is None:
+        pair_conn = None
+        return
+    if not poll_ready(pair_conn.sock):
+        return
+    lines = pair_conn.read()
+    if lines is None:
+        pair_conn = None
+        return
+    for l in lines:
+        try:
+            parts = l.decode().strip().split()
+        except Exception:
+            parts = []
+        if not parts:
+            continue
+        if len(parts) == 2 and parts[0] == "PAIROK" and same(hexs(hmac(pair_key, ("OK|" + pair_conn.nonce).encode())), parts[1]):
+            save_key(pair_key)
+            pair_conn.raw("PAIRED " + hexs(hmac(pair_key, ("DONE|" + pair_conn.nonce).encode())))
+            time.sleep_ms(100)
+            event("PAIR DONE")
+            pair_stop()
+            if net is not None:
+                net.close()          # the server reconnects with the new key
+            return
+        pair_conn.close()
+        pair_conn = None
+        return
+
+
+def pair_led(now):
+    # without code: fast blinking; with code: every digit as n blinks (0 = 10), pause between digits
+    global pair_seq
+    if pair_code is None:
+        return (now // 100) % 2
+    if pair_seq is None:
+        seq = []
+        for ch in pair_code:
+            seq += [1, 0] * (int(ch) or 10)
+            seq += [0, 0, 0, 0]
+        pair_seq = seq + [0] * 8
+    return pair_seq[(now // 250) % len(pair_seq)]
+
+
+def led_poll(now):
+    global led_off_at, blink_until
+    if pair_until:
+        led.value(pair_led(now))
+        return
+    if blink_until:
+        if time.ticks_diff(now, blink_until) >= 0:
+            blink_until = 0
+            led.value(0)
+        else:
+            led.value((now // 200) % 2)
+        return
+    if led_off_at and time.ticks_diff(now, led_off_at) >= 0:
+        led.value(0)
+        led_off_at = 0
+
+
+def poll_bootsel(now):
+    # BOOTSEL held 3 s while running = pairing mode (checked every 100 ms - reading it pauses the flash briefly)
+    global bootsel_down, bootsel_sent, bootsel_checked
+    if _bootsel is None or time.ticks_diff(now, bootsel_checked) < 100:
+        return
+    bootsel_checked = now
+    try:
+        pressed = _bootsel()
+    except Exception:
+        return
+    if not pressed:
+        bootsel_down = 0
+        bootsel_sent = False
+    elif bootsel_down == 0:
+        bootsel_down = now or 1
+    elif not bootsel_sent and time.ticks_diff(now, bootsel_down) >= PAIR_HOLD_MS:
+        bootsel_sent = True
+        pair_start(now)
 
 # ---------- Main loop ----------
 
@@ -946,6 +1261,7 @@ last_fan = last_cmd
 last_img = last_cmd - IMG_ALIVE_MS - 1
 failsafe = True
 last_rpm = time.ticks_ms()
+BOOT_S = time.time()
 # Safe start (8.1): BOOTSEL pressed within 3 s after power-up (LED on) -> stop before the watchdog starts, so the Pico
 # can be used with Thonny. Fans run at 100 % meanwhile (fail-safe).
 try:
@@ -1010,10 +1326,9 @@ try:
                 all_full()
                 failsafe = True
             poll_buttons(now)
+            poll_bootsel(now)
             poll_temps(now)
-            if led_off_at and time.ticks_diff(now, led_off_at) >= 0:
-                led.value(0)
-                led_off_at = 0
+            led_poll(now)
             epd_poll()
             if (img is not None and img_pos == len(img) and not lost_drawn and epd_state == 0
                     and time.ticks_diff(now, last_cmd) > SERVER_LOST_MS and time.ticks_diff(now, last_show) > 180000):

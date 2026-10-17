@@ -337,16 +337,27 @@ public sealed partial class MinerHub
             throw new IOException(L.T("WLAN: Gerätename oder IP-Adresse des Pico fehlt."));
         if (Secrets.Get(secretKey) is not { Length: 64 } hex)
             throw new IOException(L.T("WLAN: Kein Schlüssel für diesen Pico – zuerst per USB „Für WLAN einrichten“."));
-        var key = Convert.FromHexString(hex);
         var (name, port) = SplitHostPort(host);
+        NetworkLineTransport Open(byte[] key)
+        {
+            try { return NetworkLineTransport.Connect(name, port, key); }
+            catch (IOException ex) when (ex is not PicoKeyMismatchException && lastIp.Length > 0 && lastIp != name)
+            {
+                return NetworkLineTransport.Connect(lastIp, port, key);
+            }
+        }
         NetworkLineTransport io;
         try
         {
-            io = NetworkLineTransport.Connect(name, port, key);
+            io = Open(Convert.FromHexString(hex));
         }
-        catch (IOException) when (lastIp.Length > 0 && lastIp != name)
+        catch (PicoKeyMismatchException) when (Secrets.Get(secretKey + ".next") is { Length: 64 } next)
         {
-            io = NetworkLineTransport.Connect(lastIp, port, key);
+            // 0.9.23: Schlüsselwechsel, dessen Bestätigung verloren ging – der Pico hat schon den neuen
+            io = Open(Convert.FromHexString(next));
+            Secrets.Set(secretKey, next);
+            Secrets.Set(secretKey + ".next", null);
+            LogEvent(null, EventCategories.Fans, L.T("{0}: neuer WLAN-Schlüssel übernommen.", host));
         }
         try
         {
@@ -442,6 +453,7 @@ public sealed partial class MinerHub
             {
                 _displayDevice = await Task.Run(() => OpenDisplayDevice(s));
                 _displayDeviceError = null;
+                _picoSince["display"] = now;
                 LogEvent(null, EventCategories.Fans, L.T("Display-Pico verbunden: {0}", _displayDevice.Description));
                 RequestDisplayRefresh();
             }
@@ -484,7 +496,7 @@ public sealed partial class MinerHub
         if (s.Port == "sim") return new SimulatedFanDevice(PicoFanDevice.RoleDisplay);
         return s.Connection == "wlan"
             ? OpenNetworkPico(s.NetworkHost, s.NetworkIp, PicoKeyDisplay, PicoFanDevice.RoleDisplay, ip => s.NetworkIp = ip)
-            : OpenUsbPico(s.Port, PicoFanDevice.RoleDisplay, forceInstall: false);
+            : OpenUsbPico(s.Port, PicoFanDevice.RoleDisplay, forceInstall: TakeForceInstall("display"));
     }
 
     // ---------- Einrichtung für WLAN ----------

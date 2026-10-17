@@ -67,7 +67,7 @@ public sealed class NetworkLineTransport : ILineTransport
             var a = answer?.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (a is not { Length: 2 } || a[0] != "AUTHOK"
                 || !CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(a[1]), Encoding.ASCII.GetBytes(Hex(Hmac(key, $"P|{nonceC}|{nonceP}")))))
-                throw new IOException(L.T("{0}: Schlüssel passt nicht – Pico neu für WLAN einrichten.", host));
+                throw new PicoKeyMismatchException(L.T("{0}: Schlüssel passt nicht – unter „Lüfter & Anzeige → Picos“ neu koppeln (Taste am Pico) oder per USB neu einrichten.", host));
             var transport = new NetworkLineTransport(client, $"{host}:{port}", Hmac(key, $"S|{nonceP}|{nonceC}"), version, role);
             transport._raw.AddRange(buffer);
             return transport;
@@ -113,6 +113,19 @@ public sealed class NetworkLineTransport : ILineTransport
         return raw[..i];
     }
 
+    /// <summary>
+    /// 0.9.23 Schlüsselwechsel: Zeile „KEY …“ mit dem neuen Schlüssel, maskiert mit dem Sitzungsschlüssel und dem Zähler genau
+    /// dieser Zeile (muss als nächste und einzige Zeile gesendet werden), und die Prüfung der Bestätigung „OK KEY &lt;proof&gt;“.
+    /// </summary>
+    internal (string Line, Func<string, bool> Verify) KeyLine(byte[] newKey)
+    {
+        var counter = _tx + 1;
+        var mask = Hmac(_sessionKey, $"K|{counter}");
+        var masked = newKey.Select((b, i) => (byte)(b ^ mask[i])).ToArray();
+        var expected = Hex(HMACSHA256.HashData(newKey, Encoding.ASCII.GetBytes($"KEYOK|{counter}")))[..16];
+        return ($"KEY {Hex(masked)}", proof => CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(proof), Encoding.ASCII.GetBytes(expected)));
+    }
+
     public string? ReadUntil(string marker, TimeSpan timeout) =>
         throw new NotSupportedException(L.T("Über WLAN lässt sich das Programm nur per Update (PUT) aufspielen."));
 
@@ -133,7 +146,7 @@ public sealed class NetworkLineTransport : ILineTransport
     private static string Hex(byte[] b) => Convert.ToHexString(b).ToLowerInvariant();
 
     /// <summary>Eine Zeile (ohne Zeilenende) aus dem Datenstrom; null bei Zeitüberschreitung.</summary>
-    private static string? ReadRawLine(NetworkStream stream, List<byte> buffer, TimeSpan timeout)
+    internal static string? ReadRawLine(NetworkStream stream, List<byte> buffer, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
         var chunk = new byte[4096];
