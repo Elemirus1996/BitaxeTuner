@@ -533,3 +533,9 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 .settings-hits { margin: 0 0 6px; min-height: 1em; }
 .subnav .cnt { margin-left: auto; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); }
 mark.find { background: color-mix(in srgb, var(--warn) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+/* 0.9.23 Fachbegriffe: „?“ neben Werten */
+.term { display: inline-flex; align-items: center; gap: 4px; }
+.term-help { display: inline-grid; place-items: center; width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 1px solid var(--line, currentColor);
+  background: transparent; color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1; cursor: help; }
+.term-help:hover, .term-help:focus-visible { color: var(--text); border-color: var(--accent); }
+@media (pointer: coarse) { .term-help { width: 24px; height: 24px; min-height: 0; font-size: 12px; } }

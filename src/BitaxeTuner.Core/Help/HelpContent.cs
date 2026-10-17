@@ -19,6 +19,7 @@ public static class HelpContent
     public static IReadOnlyList<HelpSection> Sections(bool server) =>
     [
         Guide(server),
+        Terms(),
         Journal(),
         MinerLogs(),
         Faq(server),
@@ -44,6 +45,11 @@ public static class HelpContent
                 ? L.T("Einstellungen → Kiosk / Wand-Tablet: Kiosk-Link anlegen und einmal auf dem Tablet öffnen. Im Kiosk-Designer lassen sich Farben, Animationen und die Anordnung der Panels gestalten.")
                 : L.T("Soll rund um die Uhr überwacht werden, ohne dass der PC läuft: „Betriebsart …“ richtet einen Server ein (Raspberry Pi, zweiter PC, Docker). Die Daten lassen sich hin und zurück übertragen.")),
         ]);
+
+    /// <summary>0.9.23: Fachbegriffe – dieselben Erklärungen wie hinter dem „?“ neben den Werten.</summary>
+    private static HelpSection Terms() => new("glossary", L.T("Fachbegriffe"),
+        L.T("Kurz erklärt, was hinter den Werten steckt. Dieselben Erklärungen zeigt das kleine „?“ neben den Werten."),
+        Glossary.All().Select(g => new HelpItem(g.Term, g.Text)).ToList());
 
     private static HelpSection Journal()
     {
