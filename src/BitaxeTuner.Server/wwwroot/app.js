@@ -703,6 +703,29 @@ function route() {
 
 // ---------- Übersicht ----------
 
+/** 0.9.23 Glossar (Sprache des Browsers), einmal geladen. */
+function glossary() {
+  if (!S.glossary || S.glossary.lang !== LANG) S.glossary = { lang: LANG, p: api(`/glossary?lang=${LANG}`).then(r => r.terms).catch(() => []) };
+  return S.glossary.p;
+}
+
+/** 0.9.23 Kleines „?“ neben einem Fachbegriff: Erklärung in einem Satz, Link zu allen Fachbegriffen in der Hilfe. */
+function termHelp(key) {
+  return h('button', {
+    type: 'button', class: 'term-help', title: t('Was bedeutet das?'), 'aria-label': t('Was bedeutet das?'),
+    onclick: async e => {
+      e.preventDefault(); e.stopPropagation();
+      const g = (await glossary()).find(x => x.key === key);
+      if (!g) return;
+      await confirmBox(g.term, h('div', { class: 'stack' }, h('p', {}, g.text),
+        h('a', { href: '#/help', onclick: () => { S.helpJump = 'glossary'; $('#dialog').close(); } }, t('Alle Fachbegriffe in der Hilfe'))), t('Schließen'));
+    },
+  }, '?');
+}
+
+/** Beschriftung mit „?“ (für tile()). */
+const termLabel = (label, ...keys) => h('span', { class: 'term' }, label, ...keys.map(termHelp));
+
 function tile(label, value, sub, cls) {
   return h('div', { class: 'tile' }, h('div', { class: 'label' }, label), h('div', { class: `value ${cls || ''}` }, value), sub ? h('div', { class: 'sub' }, sub) : null);
 }
@@ -2197,15 +2220,15 @@ function diffText(v) {
 
 function liveTiles(d) {
   return [
-    tile(t('Hashrate'), hash(d.hashrate), d.expectedHashrate ? t('Soll {0}', hash(d.expectedHashrate)) : '', d.online ? 'ok' : 'danger'),
-    tile(d.chipTemps?.length > 1 ? t('ASIC max. / VR') : t('ASIC / VR'), d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–', d.vrTemp != null ? t('VR {0} °C', n(d.vrTemp, 0)) : ''),
+    tile(termLabel(t('Hashrate'), 'hashrate'), hash(d.hashrate), d.expectedHashrate ? t('Soll {0}', hash(d.expectedHashrate)) : '', d.online ? 'ok' : 'danger'),
+    tile(termLabel(d.chipTemps?.length > 1 ? t('ASIC max. / VR') : t('ASIC / VR'), 'asictemp', 'vrtemp'), d.temp != null ? t('{0} °C', n(d.temp, 1)) : '–', d.vrTemp != null ? t('VR {0} °C', n(d.vrTemp, 0)) : ''),
     d.chipTemps?.length > 1 ? chipTile(d.chipTemps) : null,
-    tile(t('Leistung'), d.power != null ? t('{0} W', n(d.power, 1)) : '–', d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : ''),
+    tile(termLabel(t('Leistung'), 'efficiency'), d.power != null ? t('{0} W', n(d.power, 1)) : '–', d.efficiency ? t('{0} J/TH', n(d.efficiency, 2)) : ''),
     tile(t('Frequenz'), d.frequency != null ? t('{0} MHz', d.frequency) : '–', d.voltage != null ? t('{0} mV', d.voltage) : ''),
     tile(t('Lüfter'), d.fanRpm != null ? t('{0} rpm', d.fanRpm) : '–', d.fanPercent != null ? `${d.fanPercent} %` : ''),
-    tile(t('Shares'), d.sharesAccepted ?? '–', [d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : '',
+    tile(termLabel(t('Shares'), 'shares', 'pooldiff'), d.sharesAccepted ?? '–', [d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : '',
       d.poolDifficulty ? t('Pool-Diff {0}', diffText(d.poolDifficulty)) : ''].filter(Boolean).join(' · ')),
-    tile(t('Laufzeit'), dur(d.uptimeSeconds), d.bestDiff ? t('Best {0}', d.bestDiff) : ''),
+    tile(termLabel(t('Laufzeit'), 'bestdiff'), dur(d.uptimeSeconds), d.bestDiff ? t('Best {0}', d.bestDiff) : ''),
     tile(t('Status'), d.online ? 'online' : d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart …')) : 'offline', d.maintenanceMode ? t('Überwachung pausiert') : (d.pool || d.error || ''), d.online ? 'ok' : 'warn'),
     d.fan ? tile(t('VR-Lüfter K{0}', d.fan.channel), `${d.fan.percent} %`, d.fan.stalled ? t('Lüfter steht!') : d.fan.rpm != null ? t('{0} U/min', d.fan.rpm) : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,
   ].filter(Boolean);
@@ -3084,6 +3107,12 @@ async function renderHelp() {
     newsCard(),
     body));
   draw();
+  // 0.9.23: vom „?“ aus direkt zu den Fachbegriffen
+  if (S.helpJump) {
+    const sec = document.getElementById(`help-${S.helpJump}`);
+    S.helpJump = null;
+    if (sec) { sec.querySelectorAll('details').forEach(x => { x.open = true; }); setTimeout(() => sec.scrollIntoView({ behavior: 'smooth' }), 50); }
+  }
 }
 
 // ---------- Gruppen-Automatik ----------
@@ -4202,7 +4231,7 @@ function miningModesCard() {
       h('div', { class: 'table-wrap' }, h('table', {},
         h('thead', {}, h('tr', {}, [t('Mining-Art'), t('Coins/Tag'), t('Ertrag/Tag'), t('Ertrag/Monat'), t('Strom/Tag'), t('Saldo/Tag')].map(x => h('th', {}, x)))),
         h('tbody', {}, d.rows.map(r => h('tr', {},
-          h('td', { style: 'white-space:normal;min-width:220px' }, h('b', {}, names[r.key]?.[0] || r.key), h('div', { class: 'muted small' }, names[r.key]?.[1] || ''),
+          h('td', { style: 'white-space:normal;min-width:220px' }, h('b', {}, names[r.key]?.[0] || r.key), ({ pps: 'pps', pplns: 'pplns', 'solo-btc': 'solo', 'solo-bch': 'solo' })[r.key] ? termHelp(({ pps: 'pps', pplns: 'pplns', 'solo-btc': 'solo', 'solo-bch': 'solo' })[r.key]) : null, h('div', { class: 'muted small' }, names[r.key]?.[1] || ''),
             // Solo: Chance auf einen Block direkt unter dem Namen (eigene Spalte wäre auf schmalen Fenstern abgeschnitten)
             r.chancePerMonth == null ? null : h('div', { class: 'small warn' }, t('Solo-Chance') + ': ' + t('{0} % pro Monat', n(r.chancePerMonth * 100, r.chancePerMonth < 0.01 ? 3 : 2)) + ' · ' +
               t('Ø alle {0} Jahre', n(r.expectedYears, r.expectedYears < 10 ? 1 : 0)))),

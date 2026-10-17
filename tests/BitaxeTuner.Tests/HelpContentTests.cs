@@ -12,7 +12,7 @@ public class HelpContentTests
     public void Every_section_has_content(bool server)
     {
         var sections = HelpContent.Sections(server);
-        Assert.Equal(4, sections.Count);
+        Assert.Equal(5, sections.Count);   // 0.9.23: + Fachbegriffe
         Assert.All(sections, s =>
         {
             Assert.NotEmpty(s.Items);

@@ -20,6 +20,12 @@ public static class KioskEndpoints
     {
         // Hilfe (0.9.9): Anleitung, Protokoll und Miner-Logs erklärt, häufige Fragen
         g.MapGet("/help", () => Results.Json(new { sections = Core.Help.HelpContent.Sections(server: true) }));
+        // 0.9.23 Fachbegriffe für das „?“ neben Werten – in der Sprache des Browsers
+        g.MapGet("/glossary", (HttpContext http) =>
+        {
+            var lang = Endpoints.LangOf(http);
+            return Results.Json(new { terms = Core.Help.Glossary.All(s => lang.T(s)) });
+        });
 
         g.MapGet("/kiosk/design", async (string? id, HttpContext http, AuthStore auth, HubService hub) =>
         {

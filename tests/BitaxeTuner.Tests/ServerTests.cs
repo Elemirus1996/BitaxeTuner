@@ -378,7 +378,7 @@ public sealed class ServerTests : IDisposable
         await Json(await tablet.PostAsJsonAsync("/api/v1/kiosk/login", new { token = kiosk.GetProperty("token").GetString() }));
         var help = await Json(await tablet.GetAsync("/api/v1/help"));
         var ids = help.GetProperty("sections").EnumerateArray().Select(x => x.GetProperty("id").GetString()).ToList();
-        Assert.Equal(new[] { "guide", "journal", "minerlog", "faq" }, ids);
+        Assert.Equal(new[] { "guide", "glossary", "journal", "minerlog", "faq" }, ids);
         Assert.Contains("Server", help.GetRawText());
     }
 
