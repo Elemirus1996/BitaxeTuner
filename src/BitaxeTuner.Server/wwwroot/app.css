@@ -262,6 +262,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
 .toast { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--info); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
 .anim .toast { animation: bt-rise .25s var(--ease) both; }
 .toast.error { border-left-color: var(--danger); } .toast.ok { border-left-color: var(--ok); }
+.toast .btn { margin-left: 10px; }
 #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
 
 .login { max-width: 420px; margin: 10vh auto; }

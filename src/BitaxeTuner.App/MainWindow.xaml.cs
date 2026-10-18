@@ -225,10 +225,51 @@ public partial class MainWindow : Window
     {
         var host = Vm.Host;
         var language = host.Config.Language;
+        var before = ConfigSnapshot.Take(host.Config);   // 0.9.24: für „Rückgängig“
         var dialog = new SettingsWindow(host.Config, host.DataDirectory, MoveDataDirectoryAsync,
             () => host.Hub.SendDailyReportAsync(DateTime.Now, markSent: false), host, section) { Owner = owner ?? this };
         if (dialog.ShowDialog() != true) return;
         if (dialog.ShowOnboardingRequested) _ = Dispatcher.BeginInvoke(ShowOnboarding);
+        await ApplySavedSettingsAsync(language);
+        OfferSettingsUndo(before);
+    }
+
+    private ConfigSnapshot? _settingsUndo;
+    private System.Windows.Threading.DispatcherTimer? _settingsUndoTimer;
+
+    /// <summary>0.9.24: 10 s lang „Rückgängig“ in der Statusleiste anbieten.</summary>
+    private void OfferSettingsUndo(ConfigSnapshot before)
+    {
+        _settingsUndo = before;
+        UndoSettingsButton.Visibility = Visibility.Visible;
+        _settingsUndoTimer?.Stop();
+        _settingsUndoTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _settingsUndoTimer.Tick += (_, _) => { _settingsUndoTimer?.Stop(); UndoSettingsButton.Visibility = Visibility.Collapsed; _settingsUndo = null; };
+        _settingsUndoTimer.Start();
+    }
+
+    /// <summary>0.9.24: Stand vor dem letzten Speichern der Einstellungen wiederherstellen (nie Werte am Miner).</summary>
+    private async void OnUndoSettingsClick(object sender, RoutedEventArgs e)
+    {
+        _settingsUndoTimer?.Stop();
+        UndoSettingsButton.Visibility = Visibility.Collapsed;
+        if (_settingsUndo is not { } before) return;
+        _settingsUndo = null;
+        var host = Vm.Host;
+        var language = host.Config.Language;
+        before.RestoreInto(host.Config);
+        host.Config.Save();
+        ThemeManager.ApplyAppearance(host.Config.Appearance);
+        host.Hub.LogEvent(null, Core.Monitoring.EventCategories.Settings, L.T("Einstellungen zurückgenommen – wieder der Stand vor dem Speichern um {0} ({1}).",
+            before.Taken.ToString("HH:mm:ss"), L.T("Desktop")));
+        await ApplySavedSettingsAsync(language);
+        Vm.StatusText = L.T("Einstellungen zurückgenommen.");
+    }
+
+    /// <summary>Nach dem Speichern (oder Zurücknehmen) der Einstellungen: Steckdosen, Design, Liste, Monitor, Sprache.</summary>
+    private async Task ApplySavedSettingsAsync(string language)
+    {
+        var host = Vm.Host;
         await host.Hub.ApplyPlugSettingsAsync();
 
         ThemeManager.Apply(host.Config.Theme);

@@ -1009,15 +1009,37 @@ public static class Endpoints
         ProfileEndpoints.Map(g);
         g.MapGet("/settings", async (HubService hub) => Results.Json(await hub.RunAsync(h => Dto.Copy(SettingsDto.From(h.Config)))));
 
-        g.MapPut("/settings", async (SettingsDto req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        g.MapPut("/settings", async (SettingsDto req, HubService hub, SettingsUndo undo) => Results.Json(await hub.RunAsync(async h =>
         {
+            var before = Dto.Copy(SettingsDto.From(h.Config));   // 0.9.24: für „Rückgängig“
             req.ApplyTo(h.Config);
             h.Config.Save();
             Loc.Configure(h.Config.Language);
             h.SyncLogAlerts();
             await h.ApplySettingsChangedAsync();
-            return new { ok = true };
+            undo.Remember(before);
+            return new { ok = true, undo = true };
         })));
+
+        // 0.9.24: letzten Speichervorgang zurücknehmen (nur BitaxeTuner-Einstellungen, nie Werte am Miner)
+        g.MapPost("/settings/undo", async (HttpContext http, HubService hub, SettingsUndo undo) =>
+        {
+            if (undo.Take() is not { } last)
+                return Error(409, L.N("Zum Rückgängigmachen ist es zu spät – bitte die Werte von Hand zurücksetzen."));
+            var who = Who(http);
+            return Results.Json(await hub.RunAsync(async h =>
+            {
+                last.Before.NewViewerPin = null;
+                last.Before.ApplyTo(h.Config);
+                h.Config.Save();
+                Loc.Configure(h.Config.Language);
+                h.SyncLogAlerts();
+                await h.ApplySettingsChangedAsync();
+                h.LogEvent(null, EventCategories.Settings, L.T("Einstellungen zurückgenommen – wieder der Stand vor dem Speichern um {0} ({1}).",
+                    last.Saved.ToString("HH:mm:ss"), who));
+                return new { ok = true };
+            }));
+        });
 
         // „Neu in dieser Version“ gesehen oder abgelehnt – bis zum nächsten Update nicht mehr fragen
         g.MapPost("/whatsnew/seen", async (HubService hub) => Results.Json(await hub.RunAsync(h =>
