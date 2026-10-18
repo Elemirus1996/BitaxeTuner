@@ -220,6 +220,16 @@ public partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings(null);
 
+    /// <summary>0.9.24 Tastenkürzel: F1 Hilfe, Strg+, Einstellungen.</summary>
+    protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled) return;
+        var mods = System.Windows.Input.Keyboard.Modifiers;
+        if (e.Key == System.Windows.Input.Key.F1 && mods == System.Windows.Input.ModifierKeys.None) { OnHelpClick(this, e); e.Handled = true; }
+        else if (e.Key == System.Windows.Input.Key.OemComma && mods == System.Windows.Input.ModifierKeys.Control) { OpenSettings(null); e.Handled = true; }
+    }
+
     /// <summary>Einstellungen öffnen, optional direkt an einem Abschnitt (z. B. „Smart Plugs“).</summary>
     private async void OpenSettings(string? section, Window? owner = null)
     {

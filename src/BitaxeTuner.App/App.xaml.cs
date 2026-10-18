@@ -22,6 +22,7 @@ public partial class App : Application
         // Meldungen vor dem Laden der Einstellungen: Systemsprache
         Loc.Configure("auto");
         DispatcherUnhandledException += OnUnhandledException;
+        Services.Accessibility.Register();   // 0.9.24: Namen für Screenreader
         AppDomain.CurrentDomain.UnhandledException += (_, args) => WriteCrashLog(args.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, args) => { WriteCrashLog(args.Exception); args.SetObserved(); };
 
