@@ -14,11 +14,11 @@
     <SolidColorBrush x:Key="MutedTextBrush" Color="#5E6B7E" />
     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#475569" />
     <SolidColorBrush x:Key="AccentBrush" Color="#E07F05" />
-    <SolidColorBrush x:Key="AccentDarkBrush" Color="#B86500" />
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#9C5500" />
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#FCEBD5" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#D64545" />
-    <SolidColorBrush x:Key="OkBrush" Color="#12A06C" />
-    <SolidColorBrush x:Key="WarnBrush" Color="#B7791F" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#BF3B3B" />
+    <SolidColorBrush x:Key="OkBrush" Color="#097650" />
+    <SolidColorBrush x:Key="WarnBrush" Color="#956214" />
     <SolidColorBrush x:Key="InfoBrush" Color="#2F6FE0" />
     <SolidColorBrush x:Key="IdleBrush" Color="#9CA3AF" />
     <SolidColorBrush x:Key="SaveBrush" Color="#12A06C" />
@@ -26,9 +26,9 @@
     <SolidColorBrush x:Key="MarkerBrush" Color="#C96F00" />
 
     <!-- 0.9.14: wie die Browser-Oberfläche -->
-    <SolidColorBrush x:Key="AccentInkBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="AccentInkBrush" Color="#1A1206" />
     <SolidColorBrush x:Key="SideBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="FaintTextBrush" Color="#8C97A8" />
+    <SolidColorBrush x:Key="FaintTextBrush" Color="#616C7D" />
 
     <!-- Diagrammfarben -->
     <Color x:Key="ChartHashColor">#0F9F6E</Color>

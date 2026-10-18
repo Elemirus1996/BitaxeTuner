@@ -28,7 +28,7 @@
     <!-- 0.9.14: wie die Browser-Oberfläche -->
     <SolidColorBrush x:Key="AccentInkBrush" Color="#1A1206" />
     <SolidColorBrush x:Key="SideBrush" Color="#121821" />
-    <SolidColorBrush x:Key="FaintTextBrush" Color="#5D6879" />
+    <SolidColorBrush x:Key="FaintTextBrush" Color="#7E899B" />
 
     <!-- Diagrammfarben -->
     <Color x:Key="ChartHashColor">#4EC9A0</Color>
