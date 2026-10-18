@@ -313,7 +313,7 @@ public partial class MonitorView : UserControl
     private void RenderAggregate()
     {
         var online = _states.Where(s => s.Online).ToList();
-        ViewTitle.Text = L.T("Gesamt – {0} von {1} Miner online", online.Count, _states.Count);
+        ViewTitle.Text = L.T("Übersicht – {0} von {1} Miner online", online.Count, _states.Count);
         var onFallback = online.Where(s => s.Info!.isUsingFallbackStratum != 0).Select(s => s.Config.Name).ToList();
         PoolStatusText.Text = online.Count == 0 ? "" : onFallback.Count == 0
             ? L.T("Pools: alle Miner auf dem Primär-Pool")
