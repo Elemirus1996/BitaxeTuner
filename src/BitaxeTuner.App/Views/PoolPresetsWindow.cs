@@ -276,7 +276,7 @@ public sealed class PoolPresetsWindow : Window
         var c = L.Culture;
         string Pct(double? v) => v is { } x ? x.ToString(x < 10 ? "0.00" : "0.0", c) + " %" : "–";
         string Hours(double h) => h > 0 ? h.ToString("0.0", c) + " h" : "–";
-        var headers = new[] { L.T("Pool"), L.T("Miner"), L.T("Stunden"), L.T("abgelehnt"), L.T("Antwort"), L.T("erreichbar als Haupt-Pool"), L.T("Ausfall"), L.T("als Ersatz"), L.T("Ø Hashrate"), L.T("Ertrag/TH/Tag") };
+        var headers = new[] { L.T("Pool"), L.T("Miner"), L.T("Stunden"), L.T("abgelehnt"), L.T("Antwort"), L.T("erreichbar als Haupt-Pool"), L.T("Ausfall"), L.T("als Ersatz"), L.T("Ø Hashrate"), L.T("Ertrag/TH/Tag"), L.T("Verbindung") };
         var grid = new Grid();
         for (var i = 0; i <= headers.Length; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = i == headers.Length ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
         var row = 0;
@@ -307,8 +307,14 @@ public sealed class PoolPresetsWindow : Window
             Cell(Hours(r.FallbackHours), 7);
             Cell(r.AvgHashrateGh is { } gh ? (gh >= 1000 ? (gh / 1000).ToString("0.00", c) + " TH/s" : gh.ToString("0", c) + " GH/s") : "–", 8);
             Cell(r.IncomePerThDay is { } inc ? inc.ToString("0.00", c) + " " + result.Currency : "–", 9);
+            // 0.9.24: Verbindungsaufbau (eigene Messung)
+            Cell(r.ConnectMs is { } cms ? cms.ToString("0", c) + " ms" : r.ConnectOkPercent == 0 ? L.T("nicht erreichbar") : "–", 10,
+                brush: r.ConnectOkPercent < 95 ? warn : null);
         }
         _compare.Children.Add(grid);
+        if (result.Fastest is { } fast)
+            _compare.Children.Add(Text(L.T("Schnellster zuverlässiger Pool: {0} ({1} ms Verbindungsaufbau).", fast.Pool, (fast.ConnectMs ?? 0).ToString("0", c)), false));
+        _compare.Children.Add(Text(L.T("„Verbindung“: eigene Messung alle 10 Minuten – nur der Verbindungsaufbau zum Stratum-Port, ohne Anmeldung. Sagt etwas über Entfernung und Erreichbarkeit, nicht über Ertrag."), true));
         _compare.Children.Add(Text(L.T("„abgelehnt“ aus den Share-Zählern der Miner, „Antwort“ wie in AxeOS. „Ausfall“: Zeit, in der der Miner wegen dieses Haupt-Pools auf den Ersatz-Pool ausweichen musste. Ertrag je TH nur mit Pool-Konto.") +
             (result.IncomeShared ? " " + L.T("Mining-Dutch: Der Ertrag des Kontos ist nach Hashrate auf alle Mining-Dutch-Ports verteilt.") : ""), true));
     }
