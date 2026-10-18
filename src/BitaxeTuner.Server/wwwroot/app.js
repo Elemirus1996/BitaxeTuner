@@ -942,6 +942,19 @@ function kpiTile(label, ic, value, sub, opts = {}) {
     opts.spark ? h('div', { class: 'spark' }, sparkEl(opts.spark, opts.color || 'var(--ok)', '')) : null);
 }
 
+/** 0.9.24 WLAN: Text zur Qualität. */
+const wifiStateText = s => ({ good: t('gut'), ok: t('mittel'), weak: t('schwach'), unstable: t('unruhig') })[s] || t('unbekannt');
+
+/** 0.9.24 WLAN-Signal als kleine Balken auf der Miner-Karte (1–4 Balken, gelb/rot bei schwach oder unruhig). */
+function wifiBars(d) {
+  const w = d.wifi;
+  if (!w || w.rssi == null) return null;
+  const bars = w.rssi >= -60 ? 4 : w.rssi >= -67 ? 3 : w.rssi >= -75 ? 2 : 1;
+  const title = t('WLAN {0} dBm · {1}', w.rssi, wifiStateText(w.state)) + (w.min != null ? ' · ' + t('30 min: {0} bis {1} dBm', w.min, w.max) : '');
+  return h('span', { class: `wifibars ${w.state}`, title, 'aria-label': title, role: 'img' },
+    [1, 2, 3, 4].map(i => h('i', { class: i <= bars ? 'on' : '' })));
+}
+
 /** 0.9.23 „Was ist los?“: Knopf auf der Miner-Karte, sobald etwas auffällt (die Karte selbst ist ein Link). */
 function whatsUpButton(d) {
   if (!d.problems?.length) return null;
@@ -990,6 +1003,7 @@ function minerCard(d, tempWarn) {
       d.maintenanceMode ? h('span', { class: 'pill gray', title: maintText(d) + ' – ' + t('Überwachung pausiert') }, '🔧 ' + t('Wartung')) : null,
       // 0.9.17: Firmware ohne Tuning (z. B. ZyberOS) bzw. von Hand „nur überwachen“
       d.monitorOnly ? h('span', { class: 'pill gray', title: t('Nur überwachen ({0}) – kein Benchmark, keine Änderung an Frequenz und Spannung.', d.monitorOnly) }, '👁 ' + t('Nur überwachen')) : null,
+      wifiBars(d),
       webUiIcon(d),
       d.poolInfo ? null : poolLinkIcon(d),
       whatsUpButton(d)),
@@ -1722,7 +1736,7 @@ function drawChart(canvas, series, markers, opts = {}) {
       let lo = Math.min(...(opts.shared ? allVals : vals)), hi = Math.max(...(opts.shared ? allVals : vals));
       if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
       const Y = v => pad.t + (1 - (v - lo) / (hi - lo)) * (hgt - pad.t - pad.b);
-      c.strokeStyle = s.color; c.lineWidth = 1.6; c.beginPath();
+      c.strokeStyle = s.color; c.lineWidth = 1.6; c.setLineDash(s.dash ? [5, 4] : []); c.beginPath();
       s.points.forEach((p, i) => { const x = X(p[0]), y = Y(p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
       c.stroke();
       if (idx === 0 && !opts.shared) {
@@ -2284,7 +2298,9 @@ async function applyChange(frequency, voltage) {
 function tabLive() {
   const d = summaryOf(S.route.id);
   const p = S.detail.profile;
-  const chartHash = h('canvas'), chartTemp = h('canvas'), chartPower = h('canvas');
+  const chartHash = h('canvas'), chartTemp = h('canvas'), chartPower = h('canvas'), chartWifi = h('canvas');
+  const wifiCard = h('div', { class: 'card', hidden: true }, h('h3', {}, t('WLAN-Signal')), h('div', { class: 'chart' }, chartWifi),
+    h('div', { class: 'small muted' }, t('Ab etwa −75 dBm (gestrichelt) brechen Verbindungen eher ab.')));
   const chipLegend = h('div', { class: 'small row', style: 'gap:10px;flex-wrap:wrap' });
   const markers = h('div', { class: 'small muted' });
   const ranges = ['1h', '24h', '7d', '30d'];
@@ -2299,6 +2315,13 @@ function tabLive() {
       : [{ points: hist.samples.map(s => [s[0], s[2]]), color: cssVar('--warn'), format: v => `${n(v, 1)} °C` }], tm, { shared: chipCount > 1 });
     if (chipCount > 1) fill(chipLegend, ...Array.from({ length: chipCount }, (_, c) => h('span', { style: `color:${chipColor(c, chipCount)}` }, '━ ' + t('Chip {0}', c + 1))));
     drawChart(chartPower, [{ points: hist.samples.map(s => [s[0], s[3]]), color: cssVar('--info'), format: v => `${n(v, 1)} W` }], tm);
+    // 0.9.24 WLAN-Verlauf mit Linie bei −75 dBm
+    if (hist.wifi?.length) {
+      wifiCard.hidden = false;
+      const first = hist.wifi[0][0], last = hist.wifi[hist.wifi.length - 1][0];
+      drawChart(chartWifi, [{ points: hist.wifi.map(w => [w[0], w[1]]), color: cssVar('--accent'), format: v => t('{0} dBm', n(v, 0)) },
+        { points: [[first, -75], [last, -75]], color: cssVar('--warn'), dash: true, format: v => t('{0} dBm', n(v, 0)) }], tm, { shared: true });
+    }
     fill(markers, ...hist.tuning.slice(-8).reverse().map(tv => h('div', {}, `┊ ${time(tv.time)} ${tv.source}: ${tv.change}${tv.note ? ' – ' + tv.note : ''}`)));
   }).catch(e => toast(e.message, 'error'));
 
@@ -2316,7 +2339,8 @@ function tabLive() {
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate')), rangeBar), h('div', { class: 'chart' }, chartHash), markers),
     h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(300px,1fr))' },
       h('div', { class: 'card' }, h('h3', {}, t('ASIC-Temperatur')), h('div', { class: 'chart' }, chartTemp), chipLegend),
-      h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower))),
+      h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower)),
+      wifiCard),
     isAdmin() ? h('div', { class: 'card stack' },
       h('h3', {}, t('Manuell einstellen')),
       h('div', { class: 'form' },
@@ -2410,6 +2434,8 @@ function liveTiles(d) {
     tile(t('Lüfter'), d.fanRpm != null ? t('{0} rpm', d.fanRpm) : '–', d.fanPercent != null ? `${d.fanPercent} %` : ''),
     tile(termLabel(t('Shares'), 'shares', 'pooldiff'), d.sharesAccepted ?? '–', [d.errorPercent != null ? t('Fehlerrate {0} %', n(d.errorPercent, 2)) : '',
       d.poolDifficulty ? t('Pool-Diff {0}', diffText(d.poolDifficulty)) : ''].filter(Boolean).join(' · ')),
+    d.wifi?.rssi != null ? tile(t('WLAN'), t('{0} dBm', d.wifi.rssi), wifiStateText(d.wifi.state) + (d.wifi.avg != null ? ' · ' + t('Ø 30 min {0} dBm', n(d.wifi.avg, 0)) : ''),
+      d.wifi.state === 'weak' ? 'warn' : '') : null,
     tile(termLabel(t('Laufzeit'), 'bestdiff'), dur(d.uptimeSeconds), d.bestDiff ? t('Best {0}', d.bestDiff) : ''),
     tile(t('Status'), d.online ? 'online' : d.maintenance ? (d.maintenanceMode ? maintText(d) : t('Neustart …')) : 'offline', d.maintenanceMode ? t('Überwachung pausiert') : (d.pool || d.error || ''), d.online ? 'ok' : 'warn'),
     d.fan ? tile(t('VR-Lüfter K{0}', d.fan.channel), `${d.fan.percent} %`, d.fan.stalled ? t('Lüfter steht!') : d.fan.rpm != null ? t('{0} U/min', d.fan.rpm) : d.fan.reason, d.fan.stalled ? 'danger' : '') : null,

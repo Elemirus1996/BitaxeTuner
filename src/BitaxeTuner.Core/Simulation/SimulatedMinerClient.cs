@@ -91,7 +91,8 @@ public sealed class SimulatedMinerClient : IMinerClient
             var inputMv = (_profile.MaxInputVoltageMv ?? 5500) > 6000 ? 12000 : 5100;
 
             _shares += _random.Next(0, 3);
-            return Task.FromResult(new MinerInfo
+            var rssi = -57 - _random.Next(0, 7);   // 0.9.24: WLAN-Signal wie ein gut stehender Miner
+            var info = new MinerInfo
             {
                 Firmware = FirmwareKind.Simulated,
                 Hostname = $"sim-{_profile.Id}",
@@ -123,7 +124,10 @@ public sealed class SimulatedMinerClient : IMinerClient
                 SharesRejected = _shares / 200,
                 PoolDifficulty = 1024,
                 UptimeSeconds = (long)(DateTime.Now - _bootTime).TotalSeconds,
-            });
+            };
+            var details = SystemInfo.FromMinerInfo(info);
+            details.wifiRSSI = rssi;
+            return Task.FromResult(info with { Details = details });
         }
     }
 

@@ -543,3 +543,11 @@ mark.find { background: color-mix(in srgb, var(--warn) 45%, transparent); color:
 .empty-state { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; }
 .empty-state:not(.card) { padding: 10px 4px; }
 .empty-state .empty-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--alt); color: var(--muted); }
+
+/* 0.9.24 WLAN-Signal auf der Miner-Karte */
+.wifibars { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; padding: 0 2px; vertical-align: middle; }
+.wifibars i { width: 3px; background: var(--line, rgba(127,127,127,.35)); border-radius: 1px; }
+.wifibars i:nth-child(1) { height: 25%; } .wifibars i:nth-child(2) { height: 50%; } .wifibars i:nth-child(3) { height: 75%; } .wifibars i:nth-child(4) { height: 100%; }
+.wifibars i.on { background: var(--ok); }
+.wifibars.weak i.on { background: var(--danger); }
+.wifibars.unstable i.on, .wifibars.ok i.on { background: var(--warn); }

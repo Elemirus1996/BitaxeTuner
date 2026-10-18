@@ -462,7 +462,11 @@ public partial class MonitorView : UserControl
         var availabilityText = AvailabilityText(state.Config.Host);
         SetTile(T11Label, T11Value, T11Sub, L.T("UPTIME"), FormatUptime(i.uptimeSeconds),
                 availabilityText.Length > 0 ? availabilityText : (i.freeHeap > 0 ? L.T("{0} KB frei", i.freeHeap / 1024) : ""), Normal);
-        SetTile(T12Label, T12Value, T12Sub, L.T("WLAN"), i.wifiRSSI != 0 ? i.wifiRSSI + " dBm" : "–", i.wifiStatus ?? "", Normal);
+        // 0.9.24: Bewertung wie im Browser (gut/mittel/schwach/unruhig, Mittel über 30 min)
+        var wifi = _host.Hub.Device(state.Config.Host) is { } wd ? _host.Hub.WifiOf(wd, DateTime.Now) : null;
+        SetTile(T12Label, T12Value, T12Sub, L.T("WLAN"), i.wifiRSSI != 0 ? i.wifiRSSI + " dBm" : "–",
+                wifi is { State: not "unknown" } ? MinerHub.WifiStateText(wifi.State) + (wifi.Avg is { } avg ? " · " + L.T("Ø 30 min {0} dBm", avg.ToString("0", De)) : "") : i.wifiStatus ?? "",
+                wifi?.State is "weak" or "unstable" ? Gold : Normal);
 
         SetCostTiles(i.power, "");
 
