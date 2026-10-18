@@ -211,6 +211,27 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         }
     }
 
+    /// <summary>
+    /// 0.9.24: Hashrate je ASIC – „hashrateMonitor“: { „asics“: [ { „total“: GH/s, … } ] } (ESP-Miner ab 2.10); auch
+    /// „hashrate“/„hashRate“ statt „total“ und eine Liste „asics“ direkt im Objekt. Null, wenn weniger als zwei Werte.
+    /// </summary>
+    internal static List<double>? ChipHashrates(JsonElement r)
+    {
+        JsonElement asics = default;
+        if (r.TryGetProperty("hashrateMonitor", out var mon) && mon.ValueKind == JsonValueKind.Object && mon.TryGetProperty("asics", out var a1)) asics = a1;
+        else if (r.TryGetProperty("asics", out var a2)) asics = a2;
+        if (asics.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<double>();
+        foreach (var e in asics.EnumerateArray())
+        {
+            double? v = e.ValueKind == JsonValueKind.Number ? e.GetDouble()
+                : e.ValueKind == JsonValueKind.Object ? Dbl(e, "total") ?? Dbl(e, "hashrate") ?? Dbl(e, "hashRate") : null;
+            if (v is not { } x || double.IsNaN(x) || x < 0) return null;
+            list.Add(x);
+        }
+        return list.Count >= 2 ? list : null;
+    }
+
     /// <summary>Wandelt die JSON-Antwort von <c>/api/system/info</c> in ein <see cref="MinerInfo"/> um.</summary>
     public static MinerInfo Parse(JsonElement r)
     {
@@ -230,6 +251,8 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         if (chipTemp2 is <= 0) chipTemp2 = null;
         // AxeOS mit zwei Temperaturfühlern (z. B. Duo-Boards): beide als Chips 1 und 2
         if (chipTemps is null && chipTemp is > 0 && chipTemp2 is > 0) chipTemps = [chipTemp.Value, chipTemp2.Value];
+
+        var chipHashes = ChipHashrates(r);
 
         var inputVoltage = Dbl(r, "voltage");
         if (inputVoltage is > 0 and < 100) inputVoltage *= 1000; // Volt → mV
@@ -254,6 +277,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
             ChipTempC = chipTemp is > 0 ? chipTemp : null,
             ChipTemp2C = chipTemp2,
             ChipTempsC = chipTemps,
+            ChipHashratesGh = chipHashes,
             VrTempC = Dbl(r, "vrTemp") is > 0 and var vr ? vr : null,
             FrequencyMhz = (int)Math.Round(Dbl(r, "frequency") ?? 0),
             ActualFrequencyMhz = Dbl(r, "actualFrequency"),

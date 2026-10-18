@@ -209,6 +209,7 @@ public sealed partial class MinerHub
                 // heißester Chip (AxeOS „temp“ ist bei Mehrchip-Boards nur einer) und jeder Chip einzeln
                 history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
                 if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
+                if (s.Normalized?.ChipHashratesGh is { Count: > 1 } hashes && Device(host) is { } dev) RecordChipHashrates(dev, hashes, now);   // 0.9.24
             }
             else if (!Maintenance.IsManual(host)) history.AddSample(host, now, 0, 0, 0, false);   // Wartungsmodus: kein Ausfall
         }

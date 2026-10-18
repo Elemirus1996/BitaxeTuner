@@ -2284,7 +2284,9 @@ async function applyChange(frequency, voltage) {
 function tabLive() {
   const d = summaryOf(S.route.id);
   const p = S.detail.profile;
-  const chartHash = h('canvas'), chartTemp = h('canvas'), chartPower = h('canvas');
+  const chartHash = h('canvas'), chartTemp = h('canvas'), chartPower = h('canvas'), chartChipHash = h('canvas');
+  const chipHashLegend = h('div', { class: 'small row', style: 'gap:10px;flex-wrap:wrap' });
+  const chipHashCard = h('div', { class: 'card', hidden: true }, h('h3', {}, t('Hashrate je Chip')), h('div', { class: 'chart' }, chartChipHash), chipHashLegend);
   const chipLegend = h('div', { class: 'small row', style: 'gap:10px;flex-wrap:wrap' });
   const markers = h('div', { class: 'small muted' });
   const ranges = ['1h', '24h', '7d', '30d'];
@@ -2299,6 +2301,18 @@ function tabLive() {
       : [{ points: hist.samples.map(s => [s[0], s[2]]), color: cssVar('--warn'), format: v => `${n(v, 1)} °C` }], tm, { shared: chipCount > 1 });
     if (chipCount > 1) fill(chipLegend, ...Array.from({ length: chipCount }, (_, c) => h('span', { style: `color:${chipColor(c, chipCount)}` }, '━ ' + t('Chip {0}', c + 1))));
     drawChart(chartPower, [{ points: hist.samples.map(s => [s[0], s[3]]), color: cssVar('--info'), format: v => `${n(v, 1)} W` }], tm);
+    // 0.9.24: Hashrate je Chip – ein schwacher oder ausgefallener Chip fällt als Linie unten heraus
+    const hashChips = hist.chipHash?.length ? Math.max(...hist.chipHash.map(c => c.length - 1)) : 0;
+    if (hashChips > 1) {
+      chipHashCard.hidden = false;
+      drawChart(chartChipHash, Array.from({ length: hashChips }, (_, c) => ({ points: hist.chipHash.filter(r => r[c + 1] != null).map(r => [r[0], r[c + 1]]), color: chipColor(c, hashChips), format: hash })), tm, { shared: true });
+      const states = Object.fromEntries((d.chipStates || []).map(x => [x.index, x]));
+      fill(chipHashLegend, ...Array.from({ length: hashChips }, (_, c) => {
+        const st = states[c + 1];
+        return h('span', { style: `color:${chipColor(c, hashChips)}`, class: st && st.state !== 'ok' ? 'danger' : '' },
+          '━ ' + t('Chip {0}', c + 1) + (st && st.state !== 'ok' ? ` (${st.state === 'dead' ? t('ausgefallen') : t('schwach')}, ${n(st.percent, 0)} %)` : ''));
+      }));
+    }
     fill(markers, ...hist.tuning.slice(-8).reverse().map(tv => h('div', {}, `┊ ${time(tv.time)} ${tv.source}: ${tv.change}${tv.note ? ' – ' + tv.note : ''}`)));
   }).catch(e => toast(e.message, 'error'));
 
@@ -2316,7 +2330,8 @@ function tabLive() {
     h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h3', {}, t('Hashrate')), rangeBar), h('div', { class: 'chart' }, chartHash), markers),
     h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(300px,1fr))' },
       h('div', { class: 'card' }, h('h3', {}, t('ASIC-Temperatur')), h('div', { class: 'chart' }, chartTemp), chipLegend),
-      h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower))),
+      h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower)),
+      chipHashCard),
     isAdmin() ? h('div', { class: 'card stack' },
       h('h3', {}, t('Manuell einstellen')),
       h('div', { class: 'form' },

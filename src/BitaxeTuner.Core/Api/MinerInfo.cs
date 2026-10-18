@@ -46,6 +46,8 @@ public sealed record MinerInfo
     /// nur einem Wert. Reihenfolge wie von der Firmware geliefert (Chip 1, 2, …).
     /// </summary>
     public IReadOnlyList<double>? ChipTempsC { get; init; }
+    /// <summary>0.9.24: Hashrate je ASIC in GH/s (ESP-Miner ab 2.10 „hashrateMonitor“), null ohne diese Angabe.</summary>
+    public IReadOnlyList<double>? ChipHashratesGh { get; init; }
     public double? VrTempC { get; init; }
 
     public int FrequencyMhz { get; init; }

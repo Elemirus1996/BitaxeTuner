@@ -107,6 +107,8 @@ public sealed class SimulatedMinerClient : IMinerClient
                 InputVoltageMv = inputMv - power * 5,
                 ChipTempC = chipTemp,
                 // Mehrchip-Profile: Chips verschieden warm (die mittleren wärmer, wie auf echten Hex-/Octaxe-Boards)
+                // 0.9.24: Hashrate je Chip wie ESP-Miner ab 2.10 (gleichmäßig verteilt, leicht verrauscht)
+                ChipHashratesGh = count > 1 ? Enumerable.Range(0, count).Select(_ => Math.Round(hash / count * (0.95 + _random.NextDouble() * 0.1), 1)).ToList() : null,
                 ChipTempsC = count > 1 ? Enumerable.Range(0, count).Select(c => Math.Round(chipTemp - 2 + 4 * Math.Sin(Math.PI * (c + 0.5) / count) + 0.7 * c - 0.35 * count + (_random.NextDouble() - 0.5) * 0.6, 1)).ToList() : null,
                 VrTempC = vrTemp,
                 FrequencyMhz = _frequency,

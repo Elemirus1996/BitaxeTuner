@@ -85,6 +85,7 @@ public sealed partial class MinerHub
     {
         "samples" => L.T("Minutenwerte der Miner"),
         "chip_temps" => L.T("Temperatur je Chip"),
+        "chip_hashrates" => L.T("Hashrate je Chip"),
         "miner_log" => L.T("Gespeicherte Miner-Logs"),
         "events" => L.T("Protokoll"),
         "plug_samples" => L.T("Messwerte der Steckdosen"),

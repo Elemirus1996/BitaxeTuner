@@ -185,6 +185,15 @@ public sealed partial class HistoryStore : IDisposable
                 PRIMARY KEY (host, ts)
             );
             """);
+        // 0.9.24: Hashrate je Chip bei Mehrchip-Boards, Minutenwerte (rein additiv)
+        Execute("""
+            CREATE TABLE IF NOT EXISTS chip_hashrates (
+                host    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                hashes  TEXT    NOT NULL,
+                PRIMARY KEY (host, ts)
+            );
+            """);
         // 0.9.15: Pool-Vergleich – alle 10 min je Miner: aktiver Pool, Haupt-Pool, Ersatz aktiv, Share-Zähler,
         // Antwortzeit, Hashrate (rein additiv, Aufbewahrung wie der Verlauf)
         Execute("""
@@ -926,6 +935,27 @@ public sealed partial class HistoryStore : IDisposable
         }
     }
 
+    /// <summary>0.9.24: Hashrate je Chip als Minutenwert.</summary>
+    public void AddChipHashrates(string host, DateTime time, IReadOnlyList<double> hashes) => AddChipValues("chip_hashrates", "hashes", host, time, hashes);
+
+    /// <summary>0.9.24: Verlauf der Hashrate je Chip.</summary>
+    public List<(DateTime Time, double[] Temps)> QueryChipHashrates(string host, DateTime from, DateTime to, int maxPoints = 400) =>
+        QueryChipValues("chip_hashrates", "hashes", host, from, to, maxPoints);
+
+    private void AddChipValues(string table, string column, string host, DateTime time, IReadOnlyList<double> values)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = $"INSERT OR REPLACE INTO {table} (host, ts, {column}) VALUES ($host, $ts, $t);";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$t", string.Join(";", values.Select(t => t.ToString("0.0", CultureInfo.InvariantCulture))));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// <summary>0.9.11: Temperaturen der einzelnen Chips eines Mehrchip-Boards als Minutenwert.</summary>
     public void AddChipTemps(string host, DateTime time, IReadOnlyList<double> temps)
     {
@@ -942,7 +972,10 @@ public sealed partial class HistoryStore : IDisposable
     }
 
     /// <summary>Verlauf je Chip im Zeitraum, auf höchstens <paramref name="maxPoints"/> Punkte gemittelt (je Chip).</summary>
-    public List<(DateTime Time, double[] Temps)> QueryChipTemps(string host, DateTime from, DateTime to, int maxPoints = 400)
+    public List<(DateTime Time, double[] Temps)> QueryChipTemps(string host, DateTime from, DateTime to, int maxPoints = 400) =>
+        QueryChipValues("chip_temps", "temps", host, from, to, maxPoints);
+
+    private List<(DateTime Time, double[] Temps)> QueryChipValues(string table, string column, string host, DateTime from, DateTime to, int maxPoints)
     {
         var fromTs = new DateTimeOffset(from).ToUnixTimeSeconds();
         var toTs = new DateTimeOffset(to).ToUnixTimeSeconds();
@@ -951,7 +984,7 @@ public sealed partial class HistoryStore : IDisposable
         lock (_lock)
         {
             using var cmd = _db.CreateCommand();
-            cmd.CommandText = "SELECT ts, temps FROM chip_temps WHERE host = $host AND ts BETWEEN $from AND $to ORDER BY ts;";
+            cmd.CommandText = $"SELECT ts, {column} FROM {table} WHERE host = $host AND ts BETWEEN $from AND $to ORDER BY ts;";
             cmd.Parameters.AddWithValue("$host", host);
             cmd.Parameters.AddWithValue("$from", fromTs);
             cmd.Parameters.AddWithValue("$to", toTs);
@@ -1061,7 +1094,7 @@ public sealed partial class HistoryStore : IDisposable
             FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
-                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff;" +
+                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff; DELETE FROM chip_hashrates WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist
