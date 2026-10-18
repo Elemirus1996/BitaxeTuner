@@ -187,6 +187,97 @@ function toggleMore() {
   document.body.appendChild(m);
 }
 
+// ---------- Schnellsuche (0.9.24) ----------
+
+/**
+ * Einträge der Schnellsuche: Seiten, Miner, Einstellungskarten und Aktionen – nur was die Rolle darf. Aktionen fragen wie
+ * an ihrer eigentlichen Stelle nach; nichts an Frequenz, Spannung oder Lüfter.
+ */
+function paletteItems() {
+  const admin = isAdmin(), items = [], devices = S.status?.devices || [];
+  const page = t('Seite'), miner = t('Miner'), setting = t('Einstellung'), action = t('Aktion');
+  NAV().forEach(([g, list]) => list.filter(x => !x[3] || admin).forEach(([v, label, ic]) =>
+    items.push({ kind: page, label, hint: g, icon: ic, go: () => { location.hash = navHref(v); } })));
+  devices.forEach(d => items.push({ kind: miner, label: d.name, hint: [d.model, d.host].filter(Boolean).join(' · '), icon: 'cpu',
+    go: () => { location.hash = `#/device/${d.id}`; } }));
+  if (admin) SETTINGS_SECTIONS().forEach(([, sec, ic, titles]) => titles.forEach(title => items.push({ kind: setting, label: title, hint: sec, icon: ic,
+    go: () => { S.settingsSection = title; if (location.hash === '#/settings') route(); else location.hash = '#/settings'; } })));
+  if (admin) items.push({ kind: action, label: t('Jetzt sichern'), hint: t('Sicherung'), icon: 'download', go: async () => {
+    if (!await confirmBox(t('Jetzt sichern'), t('Jetzt eine Sicherung an alle eingerichteten Ziele schreiben?'), t('Jetzt sichern'))) return;
+    toast(t('Sicherung läuft …'), 'info');
+    const r = await run(() => api('/backup/run', { method: 'POST', body: {} }));
+    if (r) toast(r.lastOk ? t('Sicherung erstellt.') : t('Sicherung mit Fehlern – siehe Status.'), r.lastOk ? 'ok' : 'error');
+  } });
+  if (canOperate() && !S.viewGroups?.length && S.status) {
+    items.push(S.status.running
+      ? { kind: action, label: t('Motor pausieren …'), icon: 'pause', go: async () => {
+          if (!await confirmBox(t('Motor pausieren'), t('Server-Abfragen anhalten? Solange fragt der Server keine Miner ab – keine Meldungen, keine Automatik. Die Miner selbst laufen weiter.'), t('Pausieren'))) return;
+          run(() => api('/operate/pause', { method: 'POST', body: { paused: true } }), t('Motor pausiert.'));
+        } }
+      : { kind: action, label: t('Fortsetzen …'), hint: t('Motor fortsetzen'), icon: 'zap', go: async () => {
+          if (!await confirmBox(t('Motor fortsetzen'), t('Server-Abfragen wieder starten?\n\nLäuft die Desktop-App noch im Modus „Lokal“, würden die Miner doppelt abgefragt. Stelle sie vorher auf „Server“ um oder beende sie.'), t('Fortsetzen'))) return;
+          run(() => api('/operate/pause', { method: 'POST', body: { paused: false } }), t('Motor läuft wieder.'));
+        } });
+  }
+  if (canOperate()) devices.filter(d => d.online).forEach(d => items.push({ kind: action, label: t('{0} neu starten', d.name), hint: miner, icon: 'zap', go: async () => {
+    if (!await confirmBox(t('Neustart'), t('{0} neu starten? Watchdog und Offline-Meldung pausieren dabei.', d.name), t('Neu starten'))) return;
+    run(() => api(`/devices/${d.id}/restart`, { method: 'POST', body: {} }), t('Neustart ausgelöst.'));
+  } }));
+  items.push({ kind: action, label: t('Hell/Dunkel umschalten'), icon: 'sun', go: () => $('#theme').click() });
+  return items;
+}
+
+const foldText = s => String(s ?? '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/** Treffer: alle Wörter müssen vorkommen; Titel vorn vor Titel irgendwo vor Zusatz. Leer: Seiten und Aktionen. */
+function paletteFind(items, query) {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return items.filter(x => x.kind !== t('Einstellung')).slice(0, 14);
+  return items.map(x => {
+    const label = foldText(x.label), all = `${label} ${foldText(x.hint)} ${foldText(x.kind)}`;
+    if (!words.every(w => all.includes(w))) return null;
+    return { x, score: label.startsWith(words[0]) ? 0 : label.includes(words[0]) ? 1 : 2 };
+  }).filter(Boolean).sort((a, b) => a.score - b.score).slice(0, 14).map(r => r.x);
+}
+
+function openPalette() {
+  if ($('#palette')) return;
+  closePopovers();
+  const all = paletteItems();
+  const input = h('input', { type: 'search', placeholder: t('Miner, Seite, Einstellung oder Aktion …'), 'aria-label': t('Schnellsuche'),
+    role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'paletteList', autocomplete: 'off', spellcheck: false });
+  const list = h('div', { class: 'pal-list', id: 'paletteList', role: 'listbox', 'aria-label': t('Treffer') });
+  const dlg = h('dialog', { class: 'palette', id: 'palette', 'aria-label': t('Schnellsuche') }, input, list,
+    h('div', { class: 'muted small pal-foot' }, t('↑ ↓ wählen · Enter öffnen · Esc schließen')));
+  let hits = [], sel = 0;
+  const pick = it => { dlg.close(); it?.go(); };
+  const mark = i => {
+    sel = i;
+    [...list.children].forEach((r, k) => { r.classList.toggle('sel', k === i); r.setAttribute('aria-selected', String(k === i)); });
+    const row = list.children[i];
+    if (row?.id) { input.setAttribute('aria-activedescendant', row.id); row.scrollIntoView({ block: 'nearest' }); }
+  };
+  const update = () => {
+    hits = paletteFind(all, input.value);
+    fill(list, ...(hits.length ? hits.map((it, i) => h('div', { class: 'pal-row', id: `pal-${i}`, role: 'option', onclick: () => pick(it), onmousemove: () => { if (sel !== i) mark(i); } },
+      icon(it.icon, 18), h('span', { class: 'pal-label' }, it.label), h('span', { class: 'muted small' }, it.hint ? `${it.kind} · ${it.hint}` : it.kind)))
+      : [h('p', { class: 'muted small', style: 'padding:8px 10px' }, t('Nichts gefunden.'))]));
+    mark(0);
+  };
+  input.addEventListener('input', update);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); mark((sel + 1) % hits.length); }
+    else if (e.key === 'ArrowUp' && hits.length) { e.preventDefault(); mark((sel - 1 + hits.length) % hits.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(hits[sel]); }
+  });
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.appendChild(dlg);
+  dlg.showModal();
+  update();
+  input.focus();
+}
+
 function closePopovers() {
   $('#bellMenu').hidden = true;
   $('#userMenu').hidden = true;
@@ -202,6 +293,9 @@ function showChrome(on) {
   $('#onlineChip').hidden = !on;
   $('#userBtn').hidden = !on;
   $('#bell').hidden = !on || !isAdmin();
+  $('#searchBtn').hidden = !on;
+  $('#searchBtn').title = t('Schnellsuche (Strg+K)');
+  $('#searchBtn').setAttribute('aria-label', t('Schnellsuche (Strg+K)'));
   if (!on) { closePopovers(); $('#crumb').textContent = ''; $('#pageTitle').textContent = 'BitaxeTuner'; }
 }
 
@@ -456,7 +550,12 @@ async function boot() {
   $('#userMenu').addEventListener('click', e => { if (e.target.closest('a')) closePopovers(); else e.stopPropagation(); });
   $('#bellMenu').addEventListener('click', e => e.stopPropagation());
   document.addEventListener('click', closePopovers);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopovers(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePopovers();
+    // 0.9.24 Schnellsuche: Strg+K (Mac: ⌘K)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k' && S.role !== 'None' && S.route?.view !== 'kiosk') { e.preventDefault(); openPalette(); }
+  });
+  $('#searchBtn').addEventListener('click', e => { e.stopPropagation(); openPalette(); });
   $('#collapse').addEventListener('click', () => {
     const mini = !$('#shell').classList.contains('mini');
     $('#shell').classList.toggle('mini', mini);

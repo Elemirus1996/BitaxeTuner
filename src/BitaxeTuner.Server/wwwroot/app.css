@@ -262,6 +262,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
 .toast { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--info); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
 .anim .toast { animation: bt-rise .25s var(--ease) both; }
 .toast.error { border-left-color: var(--danger); } .toast.ok { border-left-color: var(--ok); }
+/* 0.9.24 Schnellsuche (Strg+K) */
+dialog.palette { width: min(560px, calc(100vw - 32px)); margin: 12vh auto auto; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+dialog.palette::backdrop { background: rgba(0, 0, 0, .35); }
+dialog.palette input { width: 100%; font-size: 1.05em; padding: 10px 12px; }
+.pal-list { max-height: 50vh; overflow-y: auto; margin-top: 6px; }
+.pal-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.pal-row.sel { background: var(--selected); }
+.pal-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-foot { padding: 6px 10px 2px; }
 #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
 
 .login { max-width: 420px; margin: 10vh auto; }
