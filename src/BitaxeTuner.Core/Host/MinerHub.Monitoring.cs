@@ -209,6 +209,7 @@ public sealed partial class MinerHub
                 // heißester Chip (AxeOS „temp“ ist bei Mehrchip-Boards nur einer) und jeder Chip einzeln
                 history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
                 if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
+                if (i.wifiRSSI is < 0 and > -120 && Device(host) is { } dev) RecordWifi(dev, i.wifiRSSI, now);   // 0.9.24
             }
             else if (!Maintenance.IsManual(host)) history.AddSample(host, now, 0, 0, 0, false);   // Wartungsmodus: kein Ausfall
         }
@@ -257,7 +258,7 @@ public sealed partial class MinerHub
                 {
                     _offlineNotified.Add(host);
                     _ = Notify.SendAsync($"offline:{host}", L.T("{0} offline", s.Config.Name),
-                        L.T("{0} antwortet nicht ({1}).", host, s.Error ?? L.T("keine Verbindung")),
+                        L.T("{0} antwortet nicht ({1}).", host, s.Error ?? L.T("keine Verbindung")) + WifiOfflineHint(host),
                         NotifyPriority.High, TimeSpan.FromHours(6), NotifyCategory.Offline, host);
                 }
                 continue;

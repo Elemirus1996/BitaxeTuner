@@ -82,6 +82,15 @@ public sealed partial class MinerHub
                 L.T("Der Haupt-Pool war nicht erreichbar."),
                 L.T("Ist der Haupt-Pool gestört? Die Pool-Automatik kann von selbst zurückschalten, sobald er wieder antwortet."),
                 "pools"));
+        // 0.9.24 WLAN: dauerhaft schwach oder stark schwankend
+        var wifi = WifiOf(d, Options.Clock?.Invoke() ?? DateTime.Now);
+        if (wifi.State is "weak" or "unstable")
+            list.Add(new MinerProblem("wifi", "warn", wifi.State == "weak" ? L.T("WLAN schwach") : L.T("WLAN unruhig"),
+                wifi.State == "weak"
+                    ? L.T("Im Mittel {0} dBm in den letzten 30 Minuten – ab etwa {1} dBm brechen Verbindungen eher ab.", (wifi.Avg ?? wifi.Rssi ?? 0).ToString("0", c), WifiWeakDbm)
+                    : L.T("Das Signal schwankt zwischen {0} und {1} dBm.", wifi.Min ?? 0, wifi.Max ?? 0),
+                L.T("Miner näher an Router oder Repeater, Antenne ausrichten, Metall und andere Geräte aus dem Weg; im Router einen weniger belegten Kanal wählen."),
+                "device:live"));
         foreach (var t in UpkeepOf(d).Where(t => t.Due))
             list.Add(new MinerProblem("upkeep", "warn", L.T("Wartung fällig"), t.Label,
                 L.T("Nach der Arbeit auf der Gesundheitsseite „erledigt“ wählen – dann zählt die Erinnerung neu."),

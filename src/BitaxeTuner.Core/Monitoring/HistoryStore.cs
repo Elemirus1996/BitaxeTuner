@@ -185,6 +185,15 @@ public sealed partial class HistoryStore : IDisposable
                 PRIMARY KEY (host, ts)
             );
             """);
+        // 0.9.24: WLAN-Signal (RSSI) je Miner als Minutenwert (rein additiv)
+        Execute("""
+            CREATE TABLE IF NOT EXISTS wifi_samples (
+                host    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                rssi    INTEGER NOT NULL,
+                PRIMARY KEY (host, ts)
+            );
+            """);
         // 0.9.15: Pool-Vergleich – alle 10 min je Miner: aktiver Pool, Haupt-Pool, Ersatz aktiv, Share-Zähler,
         // Antwortzeit, Hashrate (rein additiv, Aufbewahrung wie der Verlauf)
         Execute("""
@@ -926,6 +935,42 @@ public sealed partial class HistoryStore : IDisposable
         }
     }
 
+    /// <summary>0.9.24: WLAN-Signal (dBm) als Minutenwert.</summary>
+    public void AddWifi(string host, DateTime time, int rssi)
+    {
+        var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO wifi_samples (host, ts, rssi) VALUES ($host, $ts, $r);";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$ts", ts);
+            cmd.Parameters.AddWithValue("$r", rssi);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>WLAN-Verlauf im Zeitraum, auf höchstens <paramref name="maxPoints"/> Punkte gemittelt.</summary>
+    public List<(DateTime Time, double Rssi)> QueryWifi(string host, DateTime from, DateTime to, int maxPoints = 400)
+    {
+        var fromTs = new DateTimeOffset(from).ToUnixTimeSeconds();
+        var toTs = new DateTimeOffset(to).ToUnixTimeSeconds();
+        var bucket = Math.Max(60, (toTs - fromTs) / Math.Max(1, maxPoints));
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT ts / $b * $b AS t, AVG(rssi) FROM wifi_samples WHERE host = $host AND ts BETWEEN $from AND $to GROUP BY t ORDER BY t;";
+            cmd.Parameters.AddWithValue("$host", host);
+            cmd.Parameters.AddWithValue("$from", fromTs);
+            cmd.Parameters.AddWithValue("$to", toTs);
+            cmd.Parameters.AddWithValue("$b", bucket);
+            using var r = cmd.ExecuteReader();
+            var list = new List<(DateTime, double)>();
+            while (r.Read()) list.Add((DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime, Math.Round(r.GetDouble(1), 1)));
+            return list;
+        }
+    }
+
     /// <summary>0.9.11: Temperaturen der einzelnen Chips eines Mehrchip-Boards als Minutenwert.</summary>
     public void AddChipTemps(string host, DateTime time, IReadOnlyList<double> temps)
     {
@@ -1061,7 +1106,7 @@ public sealed partial class HistoryStore : IDisposable
             FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
-                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff;" +
+                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff; DELETE FROM wifi_samples WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist
