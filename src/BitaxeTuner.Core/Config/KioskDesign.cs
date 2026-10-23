@@ -19,6 +19,35 @@ public sealed class KioskDesign
     public double FontScale { get; set; } = 1;
     public KioskAnimations Animations { get; set; } = new();
     public List<KioskPanel> Panels { get; set; } = [];
+    /// <summary>0.9.25: Nachtmodus (Zeitfenster, gedimmt oder große Uhr). Additiv – ohne Eintrag aus.</summary>
+    public KioskNight Night { get; set; } = new();
+}
+
+/// <summary>
+/// 0.9.25 Kiosk-Nachtmodus: im Zeitfenster (auch über Mitternacht) gedimmte Ansicht oder nur große Uhr mit Hashrate und
+/// Warnsymbol. Bei einer Alarmlage (Miner offline, Lüfter steht, Fühler zu warm, roter „Was ist los?“-Eintrag) erscheint
+/// sofort die normale Ansicht. Optional den Bildschirm nur tagsüber wach halten.
+/// </summary>
+public sealed class KioskNight
+{
+    public static readonly string[] Modes = ["dim", "clock"];
+    public bool Enabled { get; set; }
+    public string From { get; set; } = "22:00";
+    public string To { get; set; } = "06:30";
+    /// <summary>„dim“ (abgedunkelte Ansicht) oder „clock“ (nur große Uhr).</summary>
+    public string Mode { get; set; } = "dim";
+    /// <summary>Helligkeit im Modus „dim“ in Prozent (10–80).</summary>
+    public int Brightness { get; set; } = 35;
+    /// <summary>Bildschirm-Wake-Lock nur außerhalb des Nachtfensters (Tablet darf nachts ausgehen).</summary>
+    public bool WakeDayOnly { get; set; }
+
+    /// <summary>Liegt <paramref name="now"/> im Nachtfenster? (From == To: nie.)</summary>
+    public bool IsNight(TimeOnly now)
+    {
+        if (!Enabled || !TimeOnly.TryParse(From, System.Globalization.CultureInfo.InvariantCulture, out var f)
+                     || !TimeOnly.TryParse(To, System.Globalization.CultureInfo.InvariantCulture, out var t) || f == t) return false;
+        return f < t ? now >= f && now < t : now >= f || now < t;
+    }
 }
 
 public sealed class KioskColors
@@ -118,6 +147,13 @@ public static class KioskDesigns
             if (v is null || !Hex.IsMatch(v)) throw new LocalizedException("Farben bitte als #RRGGBB angeben.");
         d.FontScale = Math.Round(Math.Clamp(d.FontScale, 0.8, 1.6), 2);
         d.Animations ??= new KioskAnimations();
+        d.Night ??= new KioskNight();
+        if (!TimeOnly.TryParse(d.Night.From ?? "", System.Globalization.CultureInfo.InvariantCulture, out var nf)
+            || !TimeOnly.TryParse(d.Night.To ?? "", System.Globalization.CultureInfo.InvariantCulture, out var nt))
+            throw new LocalizedException("Nachtmodus: Uhrzeiten bitte als HH:MM angeben.");
+        (d.Night.From, d.Night.To) = (nf.ToString("HH:mm"), nt.ToString("HH:mm"));
+        if (!KioskNight.Modes.Contains(d.Night.Mode)) d.Night.Mode = "dim";
+        d.Night.Brightness = Math.Clamp(d.Night.Brightness, 10, 80);
         d.Panels ??= [];
         if (d.Panels.Count > MaxPanels) throw new LocalizedException("Höchstens {0} Panels.", MaxPanels);
         foreach (var p in d.Panels)

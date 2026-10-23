@@ -426,6 +426,12 @@ body.kiosk-mode #app { max-width: none; padding: 0; }
 @keyframes kpulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--kbad) 55%, transparent); } 50% { box-shadow: 0 0 0 12px transparent; } }
 .kanim-bg { background: linear-gradient(130deg, var(--kbg), color-mix(in srgb, var(--kaccent) 16%, var(--kbg)), var(--kbg), color-mix(in srgb, var(--kgood) 10%, var(--kbg))); background-size: 300% 300%; animation: kbg 45s ease infinite; }
 @keyframes kbg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+/* 0.9.25 Kiosk-Nachtmodus */
+.knight-dim { filter: brightness(var(--kdim, .35)); }
+.knight-clock { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--kbg); color: var(--ktext); }
+.knight-clock .knight-time { font-size: calc(clamp(80px, 22vw, 260px) * var(--kscale)); opacity: .55; }
+.knight-clock .knight-sub { font-size: calc(clamp(18px, 3vw, 34px) * var(--kscale)); color: var(--kmuted); opacity: .6; font-variant-numeric: tabular-nums; }
+.knight-warn { color: var(--kwarn); }
 .kanim-glow .kval, .kanim-glow .ktitle, .kanim-glow .kclock { text-shadow: 0 0 22px color-mix(in srgb, var(--kaccent) 55%, transparent); }
 .kanim-glow .kval { overflow: visible; }
 @media (prefers-reduced-motion: reduce) { .kiosk2, .kiosk2 * { animation: none !important; } }
