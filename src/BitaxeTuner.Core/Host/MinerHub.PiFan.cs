@@ -85,8 +85,10 @@ public sealed partial class MinerHub
             if (cooling is null) return new PiFanStatus(false, null, cpu, null, 0, true, null, "", null);
             int? Int(string? s) => int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : null;
             var policy = zone is not null ? ReadSys(zone + "/policy") : null;
+            // 0.9.24: BitaxeTuner regelt auch, solange die Werks-Schaltpunkte gesichert sind (Steuerung über Schaltpunkte)
+            var byTrips = File.Exists(Path.Combine(DataDirectory, "pifan-trips"));
             return new PiFanStatus(true, hwmon is not null ? Int(ReadSys(hwmon + "/fan1_input")) : null, cpu,
-                Int(ReadSys(cooling + "/cur_state")), Int(ReadSys(cooling + "/max_state")) ?? 4, policy != "user_space",
+                Int(ReadSys(cooling + "/cur_state")), Int(ReadSys(cooling + "/max_state")) ?? 4, policy != "user_space" && !byTrips,
                 _piFanWanted, _piFanReason, ReadPiFanError(), PiFanCanControl);
         }
     }
@@ -100,7 +102,7 @@ public sealed partial class MinerHub
         {
             null or "" => null,
             "guard" => L.T("Der Wächter hat die Regelung an die Firmware zurückgegeben – BitaxeTuner hatte sich zu lange nicht gemeldet."),
-            "nouserspace" => L.T("Der Kernel erlaubt keine eigene Lüftersteuerung (Regler „user_space“ fehlt) – die Firmware regelt weiter."),
+            "nouserspace" => L.T("Der Kernel erlaubt keine eigene Lüftersteuerung (Schaltpunkte nur lesbar, Regler „user_space“ fehlt) – die Firmware regelt weiter."),
             _ => L.T("Lüfterstufe konnte nicht gesetzt werden ({0}) – die Firmware regelt weiter.", code),
         };
     }

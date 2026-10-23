@@ -895,7 +895,7 @@
   "Der Dienst startet auffällig oft neu – im Protokoll bzw. mit „journalctl -u bitaxetuner -n 100“ nach der Ursache sehen.": "The service restarts unusually often – check the log or “journalctl -u bitaxetuner -n 100” for the cause.",
   "Der Effizienz-Ratgeber hat das neue Ziel „Stromsparen“: die stabile Einstellung mit der geringsten Leistung – vorgeschlagen ab 3 % weniger Verbrauch, angewendet nur nach Bestätigung.": "The efficiency advisor has the new goal “power saving”: the stable setting with the lowest power – suggested from 3 % less consumption, applied only after confirmation.",
   "Der Haupt-Pool war nicht erreichbar.": "The main pool could not be reached.",
-  "Der Kernel erlaubt keine eigene Lüftersteuerung (Regler „user_space“ fehlt) – die Firmware regelt weiter.": "The kernel does not allow custom fan control (governor “user_space” missing) – the firmware keeps control.",
+  "Der Kernel erlaubt keine eigene Lüftersteuerung (Schaltpunkte nur lesbar, Regler „user_space“ fehlt) – die Firmware regelt weiter.": "The kernel does not allow own fan control (trip points read-only, “user_space” governor missing) – the firmware keeps control.",
   "Der Lauf geht auf dem Server weiter, auch wenn der Browser geschlossen wird.": "The run continues on the server even if the browser is closed.",
   "Der Lüfter des Miners (in AxeOS) wurde auf Automatik mit Zieltemperatur oder einen festen Wert gestellt – nach deiner Bestätigung.": "The miner fan (in AxeOS) was set to automatic with a target temperature or to a fixed value – after your confirmation.",
   "Der Lüfter des Servers soll laufen, dreht aber nicht – Stecker und Lüfter prüfen.": "The server fan should be running but does not spin – check the plug and the fan.",

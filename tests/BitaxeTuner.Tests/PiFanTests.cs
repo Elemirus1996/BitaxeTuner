@@ -189,4 +189,15 @@ public sealed class PiFanTests : IDisposable
         Write("/sys/class/thermal/thermal_zone0/policy", "user_space");
         Assert.EndsWith("· Kurve", _hub.SystemChecks(DateTime.Now).Single(c => c.Key == "server-fan").Value);
     }
+
+    [Fact]
+    public void Control_through_trip_points_counts_as_bitaxetuner()
+    {
+        // 0.9.24: Raspberry Pi OS ohne user_space – solange die Werks-Schaltpunkte gesichert sind, regelt BitaxeTuner
+        Assert.True(_hub.PiFan.Firmware);
+        File.WriteAllText(Path.Combine(_hub.DataDirectory, "pifan-trips"), "1 50000");
+        Assert.False(_hub.PiFan.Firmware);
+        File.Delete(Path.Combine(_hub.DataDirectory, "pifan-trips"));
+        Assert.True(_hub.PiFan.Firmware);
+    }
 }
