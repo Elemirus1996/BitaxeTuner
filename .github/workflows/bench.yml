@@ -1,0 +1,70 @@
+# Benchmark-Vergleich mit der Community (0.9.26, freiwillig je Miner): Die App schickt höchstens einmal pro Woche das
+# 24-Stunden-Mittel eines Miners (Modell, Firmware, Frequenz, Spannung, Hashrate, J/TH, Temperatur – keine IP, kein Name,
+# keine Wallet, keine Geräte-Kennung) an das ntfy.sh-Thema aus src/BitaxeTuner.Core/Network/CommunityBench.cs.
+# Diese Action holt stündlich ab, prüft gegen die Grenzen der Geräteprofile (tools/bench-build.py) und legt nur die
+# Statistik je Modell als stats.json in den Branch „bench“ (immer genau ein Commit, wie „news“). Die einzelnen Einsendungen
+# bleiben im Actions-Cache und werden nicht veröffentlicht.
+#
+# Sicherheit: Das Thema ist öffentlich, jeder kann hineinschreiben. Deshalb nur das erwartete JSON-Format, Grenzen aus den
+# Profilen, höchstens 200 neue Einsendungen je Lauf, Ausreißer werden verworfen. Die Werte sind nicht prüfbar echt.
+name: Benchmark-Vergleich
+
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Bisherige Einsendungen holen
+        uses: actions/cache/restore@v4
+        with:
+          path: .bench-state
+          key: bench-state-${{ github.run_id }}
+          restore-keys: bench-state-
+
+      - name: Neue Einsendungen abholen und Statistik bauen
+        env:
+          TOPIC: bitaxetuner-bench-hgpswdkool
+        run: |
+          set -eu
+          mkdir -p .bench-state out
+          since=$(cat .bench-state/last 2>/dev/null || echo "13h")
+          case "$since" in *[!A-Za-z0-9]*) since="13h";; esac
+          curl -fsS --max-time 30 "https://ntfy.sh/${TOPIC}/json?poll=1&since=${since}" > messages.jsonl || { echo "ntfy nicht erreichbar"; exit 0; }
+          python3 tools/bench-build.py .bench-state/samples.jsonl messages.jsonl src/BitaxeTuner.Core/Profiles/DeviceProfiles.json \
+            .bench-state/samples.new.jsonl out/stats.json
+          mv .bench-state/samples.new.jsonl .bench-state/samples.jsonl
+          last=$(jq -r 'select(.event == "message") | .id' messages.jsonl | tail -n 1)
+          if [ -n "$last" ]; then printf '%s' "$last" > .bench-state/last; fi
+
+      - name: Stand merken
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .bench-state
+          key: bench-state-${{ github.run_id }}
+
+      - name: Statistik in den Branch „bench“ legen
+        run: |
+          [ -f out/stats.json ] || exit 0
+          cd out
+          git init -q -b bench
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats.json
+          git commit -q -m "Benchmark-Statistik $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" bench:bench

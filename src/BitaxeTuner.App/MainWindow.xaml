@@ -204,6 +204,8 @@
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="{l:T 'Leistung / Effizienz'}" Style="{StaticResource Muted}" /><controls:TermHint Key="efficiency" /></StackPanel>
                                         <TextBlock FontSize="20" FontWeight="SemiBold"><Run Text="{Binding Info.PowerW, Converter={StaticResource Num}, Mode=OneWay}" /><Run Text=" W" FontSize="13" /></TextBlock>
                                         <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding EfficiencyText, Mode=OneWay}" /><Run Text="{l:T ' J/TH'}" /></TextBlock>
+                                        <TextBlock Style="{StaticResource Muted}" Text="{Binding CommunityText}" TextWrapping="Wrap" MaxWidth="260"
+                                                   Visibility="{Binding HasCommunity, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel></Border>
                                     <Border Style="{StaticResource Metric}"><StackPanel>
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="{l:T 'Chip / VR-Temperatur'}" Style="{StaticResource Muted}" /><controls:TermHint Key="vrtemp" /></StackPanel>

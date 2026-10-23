@@ -30,7 +30,7 @@ public sealed record HostRequest(string? Host);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
-    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null);
+    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null, bool? ShareBenchmark = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -712,6 +712,7 @@ public static class Endpoints
             if (req.FirmwareRepo is { } repo) c.FirmwareRepo = repo.Trim();   // leer = keine Firmware-Prüfung (wie am Desktop)
             if (req.LogAlerts is { } la) c.LogAlerts = la;
             if (req.LogArchive is { } lk) c.LogArchive = lk;
+            if (req.ShareBenchmark is { } sb) c.ShareBenchmark = sb;   // 0.9.26 Community-Vergleich
             if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
             // 0.9.17: „auto“ (nach Firmware), „on“ (nur überwachen), „off“ (Tuning erlauben)
             if (req.MonitorOnlyMode is "auto" or "on" or "off")

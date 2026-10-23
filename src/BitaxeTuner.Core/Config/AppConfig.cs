@@ -422,6 +422,12 @@ public sealed class DeviceConfig
     /// <summary>0.9.24: frühere Adressen (höchstens 5, neueste zuletzt) nach einem bestätigten IP-Wechsel. Additiv.</summary>
     public List<string> PreviousHosts { get; set; } = [];
 
+    /// <summary>0.9.26: 24-Stunden-Mittel wöchentlich anonym für den Community-Vergleich einsenden (freiwillig). Additiv.</summary>
+    public bool ShareBenchmark { get; set; }
+
+    /// <summary>0.9.26: zuletzt eingesendet (null = noch nie). Additiv.</summary>
+    public DateTime? BenchSharedAt { get; set; }
+
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
     {

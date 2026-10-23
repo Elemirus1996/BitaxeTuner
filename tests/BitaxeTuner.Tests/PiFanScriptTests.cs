@@ -74,7 +74,8 @@ public sealed class PiFanScriptTests : IDisposable
         psi.Environment["BITAXETUNER_PIFAN_TEST_DATA"] = Data.Replace('\\', '/');
         psi.Environment["BITAXETUNER_PIFAN_TEST_SYS"] = _dir.File("sys").Replace('\\', '/');
         using var p = Process.Start(psi)!;
-        p.WaitForExit(10000);
+        // Unter voller Testparallelität kann sh deutlich länger brauchen – großzügig warten, dann sauber abbrechen
+        if (!p.WaitForExit(60000)) { try { p.Kill(); } catch { } return false; }
         return p.ExitCode == 0;
     }
 

@@ -159,6 +159,7 @@ public sealed partial class MinerHub
         try { TickChatBots(now); } catch { /* 0.9.24: Chat-Bots sind Zusatz */ }
         try { TickPoolLatency(now); } catch { /* 0.9.24: Pool-Latenz ist Zusatz */ }
         try { TickIpWatch(now); } catch { /* 0.9.24: IP-Wechsel-Suche ist Zusatz */ }
+        try { TickCommunity(now); } catch { /* 0.9.26: Community-Vergleich ist Zusatz */ }
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

@@ -2555,6 +2555,10 @@ function tabLive() {
       h('div', { class: 'card' }, h('h3', {}, t('ASIC-Temperatur')), h('div', { class: 'chart' }, chartTemp), chipLegend),
       h('div', { class: 'card' }, h('h3', {}, t('Leistung')), h('div', { class: 'chart' }, chartPower)),
       wifiCard, chipHashCard),
+    // 0.9.26 Community-Vergleich
+    S.detail.community ? h('div', { class: 'card stack' }, h('h3', {}, t('Community-Vergleich')),
+      h('p', {}, S.detail.community.text),
+      S.detail.community.betterThan != null ? h('div', { class: 'small muted' }, t('Effizienter als etwa {0} % der Einsendungen für {1}. Einsendungen sind nicht prüfbar echt – ein grober Vergleich.', n(S.detail.community.betterThan * 100, 0), p.name)) : null) : null,
     isAdmin() ? h('div', { class: 'card stack' },
       h('h3', {}, t('Manuell einstellen')),
       h('div', { class: 'form' },
@@ -4171,6 +4175,7 @@ async function renderSettings() {
       extra.repo = h('input', { value: c.firmwareRepo || '', placeholder: t('leer = kein Check') });
       extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
       extra.logArchive = h('input', { type: 'checkbox', checked: !!c.logArchive });
+      extra.share = h('input', { type: 'checkbox', checked: !!c.shareBenchmark });
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       extra.monitorOnly = h('select', {}, [['auto', t('automatisch (nach Firmware)')], ['on', t('nur überwachen')], ['off', t('Tuning erlauben')]]
         .map(([v, l]) => h('option', { value: v, selected: (c.monitorOnlyMode || 'auto') === v }, l)));
@@ -4191,11 +4196,12 @@ async function renderSettings() {
           h('div', { title: t('Erinnerung 30 Tage vor Ende der Garantie') }, h('label', {}, t('Garantie (Monate)')), extra.warranty)),
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
-        h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)'))));
+        h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)')),
+        h('label', { class: 'check' }, extra.share, t('Am Community-Vergleich teilnehmen: einmal pro Woche Modell, Firmware, Frequenz, Spannung, Hashrate, J/TH und Temperatur anonym einsenden – ohne IP, Name, Wallet oder Geräte-Kennung'))));
     } }, t('Details'));
     const save = () => {
       const body = { name: name.value };
-      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked,
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked, shareBenchmark: extra.share.checked,
         groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value,
         purchase: { price: extra.price.value === '' ? null : Number(extra.price.value), date: extra.bought.value || null,
           warrantyMonths: extra.warranty.value === '' ? null : Number(extra.warranty.value) } });

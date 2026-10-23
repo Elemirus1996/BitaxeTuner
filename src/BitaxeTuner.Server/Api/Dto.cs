@@ -346,9 +346,11 @@ public static class Dto
             benchmarkDefaults = admin ? BenchmarkSettings.FromProfile(p) : null,
             estimatedDuration = BenchmarkManager.EstimatedDurationText(BenchmarkSettings.FromProfile(p)),
             session = session is null ? null : Session(session),
+            // 0.9.26 Community-Vergleich (nur zusammengefasste Werte)
+            community = hub.CommunityOf(d, DateTime.Now) is { } cm ? new { cm.Model, cm.N, cm.MyJth, cm.BetterThan, cm.MedianJth, cm.Text } : null,
             config = admin ? new
             {
-                c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.LogArchive, c.ProfileId,
+                c.Name, c.Host, c.WalletAddress, c.Coin, c.FirmwareRepo, c.LogAlerts, c.LogArchive, c.ProfileId, c.ShareBenchmark,
                 monitorOnlyMode = c.MonitorOnly switch { true => "on", false => "off", null => "auto" },
                 purchase = c.Purchase is { } pu ? new { price = pu.Price, date = pu.Date?.ToString("yyyy-MM-dd"), warrantyMonths = pu.WarrantyMonths } : null,
                 presets = Copy(c.Presets),
