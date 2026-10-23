@@ -211,6 +211,7 @@ public sealed partial class MinerHub
                 history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
                 if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
                 if (i.wifiRSSI is < 0 and > -120 && Device(host) is { } dev) RecordWifi(dev, i.wifiRSSI, now);   // 0.9.24
+                if (s.Normalized?.ChipHashratesGh is { Count: > 1 } hashes && Device(host) is { } cdev) RecordChipHashrates(cdev, hashes, now);   // 0.9.24
             }
             else if (!Maintenance.IsManual(host)) history.AddSample(host, now, 0, 0, 0, false);   // Wartungsmodus: kein Ausfall
         }

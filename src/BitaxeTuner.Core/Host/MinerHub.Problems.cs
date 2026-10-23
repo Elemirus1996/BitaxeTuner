@@ -91,6 +91,12 @@ public sealed partial class MinerHub
                     : L.T("Das Signal schwankt zwischen {0} und {1} dBm.", wifi.Min ?? 0, wifi.Max ?? 0),
                 L.T("Miner näher an Router oder Repeater, Antenne ausrichten, Metall und andere Geräte aus dem Weg; im Router einen weniger belegten Kanal wählen."),
                 "device:live"));
+        // 0.9.24: einzelner Chip dauerhaft schwach oder ausgefallen (Mehrchip-Boards)
+        foreach (var chip in ChipStatesOf(d).Where(x => x.State != "ok"))
+            list.Add(new MinerProblem($"chip-{chip.Index}", chip.State == "dead" ? "bad" : "warn",
+                chip.State == "dead" ? L.T("Chip {0} ausgefallen", chip.Index) : L.T("Chip {0} schwach", chip.Index),
+                L.T("Chip {0} liefert seit 30 Minuten nur {1} % der übrigen Chips ({2} GH/s).", chip.Index, chip.PercentOfMedian.ToString("0", c), chip.HashGh.ToString("0", c)),
+                ChipAdvice, "device:live"));
         foreach (var t in UpkeepOf(d).Where(t => t.Due))
             list.Add(new MinerProblem("upkeep", "warn", L.T("Wartung fällig"), t.Label,
                 L.T("Nach der Arbeit auf der Gesundheitsseite „erledigt“ wählen – dann zählt die Erinnerung neu."),

@@ -159,10 +159,15 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public string EfficiencyText => Info?.EfficiencyJth is { } e ? $"{e:F2}" : "–";
 
     /// <summary>0.9.11: Mehrchip-Boards – Temperatur jedes Chips, der heißeste mit ▲.</summary>
-    public bool HasChipTemps => Info?.ChipTempsC is { Count: > 1 };
+    public bool HasChipTemps => Info?.ChipTempsC is { Count: > 1 } || Info?.ChipHashratesGh is { Count: > 1 };
 
-    public string ChipTempsText => Info?.ChipTempsC is { Count: > 1 } t
+    public string ChipTempsText => (Info?.ChipTempsC is { Count: > 1 } t
         ? L.T("Chips: {0} °C", string.Join(" · ", t.Select(v => (v == t.Max() ? "▲" : "") + v.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture))))
+        : "") + ChipHashText;
+
+    /// <summary>0.9.24: Hashrate je Chip (ESP-Miner ab 2.10), der schwächste mit ▼.</summary>
+    private string ChipHashText => Info?.ChipHashratesGh is { Count: > 1 } h
+        ? "\n" + L.T("Chips: {0} GH/s", string.Join(" · ", h.Select(v => (v == h.Min() && v < h.Max() * 0.6 ? "▼" : "") + v.ToString("0", System.Globalization.CultureInfo.CurrentCulture))))
         : "";
 
     public string BestSummary => BestResult is { } b

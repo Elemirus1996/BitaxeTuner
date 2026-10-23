@@ -186,6 +186,8 @@ public static class Dto
             expectedHashrate = n?.ExpectedHashRateGh,
             temp = i?.temp,
             chipTemps = n?.ChipTempsC,   // 0.9.11: Mehrchip-Boards (temp = heißester Chip)
+            chipHashrates = n?.ChipHashratesGh,   // 0.9.24
+            chipStates = hub.ChipStatesOf(d) is { Count: > 0 } cs ? cs.Select(x => new { index = x.Index, percent = x.PercentOfMedian, state = x.State }).ToList() : null,
             // 0.9.24 WLAN-Qualität
             wifi = hub.WifiOf(d, DateTime.Now) is { State: not "unknown" } w ? new { rssi = w.Rssi, avg = w.Avg, min = w.Min, max = w.Max, state = w.State } : null,
             vrTemp = i?.vrTemp,
@@ -404,11 +406,20 @@ public static class Dto
         // 0.9.24: WLAN-Verlauf [Zeit, dBm]
         var wifi = host == HistoryStore.AggregateHost || hub.History is null ? null
             : hub.History.QueryWifi(host, now - span, now).Select(x => new double?[] { Unix(x.Time), x.Rssi }).ToList();
+        // 0.9.24: Hashrate je Chip [Zeit, Chip 1, Chip 2, …] (nur aus history.db)
+        List<double?[]>? chipHash = null;
+        if (host != HistoryStore.AggregateHost && hub.History is { } hdb)
+        {
+            var rows = hdb.QueryChipHashrates(host, now - span, now);
+            if (rows.Count > 0)
+                chipHash = rows.Select(x => new double?[] { Unix(x.Time) }.Concat(x.Temps.Select(t => double.IsNaN(t) ? (double?)null : Math.Round(t, 1))).ToArray()).ToList();
+        }
         return new
         {
             range,
             samples = samples.Select(x => new[] { Unix(x.Time), R(x.HashRateGh), R(x.Temp), R(x.Power) }).ToList(),
             wifi = wifi is { Count: > 0 } ? wifi : null,
+            chipHash,
             tuning = events.Select(e => new { time = Unix(e.Time), source = e.SourceText, change = e.ChangeText, e.Note }).ToList(),
             chips,
         };
