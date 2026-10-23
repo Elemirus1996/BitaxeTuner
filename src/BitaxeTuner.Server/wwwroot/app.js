@@ -1121,7 +1121,7 @@ function whatsUpButton(d) {
 
 /** Ziel eines Problem-Links („device:automation“, „fans“, „pools“, „settings:miners“). */
 function problemHref(d, link) {
-  if (!link) return null;
+  if (!link || link.startsWith('hostmove:')) return null;
   const [area, sub] = link.split(':');
   return area === 'device' ? `#/device/${d.id}/${sub || 'live'}` : area === 'settings' ? `#/settings/${sub || ''}` : `#/${area}`;
 }
@@ -1132,7 +1132,18 @@ function problemList(d) {
     h('div', { class: 'small' }, p.why),
     h('div', { class: 'small muted' }, t('Prüfen: {0}', p.check)),
     problemHref(d, p.link) && (p.link.startsWith('device') || isAdmin())
-      ? h('a', { class: 'btn small', href: problemHref(d, p.link), onclick: () => $('#dialog').close() }, t('Dorthin')) : null)));
+      ? h('a', { class: 'btn small', href: problemHref(d, p.link), onclick: () => $('#dialog').close() }, t('Dorthin')) : null,
+    p.link?.startsWith('hostmove:') && isAdmin()
+      ? h('button', { class: 'btn small primary', onclick: () => { $('#dialog').close(); acceptHostMove(d, p.link.slice(9)); } }, t('Neue Adresse übernehmen')) : null)));
+}
+
+/** 0.9.24 IP-Wechsel: neue Adresse nach Bestätigung übernehmen – Verlauf und Einstellungen ziehen mit um. */
+async function acceptHostMove(d, host) {
+  if (!await confirmBox(t('Neue Adresse übernehmen'),
+    t('{0} unter {1} statt {2} abfragen? Verlauf, Gruppen, Automatik und Zuordnungen (Push, Steckdosen, Lüfter) ziehen mit um.', d.name, host, d.host || '?'),
+    t('Übernehmen'))) return;
+  const r = await run(() => api(`/devices/${d.id}/host`, { method: 'POST', body: { host } }), t('Adresse übernommen.'));
+  if (r?.id && S.route?.view === 'device') location.hash = `#/device/${r.id}`;
 }
 
 async function showProblems(d) {

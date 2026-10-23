@@ -158,6 +158,7 @@ public sealed partial class MinerHub
         TickRoomTemps(now);      // 0.9.21: Raumtemperaturen der Heiz-Automatik aus Home Assistant
         try { TickChatBots(now); } catch { /* 0.9.24: Chat-Bots sind Zusatz */ }
         try { TickPoolLatency(now); } catch { /* 0.9.24: Pool-Latenz ist Zusatz */ }
+        try { TickIpWatch(now); } catch { /* 0.9.24: IP-Wechsel-Suche ist Zusatz */ }
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();
@@ -211,6 +212,7 @@ public sealed partial class MinerHub
                 history.AddSample(host, now, i.hashRate, s.Normalized?.MaxChipTempC ?? i.temp, i.power, true);
                 if (s.Normalized?.ChipTempsC is { Count: > 1 } chips) history.AddChipTemps(host, now, chips);
                 if (i.wifiRSSI is < 0 and > -120 && Device(host) is { } dev) RecordWifi(dev, i.wifiRSSI, now);   // 0.9.24
+                if (s.Normalized?.MacAddress is { Length: > 0 } mac && Device(host) is { } mdev) LearnMac(mdev, mac);   // 0.9.24 IP-Wechsel
                 if (s.Normalized?.ChipHashratesGh is { Count: > 1 } hashes && Device(host) is { } cdev) RecordChipHashrates(cdev, hashes, now);   // 0.9.24
             }
             else if (!Maintenance.IsManual(host)) history.AddSample(host, now, 0, 0, 0, false);   // Wartungsmodus: kein Ausfall

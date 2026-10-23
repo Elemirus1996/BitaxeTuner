@@ -18,6 +18,8 @@ public sealed record MinerInfo
 {
     public FirmwareKind Firmware { get; init; }
     public string? Hostname { get; init; }
+    /// <summary>0.9.24: MAC-Adresse (AxeOS „macAddr“) – erkennt den Miner nach einem IP-Wechsel wieder.</summary>
+    public string? MacAddress { get; init; }
     public string? DeviceModel { get; init; }
     public string? AsicModel { get; init; }
     public string? BoardVersion { get; init; }
