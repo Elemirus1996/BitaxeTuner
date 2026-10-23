@@ -412,6 +412,12 @@ public sealed class DeviceConfig
     /// <summary>0.9.21: Kaufpreis, Kaufdatum und Garantie (Amortisation, Garantie-Erinnerung). null = nicht eingetragen. Additiv.</summary>
     public DevicePurchase? Purchase { get; set; }
 
+    /// <summary>0.9.24: MAC-Adresse des Miners (zuletzt gesehen) – zum Wiederfinden nach einem IP-Wechsel. Additiv.</summary>
+    public string? Mac { get; set; }
+
+    /// <summary>0.9.24: frühere Adressen (höchstens 5, neueste zuletzt) nach einem bestätigten IP-Wechsel. Additiv.</summary>
+    public List<string> PreviousHosts { get; set; } = [];
+
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
     {
@@ -423,6 +429,7 @@ public sealed class DeviceConfig
         copy.PoolAuto = PoolAuto.Clone();
         copy.Soak = Soak is null ? null : Soak with { };
         copy.Purchase = Purchase is null ? null : Purchase with { };
+        copy.PreviousHosts = [.. PreviousHosts];
         return copy;
     }
 }

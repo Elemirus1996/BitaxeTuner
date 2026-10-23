@@ -76,9 +76,26 @@ public partial class MonitorView
                     TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0), ToolTip = details,
                 };
                 var name = s.Config.Name;
-                whatsUp.MouseLeftButtonUp += (_, e) =>
+                var move = _host.Hub.HostMoveOf(dev);
+                whatsUp.MouseLeftButtonUp += async (_, e) =>
                 {
                     e.Handled = true;
+                    // 0.9.24 IP-Wechsel: neue Adresse direkt übernehmen (Verlauf und Einstellungen ziehen mit um)
+                    if (move is not null)
+                    {
+                        if (MessageBox.Show(Window.GetWindow(this), details + "\n\n" + L.T("Neue Adresse {0} jetzt übernehmen?", move.NewHost),
+                                L.T("Was ist los bei {0}?", name), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                        try
+                        {
+                            _host.Hub.ChangeHost(dev, move.NewHost);
+                            await _host.Hub.ApplySettingsChangedAsync();
+                        }
+                        catch (Exception ex) when (ex is BitaxeTuner.Core.I18n.LocalizedException or InvalidOperationException)
+                        {
+                            MessageBox.Show(Window.GetWindow(this), ex.Message, L.T("Neue Adresse übernehmen"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                        return;
+                    }
                     MessageBox.Show(Window.GetWindow(this), details, L.T("Was ist los bei {0}?", name), MessageBoxButton.OK,
                         bad ? MessageBoxImage.Warning : MessageBoxImage.Information);
                 };

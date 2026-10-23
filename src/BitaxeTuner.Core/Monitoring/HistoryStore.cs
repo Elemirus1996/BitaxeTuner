@@ -955,6 +955,40 @@ public sealed partial class HistoryStore : IDisposable
 
     /// <summary>0.9.24: WLAN-Signal (dBm) als Minutenwert.</summary>
     public void AddWifi(string host, DateTime time, int rssi)
+        => AddWifiCore(host, time, rssi);
+
+    /// <summary>
+    /// 0.9.24 IP-Wechsel: alle Zeilen einer Adresse auf die neue umschreiben (jede Tabelle mit Spalte „host“). Gibt es unter
+    /// der neuen Adresse schon Zeilen mit gleichem Schlüssel, bleiben die alten Zeilen unverändert stehen – gelöscht wird nichts.
+    /// </summary>
+    public int RenameHost(string oldHost, string newHost)
+    {
+        var total = 0;
+        lock (_lock)
+        {
+            var tables = new List<string>();
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = "SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p ON p.name = 'host' WHERE m.type = 'table';";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) tables.Add(r.GetString(0));
+            }
+            using var tx = _db.BeginTransaction();
+            foreach (var t in tables)
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = $"UPDATE OR IGNORE \"{t.Replace("\"", "")}\" SET host = $new WHERE host = $old;";
+                cmd.Parameters.AddWithValue("$new", newHost);
+                cmd.Parameters.AddWithValue("$old", oldHost);
+                total += cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+        return total;
+    }
+
+    private void AddWifiCore(string host, DateTime time, int rssi)
     {
         var ts = new DateTimeOffset(time).ToUnixTimeSeconds() / 60 * 60;
         lock (_lock)

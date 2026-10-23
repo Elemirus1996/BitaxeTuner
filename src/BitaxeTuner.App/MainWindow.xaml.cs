@@ -75,6 +75,7 @@ public partial class MainWindow : Window
         _monitor.MinerRequested += host => NavList.SelectedItem = vm.NavItems.FirstOrDefault(n => string.Equals(n.Host, host, StringComparison.OrdinalIgnoreCase)) ?? NavList.SelectedItem;
         vm.Host.Polled += vm.OnPolled;
         vm.Host.Polled += () => AskWalletConsent(vm);
+        vm.Host.Hub.HostChanged += (_, _) => Dispatcher.BeginInvoke(vm.Rebuild);   // 0.9.24 IP-Wechsel übernommen
         vm.Rebuild();
         PlaceMonitor();
         if (vm.Host.ApplyWebView() is { Length: > 0 } web) vm.StatusText = web;

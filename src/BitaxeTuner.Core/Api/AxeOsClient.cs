@@ -261,6 +261,7 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         {
             Firmware = firmware,
             Hostname = Str(r, "hostname"),
+            MacAddress = Str(r, "macAddr") ?? Str(r, "mac"),
             DeviceModel = Str(r, "deviceModel"),
             AsicModel = Str(r, "ASICModel") ?? Str(r, "asicModel"),
             BoardVersion = Str(r, "boardVersion"),

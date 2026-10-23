@@ -26,6 +26,7 @@ public sealed record SoakRequest(int Hours);
 public sealed record CopySettingsRequest(string Source, string[] Targets, string[] Groups);
 public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
+public sealed record HostRequest(string? Host);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
@@ -720,6 +721,15 @@ public static class Endpoints
             h.Config.Save();
             await h.ApplySettingsChangedAsync();
             return new { ok = true };
+        })));
+
+        // 0.9.24: Adresse ändern (vorgeschlagener IP-Wechsel oder von Hand) – Verlauf und Bezüge ziehen mit um
+        g.MapPost("/devices/{id}/host", async (string id, HostRequest req, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var d = Device(h, id);
+            h.ChangeHost(d, req.Host ?? "");
+            await h.ApplySettingsChangedAsync();
+            return new { ok = true, id = Dto.DeviceId(d.Config.Host) };
         })));
 
         g.MapDelete("/devices/{id}", async (string id, HubService hub) => Results.Json(await hub.RunAsync(async h =>

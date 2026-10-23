@@ -31,6 +31,15 @@ public sealed partial class MinerHub
         if (!s.Online)
         {
             if (Maintenance.IsActive(d.Host)) return list;   // Wartung/Neustart/Tuning: kein Problem
+            // 0.9.24: unter neuer Adresse gefunden (gleiche MAC) – Übernahme mit einem Klick
+            if (HostMoveOf(d) is { } move)
+            {
+                list.Add(new MinerProblem("ipchange", "bad", L.T("Neue Adresse gefunden: {0}", move.NewHost),
+                    L.T("Der Miner antwortet unter {0} nicht mehr, aber unter {1} mit derselben MAC-Adresse – der Router hat ihm vermutlich eine neue Adresse gegeben.", move.OldHost, move.NewHost),
+                    L.T("„Neue Adresse übernehmen“ – Verlauf und Einstellungen bleiben erhalten. Damit es nicht wieder passiert: im Router eine feste Adresse (DHCP-Reservierung) für den Miner vergeben."),
+                    "hostmove:" + move.NewHost));
+                return list;
+            }
             list.Add(new MinerProblem("offline", "bad", L.T("Miner antwortet nicht"),
                 s.Error is { Length: > 0 } err ? err : L.T("Keine Antwort auf die Abfrage."),
                 L.T("Strom und Netzteil prüfen (LED an?). Im Router nachsehen, ob der Miner eine neue IP-Adresse bekommen hat – dann eine feste Adresse vergeben und hier eintragen. WLAN-Empfang am Aufstellort prüfen und AxeOS im Browser öffnen."),
