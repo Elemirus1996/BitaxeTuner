@@ -115,7 +115,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         NavItems.Clear();
-        NavItems.Add(new NavItem(NavKind.Aggregate, L.T("Gesamt"), L.T("alle Miner")) { Dot = ThemeManager.Brush("IdleBrush") });
+        NavItems.Add(new NavItem(NavKind.Aggregate, L.T("Übersicht"), L.T("alle Miner")) { Dot = ThemeManager.Brush("IdleBrush") });
         foreach (var state in _host.Polling.States)
         {
             var vm = _devices[state.Config.Host];

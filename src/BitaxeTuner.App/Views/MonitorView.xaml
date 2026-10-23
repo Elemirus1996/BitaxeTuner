@@ -61,7 +61,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" x:Name="ViewTitle" Text="{l:T 'Gesamt'}" Foreground="{DynamicResource TextBrush}"
+                <TextBlock Grid.Row="0" x:Name="ViewTitle" Text="{l:T 'Übersicht'}" Foreground="{DynamicResource TextBrush}"
                            FontSize="17" FontWeight="SemiBold" Margin="8,2,0,4"/>
 
                 <Grid Grid.Row="1">
