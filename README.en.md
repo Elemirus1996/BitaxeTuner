@@ -69,6 +69,17 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.25
+
+- **Detect a new IP address**: miners that went offline are found again in the home network by their MAC address, the
+  new address is taken over after asking – history and assignments are kept.
+- **Your mining year**: review of 12 months or a calendar year, as a page to share, in the desktop report and on the e-paper.
+- **Mini display** in the desktop app: small window always on top, plus a meaningful tray tooltip.
+- **Night mode for the kiosk**: dim at night or show only a large clock.
+- **Compare with the community**: share benchmark results voluntarily and anonymously and see how your own miner does.
+- **Control via chat**: restart, preset, maintenance mode, pause and backup from Discord or Telegram – only for
+  approved users, always with confirmation and log entry.
+
 ### New in 0.9.24
 
 - **Failure of single chips** on multi-chip miners (hashrate per chip, alert after 30 minutes, read-only).

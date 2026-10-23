@@ -66,6 +66,17 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.25
+
+- **Neue IP-Adresse erkennen**: offline gegangene Miner werden per MAC-Adresse im Heimnetz wiedergefunden, die neue
+  Adresse wird nach Rückfrage übernommen – Verlauf und Zuordnungen bleiben erhalten.
+- **Dein Mining-Jahr**: Rückblick auf 12 Monate oder ein Kalenderjahr, als Seite zum Teilen, im Desktop-Bericht und aufs E-Paper.
+- **Mini-Anzeige** in der Desktop-App: kleines Fenster immer im Vordergrund, dazu ein aussagekräftiger Tray-Tooltip.
+- **Nachtmodus für den Kiosk**: nachts dimmen oder nur eine große Uhr zeigen.
+- **Vergleich mit der Community**: freiwillig und anonym Benchmark-Ergebnisse teilen und sehen, wie der eigene Miner abschneidet.
+- **Steuern per Chat**: Neustart, Voreinstellung, Wartungsmodus, Pause und Sicherung aus Discord oder Telegram – nur für
+  freigegebene Nutzer, immer mit Rückfrage und Protokoll.
+
 ### Neu in 0.9.24
 
 - **Ausfall einzelner Chips** bei Mehrchip-Minern erkennen (Hashrate je Chip, Meldung nach 30 Minuten, nur lesend).
