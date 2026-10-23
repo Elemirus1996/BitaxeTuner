@@ -3148,7 +3148,18 @@ function renderKiosk() {
   const view = kioskView(S.kioskDesign, s, { first });
   mount(view.el);
   view.start();
-  keepAwake();
+  // 0.9.25: Bildschirm nachts ausgehen lassen, wenn so eingestellt
+  if (S.kioskNightState && S.kioskDesign.night?.wakeDayOnly) { S.wakeLock?.release().catch(() => {}); S.wakeLock = null; }
+  else keepAwake();
+}
+
+/** 0.9.25: Liegt jetzt im Nachtfenster des Designs? (auch über Mitternacht; gleiche Regel wie KioskNight.IsNight) */
+function kioskNightActive(nt, now = new Date()) {
+  if (!nt?.enabled) return false;
+  const m = v => { const [hh, mm] = String(v || '').split(':').map(Number); return Number.isFinite(hh) && Number.isFinite(mm) ? hh * 60 + mm : null; };
+  const f = m(nt.from), to = m(nt.to), x = now.getHours() * 60 + now.getMinutes();
+  if (f == null || to == null || f === to) return false;
+  return f < to ? x >= f && x < to : x >= f || x < to;
 }
 
 /** Zahl sanft zum neuen Wert laufen lassen (Animation „Werte zählen hoch“). */
@@ -3202,6 +3213,20 @@ function kioskView(dz, s, opt = {}) {
   (s.fans?.channels || []).filter(x => x.stalled).forEach(x => alerts.push(t('Lüfter K{0} steht', x.channel)));
   (s.fans?.sensors || []).filter(x => x.hot).forEach(x => alerts.push(`${x.name} ${n(x.temp, 1)} °C`));
   const minerCls = d => !d.online ? (d.maintenance ? 'kgray' : 'kbad') : d.temp >= 65 || d.vrTemp >= 85 ? 'kwarn' : 'kgood';
+  // 0.9.25 Nachtmodus: nur ohne Alarmlage (offline, Lüfter steht, Fühler zu warm, roter „Was ist los?“-Eintrag)
+  const alarm = alerts.length > 0 || s.devices.some(d => d.problems?.some(p => p.severity === 'bad'));
+  const night = !opt.editor && !alarm && kioskNightActive(dz.night);
+  S.kioskNightState = night;
+  if (night && dz.night.mode === 'clock') {
+    const warn = s.devices.some(d => d.problems?.length);
+    const style = `--kbg:${c.background};--ktext:${c.text};--kmuted:${c.muted};--kwarn:${c.warn};--kscale:${dz.fontScale || 1}`;
+    return {
+      el: h('div', { class: 'kiosk2 knight-clock', style },
+        h('div', { class: 'knight-time kclock' }, new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })),
+        h('div', { class: 'knight-sub' }, `${hash(tv.hashrate)} · ${tv.online}/${tv.count}`, warn ? h('span', { class: 'knight-warn', title: t('Warnung') }, ' ▲') : null)),
+      start: () => {},
+    };
+  }
 
   const content = p => {
     const label = p.title || names[p.type];
@@ -3278,8 +3303,9 @@ function kioskView(dz, s, opt = {}) {
   });
 
   const classes = ['kiosk2', opt.editor ? 'kedit' : '', a.fadeIn && opt.first ? 'kanim-fade' : '', a.pulseAlerts ? 'kanim-pulse' : '',
-    a.movingBackground ? 'kanim-bg' : '', a.glow ? 'kanim-glow' : ''].filter(Boolean).join(' ');
-  const style = `--kbg:${c.background};--kcard:${c.card};--ktext:${c.text};--kmuted:${c.muted};--kaccent:${c.accent};--kgood:${c.good};--kwarn:${c.warn};--kbad:${c.bad};--kscale:${dz.fontScale || 1}`;
+    a.movingBackground && !night ? 'kanim-bg' : '', a.glow && !night ? 'kanim-glow' : '', night ? 'knight-dim' : ''].filter(Boolean).join(' ');
+  const style = `--kbg:${c.background};--kcard:${c.card};--ktext:${c.text};--kmuted:${c.muted};--kaccent:${c.accent};--kgood:${c.good};--kwarn:${c.warn};--kbad:${c.bad};--kscale:${dz.fontScale || 1}`
+    + (night ? `;--kdim:${(dz.night.brightness || 35) / 100}` : '');
   const el = h('div', { class: classes, style },
     h('div', { class: 'kgrid' }, panels),
     opt.editor ? null : h('div', { class: 'kfoot' },
@@ -3293,6 +3319,25 @@ function kioskView(dz, s, opt = {}) {
       if (a.countUp) countTo(x.el, from ?? (opt.first ? 0 : x.to), x.to, x.fmt); else x.el.textContent = x.fmt(x.to);
     }),
   };
+}
+
+/** 0.9.25: Nachtmodus im Designer – Zeitfenster, Art, Helligkeit, Wake-Lock nur tagsüber. */
+function kioskNightBox(dz) {
+  const nt = dz.night || (dz.night = { enabled: false, from: '22:00', to: '06:30', mode: 'dim', brightness: 35, wakeDayOnly: false });
+  const time = key => h('input', { type: 'time', value: nt[key], style: 'width:auto', onchange: e => { nt[key] = e.target.value; } });
+  const mode = h('select', { style: 'width:auto', onchange: e => { nt.mode = e.target.value; } },
+    [['dim', t('Gedimmt (dunkle Ansicht)')], ['clock', t('Nur große Uhr mit Hashrate')]].map(([v, l]) => h('option', { value: v }, l)));
+  mode.value = nt.mode || 'dim';
+  const bright = h('input', { type: 'range', min: 10, max: 80, value: nt.brightness || 35, style: 'max-width:200px' });
+  const brightV = h('span', { class: 'mono small' }, `${nt.brightness || 35} %`);
+  bright.addEventListener('input', () => { nt.brightness = +bright.value; brightV.textContent = bright.value + ' %'; });
+  return h('div', { class: 'stack' },
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!nt.enabled, onchange: e => { nt.enabled = e.target.checked; } }), ' ', t('Nachtmodus einschalten')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('label', {}, t('von')), time('from'), h('label', {}, t('bis')), time('to'), mode),
+    h('div', { class: 'row' }, h('label', {}, t('Helligkeit (gedimmt)')), bright, brightV),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!nt.wakeDayOnly, onchange: e => { nt.wakeDayOnly = e.target.checked; } }), ' ',
+      t('Bildschirm nur tagsüber wach halten (nachts darf das Tablet ausgehen)')),
+    h('p', { class: 'muted small' }, t('Bei einer Warnung – Miner offline, Lüfter steht, Fühler zu warm – erscheint sofort wieder die normale Ansicht.')));
 }
 
 /** Designer: Farben, Schrift, Animationen, Panels – mit Live-Vorschau (echte Daten). */
@@ -3343,6 +3388,7 @@ async function renderKioskDesigner() {
       h('h3', {}, t('Animationen')),
       h('div', { class: 'row' }, anim('countUp', t('Werte zählen hoch')), anim('pulseAlerts', t('Warnungen pulsieren')), anim('fadeIn', t('Panels blenden ein')),
         anim('movingBackground', t('Bewegter Hintergrund')), anim('glow', t('Leuchtende Werte'))),
+      h('h3', {}, t('Nachtmodus')), kioskNightBox(dz),
       h('p', { class: 'muted small' }, t('Geräte mit der Einstellung „Bewegung reduzieren“ zeigen keine Animationen.')),
       h('h3', {}, t('Panel hinzufügen')),
       h('div', { class: 'row' }, addType, h('button', { class: 'btn', onclick: () => {
@@ -3371,6 +3417,8 @@ setInterval(async () => {
   if (!isKiosk()) return;
   const c = document.querySelector('.kclock');
   if (c) c.textContent = new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  // 0.9.25: Beginn/Ende des Nachtfensters
+  if (S.kioskDesign && S.status && kioskNightActive(S.kioskDesign.night) !== !!S.kioskNightState) renderKiosk();
   if (S.kioskDesign && Date.now() - (S.kioskDesignAt || 0) > 5 * 60 * 1000) loadKioskDesign().then(renderKiosk).catch(() => {});
   if (!S.es || S.es.readyState === EventSource.CLOSED || !$('#live').classList.contains('on')) {
     if (S.role === 'None' || !(await fetch('/api/v1/session', { credentials: 'same-origin' }).then(r => r.json()).then(x => x.role !== 'None').catch(() => false))) {
