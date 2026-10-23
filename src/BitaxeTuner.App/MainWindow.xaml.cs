@@ -220,6 +220,38 @@ public partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings(null);
 
+    /// <summary>0.9.24 Schnellsuche: Strg+K öffnet die Suche nach Ansichten, Minern und Einstellungsabschnitten.</summary>
+    protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        if (e.Key == System.Windows.Input.Key.K && System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+        {
+            e.Handled = true;
+            OpenQuickSearch();
+        }
+    }
+
+    private void OpenQuickSearch()
+    {
+        var page = L.T("Seite");
+        var miner = L.T("Miner");
+        var setting = L.T("Einstellung");
+        var items = new List<Core.Help.QuickSearchItem>();
+        foreach (var n in Vm.NavItems)
+            items.Add(new Core.Help.QuickSearchItem(n.Kind == NavKind.Device ? miner : page, n.Title, n.Sub, n));
+        items.Add(new Core.Help.QuickSearchItem(page, L.T("Einstellungen"), "", "settings"));
+        foreach (var s in Core.Help.QuickSearch.DesktopSettingsSections)
+            items.Add(new Core.Help.QuickSearchItem(setting, L.T(s), L.T("Einstellungen"), "settings:" + s));
+        var dlg = new QuickSearchWindow(items, setting) { Owner = this };
+        dlg.ShowDialog();
+        switch (dlg.Chosen?.Tag)
+        {
+            case NavItem n: Vm.SelectedNav = n; break;
+            case "settings": OpenSettings(null); break;
+            case string s when s.StartsWith("settings:", StringComparison.Ordinal): OpenSettings(L.T(s["settings:".Length..])); break;
+        }
+    }
+
     /// <summary>Einstellungen öffnen, optional direkt an einem Abschnitt (z. B. „Smart Plugs“).</summary>
     private async void OpenSettings(string? section, Window? owner = null)
     {
