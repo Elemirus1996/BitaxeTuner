@@ -360,8 +360,9 @@ async function run(fn, okText) {
 
 // ---------- Hinweise und Dialoge ----------
 
-function toast(text, kind = 'info', ms = 6000) {
-  const tv = h('div', { class: `toast ${kind}` }, text);
+function toast(text, kind = 'info', ms = 6000, action = null) {
+  const tv = h('div', { class: `toast ${kind}` }, text,
+    action ? h('button', { class: 'btn small', onclick: () => { tv.remove(); action.run(); } }, action.label) : null);
   $('#toasts').append(tv);
   setTimeout(() => tv.remove(), ms);
 }
@@ -3865,7 +3866,13 @@ async function renderSettings() {
 
   const save = async () => {
     s.newViewerPin = pin.value || null;
-    if (await run(() => api('/settings', { method: 'PUT', body: s }), t('Einstellungen gespeichert.'))) { pin.value = ''; s.viewerPinSet = s.viewerPinSet || !!s.newViewerPin; S.settingsSaved?.(); }
+    const r = await run(() => api('/settings', { method: 'PUT', body: s }));
+    if (!r) return;
+    pin.value = ''; s.viewerPinSet = s.viewerPinSet || !!s.newViewerPin; S.settingsSaved?.();
+    // 0.9.24: 10 s lang „Rückgängig“ – der Server stellt den Stand vor dem Speichern wieder her
+    toast(t('Einstellungen gespeichert.'), 'ok', 10000, r.undo ? { label: t('Rückgängig'), run: async () => {
+      if (await run(() => api('/settings/undo', { method: 'POST' }), t('Einstellungen zurückgenommen.'))) renderSettings();
+    } } : null);
   };
 
   // Geräte

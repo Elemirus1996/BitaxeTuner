@@ -1204,4 +1204,36 @@ public sealed class ServerTests : IDisposable
         var list = await Json(await admin.GetAsync("/api/v1/viewers"));
         Assert.Equal("operate", list[0].GetProperty("level").GetString());
     }
+
+    [Fact]
+    public async Task Saved_settings_can_be_undone_once()
+    {
+        // 0.9.24: „Rückgängig“ stellt den Stand vor dem Speichern wieder her, protokolliert und geht nur einmal
+        var admin = await AdminAsync();
+        var settings = await Json(await admin.GetAsync("/api/v1/settings"));
+        var oldTemp = settings.GetProperty("tempWarn").GetDouble();
+        var body = JsonSerializer.Deserialize<Dictionary<string, object?>>(settings.GetRawText())!;
+        body["tempWarn"] = 77;
+        var saved = await Json(await admin.PutAsJsonAsync("/api/v1/settings", body));
+        Assert.True(saved.GetProperty("undo").GetBoolean());
+        Assert.Equal(77, (await Json(await admin.GetAsync("/api/v1/settings"))).GetProperty("tempWarn").GetDouble());
+
+        Assert.True((await Json(await admin.PostAsJsonAsync("/api/v1/settings/undo", new { }))).GetProperty("ok").GetBoolean());
+        Assert.Equal(oldTemp, (await Json(await admin.GetAsync("/api/v1/settings"))).GetProperty("tempWarn").GetDouble());
+        Assert.Contains("zurückgenommen", (await Json(await admin.GetAsync("/api/v1/journal?range=24h&cats=settings"))).GetRawText());
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/v1/settings/undo", new { })).StatusCode);
+    }
+
+    [Fact]
+    public void Settings_undo_expires_after_a_minute()
+    {
+        var now = new DateTime(2026, 10, 18, 12, 0, 0);
+        var undo = new BitaxeTuner.Server.Api.SettingsUndo { Now = () => now };
+        undo.Remember(new BitaxeTuner.Server.Api.SettingsDto { TempWarn = 60 });
+        now = now.AddSeconds(61);
+        Assert.Null(undo.Take());
+        undo.Remember(new BitaxeTuner.Server.Api.SettingsDto { TempWarn = 61 });
+        Assert.Equal(61, undo.Take()!.Value.Before.TempWarn);
+        Assert.Null(undo.Take());
+    }
 }

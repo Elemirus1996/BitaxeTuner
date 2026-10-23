@@ -73,6 +73,7 @@ builder.Services.AddSingleton(sp => new AuthStore(sp.GetRequiredService<ServerSe
 builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<Lockout>();
 builder.Services.AddSingleton<EventStream>();
+builder.Services.AddSingleton<SettingsUndo>();   // 0.9.24 „Rückgängig“ nach dem Speichern
 builder.Services.AddSingleton<ServerUpdater>();
 builder.Services.AddSingleton<ServerRestart>();
 // 0.9.12 HTTPS ohne Warnung (DuckDNS + Let's Encrypt)

@@ -777,6 +777,8 @@
         <Border Grid.Row="2" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="14,6">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}"><Run Text="{l:T 'Daten: '}" /><Run Text="{Binding DataDirectory, Mode=OneWay}" /></TextBlock>
+                <Button x:Name="UndoSettingsButton" DockPanel.Dock="Right" Margin="0,0,12,0" Padding="10,2" Visibility="Collapsed"
+                        Content="{l:T 'Einstellungen gespeichert – Rückgängig'}" Click="OnUndoSettingsClick" />
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}" />
             </DockPanel>
         </Border>
