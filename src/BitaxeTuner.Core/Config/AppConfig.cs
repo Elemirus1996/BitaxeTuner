@@ -153,6 +153,9 @@ public sealed class AppConfig
     /// <summary>Betriebsart der Desktop-App: lokal (Standard) oder mit einem BitaxeTuner-Server verbunden.</summary>
     public ServerConnectionSettings Server { get; set; } = new();
 
+    /// <summary>0.9.25: Mini-Anzeige der Desktop-App (kleines Fenster immer oben). Additiv.</summary>
+    public MiniWindowSettings Mini { get; set; } = new();
+
     /// <summary>0.9.24: weitere Server (z. B. zweiter Standort) – umschalten und gemeinsame Übersicht in der Desktop-App.</summary>
     public List<ServerConnectionSettings> ExtraServers { get; set; } = [];
 
@@ -263,6 +266,7 @@ public sealed class AppConfig
         cfg.PiFan ??= new();
         cfg.Server ??= new();
         cfg.ExtraServers ??= [];
+        cfg.Mini ??= new();
         cfg.Quiet ??= new();
         cfg.Quiet.Normalize();
         cfg.ChatBot ??= new();
@@ -1007,6 +1011,15 @@ public sealed class MetricsSettings
     public bool Enabled { get; set; }
     public string TokenHash { get; set; } = "";
     public DateTime? TokenCreatedUtc { get; set; }
+}
+
+/// <summary>0.9.25: Mini-Anzeige der Desktop-App – an/aus, Position (null = unten rechts) und Deckkraft.</summary>
+public sealed class MiniWindowSettings
+{
+    public bool Enabled { get; set; }
+    public double? Left { get; set; }
+    public double? Top { get; set; }
+    public double Opacity { get; set; } = 0.9;
 }
 
 /// <summary>Verbindung der Desktop-App zu einem BitaxeTuner-Server (Betriebsart „Server“).</summary>

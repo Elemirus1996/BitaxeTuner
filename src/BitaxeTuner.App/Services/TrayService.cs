@@ -26,6 +26,9 @@ public sealed class TrayService : IDisposable
 
     public event Action? OpenRequested;
     public event Action? ExitRequested;
+    /// <summary>0.9.25: Menüpunkt „Mini-Anzeige“ umgeschaltet (neuer Zustand).</summary>
+    public event Action<bool>? MiniToggled;
+    private readonly Forms.ToolStripMenuItem _mini;
 
     public TrayService()
     {
@@ -36,6 +39,9 @@ public sealed class TrayService : IDisposable
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(L.T("Öffnen"), null, (_, _) => OpenRequested?.Invoke());
+        _mini = new Forms.ToolStripMenuItem(L.T("Mini-Anzeige")) { CheckOnClick = true };
+        _mini.CheckedChanged += (_, _) => { if (!_silent) MiniToggled?.Invoke(_mini.Checked); };
+        menu.Items.Add(_mini);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(L.T("Beenden"), null, (_, _) => ExitRequested?.Invoke());
 
@@ -58,9 +64,26 @@ public sealed class TrayService : IDisposable
             _state = state;
         }
 
-        // NotifyIcon.Text ist auf 63 Zeichen begrenzt
-        _icon.Text = tooltip.Length > 63 ? tooltip[..62] + "…" : tooltip;
+        // NotifyIcon.Text ist auf 127 Zeichen begrenzt (.NET 8, Windows 2000 und neuer)
+        _icon.Text = tooltip.Length > 127 ? tooltip[..126] + "…" : tooltip;
     }
+
+    /// <summary>0.9.25: Zustand aus der Mini-Anzeige (Farbe und mehrzeiliger Tooltip).</summary>
+    public void Update(Core.Display.MiniStatus s) => Update(s.Level switch
+    {
+        "ok" => TrayState.Ok, "warn" => TrayState.Warning, "error" => TrayState.Error, _ => TrayState.Unknown,
+    }, s.Tooltip());
+
+    /// <summary>Haken im Menü setzen, ohne das Ereignis auszulösen.</summary>
+    public void SetMiniChecked(bool on)
+    {
+        if (_mini.Checked == on) return;
+        _silent = true;
+        _mini.Checked = on;
+        _silent = false;
+    }
+
+    private bool _silent;
 
     /// <summary>Kurze Sprechblase, z. B. beim ersten Minimieren.</summary>
     public void Balloon(string title, string text)
