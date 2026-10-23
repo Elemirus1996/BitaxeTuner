@@ -55,6 +55,12 @@ public sealed class NewsFeed : IDisposable
         }
     }
 
+    /// <summary>0.9.25: lokale Einträge einer Art (z. B. „milestone“ für den Jahresrückblick), neueste zuerst.</summary>
+    public IReadOnlyList<NewsItem> LocalItems(string kind)
+    {
+        lock (_local) return _local.Where(x => x.Kind == kind).ToList();
+    }
+
     public bool HasLocal(string id)
     {
         lock (_local) return _local.Any(x => x.Id == id);

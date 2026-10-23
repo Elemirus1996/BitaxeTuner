@@ -52,6 +52,7 @@ public sealed class ReportWindow : Window
         buttons.Children.Add(Btn(L.T("Ansehen / Drucken"), OpenHtml, primary: true));
         buttons.Children.Add(Btn(L.T("CSV speichern …"), SaveCsv));
         buttons.Children.Add(Btn(L.T("Per Push senden"), async () => await SendAsync()));
+        buttons.Children.Add(Btn(L.T("Dein Mining-Jahr …"), OpenYearReview));
         var close = new Button { Content = L.T("Schließen"), Padding = new Thickness(12, 4, 12, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
         buttons.Children.Add(close);
 
@@ -114,6 +115,25 @@ public sealed class ReportWindow : Window
         var file = Path.Combine(Path.GetTempPath(), $"BitaxeTuner-{r.Period}.html");
         File.WriteAllText(file, ReportRenderer.Html(r));
         Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });
+    }
+
+    /// <summary>0.9.25: Jahresrückblick der letzten 12 Monate als druckbare Seite (ohne Adressen und Wallets).</summary>
+    private void OpenYearReview()
+    {
+        var names = MessageBox.Show(this, L.T("Namen der Miner im Rückblick zeigen? (Nein: „Miner 1“, „Miner 2“ … – zum Teilen)"),
+            L.T("Dein Mining-Jahr"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (names == MessageBoxResult.Cancel) return;
+        try
+        {
+            var review = _host.Hub.BuildYearReview("last12", names == MessageBoxResult.Yes, DateTime.Now);
+            var file = Path.Combine(Path.GetTempPath(), "BitaxeTuner-Mining-Jahr.html");
+            File.WriteAllText(file, review.Html());
+            Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is Core.I18n.LocalizedException or IOException)
+        {
+            MessageBox.Show(this, ex.Message, L.T("Dein Mining-Jahr"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void SaveCsv()

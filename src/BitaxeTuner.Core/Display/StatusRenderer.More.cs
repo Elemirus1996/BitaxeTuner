@@ -144,6 +144,49 @@ public static partial class StatusRenderer
         DrawFooter(ctx, m);
     }
 
+    // ---------- Jahresrückblick (0.9.25) ----------
+
+    private static void DrawYearReview(IImageProcessingContext ctx, DisplayModel m)
+    {
+        var y = m.YearReview!;
+        PageHeader(ctx, m, L.T("Dein Mining-Jahr"));
+        var c = De;
+        var colW = (Width - 32) / 3f;
+        var tiles = new List<(string Label, string Value, bool Red)>
+        {
+            (L.T("Beste Difficulty"), y.BestDiff ?? "–", y.BestDiff is not null),
+            (L.T("Ø Hashrate"), Reports.YearReview.FormatHash(y.AvgHashGh), false),
+            (L.T("Laufzeit"), L.T("{0} h", y.OnlineHours.ToString("N0", c)), false),
+            (L.T("Energie"), y.Kwh.ToString("N0", c) + " kWh", false),
+            (L.T("Stromkosten"), y.Cost.ToString("N0", c) + " " + y.Currency, false),
+            y.Income > 0 ? (L.T("Ertrag"), y.Income.ToString("N0", c) + " " + y.IncomeSymbol, true)
+                         : (L.T("Bester Monat"), y.BestMonth?.Month.ToString("MMM yyyy", c) ?? "–", false),
+        };
+        for (var i = 0; i < tiles.Count; i++)
+            Tile(ctx, 16 + i % 3 * colW, 80 + i / 3 * 86, colW - 8, tiles[i].Label, tiles[i].Value, tiles[i].Red);
+        // Balken je Monat (Ertrag, sonst Hashrate)
+        var useIncome = y.Months.Any(x => x.Income > 0);
+        var area = new RectangleF(16, 268, Width - 32, 120);
+        var max = y.Months.Count == 0 ? 0 : y.Months.Max(x => useIncome ? (double)x.Income : x.AvgHashGh ?? 0);
+        var small = Regular.Value.CreateFont(16);
+        if (max > 0)
+        {
+            var slot = area.Width / y.Months.Count;
+            for (var i = 0; i < y.Months.Count; i++)
+            {
+                var v = useIncome ? (double)y.Months[i].Income : y.Months[i].AvgHashGh ?? 0;
+                var h = (float)(v / max) * area.Height;
+                var best = y.BestMonth is { } b && b.Month == y.Months[i].Month;
+                ctx.Fill(Crisp, best ? Red : Ink, new RectangleF(area.Left + i * slot + slot * 0.15f, area.Bottom - h, slot * 0.7f, h));
+                TextCenter(ctx, y.Months[i].Month.ToString("MMM", c)[..Math.Min(3, y.Months[i].Month.ToString("MMM", c).Length)], small, area.Left + (i + 0.5f) * slot, area.Bottom + 4, Ink);
+            }
+        }
+        var note = useIncome ? L.T("Ertrag je Monat · rot = bester Monat") : L.T("Ø Hashrate je Monat · rot = bester Monat");
+        if (y.Milestones.Count > 0) note += " · " + L.T("{0} Meilensteine", y.Milestones.Count);
+        Text(ctx, Fit(note, small, Width - 32), small, 16, 418, Ink);
+        DrawFooter(ctx, m);
+    }
+
     // ---------- Monatsvergleich ----------
 
     private static void DrawMonthCompare(IImageProcessingContext ctx, DisplayModel m)

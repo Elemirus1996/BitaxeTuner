@@ -207,6 +207,8 @@ public sealed class DisplayPages
     public bool PoolAccount { get; set; }
     /// <summary>0.9.16: Monatsvergleich (Strom und Ertrag der letzten Monate).</summary>
     public bool MonthCompare { get; set; }
+    /// <summary>0.9.25: Jahresrückblick der letzten 12 Monate (ohne Minernamen). Standardmäßig aus.</summary>
+    public bool YearReview { get; set; }
 }
 
 /// <summary>
