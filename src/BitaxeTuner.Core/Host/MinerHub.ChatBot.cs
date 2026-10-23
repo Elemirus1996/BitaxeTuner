@@ -227,9 +227,13 @@ public sealed partial class MinerHub
               string.Join("\n", problems.Select(p => $"⚠ {p.Label}: {p.Value}"));
     }
 
-    private static string ChatHelpText() =>
+    private string ChatHelpText() =>
         L.T("BitaxeTuner – Befehle (nur lesen):") + "\n" +
-        string.Join("\n", ChatCommandNames.Select(c => $"/{c.Name}" + (c.De != c.Name ? $" (/{c.De})" : "") + " – " + ChatCommandDescription(c.Name)));
+        string.Join("\n", ChatCommandNames.Select(c => $"/{c.Name}" + (c.De != c.Name ? $" (/{c.De})" : "") + " – " + ChatCommandDescription(c.Name))) +
+        (Config.ChatBot.ControlEnabled
+            ? "\n\n" + L.T("Steuern (nur freigegebene Nutzer, jede Aktion mit Bestätigung):") + "\n" +
+              string.Join("\n", ChatControlNames.Select(c => $"/{c.Name}" + (c.De != c.Name ? $" (/{c.De})" : "") + " – " + ChatControlDescription(c.Name)))
+            : "");
 
     // ---------- Betrieb ----------
 
@@ -250,7 +254,8 @@ public sealed partial class MinerHub
         var tg = Config.Notifications.EffectiveTargets().FirstOrDefault(t => t.Id == s.TelegramTargetId && t.Provider == "telegram");
         var discordToken = s.DiscordEnabled ? Secrets.Get(DiscordTokenKey) : null;
         var key = string.Join("|", s.TelegramEnabled && tg is not null ? tg.TelegramBotToken + tg.TelegramChatId : "", discordToken ?? "",
-            s.DiscordChannelId, s.DiscordGuildId, s.LiveStatus, s.LiveMinutes, Loc.Current.Language, s.Presence, string.Join(",", s.PrivateCommands));
+            s.DiscordChannelId, s.DiscordGuildId, s.LiveStatus, s.LiveMinutes, Loc.Current.Language, s.Presence, string.Join(",", s.PrivateCommands),
+            s.DiscordAdminRole, string.Join(",", s.TelegramOperators));
         if (key == _chatBotKey) return;
         _chatBotKey = key;
         StopChatBots();
@@ -258,7 +263,12 @@ public sealed partial class MinerHub
         if (s.TelegramEnabled && tg is not null && tg.TelegramBotToken.Length > 0 && tg.TelegramChatId.Length > 0)
         {
             _telegramBot = new TelegramBot(tg.TelegramBotToken.Trim(), tg.TelegramChatId.Trim(), ChatBotHandler, ChatAnswerAsync, ChatLiveTextAsync,
-                s.LiveStatus ? TimeSpan.FromMinutes(s.LiveMinutes) : null, Path.Combine(DataDirectory, "chatbot-telegram.json"));
+                s.LiveStatus ? TimeSpan.FromMinutes(s.LiveMinutes) : null, Path.Combine(DataDirectory, "chatbot-telegram.json"))
+            {
+                // 0.9.26 Steuern
+                AnswerAs = ChatAnswerAsAsync,
+                Operators = s.TelegramOperators.ToHashSet(),
+            };
             _telegramBot.Start();
         }
         if (s.DiscordEnabled && discordToken is { Length: > 0 } && s.DiscordChannelId.Length > 0)
@@ -270,6 +280,9 @@ public sealed partial class MinerHub
                 MinerNames = () => InvokeAsync(ChatMinerNames),
                 Presence = s.Presence ? () => InvokeAsync(() => ChatPresenceText(DateTime.Now)) : null,
                 PrivateCommands = s.PrivateCommands.ToHashSet(),
+                // 0.9.26 Steuern
+                AnswerAs = ChatAnswerAsAsync,
+                AdminRole = s.DiscordAdminRole,
             };
             _discordBot.Start();
         }
@@ -285,21 +298,27 @@ public sealed partial class MinerHub
     private bool _chatAlertsHooked;
     private readonly Dictionary<string, DateTime> _chatAlertSent = new();
     /// <summary>Warnungen, die mit Knöpfen in den Chat gehen: offline, Überhitzung (Miner und Fühler), Lüfter steht.</summary>
-    private static readonly string[] ChatAlertKeys = ["offline:", "hot:", "temp-hot:", "fanstall:"];
+    private static readonly string[] ChatAlertKeys = ["offline:", "hot:", "temp-hot:", "fanstall:", "upkeep:"];
 
     /// <summary>Für Tests: was an die Bots ging (Titel, Miner).</summary>
     internal List<(string Title, string? Miner)> ChatAlertsPosted { get; } = [];
+    /// <summary>Für Tests: Steuer-Knöpfe je gesendeter Warnung.</summary>
+    internal List<IReadOnlyList<ChatButton>> ChatAlertControlsPosted { get; } = [];
 
     internal void OnChatAlert(string key, string title, string? host)
     {
         if (!Config.ChatBot.AlertButtons || !ChatAlertKeys.Any(k => key.StartsWith(k, StringComparison.Ordinal))) return;
+        if (key.StartsWith("upkeep:", StringComparison.Ordinal) && !Config.ChatBot.ControlEnabled) return;   // 0.9.26: nur mit [Erledigt]
         var now = Options.Clock?.Invoke() ?? DateTime.Now;
         if (_chatAlertSent.TryGetValue(key, out var last) && now - last < TimeSpan.FromMinutes(30)) return;
         _chatAlertSent[key] = now;
-        var miner = host is null ? null : Device(host)?.Title;
+        var dev = host is null ? null : Device(host);
+        var miner = dev?.Title;
+        var controls = ChatAlertControls(key, dev);   // 0.9.26: [Neu starten] / [Erledigt] – Rechte prüft der Hub beim Drücken
         ChatAlertsPosted.Add((title, miner));
-        if (_discordBot is { } dc) _ = Quiet(dc.PostAlertAsync(title, miner));
-        if (_telegramBot is { } tg) _ = Quiet(tg.PostAlertAsync(title, miner));
+        ChatAlertControlsPosted.Add(controls);
+        if (_discordBot is { } dc) _ = Quiet(dc.PostAlertAsync(title, miner, controls));
+        if (_telegramBot is { } tg) _ = Quiet(tg.PostAlertAsync(title, miner, controls));
     }
 
     private static async Task Quiet(Task t)
@@ -316,6 +335,8 @@ public sealed partial class MinerHub
     }
 
     private Task<ChatReply> ChatAnswerAsync(string text) => InvokeAsync(() => AnswerChat(text, DateTime.Now));
+
+    private Task<ChatReply> ChatAnswerAsAsync(string text, ChatActor actor) => InvokeAsync(() => AnswerChatAsAsync(text, actor, DateTime.Now));
 
     private Task<string> ChatLiveTextAsync() => InvokeAsync(() => "📊 BitaxeTuner\n" + ChatStatusText(DateTime.Now));
 

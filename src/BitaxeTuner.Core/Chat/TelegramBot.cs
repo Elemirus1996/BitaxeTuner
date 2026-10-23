@@ -13,6 +13,17 @@ public sealed record ChatReply(string Text, byte[]? Png = null)
 {
     /// <summary>0.9.23: farbige Karte mit Feldern (Discord-Embed); Telegram zeigt den Text.</summary>
     public ChatEmbed? Embed { get; init; }
+    /// <summary>0.9.26: Knöpfe unter der Antwort (z. B. Bestätigen/Abbrechen) – Kennung ohne „bt:“.</summary>
+    public IReadOnlyList<ChatButton>? Buttons { get; init; }
+}
+
+/// <summary>
+/// 0.9.26: Wer im Chat fragt. CanOperate: darf steuern (Discord: Rolle „BitaxeTuner-Admin“; Telegram: freigegebene Nutzer-ID
+/// im privaten Chat) – geprüft vom Bot, von BitaxeTuner bei jeder Aktion erneut verlangt.
+/// </summary>
+public sealed record ChatActor(string Platform, string Id, string Name, bool CanOperate)
+{
+    public static readonly ChatActor Anonymous = new("Chat", "", "?", false);
 }
 
 /// <summary>0.9.23: Karte für Discord – Titel, Zustand („ok“, „warn“, „bad“ → grün/gelb/rot) und Felder.</summary>
@@ -45,6 +56,11 @@ public sealed class TelegramBot : IDisposable
     private bool _commandsSet;
 
     public string? Status { get; private set; }
+
+    /// <summary>0.9.26: Antwort mit Wissen über den Fragenden (Steuern). Ohne: nur lesend wie bisher.</summary>
+    public Func<string, ChatActor, Task<ChatReply>>? AnswerAs { get; init; }
+    /// <summary>0.9.26: Nutzer-IDs, die im privaten Chat mit dem Bot steuern dürfen (dort antwortet der Bot dann auch).</summary>
+    public IReadOnlySet<string> Operators { get; init; } = new HashSet<string>();
 
     public TelegramBot(string token, string chatId, HttpMessageHandler? handler, Func<string, Task<ChatReply>> answer, Func<Task<string>> live,
         TimeSpan? liveEvery, string stateFile)
@@ -117,40 +133,55 @@ public sealed class TelegramBot : IDisposable
             if (!u.TryGetProperty("message", out var msg) || !msg.TryGetProperty("text", out var t)) continue;
             var chat = msg.GetProperty("chat").GetProperty("id").GetRawText();
             var text = t.GetString() ?? "";
-            if (chat != _chatId || !text.StartsWith('/')) continue;   // fremde Chats: keine Antwort
-            var reply = await _answer(text);
-            await SendAsync(reply, ct);
+            var actor = ActorOf(msg.TryGetProperty("from", out var from) ? from : default, msg.GetProperty("chat"));
+            if ((chat != _chatId && !actor.CanOperate) || !text.StartsWith('/')) continue;   // fremde Chats: keine Antwort
+            var reply = AnswerAs is { } answerAs ? await answerAs(text, actor) : await _answer(text);
+            await SendAsync(reply, ct, chat);
         }
         SaveState();
     }
 
-    /// <summary>„m:Gamma“ → „/miner Gamma“, „h:Gamma“ → „/history Gamma“, „s“ → „/status“.</summary>
-    internal static string? ButtonCommand(string? data) => data switch
+    /// <summary>„m:Gamma“ → „/miner Gamma“, „h:Gamma“ → „/history Gamma“, „s“ → „/status“; 0.9.26 auch Steuer-Knöpfe.</summary>
+    internal static string? ButtonCommand(string? data) =>
+        data is { } d && d.StartsWith("mm:", StringComparison.Ordinal) ? MinerHub.ButtonToCommand("mw:" + d[3..])   // keine Eingabemaske: 2 Stunden
+        : MinerHub.ButtonToCommand(data);
+
+    /// <summary>0.9.26: Steuern nur für freigegebene Nutzer-IDs und nur im privaten Chat mit dem Bot.</summary>
+    internal ChatActor ActorOf(JsonElement from, JsonElement chat)
     {
-        "s" => "/status",
-        { } d when d.StartsWith("m:", StringComparison.Ordinal) => "/miner " + d[2..],
-        { } d when d.StartsWith("h:", StringComparison.Ordinal) => "/history " + d[2..],
-        _ => null,
-    };
+        if (from.ValueKind != JsonValueKind.Object) return ChatActor.Anonymous with { Platform = "Telegram" };
+        var id = from.GetProperty("id").GetRawText();
+        var name = from.TryGetProperty("username", out var un) ? "@" + un.GetString()
+            : from.TryGetProperty("first_name", out var fn) ? fn.GetString() ?? id : id;
+        var isPrivate = chat.ValueKind == JsonValueKind.Object && chat.TryGetProperty("type", out var ty) && ty.GetString() == "private";
+        return new ChatActor("Telegram", id, name, isPrivate && Operators.Contains(id));
+    }
 
     private async Task HandleButtonAsync(JsonElement cb, CancellationToken ct)
     {
         var id = cb.GetProperty("id").GetString();
         using (await _http.PostAsJsonAsync(Url("answerCallbackQuery"), new { callback_query_id = id }, ct)) { }
-        var chat = cb.TryGetProperty("message", out var m) ? m.GetProperty("chat").GetProperty("id").GetRawText() : null;
-        if (chat != _chatId) return;   // fremde Chats: keine Antwort
+        var chatEl = cb.TryGetProperty("message", out var m) ? m.GetProperty("chat") : default;
+        var chat = chatEl.ValueKind == JsonValueKind.Object ? chatEl.GetProperty("id").GetRawText() : null;
+        var actor = ActorOf(cb.TryGetProperty("from", out var from) ? from : default, chatEl);
+        if (chat is null || (chat != _chatId && !actor.CanOperate)) return;   // fremde Chats: keine Antwort
         if (ButtonCommand(cb.TryGetProperty("data", out var d) ? d.GetString() : null) is not { } command) return;
-        await SendAsync(await _answer(command), ct);
+        await SendAsync(AnswerAs is { } answerAs ? await answerAs(command, actor) : await _answer(command), ct, chat);
     }
 
     /// <summary>0.9.23: Warnung in den Chat – mit Knöpfen [Details] [Verlauf] (nur zum Ansehen).</summary>
-    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default)
+    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default) => await PostAlertAsync(title, miner, null, ct);
+
+    /// <summary>0.9.26: mit zusätzlichen Steuer-Knöpfen (z. B. [Neu starten], [Erledigt]) – Rechte prüft BitaxeTuner beim Drücken.</summary>
+    public async Task PostAlertAsync(string title, string? miner, IReadOnlyList<ChatButton>? extra, CancellationToken ct = default)
     {
         // callback_data höchstens 64 Byte
         string Data(string prefix) => prefix + Clip(miner!, 60);
-        var keyboard = miner is { Length: > 0 }
-            ? new[] { new[] { new { text = L.T("Details"), callback_data = Data("m:") }, new { text = L.T("Verlauf"), callback_data = Data("h:") } } }
-            : new[] { new[] { new { text = L.T("Übersicht"), callback_data = "s" } } };
+        var rows = miner is { Length: > 0 }
+            ? new List<object[]> { new object[] { new { text = L.T("Details"), callback_data = Data("m:") }, new { text = L.T("Verlauf"), callback_data = Data("h:") } } }
+            : new List<object[]> { new object[] { new { text = L.T("Übersicht"), callback_data = "s" } } };
+        if (extra is { Count: > 0 }) rows.Add(Keyboard(extra));
+        var keyboard = rows.ToArray();
         using var resp = await _http.PostAsJsonAsync(Url("sendMessage"), new { chat_id = _chatId, text = "⚠ " + title, reply_markup = new { inline_keyboard = keyboard } }, ct);
         resp.EnsureSuccessStatusCode();
     }
@@ -169,13 +200,25 @@ public sealed class TelegramBot : IDisposable
         _commandsSet = true;
     }
 
-    private async Task SendAsync(ChatReply reply, CancellationToken ct)
+    /// <summary>0.9.26: Knöpfe einer Antwort als eine Zeile (callback_data höchstens 64 Byte).</summary>
+    internal static object[] Keyboard(IReadOnlyList<ChatButton> buttons) =>
+        buttons.Take(4).Select(b => (object)new { text = b.Label, callback_data = Clip(b.Command, 64) }).ToArray();
+
+    private async Task SendAsync(ChatReply reply, CancellationToken ct, string? chatId = null)
     {
+        chatId ??= _chatId;
+        if (reply.Buttons is { Count: > 0 } buttons)
+        {
+            // Rückfrage mit Knöpfen: immer als Text (ein Bild hätte hier keinen Platz für Knöpfe)
+            using var r = await _http.PostAsJsonAsync(Url("sendMessage"), new { chat_id = chatId, text = reply.Text, reply_markup = new { inline_keyboard = new[] { Keyboard(buttons) } } }, ct);
+            r.EnsureSuccessStatusCode();
+            return;
+        }
         if (reply.Png is { } png)
         {
             using var form = new MultipartFormDataContent
             {
-                { new StringContent(_chatId), "chat_id" },
+                { new StringContent(chatId), "chat_id" },
                 { new StringContent(reply.Text.Length > 1000 ? reply.Text[..1000] + "…" : reply.Text), "caption" },
             };
             var file = new ByteArrayContent(png);
@@ -186,7 +229,7 @@ public sealed class TelegramBot : IDisposable
         }
         else
         {
-            using var resp = await _http.PostAsJsonAsync(Url("sendMessage"), new { chat_id = _chatId, text = reply.Text }, ct);
+            using var resp = await _http.PostAsJsonAsync(Url("sendMessage"), new { chat_id = chatId, text = reply.Text }, ct);
             resp.EnsureSuccessStatusCode();
         }
     }

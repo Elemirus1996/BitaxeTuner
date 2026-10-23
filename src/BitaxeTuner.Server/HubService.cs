@@ -75,6 +75,7 @@ public sealed class HubService : IHostedService, IDisposable
             _log.LogWarning("{Text}", text);
         };
         if (LoadPaused()) hub.SetPaused(true);
+        hub.PauseHandler = SetPausedAsync;   // 0.9.26: Motor per Chat – Zustand wie im Browser speichern
         return hub;
     }
 

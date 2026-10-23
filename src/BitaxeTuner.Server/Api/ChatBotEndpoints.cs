@@ -28,6 +28,7 @@ public static class ChatBotEndpoints
                   (s.DiscordGuildId.Length > 0 ? $"&guild_id={s.DiscordGuildId}&disable_guild_select=true" : "")
                 : null,
             commands = MinerHub.ChatCommandNames.Select(c => new { name = c.Name, de = c.De, description = MinerHub.ChatCommandDescription(c.Name) }).ToList(),
+            controlCommands = MinerHub.ChatControlNames.Select(c => new { name = c.Name, de = c.De, description = MinerHub.ChatControlDescription(c.Name) }).ToList(),
         };
     }
 
@@ -46,6 +47,10 @@ public static class ChatBotEndpoints
             // Merker vom Einrichten bleiben
             if (s.DiscordAppId.Length == 0) s.DiscordAppId = h.Config.ChatBot.DiscordAppId;
             if (!string.IsNullOrWhiteSpace(req.DiscordToken)) h.Secrets.Set(MinerHub.DiscordTokenKey, req.DiscordToken.Trim());
+            if (s.ControlEnabled != h.Config.ChatBot.ControlEnabled)
+                h.LogEvent(null, Core.Monitoring.EventCategories.Settings, s.ControlEnabled
+                    ? L.T("Steuern per Chat eingeschaltet (Discord-Rolle „{0}“, {1} Telegram-Nutzer).", s.DiscordAdminRole, s.TelegramOperators.Count)
+                    : L.T("Steuern per Chat ausgeschaltet."));
             h.Config.ChatBot = s;
             h.Config.Save();
             h.LogEvent(null, Core.Monitoring.EventCategories.Settings, L.T("Chat-Bots gespeichert (Telegram {0}, Discord {1}).",
