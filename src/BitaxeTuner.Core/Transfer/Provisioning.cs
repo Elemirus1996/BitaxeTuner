@@ -160,6 +160,7 @@ public static class Provisioning
             {
                 var config = Config.AppConfig.Load(configFile);
                 config.Server = new Config.ServerConnectionSettings();
+                config.ExtraServers = [];                    // 0.9.24: weitere Server der Desktop-App ebenso
                 config.Backup = new Config.BackupSettings(); // Sicherungsziele des PCs (Pfade, NAS) passen nicht zum Pi
                 config.Mqtt.Enabled = false;                 // ohne Passwort (liegt nicht im Paket) erst im Browser einschalten
                 config.Save(configFile);

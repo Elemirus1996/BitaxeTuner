@@ -153,6 +153,9 @@ public sealed class AppConfig
     /// <summary>Betriebsart der Desktop-App: lokal (Standard) oder mit einem BitaxeTuner-Server verbunden.</summary>
     public ServerConnectionSettings Server { get; set; } = new();
 
+    /// <summary>0.9.24: weitere Server (z. B. zweiter Standort) – umschalten und gemeinsame Übersicht in der Desktop-App.</summary>
+    public List<ServerConnectionSettings> ExtraServers { get; set; } = [];
+
     /// <summary>Zusatzlüfter am Server (Raspberry Pi Pico per USB).</summary>
     public FanSettings Fans { get; set; } = new();
 
@@ -258,6 +261,8 @@ public sealed class AppConfig
         cfg.PoolAccount ??= new();
         cfg.ExtraPoolAccounts ??= [];
         cfg.PiFan ??= new();
+        cfg.Server ??= new();
+        cfg.ExtraServers ??= [];
         cfg.Quiet ??= new();
         cfg.Quiet.Normalize();
         cfg.ChatBot ??= new();
@@ -1009,6 +1014,8 @@ public sealed class ServerConnectionSettings
 {
     /// <summary>true: die App fragt keine Miner ab, alles läuft auf dem Server.</summary>
     public bool Enabled { get; set; }
+    /// <summary>0.9.24: eigener Name für den Umschalter (leer = Rechner aus der Adresse).</summary>
+    public string Name { get; set; } = "";
     public string Url { get; set; } = "";
     /// <summary>API-Token (btk_…) aus der Server-Oberfläche.</summary>
     public string Token { get; set; } = "";
