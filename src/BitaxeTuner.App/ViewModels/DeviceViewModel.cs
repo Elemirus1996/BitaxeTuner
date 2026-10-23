@@ -88,7 +88,7 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
     public ObservableCollection<StepResult> RankedResults { get; } = [];
     public ObservableCollection<string> Log { get; } = [];
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(EfficiencyText), nameof(ChipTempsText), nameof(HasChipTemps))]
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(EfficiencyText), nameof(ChipTempsText), nameof(HasChipTemps), nameof(CommunityText), nameof(HasCommunity))]
     private MinerInfo? _info;
 
     [ObservableProperty] private bool _isOnline;
@@ -157,6 +157,10 @@ public sealed partial class DeviceViewModel : ObservableObject, IDisposable
         : $"{Address} · {Info.DeviceModel ?? Info.AsicModel} · {MinerHub.FirmwareName(Info.Firmware)} {Info.FirmwareVersion}";
     public string? ProfileNotes => Profile?.Notes;
     public string EfficiencyText => Info?.EfficiencyJth is { } e ? $"{e:F2}" : "–";
+
+    /// <summary>0.9.26: Community-Vergleich (nur wenn mitgemacht wird und es eine Statistik für das Modell gibt).</summary>
+    public string CommunityText => _hub.CommunityOf(_device, DateTime.Now)?.Text is { } t ? L.T("Community: {0}", t) : "";
+    public bool HasCommunity => CommunityText.Length > 0;
 
     /// <summary>0.9.11: Mehrchip-Boards – Temperatur jedes Chips, der heißeste mit ▲.</summary>
     public bool HasChipTemps => Info?.ChipTempsC is { Count: > 1 } || Info?.ChipHashratesGh is { Count: > 1 };

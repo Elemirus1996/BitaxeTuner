@@ -158,6 +158,7 @@ public sealed partial class MinerHub
         TickRoomTemps(now);      // 0.9.21: Raumtemperaturen der Heiz-Automatik aus Home Assistant
         try { TickChatBots(now); } catch { /* 0.9.24: Chat-Bots sind Zusatz */ }
         try { TickPoolLatency(now); } catch { /* 0.9.24: Pool-Latenz ist Zusatz */ }
+        try { TickCommunity(now); } catch { /* 0.9.26: Community-Vergleich ist Zusatz */ }
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

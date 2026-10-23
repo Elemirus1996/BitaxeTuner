@@ -412,6 +412,12 @@ public sealed class DeviceConfig
     /// <summary>0.9.21: Kaufpreis, Kaufdatum und Garantie (Amortisation, Garantie-Erinnerung). null = nicht eingetragen. Additiv.</summary>
     public DevicePurchase? Purchase { get; set; }
 
+    /// <summary>0.9.26: 24-Stunden-Mittel wöchentlich anonym für den Community-Vergleich einsenden (freiwillig). Additiv.</summary>
+    public bool ShareBenchmark { get; set; }
+
+    /// <summary>0.9.26: zuletzt eingesendet (null = noch nie). Additiv.</summary>
+    public DateTime? BenchSharedAt { get; set; }
+
     /// <summary>Tiefe Kopie (das Einstellungsfenster arbeitet auf Kopien, "Abbrechen" verwirft alles).</summary>
     public DeviceConfig Clone()
     {
