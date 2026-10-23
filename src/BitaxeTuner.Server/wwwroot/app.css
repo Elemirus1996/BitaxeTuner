@@ -9,8 +9,8 @@
 
 :root {
   --bg: #0D1117; --header: #0D1117; --card: #161D27; --border: #232D3A; --field: #1B2430; --hover: #1B2430;
-  --selected: #243042; --button: #1B2430; --alt: #1B2430; --text: #E8EDF5; --muted: #8592A6; --secondary: #A9B8CF; --faint: #5D6879;
-  --accent: #F7931A; --accent-dark: #F7A94A; --accent-soft: rgba(247, 147, 26, .14); --accent-ink: #1A1206;
+  --selected: #243042; --button: #1B2430; --alt: #1B2430; --text: #E8EDF5; --muted: #8592A6; --secondary: #A9B8CF; --faint: #7E899B;
+  --accent: #F7931A; --accent-dark: #F7A94A; --accent-soft: rgba(247, 147, 26, .14); --accent-ink: #1A1206; --accent-text: #F7931A;
   --danger: #EF6461; --ok: #3FCF9A; --warn: #E8B44C; --info: #6EA8FE; --idle: #5A6478; --temp: #6EA8FE; --marker: #F7931A;
   --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 8px 24px rgba(0, 0, 0, .28);
   --glass: color-mix(in srgb, var(--card) 88%, transparent);
@@ -22,22 +22,39 @@
 }
 :root[data-theme="light"] {
   --bg: #EEF1F5; --header: #EEF1F5; --card: #FFFFFF; --border: #DDE3EB; --field: #F6F8FB; --hover: #F1F4F8;
-  --selected: #FEF3E2; --button: #FFFFFF; --alt: #F6F8FB; --text: #141A23; --muted: #5E6B7E; --secondary: #475569; --faint: #8C97A8;
-  --accent: #E07F05; --accent-dark: #B86500; --accent-soft: rgba(224, 127, 5, .12); --accent-ink: #FFFFFF;
-  --danger: #D64545; --ok: #12A06C; --warn: #B7791F; --info: #2F6FE0; --idle: #9CA3AF; --temp: #2F6FE0; --marker: #C96F00;
+  --selected: #FEF3E2; --button: #FFFFFF; --alt: #F6F8FB; --text: #141A23; --muted: #5E6B7E; --secondary: #475569; --faint: #616C7D;
+  --accent: #E07F05; --accent-dark: #9C5500; --accent-soft: rgba(224, 127, 5, .12); --accent-ink: #1A1206; --accent-text: #A65A00;
+  --danger: #BF3B3B; --ok: #097650; --warn: #956214; --info: #2F6FE0; --idle: #9CA3AF; --temp: #2F6FE0; --marker: #C96F00;
   --shadow: 0 1px 2px rgba(20, 26, 35, .06), 0 8px 24px rgba(20, 26, 35, .07);
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #EEF1F5; --header: #EEF1F5; --card: #FFFFFF; --border: #DDE3EB; --field: #F6F8FB; --hover: #F1F4F8;
-    --selected: #FEF3E2; --button: #FFFFFF; --alt: #F6F8FB; --text: #141A23; --muted: #5E6B7E; --secondary: #475569; --faint: #8C97A8;
-    --accent: #E07F05; --accent-dark: #B86500; --accent-soft: rgba(224, 127, 5, .12); --accent-ink: #FFFFFF;
-    --danger: #D64545; --ok: #12A06C; --warn: #B7791F; --info: #2F6FE0; --idle: #9CA3AF; --temp: #2F6FE0; --marker: #C96F00;
+    --selected: #FEF3E2; --button: #FFFFFF; --alt: #F6F8FB; --text: #141A23; --muted: #5E6B7E; --secondary: #475569; --faint: #616C7D;
+    --accent: #E07F05; --accent-dark: #9C5500; --accent-soft: rgba(224, 127, 5, .12); --accent-ink: #1A1206; --accent-text: #A65A00;
+    --danger: #BF3B3B; --ok: #097650; --warn: #956214; --info: #2F6FE0; --idle: #9CA3AF; --temp: #2F6FE0; --marker: #C96F00;
     --shadow: 0 1px 2px rgba(20, 26, 35, .06), 0 8px 24px rgba(20, 26, 35, .07);
     color-scheme: light;
   }
 }
+
+/* 0.9.24 Hoher Kontrast (Darstellung → Lesbarkeit oder „Kontrast erhöhen“ im System) */
+:root.hc {
+  --text: #FFFFFF; --muted: #C9D2DE; --secondary: #DCE3EC; --faint: #A9B4C3; --border: #6B7A90; --accent-text: #FFB259;
+}
+:root.hc[data-theme="light"] {
+  --text: #000000; --muted: #2B3544; --secondary: #1F2937; --faint: #4A5566; --border: #7D8A9C; --accent-text: #8A4A00;
+  --accent: #A65A00; --accent-dark: #8A4A00; --accent-ink: #FFFFFF; --ok: #097650; --warn: #8A5A10; --danger: #B42318; --info: #1F56B8; --marker: #8A4A00;
+}
+@media (prefers-color-scheme: light) {
+  :root.hc:not([data-theme="dark"]) {
+    --text: #000000; --muted: #2B3544; --secondary: #1F2937; --faint: #4A5566; --border: #7D8A9C; --accent-text: #8A4A00;
+    --accent: #A65A00; --accent-dark: #8A4A00; --accent-ink: #FFFFFF; --ok: #097650; --warn: #8A5A10; --danger: #B42318; --info: #1F56B8; --marker: #8A4A00;
+  }
+}
+:root.hc :where(p, li, td) > a:not(.btn):not(.pop-row) { text-decoration: underline; text-decoration-thickness: 2px; }
+:root.hc :focus-visible { outline-width: 3px; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -45,7 +62,9 @@ body {
   background: var(--bg); color: var(--text);
   font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent); text-decoration: none; }
+a { color: var(--accent-text); text-decoration: none; }
+/* 0.9.24: Links im Fließtext nicht nur über die Farbe erkennbar (WCAG 1.4.1) */
+:where(p, li) > a:not(.btn):not(.pop-row) { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 h1, h2, h3 { margin: 0 0 8px; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
 h2 { font-size: 18px; }
 h3 { font-size: 15px; }

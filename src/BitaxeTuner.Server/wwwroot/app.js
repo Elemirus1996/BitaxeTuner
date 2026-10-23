@@ -36,9 +36,45 @@ function h(tag, props, ...kids) {
     if (kid == null || kid === false) continue;
     el.append(kid instanceof Node ? kid : String(kid));
   }
+  // 0.9.24 Barrierefreiheit: Knopf/Link nur mit Symbol → Tooltip als Namen für Screenreader
+  if ((tag === 'button' || tag === 'a') && el.title && !el.hasAttribute('aria-label') && !el.textContent.trim()) el.setAttribute('aria-label', el.title);
   return el;
 }
 const mount = (...nodes) => { const app = $('#app'); app.replaceChildren(...nodes); };
+
+/**
+ * 0.9.24 Barrierefreiheit: Beschriftungen mit ihrem Feld verknüpfen. Viele Formulare setzen <label> direkt vor das Feld
+ * (Geschwister statt umschließend) – Screenreader lesen den Namen sonst nicht vor. Felder ohne Beschriftung bekommen den
+ * Platzhalter oder Tooltip als Namen.
+ */
+let labelSeq = 0;
+function linkLabels(root) {
+  root.querySelectorAll('label:not([for])').forEach(l => {
+    if (l.querySelector('input, select, textarea')) return;
+    let el = l.nextElementSibling;
+    if (el && !el.matches('input, select, textarea')) el = el.matches('div, span') ? el.querySelector('input, select, textarea') : null;
+    if (!el || el.labels?.length) return;
+    el.id ||= `f${++labelSeq}`;
+    l.htmlFor = el.id;
+  });
+  root.querySelectorAll('input:not([type=hidden]), select, textarea').forEach(el => {
+    if (el.labels?.length || el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby')) return;
+    const prev = el.previousElementSibling;
+    const td = el.closest('td'), table = td?.closest('table');
+    const th = td && table ? table.querySelector('thead tr, tr')?.children[td.cellIndex] : null;
+    const name = el.placeholder || el.title
+      || (prev?.matches('label, span') ? prev.textContent : '')
+      || el.closest('.row, .form > div')?.querySelector('label')?.textContent
+      || (th && th !== td ? th.textContent : '')
+      || el.closest('.titlebar, .chart-head, .card')?.querySelector('h2, h3')?.textContent;
+    if (name?.trim()) el.setAttribute('aria-label', name.trim());
+  });
+}
+let labelTimer = null;
+function watchLabels() {
+  new MutationObserver(() => { clearTimeout(labelTimer); labelTimer = setTimeout(() => linkLabels(document.body), 120); })
+    .observe(document.body, { childList: true, subtree: true });
+}
 
 function onDispatch(e) { const f = this.__on?.[e.type]; if (f) return f.call(this, e); }
 
@@ -137,6 +173,7 @@ async function loadLanguage(serverDefault) {
 const icon = (id, size) => {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'i');
+  svg.setAttribute('aria-hidden', 'true');   // 0.9.24: Schmuck – der Name steht am Knopf
   if (size) { svg.style.width = size + 'px'; svg.style.height = size + 'px'; }
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
   use.setAttribute('href', '#i-' + id);
@@ -335,6 +372,17 @@ const LOOK_DEFAULT = { bg: 'gradient', veil: 0, anim: true, numbers: true, hover
 function lookNow() {
   try { return { ...LOOK_DEFAULT, ...(S.lookServer || {}), ...JSON.parse(localStorageGet('look') || '{}') }; } catch { return { ...LOOK_DEFAULT }; }
 }
+/** 0.9.24 Barrierefreiheit: Diagramm als Bild mit Namen (Kartentitel) und den letzten Werten für Screenreader. */
+function chartLabel(canvas, series) {
+  canvas.setAttribute('role', 'img');
+  const cap = canvas.closest('.card')?.querySelector('h3, h2')?.textContent || t('Diagramm');
+  const last = (series || []).map(s => {
+    const p = s.points?.[s.points.length - 1];
+    return p && p[1] != null ? (s.format ? s.format(p[1]) : n(p[1], 1)) : null;
+  }).filter(Boolean).slice(0, 6);
+  canvas.setAttribute('aria-label', last.length ? t('{0} – zuletzt: {1}', cap, last.join(', ')) : t('{0} – noch keine Werte', cap));
+}
+
 function applyLook(look = lookNow()) {
   const b = $('#backdrop');
   b.className = look.bg === 'image' && !look.image ? 'solid' : look.bg;
@@ -343,6 +391,10 @@ function applyLook(look = lookNow()) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.body.classList.toggle('anim', !!look.anim && !reduce);
   document.body.classList.toggle('hover-lift', !!look.hover);
+  // 0.9.24 Lesbarkeit (nur dieser Browser): hoher Kontrast (auch bei „Kontrast erhöhen“ im System), größere Schrift
+  const root = document.documentElement;
+  root.classList.toggle('hc', !!look.contrast || matchMedia('(prefers-contrast: more)').matches);
+  root.style.zoom = look.font > 100 ? String(look.font / 100) : '';
 }
 
 /** Feste Texte aus index.html. */
@@ -538,6 +590,7 @@ function confirmBox(title, body, okLabel = t('Bestätigen'), danger = false) {
 async function boot() {
   applyTheme(localStorageGet('theme'));
   applyLook();
+  watchLabels();
   $('#theme').addEventListener('click', e => {
     e.stopPropagation();
     // Wie System → Hell → Dunkel → Wie System
@@ -1813,6 +1866,7 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 
 function drawChart(canvas, series, markers, opts = {}) {
   canvas = canvas.__live || canvas;   // 0.9.16: nach morph() steht das bisherige Canvas im Dokument
+  chartLabel(canvas, series);
   requestAnimationFrame(() => {
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth, hgt = canvas.clientHeight;
@@ -4373,6 +4427,11 @@ function lookCard() {
     opts, file,
     h('div', { class: 'row' }, h('label', { style: 'margin:0' }, t('Abdunkeln')), veil, veilV,
       look.image ? h('button', { class: 'btn small ghost', onclick: () => { set({ image: null, bg: lookNow().bg === 'image' ? 'gradient' : lookNow().bg }); renderSettings(); } }, t('Eigenes Bild entfernen')) : null),
+    h('h3', { style: 'margin-top:8px' }, t('Lesbarkeit')),
+    h('div', { class: 'row' }, h('label', { style: 'margin:0', for: 'lookFont' }, t('Schriftgröße')),
+      (() => { const sel = h('select', { id: 'lookFont', style: 'max-width:220px', onchange: e => set({ font: +e.target.value }) },
+        [[100, t('Normal')], [115, t('Größer')], [130, t('Sehr groß')]].map(([v, l]) => h('option', { value: v }, l))); sel.value = String(look.font || 100); return sel; })()),
+    sw('contrast', t('Hoher Kontrast'), t('Kräftigere Schrift- und Randfarben, unterstrichene Links. Bei „Kontrast erhöhen“ im Betriebssystem automatisch an.')),
     h('h3', { style: 'margin-top:8px' }, t('Bewegung')),
     sw('anim', t('Animationen'), t('Seitenwechsel, Karten, Puls bei Statuswechsel. Bei „Bewegung reduzieren“ im Betriebssystem automatisch aus.')),
     sw('numbers', t('Live-Zahlen weich zählen'), t('Hashrate und Leistung gleiten zum neuen Wert.')),
