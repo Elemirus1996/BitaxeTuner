@@ -93,7 +93,7 @@
     <div class="kicker">BitaxeTuner server · accessories</div>
     <h1>Pico fan controller</h1>
     <p class="lead">A Raspberry Pi Pico 2 on the Pi 3's USB port controls up to six 4-pin PWM fans: one for the voltage regulator (VR) of each Bitaxe and up to three for the case. On top come a 7.5-inch e-paper with the most important values, four buttons and temperature sensors. If anything fails, the fans run at full speed.</p>
-    <p><a href="#image">Set up the Raspberry Pi: ready-made image</a> · <a href="#breadboard">Breadboard</a> · <a href="#display">Display, buttons, sensors</a> · <a href="#shopping">Shopping list</a> · <a href="#wlan">Pico via WLAN</a> ·<a href="../../pico-luefter/" hreflang="de" lang="de">Deutsch</a></p>
+    <p><a href="#image">Set up the Raspberry Pi: ready-made image</a> · <a href="#board">Fan board</a> · <a href="#breadboard">Breadboard</a> · <a href="#display">Display, buttons, sensors</a> · <a href="#shopping">Shopping list</a> · <a href="#wlan">Pico via WLAN</a> ·<a href="../../pico-luefter/" hreflang="de" lang="de">Deutsch</a></p>
   </header>
 
   <section id="image">
@@ -275,6 +275,207 @@
       </table>
     </div>
     <p>Each PWM pin sits on its own PWM slice of the Pico, so every channel gets a clean 25 kHz. Which channel belongs to which miner is set later in the interface; the table is only the suggested wiring. If you only build Ch1–Ch3 for now, Ch4–Ch6 simply stay empty.</p>
+  </section>
+
+  <section id="board">
+    <h2><span class="tag">Fan board</span>Wiring plan of the assembled board</h2>
+    <p class="lead">For the assembled fan board v1.0 (JLCPCB). Top view, the Pico’s USB socket points up. Size and positions as on the board.</p>
+    <figure>
+      <div class="scroll">
+          <svg viewBox="0 0 920 575" role="img" aria-label="Wiring plan of the fan board seen from above: on the left the USB-C socket J3 for fan power, in the middle the Pico with USB at the top, next to it the pin headers J4 for the e-paper and J5 for the buttons, on the right edge the three screw terminals J6 to J8 for the temperature sensors with 3.3 volts at the top, data in the middle and ground at the bottom, at the bottom the six fan connectors K1 to K6.">
+          <rect x="60" y="70" width="575" height="425" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+          <circle cx="78.0" cy="88.0" r="8" fill="none" stroke="currentColor" class="muted" opacity=".5"/>
+          <circle cx="617.0" cy="88.0" r="8" fill="none" stroke="currentColor" class="muted" opacity=".5"/>
+          <circle cx="78.0" cy="477.0" r="8" fill="none" stroke="currentColor" class="muted" opacity=".5"/>
+          <circle cx="617.0" cy="477.0" r="8" fill="none" stroke="currentColor" class="muted" opacity=".5"/>
+          <rect x="45" y="157.5" width="40" height="45" rx="4" fill="none" stroke="var(--v5)" stroke-width="2"/>
+          <text x="65" y="225" class="title">J3 · USB-C</text>
+          <text x="65" y="241" class="muted">fan power 5 V only</text>
+          <text x="65" y="257" class="muted">charger ≥ 2 A</text>
+          <circle cx="100" cy="320" r="7" fill="none" stroke="currentColor"/>
+          <text x="100" y="342" text-anchor="middle" class="muted">VIN</text>
+          <circle cx="125" cy="320" r="7" fill="none" stroke="currentColor"/>
+          <text x="125" y="342" text-anchor="middle" class="muted">5V</text>
+          <circle cx="150" cy="320" r="7" fill="none" stroke="currentColor"/>
+          <text x="150" y="342" text-anchor="middle" class="muted">GND</text>
+          <text x="92" y="306" class="muted">Test points</text>
+          <rect x="312.0" y="113.0" width="105" height="255" rx="6" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <rect x="347.0" y="103.0" width="35" height="20" rx="2" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <rect x="317.5" y="117.5" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="117.5" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="130.2" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="130.2" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="142.9" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="142.9" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="155.60000000000002" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="155.60000000000002" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="168.3" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="168.3" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="181.0" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="181.0" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="193.70000000000002" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="193.70000000000002" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="206.4" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="206.4" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="219.1" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="219.1" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="231.8" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="231.8" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="244.5" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="244.5" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="257.2" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="257.2" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="269.90000000000003" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="269.90000000000003" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="282.6" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="282.6" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="295.3" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="295.3" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="308.0" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="308.0" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="320.7" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="320.7" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="333.4" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="333.4" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="346.1" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="346.1" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="317.5" y="358.8" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <rect x="406.4" y="358.8" width="5" height="5" class="muted" fill="currentColor" opacity=".55"/>
+          <text x="364.5" y="230" text-anchor="middle" class="title">Pico 2 H / 2 WH</text>
+          <line x1="364.5" y1="103.0" x2="364.5" y2="40" stroke="var(--accent)" stroke-width="2" marker-end="url(#ahp)"/>
+          <text x="364.5" y="30" text-anchor="middle" class="title">USB → Raspberry Pi</text>
+          <rect x="456" y="126.0" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="134.0" style="font-size:10px">VSYS</text>
+          <rect x="511" y="126.0" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="134.0" style="font-size:10px">B1</text>
+          <rect x="456" y="138.7" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="146.7" style="font-size:10px">GND</text>
+          <rect x="511" y="138.7" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="146.7" style="font-size:10px">G</text>
+          <rect x="456" y="151.39999999999998" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="159.39999999999998" style="font-size:10px">DIN</text>
+          <rect x="511" y="151.39999999999998" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="159.39999999999998" style="font-size:10px">B2</text>
+          <rect x="456" y="164.10000000000002" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="172.10000000000002" style="font-size:10px">CLK</text>
+          <rect x="511" y="164.10000000000002" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="172.10000000000002" style="font-size:10px">G</text>
+          <rect x="456" y="176.8" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="184.8" style="font-size:10px">CS</text>
+          <rect x="511" y="176.8" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="184.8" style="font-size:10px">B3</text>
+          <rect x="456" y="189.5" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="197.5" style="font-size:10px">DC</text>
+          <rect x="511" y="189.5" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="197.5" style="font-size:10px">G</text>
+          <rect x="456" y="202.20000000000002" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="210.20000000000002" style="font-size:10px">RST</text>
+          <rect x="511" y="202.20000000000002" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="210.20000000000002" style="font-size:10px">B4</text>
+          <rect x="456" y="214.9" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="469" y="222.9" style="font-size:10px">BUSY</text>
+          <rect x="511" y="214.9" width="8" height="8" fill="none" stroke="currentColor"/>
+          <text x="524" y="222.9" style="font-size:10px">G</text>
+          <text x="454" y="116" class="muted" style="font-size:11px">J4 · e-paper</text>
+          <text x="454" y="242.9" class="muted" style="font-size:11px">J5 · buttons</text>
+          <rect x="582.5" y="118" width="40" height="74" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="602.5" cy="130" r="7" fill="none" stroke="currentColor"/>
+          <circle cx="602.5" cy="155" r="7" fill="none" stroke="currentColor"/>
+          <rect x="595.5" y="173" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M584.5,175 l9,5 l-9,5 z" fill="currentColor"/>
+          <text x="574.5" y="134" text-anchor="end" class="muted" style="font-size:11px">J6</text>
+          <line x1="610.5" y1="130" x2="690" y2="130" stroke="var(--v33)" stroke-width="4" stroke-linecap="round"/>
+          <line x1="610.5" y1="155" x2="690" y2="155" stroke="#D9A400" stroke-width="4" stroke-linecap="round"/>
+          <line x1="610.5" y1="180" x2="690" y2="180" stroke="var(--gnd)" stroke-width="4" stroke-linecap="round"/>
+          <text x="695" y="116" class="title">Sensor 1 (J6)</text>
+          <text x="695" y="134">red · 3.3 V</text>
+          <text x="695" y="159">yellow · data (DQ)</text>
+          <text x="695" y="184">black · GND</text>
+          <rect x="582.5" y="203" width="40" height="74" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="602.5" cy="215" r="7" fill="none" stroke="currentColor"/>
+          <circle cx="602.5" cy="240" r="7" fill="none" stroke="currentColor"/>
+          <rect x="595.5" y="258" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M584.5,260 l9,5 l-9,5 z" fill="currentColor"/>
+          <text x="574.5" y="219" text-anchor="end" class="muted" style="font-size:11px">J7</text>
+          <line x1="610.5" y1="215" x2="690" y2="215" stroke="var(--v33)" stroke-width="3" stroke-linecap="round"/>
+          <line x1="610.5" y1="240" x2="690" y2="240" stroke="#D9A400" stroke-width="3" stroke-linecap="round"/>
+          <line x1="610.5" y1="265" x2="690" y2="265" stroke="var(--gnd)" stroke-width="3" stroke-linecap="round"/>
+          <text x="695" y="201" class="title">Sensor 2 (J7)</text>
+          <text x="695" y="244" class="muted">same order</text>
+          <rect x="582.5" y="288" width="40" height="74" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="602.5" cy="300" r="7" fill="none" stroke="currentColor"/>
+          <circle cx="602.5" cy="325" r="7" fill="none" stroke="currentColor"/>
+          <rect x="595.5" y="343" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M584.5,345 l9,5 l-9,5 z" fill="currentColor"/>
+          <text x="574.5" y="304" text-anchor="end" class="muted" style="font-size:11px">J8</text>
+          <line x1="610.5" y1="300" x2="690" y2="300" stroke="var(--v33)" stroke-width="3" stroke-linecap="round"/>
+          <line x1="610.5" y1="325" x2="690" y2="325" stroke="#D9A400" stroke-width="3" stroke-linecap="round"/>
+          <line x1="610.5" y1="350" x2="690" y2="350" stroke="var(--gnd)" stroke-width="3" stroke-linecap="round"/>
+          <text x="695" y="286" class="title">Sensor 3 (J8)</text>
+          <text x="695" y="329" class="muted">same order</text>
+          <rect x="100" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="106.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="118.69999999999999" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="131.4" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="144.10000000000002" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="129.05" y="445" text-anchor="middle" class="title">K1</text>
+          <rect x="175" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="181.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="193.7" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="206.39999999999998" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="219.1" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="204.05" y="445" text-anchor="middle" class="title">K2</text>
+          <rect x="250" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="256.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="268.7" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="281.4" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="294.1" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="279.05" y="445" text-anchor="middle" class="title">K3</text>
+          <rect x="325" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="331.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="343.7" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="356.4" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="369.09999999999997" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="354.05" y="445" text-anchor="middle" class="title">K4</text>
+          <rect x="400" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="406.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="418.70000000000005" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="431.4" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="444.1" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="429.05" y="445" text-anchor="middle" class="title">K5</text>
+          <rect x="475" y="453" width="58.1" height="24" rx="3" fill="none" stroke="currentColor"/>
+          <rect x="481.0" y="461" width="8" height="8" fill="var(--gnd)"/>
+          <rect x="493.70000000000005" y="461" width="8" height="8" fill="var(--v5)"/>
+          <rect x="506.4" y="461" width="8" height="8" fill="var(--tach)"/>
+          <rect x="519.1" y="461" width="8" height="8" fill="var(--pwm)"/>
+          <text x="504.05" y="445" text-anchor="middle" class="title">K6</text>
+          <text x="60" y="525" class="muted">Fans K1–K6 (keyed connector): pin 1 on the left</text>
+          <text x="60" y="545">1 GND · 2 +5 V · 3 tach · 4 PWM</text>
+          <defs><marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+          </svg>
+      </div>
+      <div class="legend"><span><i style="background:var(--v33)"></i>3.3 V</span><span><i style="background:#D9A400"></i>Sensor data (DQ)</span><span><i style="background:var(--gnd)"></i>GND</span><span><i style="background:var(--v5)"></i>+5 V fans</span><span><i style="background:var(--tach)"></i>Tach</span><span><i style="background:var(--pwm)"></i>PWM</span></div>
+      <figcaption>Every sensor gets its own terminal with all three wires – do not spread the three wires over J6, J7 and J8. The square pad with the small arrow is terminal 1 (GND). The 4.7 kΩ resistor for the sensors is already on the board (R6), no extra ones are needed.</figcaption>
+    </figure>
+    <p class="note"><strong>Before connecting the sensors:</strong> power off (unplug USB to the Pi and USB-C). Swapping red and black reverses the DS18B20 – it then gets hot and can be destroyed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Connector</th><th>Purpose</th><th>Pinout</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">J3 · USB-C (left)</td><td>Power for the fans only</td><td>5 V USB charger, at least 2 A. Does not power the Pico – that one is connected to the Raspberry Pi via USB.</td></tr>
+          <tr><td class="mono">Pico (middle)</td><td>Control</td><td>Plug in a Pico 2 H or 2 WH, USB socket at the top; USB cable to the Raspberry Pi.</td></tr>
+          <tr><td class="mono">J4 · e-paper</td><td>Cable to the Waveshare module</td><td>from the top: VSYS → pin 39 · GND → 38 · DIN → 15 · CLK → 14 · CS → 12 · DC → 11 · RST → 16 · BUSY → 17 (socket on the module)</td></tr>
+          <tr><td class="mono">J5 · buttons</td><td>4 buttons to GND</td><td>from the top: B1 · G · B2 · G · B3 · G · B4 · G – signal and G next to each other per button</td></tr>
+          <tr><td class="mono">J6 / J7 / J8</td><td>DS18B20 temperature sensors</td><td>one terminal per sensor: top 3.3 V (red) · middle data (yellow) · bottom GND (black, square pad)</td></tr>
+          <tr><td class="mono">K1–K6</td><td>4-pin PWM fans, 5 V</td><td>from the left: 1 GND · 2 +5 V · 3 tach · 4 PWM (keyed connector, fits only one way)</td></tr>
+          <tr><td class="mono">TP1 / TP2 / TP3</td><td>Test points</td><td>VIN (before the fuse) · +5 V fans · GND</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="../../assets/fan-board-top.png" alt="The board from above (rendering from the KiCad file). On the right the three green screw terminals J6–J8, at the bottom the fan connectors K1–K6." style="width:100%;height:auto;border-radius:6px" loading="lazy">
+      <figcaption>The board from above (rendering from the KiCad file). On the right the three green screw terminals J6–J8, at the bottom the fan connectors K1–K6.</figcaption>
+    </figure>
   </section>
 
   <section id="breadboard">
