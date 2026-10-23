@@ -31,6 +31,13 @@ public sealed class ChatBotSettings
     /// <summary>0.9.23: Discord – Antworten auf diese Befehle sieht nur, wer gefragt hat (ephemeral).</summary>
     public List<string> PrivateCommands { get; set; } = ["pool", "power"];
 
+    /// <summary>0.9.26: Steuern per Chat (Neustart, Voreinstellung, Wartung, Motor, Sicherung) – nur mit Bestätigung. Standardmäßig aus.</summary>
+    public bool ControlEnabled { get; set; }
+    /// <summary>0.9.26: Discord – nur Mitglieder mit dieser Rolle (Name oder Id) dürfen steuern.</summary>
+    public string DiscordAdminRole { get; set; } = "BitaxeTuner-Admin";
+    /// <summary>0.9.26: Telegram – Nutzer-IDs, die im privaten Chat mit dem Bot steuern dürfen.</summary>
+    public List<string> TelegramOperators { get; set; } = [];
+
     public void Normalize()
     {
         TelegramTargetId = (TelegramTargetId ?? "").Trim();
@@ -39,6 +46,8 @@ public sealed class ChatBotSettings
         DiscordAppId = Digits(DiscordAppId);
         LiveMinutes = Math.Clamp(LiveMinutes, 2, 60);
         PrivateCommands = (PrivateCommands ?? []).Where(c => Host.MinerHub.ChatCommandNames.Any(x => x.Name == c)).Distinct().ToList();
+        DiscordAdminRole = (DiscordAdminRole ?? "").Trim() is { Length: > 0 } role ? (role.Length > 100 ? role[..100] : role) : "BitaxeTuner-Admin";
+        TelegramOperators = (TelegramOperators ?? []).Select(Digits).Where(x => x.Length is > 0 and <= 20).Distinct().Take(20).ToList();
     }
 
     private static string Digits(string? s) => new((s ?? "").Where(char.IsAsciiDigit).ToArray());

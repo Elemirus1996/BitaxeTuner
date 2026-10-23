@@ -42,6 +42,12 @@ public sealed class DiscordBot : IDisposable
     public Func<Task<string>>? Presence { get; init; }
     /// <summary>0.9.23: Befehle, deren Antwort nur der Fragende sieht.</summary>
     public IReadOnlySet<string> PrivateCommands { get; init; } = new HashSet<string>();
+    /// <summary>0.9.26: Antwort mit Wissen über den Fragenden (Steuern). Ohne: nur lesend wie bisher.</summary>
+    public Func<string, ChatActor, Task<ChatReply>>? AnswerAs { get; init; }
+    /// <summary>0.9.26: Rolle (Name oder Id), deren Mitglieder steuern dürfen.</summary>
+    public string AdminRole { get; init; } = "BitaxeTuner-Admin";
+
+    private (DateTime At, string Guild, HashSet<string> Ids)? _adminRoles;
 
     public DiscordBot(string token, string channelId, HttpMessageHandler? handler, Func<string, Task<ChatReply>> answer, Func<Task<string>> live,
         TimeSpan? liveEvery, string stateFile)
@@ -78,7 +84,8 @@ public sealed class DiscordBot : IDisposable
         using var appDoc = JsonDocument.Parse(await app.Content.ReadAsStringAsync(ct));
         var appId = appDoc.RootElement.GetProperty("id").GetString()!;
 
-        var commands = MinerHub.ChatCommandNames.Select(c => CommandJson(c.Name, c.De)).ToList();
+        var commands = MinerHub.ChatCommandNames.Select(c => CommandJson(c.Name, c.De))
+            .Concat(MinerHub.ChatControlNames.Select(c => ControlCommandJson(c.Name, c.De))).ToList();
         var guild = new string((guildId ?? "").Where(char.IsAsciiDigit).ToArray());
         var url = guild.Length > 0 ? $"{Api}/applications/{appId}/guilds/{guild}/commands" : $"{Api}/applications/{appId}/commands";
         using (var put = await http.PutAsJsonAsync(url, commands, ct))
@@ -121,6 +128,35 @@ public sealed class DiscordBot : IDisposable
             description_localizations = descLoc,
             type = 1,
             options,
+        };
+    }
+
+    /// <summary>
+    /// 0.9.26: Steuer-Befehle – für Mitglieder ohne Rechte ausgeblendet (default_member_permissions „0“: nur Admins, freigeben
+    /// unter Servereinstellungen → Integrationen); BitaxeTuner prüft zusätzlich die Rolle „BitaxeTuner-Admin“.
+    /// </summary>
+    private static object ControlCommandJson(string name, string german)
+    {
+        var options = name switch
+        {
+            "restart" => new object[] { Option("miner", L.N("Name des Miners"), required: true, autocomplete: true) },
+            "preset" => new object[] { Option("miner", L.N("Name des Miners"), required: true, autocomplete: true), Option("preset", L.N("Name der Voreinstellung"), required: true) },
+            "maintenance" => new object[] { Option("miner", L.N("Name des Miners"), required: true, autocomplete: true),
+                Option("state", L.N("an oder aus"), required: true, choices: ["an", "aus"]), Option("hours", L.N("Dauer in Stunden (leer = bis zum Ausschalten)"), required: false),
+                Option("reason", L.N("Grund"), required: false) },
+            _ => [],
+        };
+        var nameLoc = german != name ? new Dictionary<string, string> { ["de"] = german } : null;
+        return new
+        {
+            name,
+            name_localizations = nameLoc,
+            description = Clip(MinerHub.ChatControlDescription(name, Loc.For("en"))),
+            description_localizations = DiscordLocales.ToDictionary(kv => kv.Value, kv => Clip(MinerHub.ChatControlDescription(name, Loc.For(kv.Key)))),
+            type = 1,
+            options,
+            default_member_permissions = "0",
+            dm_permission = false,
         };
     }
 
@@ -251,7 +287,7 @@ public sealed class DiscordBot : IDisposable
     internal async Task HandleInteractionAsync(JsonElement d, CancellationToken ct = default)
     {
         var type = d.GetProperty("type").GetInt32();
-        if (type is not (2 or 3 or 4)) return;
+        if (type is not (2 or 3 or 4 or 5)) return;
         var id = d.GetProperty("id").GetString();
         var token = d.GetProperty("token").GetString();
         var appId = d.GetProperty("application_id").GetString();
@@ -270,30 +306,45 @@ public sealed class DiscordBot : IDisposable
         }
         string command;
         bool ephemeral;
-        if (type == 3)
+        var customId = data.TryGetProperty("custom_id", out var cid) ? cid.GetString() : null;
+        if (type == 3 && customId is { } mm && mm.StartsWith("bt:mm:", StringComparison.Ordinal))
         {
-            if (ButtonCommand(data.TryGetProperty("custom_id", out var cid) ? cid.GetString() : null) is not { } fromButton) return;
+            // 0.9.26 Eingabemaske „Wartungsmodus“ (Stunden, Grund)
+            using var modal = await _http.PostAsJsonAsync(callback, MaintenanceModal(mm[6..]), ct);
+            return;
+        }
+        if (type == 5)
+        {
+            if (customId is not { } mf || !mf.StartsWith("bt:mmf:", StringComparison.Ordinal)) return;
+            command = $"/maintenance {mf[7..]} | an | {ModalValue(data, "hours")} | {ModalValue(data, "reason")}";
+            ephemeral = true;
+        }
+        else if (type == 3)
+        {
+            if (ButtonCommand(customId) is not { } fromButton) return;
             command = fromButton;
             ephemeral = true;
         }
         else
         {
             var name = data.GetProperty("name").GetString() ?? "";
+            var control = MinerHub.ChatControlNames.Any(c => c.Name == name);
             var args = data.TryGetProperty("options", out var opts)
-                ? string.Join(' ', opts.EnumerateArray().Select(o => o.GetProperty("value").ToString()))
+                ? string.Join(control ? " | " : " ", opts.EnumerateArray().Select(o => o.GetProperty("value").ToString()))
                 : "";
             command = "/" + name + (args.Length > 0 ? " " + args : "");
-            ephemeral = PrivateCommands.Contains(name);
+            ephemeral = PrivateCommands.Contains(name) || control;
         }
         object defer = ephemeral ? new { type = 5, data = new { flags = 64 } } : new { type = 5 };
         using (var deferred = await _http.PostAsJsonAsync(callback, defer, ct)) deferred.EnsureSuccessStatusCode();
-        var reply = await _answer(command);
+        var reply = AnswerAs is { } answerAs ? await answerAs(command, await ActorOfAsync(d, ct)) : await _answer(command);
         var edit = $"{Api}/webhooks/{appId}/{token}/messages/@original";
         using var form = new MultipartFormDataContent();
         var content = reply.Text.Length > 1900 ? reply.Text[..1900] + "…" : reply.Text;
         var message = new Dictionary<string, object> { ["content"] = reply.Embed is null ? content : "" };
         if (reply.Embed is { } embed) message["embeds"] = new[] { EmbedJson(embed, reply.Png is not null) };
         if (reply.Png is not null) message["attachments"] = new[] { new { id = 0, filename = "bitaxetuner.png" } };
+        if (reply.Buttons is { Count: > 0 } buttons) message["components"] = new[] { new { type = 1, components = ButtonsJson(buttons) } };
         var payload = JsonSerializer.Serialize(message);
         form.Add(new StringContent(payload, Encoding.UTF8, "application/json"), "payload_json");
         if (reply.Png is { } png)
@@ -324,14 +375,77 @@ public sealed class DiscordBot : IDisposable
 
     private static string Clip256(string s) => s.Length <= 256 ? s : s[..255] + "…";
 
-    /// <summary>„bt:m:Gamma“ → „/miner Gamma“, „bt:h:Gamma“ → „/history Gamma“, „bt:s“ → „/status“; sonst null.</summary>
-    internal static string? ButtonCommand(string? customId) => customId switch
+    /// <summary>„bt:m:Gamma“ → „/miner Gamma“, „bt:h:Gamma“ → „/history Gamma“, „bt:s“ → „/status“; 0.9.26 auch Steuer-Knöpfe.</summary>
+    internal static string? ButtonCommand(string? customId) =>
+        customId is { } c && c.StartsWith("bt:", StringComparison.Ordinal) ? MinerHub.ButtonToCommand(c[3..]) : null;
+
+    /// <summary>0.9.26: Knöpfe (höchstens 5); Bestätigen rot, Abbrechen grau, sonst blau.</summary>
+    internal static object[] ButtonsJson(IReadOnlyList<ChatButton> buttons) => buttons.Take(5).Select(b => (object)new
     {
-        "bt:s" => "/status",
-        { } c when c.StartsWith("bt:m:", StringComparison.Ordinal) => "/miner " + c[5..],
-        { } c when c.StartsWith("bt:h:", StringComparison.Ordinal) => "/history " + c[5..],
-        _ => null,
+        type = 2,
+        style = b.Command.StartsWith("x:", StringComparison.Ordinal) ? 4 : b.Command.StartsWith("n:", StringComparison.Ordinal) ? 2 : 1,
+        label = Clip(b.Label)[..Math.Min(80, Clip(b.Label).Length)],
+        custom_id = ("bt:" + b.Command) is var id && id.Length > 100 ? id[..100] : "bt:" + b.Command,
+    }).ToArray();
+
+    /// <summary>0.9.26: Eingabemaske „Wartungsmodus“ (Antworttyp 9).</summary>
+    internal static object MaintenanceModal(string miner) => new
+    {
+        type = 9,
+        data = new
+        {
+            custom_id = ("bt:mmf:" + miner) is var id && id.Length > 100 ? id[..100] : "bt:mmf:" + miner,
+            title = Clip(L.T("Wartungsmodus: {0}", miner))[..Math.Min(45, Clip(L.T("Wartungsmodus: {0}", miner)).Length)],
+            components = new object[]
+            {
+                new { type = 1, components = new[] { new { type = 4, custom_id = "hours", label = L.T("Dauer in Stunden (0 = bis zum Ausschalten)"), style = 1, value = "2", required = true, max_length = 4 } } },
+                new { type = 1, components = new[] { new { type = 4, custom_id = "reason", label = L.T("Grund (optional)"), style = 1, value = "", required = false, max_length = 100 } } },
+            },
+        },
     };
+
+    private static string ModalValue(JsonElement data, string id)
+    {
+        if (!data.TryGetProperty("components", out var rows)) return "";
+        foreach (var row in rows.EnumerateArray())
+            if (row.TryGetProperty("components", out var cs))
+                foreach (var c in cs.EnumerateArray())
+                    if (c.TryGetProperty("custom_id", out var cid) && cid.GetString() == id)
+                        return (c.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "").Replace("|", "/").Trim();
+        return "";
+    }
+
+    /// <summary>0.9.26: Wer drückt/fragt – darf steuern, wenn er eine Rolle mit dem Namen bzw. der Id <see cref="AdminRole"/> hat.</summary>
+    internal async Task<ChatActor> ActorOfAsync(JsonElement d, CancellationToken ct)
+    {
+        if (!d.TryGetProperty("member", out var member) || !member.TryGetProperty("user", out var user)) return ChatActor.Anonymous with { Platform = "Discord" };
+        var id = user.GetProperty("id").GetString() ?? "";
+        var name = "@" + (user.TryGetProperty("global_name", out var gn) && gn.ValueKind == JsonValueKind.String ? gn.GetString() : user.TryGetProperty("username", out var un) ? un.GetString() : id);
+        var roles = member.TryGetProperty("roles", out var r) ? r.EnumerateArray().Select(x => x.GetString() ?? "").ToHashSet() : [];
+        var guild = d.TryGetProperty("guild_id", out var g) ? g.GetString() ?? "" : "";
+        var admin = roles.Contains(AdminRole) || (guild.Length > 0 && roles.Overlaps(await AdminRoleIdsAsync(guild, ct)));
+        return new ChatActor("Discord", id, name, admin);
+    }
+
+    private async Task<HashSet<string>> AdminRoleIdsAsync(string guild, CancellationToken ct)
+    {
+        if (_adminRoles is { } c && c.Guild == guild && DateTime.UtcNow - c.At < TimeSpan.FromMinutes(10)) return c.Ids;
+        var ids = new HashSet<string>();
+        try
+        {
+            using var resp = await _http.GetAsync($"{Api}/guilds/{guild}/roles", ct);
+            if (resp.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+                foreach (var role in doc.RootElement.EnumerateArray())
+                    if (string.Equals(role.GetProperty("name").GetString(), AdminRole, StringComparison.OrdinalIgnoreCase))
+                        ids.Add(role.GetProperty("id").GetString() ?? "");
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException) { /* ohne Rollenliste darf niemand steuern */ }
+        _adminRoles = (DateTime.UtcNow, guild, ids);
+        return ids;
+    }
 
     private async Task AutocompleteAsync(string callback, JsonElement data, bool ourChannel, CancellationToken ct)
     {
@@ -370,11 +484,16 @@ public sealed class DiscordBot : IDisposable
         new { op = 3, d = new { since = (long?)null, activities = new[] { new { name = "Custom Status", type = 4, state = text } }, status = "online", afk = false } };
 
     /// <summary>0.9.23: Warnung in den Kanal – rote Karte mit Knöpfen [Details] [Verlauf] (nur zum Ansehen).</summary>
-    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default)
+    public async Task PostAlertAsync(string title, string? miner, CancellationToken ct = default) => await PostAlertAsync(title, miner, null, ct);
+
+    /// <summary>0.9.26: mit zusätzlichen Steuer-Knöpfen (z. B. [Neu starten], [Erledigt]) – Rechte prüft BitaxeTuner beim Drücken.</summary>
+    public async Task PostAlertAsync(string title, string? miner, IReadOnlyList<ChatButton>? extra, CancellationToken ct = default)
     {
-        var buttons = miner is { Length: > 0 }
-            ? new[] { new { type = 2, style = 2, label = L.T("Details"), custom_id = "bt:m:" + Clip90(miner) }, new { type = 2, style = 2, label = L.T("Verlauf"), custom_id = "bt:h:" + Clip90(miner) } }
-            : new[] { new { type = 2, style = 2, label = L.T("Übersicht"), custom_id = "bt:s" } };
+        var view = miner is { Length: > 0 }
+            ? new[] { new ChatButton(L.T("Details"), "m:" + Clip90(miner)), new ChatButton(L.T("Verlauf"), "h:" + Clip90(miner)) }
+            : new[] { new ChatButton(L.T("Übersicht"), "s") };
+        var buttons = view.Select(b => (object)new { type = 2, style = 2, label = b.Label, custom_id = "bt:" + b.Command })
+            .Concat(extra is null ? [] : ButtonsJson(extra)).Take(5).ToArray();
         var body = new
         {
             embeds = new[] { new { title = Clip256("⚠ " + title), color = ColorOf("bad"), footer = new { text = "BitaxeTuner" } } },

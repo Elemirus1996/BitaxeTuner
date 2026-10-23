@@ -6237,6 +6237,10 @@ function chatBotCard() {
       [h('option', { value: '' }, '–'), ...d.telegramTargets.map(x => h('option', { value: x.id }, x.name + (x.ready ? '' : ' ⚠')))]);
     target.value = s.telegramTargetId || '';
     const minutes = h('input', { type: 'number', min: 2, max: 60, value: s.liveMinutes || 5, oninput: e => { s.liveMinutes = Number(e.target.value); } });
+    // 0.9.26 Steuern per Chat
+    const adminRole = h('input', { value: s.discordAdminRole || 'BitaxeTuner-Admin', oninput: e => { s.discordAdminRole = e.target.value; } });
+    const operators = h('input', { value: (s.telegramOperators || []).join(', '), placeholder: t('z. B. 123456789'), class: 'mono',
+      oninput: e => { s.telegramOperators = e.target.value.split(/[\s,;]+/).filter(Boolean); } });
     const previewCmd = h('select', {}, d.commands.map(c => h('option', { value: '/' + c.name + (c.name === 'miner' ? ' ' + (S.status?.devices?.[0]?.name || '') : '') }, '/' + c.name)));
     const previewBox = h('div', { class: 'stack' });
     const save = async () => {
@@ -6286,6 +6290,16 @@ function chatBotCard() {
       h('h3', {}, t('Warnungen mit Knöpfen')),
       checkInput(s, 'alertButtons', t('Warnungen (offline, Überhitzung, Lüfter steht) zusätzlich in den Chat – mit Knöpfen [Details] [Verlauf]')),
       h('p', { class: 'muted small' }, t('Die Knöpfe zeigen nur Werte und Verlauf an, sie ändern nichts. Telegram und Discord; dieselbe Warnung höchstens alle 30 Minuten.')),
+      h('h3', {}, t('Steuern per Chat')),
+      checkInput(s, 'controlEnabled', t('Steuern per Chat erlauben: Neustart, gespeicherte Voreinstellung, Wartungsmodus, Motor pausieren/fortsetzen, Sicherung, Wartung erledigt')),
+      h('div', { class: 'form' },
+        h('div', {}, h('label', {}, t('Discord-Rolle, die steuern darf')), adminRole),
+        h('div', {}, h('label', {}, t('Telegram-Nutzer-IDs, die steuern dürfen')), operators)),
+      h('ul', { class: 'small muted' },
+        h('li', {}, t('Jede Aktion fragt zuerst nach – nur wer gefragt hat, kann innerhalb von 2 Minuten bestätigen. Frequenz und Spannung frei einstellen geht nie.')),
+        h('li', {}, t('Discord: nur im eingestellten Kanal und nur für Mitglieder mit dieser Rolle. Die Steuer-Befehle sind in Discord zusätzlich für alle ohne Admin-Rechte ausgeblendet – freigeben unter Servereinstellungen → Integrationen → BitaxeTuner. Danach einmal „Einrichten …“.')),
+        h('li', {}, t('Telegram: nur im privaten Chat mit dem Bot und nur für diese Nutzer-IDs (die eigene ID nennt z. B. @userinfobot).')),
+        h('li', {}, t('Alles steht im Protokoll mit „ausgelöst von …“.'))),
       h('h3', {}, t('Live-Status')),
       checkInput(s, 'liveStatus', t('Angepinnte Nachricht mit dem aktuellen Stand pflegen')),
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('alle (Minuten)')), minutes)),

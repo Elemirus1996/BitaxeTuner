@@ -22,6 +22,9 @@ public sealed class ChatBotPanel : StackPanel
     // 0.9.23
     private readonly CheckBox _presence = new() { Margin = new Thickness(0, 4, 0, 4) }, _alerts = new() { Margin = new Thickness(0, 8, 0, 4) };
     private readonly Dictionary<string, CheckBox> _private = new();
+    // 0.9.26 Steuern per Chat
+    private readonly CheckBox _control = new() { Margin = new Thickness(0, 8, 0, 4) };
+    private readonly TextBox _adminRole = new() { Margin = new Thickness(0, 0, 0, 6) }, _operators = new() { Margin = new Thickness(0, 0, 0, 6) };
     private readonly ComboBox _tgTarget = new() { DisplayMemberPath = "Title", SelectedValuePath = "Id", Margin = new Thickness(0, 0, 0, 6) };
     private readonly PasswordBox _token = new() { Margin = new Thickness(0, 0, 0, 6) };
     private readonly TextBox _guild = new() { Margin = new Thickness(0, 0, 0, 6) }, _channel = new() { Margin = new Thickness(0, 0, 0, 6) };
@@ -92,6 +95,20 @@ public sealed class ChatBotPanel : StackPanel
         _alerts.IsChecked = s.AlertButtons;
         Children.Add(_alerts);
         Children.Add(Muted(L.T("Die Knöpfe zeigen nur Werte und Verlauf an, sie ändern nichts. Telegram und Discord; dieselbe Warnung höchstens alle 30 Minuten.")));
+
+        _control.Content = new TextBlock { TextWrapping = TextWrapping.Wrap, Text = L.T("Steuern per Chat erlauben: Neustart, gespeicherte Voreinstellung, Wartungsmodus, Motor pausieren/fortsetzen, Sicherung, Wartung erledigt") };
+        _control.IsChecked = s.ControlEnabled;
+        Children.Add(_control);
+        Children.Add(Label(L.T("Discord-Rolle, die steuern darf")));
+        _adminRole.Text = s.DiscordAdminRole;
+        Children.Add(_adminRole);
+        Children.Add(Label(L.T("Telegram-Nutzer-IDs, die steuern dürfen")));
+        _operators.Text = string.Join(", ", s.TelegramOperators);
+        Children.Add(_operators);
+        Children.Add(Muted(L.T("Jede Aktion fragt zuerst nach – nur wer gefragt hat, kann innerhalb von 2 Minuten bestätigen. Frequenz und Spannung frei einstellen geht nie.") + " " +
+                           L.T("Discord: nur im eingestellten Kanal und nur für Mitglieder mit dieser Rolle. Die Steuer-Befehle sind in Discord zusätzlich für alle ohne Admin-Rechte ausgeblendet – freigeben unter Servereinstellungen → Integrationen → BitaxeTuner. Danach einmal „Einrichten …“.") + " " +
+                           L.T("Telegram: nur im privaten Chat mit dem Bot und nur für diese Nutzer-IDs (die eigene ID nennt z. B. @userinfobot).") + " " +
+                           L.T("Alles steht im Protokoll mit „ausgelöst von …“.")));
 
         _live.Content = L.T("Angepinnte Nachricht mit dem aktuellen Stand pflegen");
         _live.IsChecked = s.LiveStatus;
@@ -171,6 +188,9 @@ public sealed class ChatBotPanel : StackPanel
             Presence = _presence.IsChecked == true,
             AlertButtons = _alerts.IsChecked == true,
             PrivateCommands = _private.Where(x => x.Value.IsChecked == true).Select(x => x.Key).ToList(),
+            ControlEnabled = _control.IsChecked == true,
+            DiscordAdminRole = _adminRole.Text,
+            TelegramOperators = _operators.Text.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries).ToList(),
         };
         s.Normalize();
         config.ChatBot = s;
