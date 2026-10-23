@@ -69,6 +69,18 @@ Corrections to the English texts are welcome: they all live in
 - **Tax** (German tax law, § 23 EStG): income with EUR price, sales/holding period (FIFO), CSV export, electricity
   cost per month next to the income. With the **pool account** (Mining-Dutch) also DGB, NMC and other coins.
 
+### New in 0.9.24
+
+- **Failure of single chips** on multi-chip miners (hashrate per chip, alert after 30 minutes, read-only).
+- **WLAN quality** per miner: bars on the card, history, warning on a weak or unsteady signal.
+- **Pool latency**: connecting to every pool measured every 10 minutes, “Connection” column in the pool comparison.
+- **“Undo”** for 10 seconds after saving the settings (browser and desktop).
+- **Quick search with Ctrl+K** for miners, pages, settings and actions; on the desktop also F1 and Ctrl+,.
+- **Easier to read**: contrast per WCAG AA, “High contrast”, larger text, names for screen readers.
+- **Several servers in one desktop app**: switch and “All servers” with totals.
+- Pi 5 case fan controllable again (run “Renew system files via SSH” once), clearer offline message,
+  desktop settings in browser order, wiring plan of the fan board.
+
 ### New in 0.9.23
 
 - **“What’s wrong?”** on the miner card: cause, what to check, button to the right place (browser and desktop).

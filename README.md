@@ -66,6 +66,18 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Steuer** (nach deutschem Steuerrecht, § 23 EStG): Zuflüsse mit EUR-Kurs, Verkäufe/Haltefrist (FIFO), CSV-Export,
   Stromkosten je Monat neben den Zuflüssen. Mit dem **Pool-Konto** (Mining-Dutch) auch DGB, NMC und andere Coins.
 
+### Neu in 0.9.24
+
+- **Ausfall einzelner Chips** bei Mehrchip-Minern erkennen (Hashrate je Chip, Meldung nach 30 Minuten, nur lesend).
+- **WLAN-Qualität** je Miner: Balken auf der Karte, Verlauf, Warnung bei schwachem oder unruhigem Signal.
+- **Pool-Latenz**: Verbindungsaufbau zu jedem Pool alle 10 Minuten gemessen, Spalte „Verbindung“ im Pool-Vergleich.
+- **„Rückgängig“** 10 Sekunden lang nach dem Speichern der Einstellungen (Browser und Desktop).
+- **Schnellsuche mit Strg+K** für Miner, Seiten, Einstellungen und Aktionen; Desktop zusätzlich F1 und Strg+,.
+- **Besser lesbar**: Kontraste nach WCAG AA, „Hoher Kontrast“, größere Schrift, Namen für Screenreader.
+- **Mehrere Server in einer Desktop-App**: umschalten und „Alle Server“ mit Summen.
+- Pi-5-Gehäuselüfter wieder steuerbar (einmal „Systemdateien per SSH erneuern“), klarere Offline-Meldung,
+  Desktop-Einstellungen in Browser-Reihenfolge, Anschlussplan der Lüfterplatine.
+
 ### Neu in 0.9.23
 
 - **„Was ist los?“** auf der Miner-Karte: Ursache, was zu prüfen ist, Knopf zur passenden Stelle (Browser und Desktop).
