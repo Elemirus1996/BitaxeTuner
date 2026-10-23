@@ -69,7 +69,9 @@ public sealed partial class HistoryStore : IDisposable
 
         // 0.9.16: einmalig kompakt neu schreiben und auf „leeren Platz freigeben“ umstellen (HistoryStore.Compact.cs)
         Compaction = CompactOnOpen(file);
-        _db = new SqliteConnection($"Data Source={file}");
+        // 0.9.25: eine dauerhaft offene Verbindung – ohne Pooling, damit SqliteConnection.ClearAllPools() an anderer Stelle
+        // (Sicherung, Datenübernahme, Aufräumen, Tests) sie nie berührt und die Datei beim Schließen sofort frei ist
+        _db = new SqliteConnection($"Data Source={file};Pooling=False");
         _db.Open();
         Execute("PRAGMA auto_vacuum=INCREMENTAL;");   // neue Datei: gleich so anlegen; bestehende: wirkt erst mit VACUUM
         Execute("PRAGMA journal_mode=WAL;");
@@ -1252,13 +1254,10 @@ public sealed partial class HistoryStore : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>Verbindung schließen und aus dem Pool nehmen – sonst hält SQLite die Datei (und das WAL) noch offen.</summary>
+    /// <summary>Verbindung schließen – ohne Pooling ist die Datei (und das WAL) danach sofort frei.</summary>
     public void Dispose()
     {
         try { FlushPlugSamples(); } catch { /* Datei weg oder gesperrt – nur die letzte Minute fehlt */ }
-        var cs = _db.ConnectionString;
         _db.Dispose();
-        using var pooled = new SqliteConnection(cs);
-        SqliteConnection.ClearPool(pooled);
     }
 }
