@@ -164,6 +164,7 @@ public sealed class HubService : IHostedService, IDisposable
                 backup = DataArchive.Apply(stagingDirectory, Settings.DataDirectory, (old, fresh) =>
                 {
                     fresh.Server = new ServerConnectionSettings(); // Verbindungsdaten der Desktop-App gehören nicht auf den Server
+                    fresh.ExtraServers = [];
                     fresh.Backup = old.Backup;                      // Sicherungsziele gehören zum Gerät (Pfade, NAS)
                     fresh.Mqtt = old.Mqtt;                          // MQTT-Verbindung ebenso (Passwort liegt ohnehin getrennt)
                 });

@@ -43,10 +43,114 @@ public partial class RemoteWindow : Window
         _pickup.Start();
         Loaded += async (_, _) =>
         {
+            BuildServerPicker();
             await ConnectAsync();
             await CheckUpdateAsync();
         };
-        Closed += (_, _) => { _retry.Stop(); _pickup.Stop(); _updateHttp.Dispose(); };
+        _allTimer.Tick += async (_, _) => await LoadAllAsync();
+        Closed += (_, _) => { _retry.Stop(); _pickup.Stop(); _allTimer.Stop(); _updateHttp.Dispose(); };
+    }
+
+    // ---------- 0.9.24 Mehrere Server ----------
+
+    private readonly DispatcherTimer _allTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private bool _pickerBusy;
+
+    /// <summary>Umschalter füllen: aktiver Server, weitere Server, „Alle Server“. Nur sichtbar mit mehr als einem Server.</summary>
+    private void BuildServerPicker()
+    {
+        _pickerBusy = true;
+        var all = MultiServer.All(_config);
+        ServerPicker.ItemsSource = all.Select(MultiServer.NameOf).Append(L.T("Alle Server (Summen)")).ToList();
+        ServerPicker.SelectedIndex = AllPanel.Visibility == Visibility.Visible ? all.Count : 0;
+        ServerPicker.Visibility = all.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        _pickerBusy = false;
+    }
+
+    private async void ServerPicker_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_pickerBusy || ServerPicker.SelectedIndex < 0) return;
+        var count = _config.ExtraServers.Count + 1;
+        if (ServerPicker.SelectedIndex == count) { await ShowAllAsync(); return; }
+        await SwitchToAsync(ServerPicker.SelectedIndex);
+    }
+
+    /// <summary>Auf Server Nr. <paramref name="index"/> wechseln (0 = aktiver) und die Oberfläche neu laden.</summary>
+    private async Task SwitchToAsync(int index)
+    {
+        _allTimer.Stop();
+        AllPanel.Visibility = Visibility.Collapsed;
+        if (index > 0)
+        {
+            MultiServer.Activate(_config, index);
+            _config.Save();
+            BackupText.Text = "";
+            HttpsButton.Visibility = Visibility.Collapsed;
+        }
+        BuildServerPicker();
+        await ConnectAsync();
+    }
+
+    private async Task ShowAllAsync()
+    {
+        ErrorPanel.Visibility = Visibility.Collapsed;
+        AllPanel.Visibility = Visibility.Visible;
+        await LoadAllAsync();
+        _allTimer.Start();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        if (AllPanel.Visibility != Visibility.Visible) { _allTimer.Stop(); return; }
+        AllHint.Text = L.T("Lade …");
+        var tiles = await MultiServer.FetchAllAsync(_config);
+        var sum = MultiServer.Sum(tiles);
+        AllTotals.Text = L.T("{0} · {1} W · {2}/{3} Miner online", Core.Display.StatusRenderer.FormatHash(sum.HashGh), sum.PowerW.ToString("0"), sum.Online, sum.Count)
+            + (sum.CostPerDay is { } c ? L.T(" · {0} {1}/Tag Strom", c.ToString("0.00"), sum.Currency ?? "") : "");
+        AllHint.Text = L.T("{0} von {1} Servern erreichbar · aktualisiert {2:HH:mm:ss} · Klick auf einen Server wechselt dorthin.", sum.Reachable, sum.Servers, DateTime.Now);
+        AllTiles.Children.Clear();
+        foreach (var t in tiles) AllTiles.Children.Add(TileOf(t));
+    }
+
+    private System.Windows.Controls.Button TileOf(ServerTile t)
+    {
+        var lines = new System.Windows.Controls.StackPanel { Width = 250 };
+        lines.Children.Add(new System.Windows.Controls.TextBlock { Text = (t.Index == 0 ? "● " : "") + t.Name, FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        var url = new System.Windows.Controls.TextBlock { Text = t.Url, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 0, 8) };
+        url.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "MutedTextBrush");
+        lines.Children.Add(url);
+        if (!t.Reachable)
+        {
+            var err = new System.Windows.Controls.TextBlock { Text = L.T("nicht erreichbar: {0}", t.Error ?? ""), TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+            err.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "DangerBrush");
+            lines.Children.Add(err);
+        }
+        else
+        {
+            lines.Children.Add(new System.Windows.Controls.TextBlock { Text = Core.Display.StatusRenderer.FormatHash(t.HashGh), FontSize = 22, FontFamily = new System.Windows.Media.FontFamily("Cascadia Mono, Consolas") });
+            lines.Children.Add(new System.Windows.Controls.TextBlock { Text = L.T("{0} W · {1}/{2} Miner online", t.PowerW.ToString("0"), t.Online, t.Count), FontSize = 12 });
+            if (t.CostPerDay is { } c) lines.Children.Add(new System.Windows.Controls.TextBlock { Text = L.T("{0} {1}/Tag Strom", c.ToString("0.00"), t.Currency), FontSize = 12 });
+            if (t.Paused)
+            {
+                var p = new System.Windows.Controls.TextBlock { Text = L.T("Motor pausiert"), FontSize = 12 };
+                p.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "WarnBrush");
+                lines.Children.Add(p);
+            }
+        }
+        var b = new System.Windows.Controls.Button { Content = lines, Margin = new Thickness(0, 0, 12, 12), Padding = new Thickness(14), HorizontalContentAlignment = HorizontalAlignment.Left };
+        b.SetResourceReference(BackgroundProperty, "CardBrush");
+        System.Windows.Automation.AutomationProperties.SetName(b, L.T("Zu {0} wechseln", t.Name));
+        b.Click += async (_, _) => await SwitchToAsync(t.Index);
+        return b;
+    }
+
+    private void Servers_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new ServerListWindow(_config) { Owner = this };
+        w.ShowDialog();
+        if (!w.Changed) return;
+        BuildServerPicker();
+        if (AllPanel.Visibility == Visibility.Visible) _ = LoadAllAsync();
     }
 
     /// <summary>Einmal täglich eine geprüfte Sicherung des Servers auf diesen PC holen (Einstellung unter Betriebsart).</summary>

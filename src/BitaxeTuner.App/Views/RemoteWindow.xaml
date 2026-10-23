@@ -16,6 +16,9 @@
         <Border Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="12,6">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <!-- 0.9.24 Mehrere Server: Umschalter (nur mit mehr als einem Server) -->
+                    <ComboBox x:Name="ServerPicker" MinWidth="170" Margin="0,0,10,0" Visibility="Collapsed" VerticalAlignment="Center"
+                              SelectionChanged="ServerPicker_SelectionChanged" ToolTip="{l:T 'Server wechseln'}" />
                     <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,3">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="8" Height="8" Fill="{DynamicResource OkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -65,6 +68,9 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
+                    <Button Click="Servers_Click" Style="{StaticResource GhostButton}" ToolTip="{l:T 'Weitere Server hinzufügen oder entfernen'}">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Server …'}" /></StackPanel>
+                    </Button>
                     <Button Click="Mode_Click" Margin="6,0,0,0" Padding="10,5">
                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8AB;" Style="{StaticResource Glyph}" Margin="0,0,6,0" FontSize="13" /><TextBlock Text="{l:T 'Betriebsart …'}" /></StackPanel>
                     </Button>
@@ -73,6 +79,16 @@
         </Border>
 
         <wv2:WebView2 x:Name="Web" Grid.Row="1" />
+
+        <!-- 0.9.24 Alle Server: Summen und je Server eine Kachel (Klick wechselt dorthin) -->
+        <ScrollViewer x:Name="AllPanel" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource WindowBrush}" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24">
+                <TextBlock Text="{l:T 'Alle Server'}" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock x:Name="AllTotals" FontFamily="Cascadia Mono, Consolas" FontSize="15" Margin="0,8,0,4" TextWrapping="Wrap" />
+                <TextBlock x:Name="AllHint" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" />
+                <WrapPanel x:Name="AllTiles" />
+            </StackPanel>
+        </ScrollViewer>
 
         <Border x:Name="ErrorPanel" Grid.Row="1" Background="{DynamicResource WindowBrush}" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560">
