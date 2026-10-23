@@ -46,9 +46,43 @@ public partial class RemoteWindow : Window
             BuildServerPicker();
             await ConnectAsync();
             await CheckUpdateAsync();
+            StartMini();
         };
         _allTimer.Tick += async (_, _) => await LoadAllAsync();
-        Closed += (_, _) => { _retry.Stop(); _pickup.Stop(); _allTimer.Stop(); _updateHttp.Dispose(); };
+        Closed += (_, _) => { _retry.Stop(); _pickup.Stop(); _allTimer.Stop(); _updateHttp.Dispose(); _miniTimer.Stop(); _mini?.Dispose(); _tray?.Dispose(); };
+    }
+
+    // ---------- 0.9.25 Infobereich und Mini-Anzeige im Modus „Server“ ----------
+
+    private TrayService? _tray;
+    private MiniPresenter? _mini;
+    private readonly DispatcherTimer _miniTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+
+    private void StartMini()
+    {
+        if (_tray is not null) return;
+        _tray = new TrayService();
+        _tray.OpenRequested += () => { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); };
+        _tray.ExitRequested += Close;
+        _mini = new MiniPresenter(_config, _tray);
+        _miniTimer.Tick += async (_, _) => await RefreshMiniAsync();
+        _miniTimer.Start();
+        _ = RefreshMiniAsync();
+    }
+
+    /// <summary>Status des aktiven Servers für Tray-Symbol und Mini-Anzeige (gleiche Summen wie im Browser).</summary>
+    private async Task RefreshMiniAsync()
+    {
+        if (_mini is null || _tray is null) return;
+        try
+        {
+            using var client = new ServerClient(_config.Server.Url, _config.Server.Token, _config.Server.CertificateFingerprint, TimeSpan.FromSeconds(8));
+            _mini.Update(Core.Display.MiniStatus.FromStatusJson(await client.StatusAsync()));
+        }
+        catch (Exception ex) when (ex is ServerException or System.Net.Http.HttpRequestException or TaskCanceledException or UriFormatException)
+        {
+            _tray.Update(TrayState.Error, L.T("BitaxeTuner – Server nicht erreichbar"));
+        }
     }
 
     // ---------- 0.9.24 Mehrere Server ----------

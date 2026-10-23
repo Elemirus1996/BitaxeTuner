@@ -18,6 +18,7 @@ public partial class MonitorView
     private HistoryStore? _history => _host.History;
     private SoloOddsService _odds => _host.Odds;
     private TrayService? _tray;
+    private MiniPresenter? _mini;   // 0.9.25 Mini-Anzeige
 
     private IReadOnlyList<BestDiffRecord> _bestDiffs => _host.Hub.BestDiffs;
     private readonly Dictionary<string, (DateTime At, double? Value)> _availabilityCache = new();
@@ -32,11 +33,13 @@ public partial class MonitorView
         _tray = new TrayService();
         _tray.OpenRequested += RestoreFromTray;
         _tray.ExitRequested += () => OwnerWindow.Close();
+        _mini = new MiniPresenter(_config, _tray);
     }
 
     private void DisposeFeatures()
     {
         // Verlauf, Benachrichtigung und Firmware-Check gibt der AppHost frei
+        _mini?.Dispose();
         _tray?.Dispose();
     }
 
@@ -255,17 +258,10 @@ public partial class MonitorView
     {
         if (_tray is null) return;
 
-        var total = _states.Count;
-        var online = _states.Count(s => s.Online);
-        var hot = _states.Any(s => s.Online && s.Info!.temp >= _config.TempWarn);
-        var gh = _states.Where(s => s.Online).Sum(s => s.Info!.hashRate);
-
-        var state = total == 0 ? TrayState.Unknown
-                  : online == 0 ? TrayState.Error
-                  : online < total || hot ? TrayState.Warning
-                  : TrayState.Ok;
-
-        _tray.Update(state, L.T("Miner {0}/{1} · {2}", online, total, FormatHash(gh)));
+        // 0.9.25: gleiche Werte wie Browser und Mini-Anzeige (Leistung, Temperatur, Kosten/Tag, Warnungen)
+        var status = Core.Display.MiniStatus.FromHub(_host.Hub, DateTime.Now);
+        if (_mini is not null) _mini.Update(status);
+        else _tray.Update(status);
     }
 
     private void HideToTray()
