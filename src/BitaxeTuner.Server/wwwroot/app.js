@@ -5674,18 +5674,41 @@ function connectionCard() {
  * 0.9.21 HTTPS-Assistent: Server prüft DNS (zeigt der Name hierher?), der Browser prüft, ob DIESES Gerät die Adresse erreicht –
  * scheitert nur das, ist es fast immer der DNS-Rebind-Schutz des Routers. Ergebnis als Liste mit Hinweisen.
  */
+/**
+ * 0.9.24: Server antwortet nicht (z. B. Oberfläche aus dem Zwischenspeicher des Browsers bzw. der Home-Bildschirm-App):
+ * klar sagen, was man sieht, und was zu prüfen ist – statt nur „Load failed“.
+ */
+function offlineCard(e) {
+  const network = e instanceof TypeError || navigator.onLine === false;
+  return h('div', { class: 'card stack' },
+    h('h2', { style: 'margin:0' }, network ? t('Keine Verbindung zum Server') : t('Server nicht erreichbar')),
+    network ? h('p', {}, t('Du siehst die zuletzt gespeicherte Fassung der Oberfläche – der Server selbst antwortet nicht.')) : null,
+    network ? h('ul', { class: 'small stack', style: 'margin:0' },
+      h('li', {}, navigator.onLine === false ? t('Dieses Gerät ist offline – WLAN bzw. mobile Daten prüfen.') : t('Bist du im Heimnetz bzw. per VPN verbunden?')),
+      h('li', {}, t('Läuft der Server? Versuch es über die IP-Adresse mit Port, z. B. https://192.168.1.10:8484.')),
+      h('li', {}, t('Nach einem Server-Umzug: alte Website-Daten löschen (iPhone: Einstellungen → Apps → Safari → Erweitert → Website-Daten) und die App neu zum Home-Bildschirm hinzufügen.'))) : null,
+    h('p', { class: 'muted small mono' }, e.message || String(e)),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => location.reload() }, t('Erneut versuchen'))));
+}
+
 async function httpsCheck(box) {
   fill(box, h('p', { class: 'muted small' }, t('Prüfe …')));
   const r = await run(() => api('/admin/public-https/check', { method: 'POST', body: {} }));
   if (!r) return fill(box);
-  let reach = null;
+  let reach = null, failMs = 0;
   if (r.url) {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 7000);
+    const t0 = performance.now();
     try { await fetch(r.url + 'api/v1/info', { mode: 'no-cors', cache: 'no-store', signal: ctl.signal }); reach = true; }
-    catch { reach = false; }
+    catch { reach = false; failMs = performance.now() - t0; }
     finally { clearTimeout(timer); }
   }
+  // 0.9.24: Ursache genauer – schnelles Scheitern = Name/Blockade, Zeitüberschreitung = Weg zum Server
+  const viaIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(location.hostname);
+  const cause = reach !== false ? null : failMs < 2000
+    ? t('Die Anfrage scheitert sofort: Der Name lässt sich auf diesem Gerät nicht auflösen oder wird blockiert.')
+    : t('Die Verbindung hängt: Der Weg zum Server ist zu (VPN oder Netz leitet nicht durch).');
   const row = (ok, text, hint) => h('li', { class: ok ? 'ok' : 'danger' }, (ok ? '✓ ' : '✗ ') + text, hint ? h('div', { class: 'muted small' }, hint) : null);
   const items = [];
   if (!r.resolved.length) {
@@ -5696,9 +5719,14 @@ async function httpsCheck(box) {
   }
   if (reach != null) {
     items.push(row(reach, reach ? t('Dieses Gerät erreicht {0}.', r.url) : t('Dieses Gerät erreicht {0} nicht.', r.url),
-      reach ? null : r.pointsHere && r.private
-        ? t('Fast immer der DNS-Rebind-Schutz des Routers: FRITZ!Box → Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz → „{0}“ als Ausnahme eintragen. Am Handy außerdem WLAN statt mobile Daten nutzen und „Privates DNS“ abschalten.', r.host)
-        : t('Gerät im selben Heimnetz? Adresse mit Port {0} öffnen.', r.port)));
+      reach ? null : h('div', { class: 'stack', style: 'gap:4px' }, h('b', {}, cause),
+        viaIp ? h('div', {}, t('Über die IP-Adresse erreichst du den Server – das Netz ist also in Ordnung, es hakt am Namen.')) : null,
+        r.pointsHere && r.private
+          ? h('ul', { style: 'margin:0;padding-left:18px' },
+              h('li', {}, t('Router: DNS-Rebind-Schutz – FRITZ!Box → Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz → „{0}“ als Ausnahme eintragen.', r.host)),
+              h('li', {}, t('Handy über VPN: Im VPN-Profil muss der Router als DNS-Server stehen; iPhone: „IP-Adressverfolgung beschränken“ und iCloud Privat-Relay ausschalten, Android: „Privates DNS“ aus.')),
+              h('li', {}, t('Nach einem Server-Umzug: alte Website-Daten bzw. die Home-Bildschirm-App des Namens löschen und neu anlegen.')))
+          : h('div', {}, t('Gerät im selben Heimnetz? Adresse mit Port {0} öffnen.', r.port)))));
   }
   const st = r.status || {};
   const certOk = !!st.notAfter && !st.staging;
@@ -6528,4 +6556,4 @@ function updateCard() {
   return h('div', { class: 'card stack' }, h('h2', {}, t('Server-Update')), body);
 }
 
-boot().catch(e =>mount(h('div', { class: 'card danger' }, t('Server nicht erreichbar: '), e.message)));
+boot().catch(e => mount(offlineCard(e)));
