@@ -20,9 +20,9 @@ public static class QuickSearch
     /// <summary>Abschnitte im Einstellungsfenster der Desktop-App (Stil „Section“ in SettingsWindow.xaml, deutsche Schlüssel).</summary>
     public static readonly string[] DesktopSettingsSections =
     [
-        "Miner", "Strom und Abfrage", "Anzeige und Automatik", "Programm und Tuning", "Datenordner", "Sicherung", "Strompreis",
-        "Handy-Ansicht (nur ansehen)", "Ruhezeit", "Log-Alarme", "Pool- und Share-Überwachung", "Tagesbericht",
-        "Push-Benachrichtigungen", "Smart Plugs", "PV-Anlage", "Pool-Konto", "Weitere Pool-Konten", "Chat-Bots (Telegram, Discord)",
+        "Miner", "Programm und Tuning", "Push-Benachrichtigungen", "Ruhezeit", "Log-Alarme", "Tagesbericht", "Strom und Abfrage",
+        "Strompreis-Quelle", "Smart Plugs", "PV-Anlage", "Anzeige und Automatik", "Pool- und Share-Überwachung", "Pool-Konto",
+        "Weitere Pool-Konten", "Chat-Bots (Telegram, Discord)", "Handy-Ansicht (nur ansehen)", "Datenordner", "Sicherung",
     ];
 
     public static string Fold(string? s)
