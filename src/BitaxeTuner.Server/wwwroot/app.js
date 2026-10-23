@@ -1736,6 +1736,41 @@ async function renderReports() {
     h('p', { class: 'muted small' }, t('Druckbare Seite: im Browser „Drucken“ → „Als PDF speichern“. Abgeschlossene Monate werden gespeichert und bleiben auch erhalten, wenn ältere Minutenwerte bereinigt werden.')),
     view);
   load();
+  $('#app').firstElementChild?.append(yearReviewCard(list.periods.filter(p => p.length === 4)));
+}
+
+/** 0.9.25 „Dein Mining-Jahr“: Rückblick über 12 Monate oder ein Kalenderjahr, zum Teilen ohne Adressen und Wallets. */
+function yearReviewCard(years) {
+  const per = h('select', { style: 'width:auto' }, [['last12', t('Letzte 12 Monate')], ...years.map(y => [y, t('Jahr {0}', y)])].map(([v, l]) => h('option', { value: v }, l)));
+  const names = h('input', { type: 'checkbox' });
+  const view = h('div', { class: 'stack' });
+  const url = fmt => `/api/v1/review?period=${per.value}&names=${names.checked ? 1 : 0}${fmt ? `&format=${fmt}` : ''}`;
+  const load = async () => {
+    fill(view, h('p', { class: 'muted' }, t('Lade …')));
+    let r;
+    try { r = await api(url('').replace('/api/v1', '')); } catch (e) { fill(view, h('p', { class: 'danger' }, e.message)); return; }
+    const best = r.bestMonth ? new Date(r.bestMonth.month).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' }) : '–';
+    fill(view,
+      h('h3', {}, r.title),
+      r.dataFrom ? h('p', { class: 'warn small' }, t('Messwerte liegen erst ab {0} vor – der Zeitraum davor fehlt im Bericht.', new Date(r.dataFrom).toLocaleString(LOCALE))) : null,
+      h('div', { class: 'tiles' },
+        tile(t('Beste Difficulty'), r.bestDiff || '–', r.bestDiffMiner || ''),
+        tile(t('Ø Hashrate gesamt'), r.avgHashGh != null ? hash(r.avgHashGh) : '–', ''),
+        tile(t('Laufzeit'), t('{0} h', n(r.onlineHours, 0)), ''),
+        tile(t('Energie'), t('{0} kWh', n(r.kwh, 0)), `${n(r.cost, 2)} ${r.currency}`),
+        r.income > 0 || r.payouts > 0 ? tile(t('Ertrag'), `${n(r.income, 2)} ${r.incomeSymbol}`, t('{0} Auszahlungen', r.payouts)) : null,
+        tile(t('Bester Monat'), best, '')),
+      r.milestones.length ? h('p', { class: 'small' }, t('Meilensteine: {0}', r.milestones.join(' · '))) : null);
+  };
+  per.addEventListener('change', load);
+  names.addEventListener('change', load);
+  setTimeout(load, 0);
+  return h('div', { class: 'card stack' }, h('h2', {}, t('Dein Mining-Jahr')),
+    h('p', { class: 'muted small' }, t('Rückblick zum Teilen: beste Difficulty, Laufzeit, kWh und Kosten, Ertrag, Meilensteine, bester Monat – ohne IP-Adressen und Wallets.')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('label', {}, t('Zeitraum')), per,
+      h('label', { class: 'check' }, names, h('span', {}, t('Namen zeigen'))),
+      h('button', { class: 'btn', onclick: () => window.open(url('html'), '_blank', 'noopener') }, t('Ansehen / Drucken'))),
+    view);
 }
 
 /** Nach einem Update: kurze Einführung nur in die neuen Funktionen anbieten (einmal je Version). */
@@ -4962,7 +4997,7 @@ function newsCard(compact) {
 /** 0.9.16: Seitenfolge nach Tageszeit – Zeitfenster mit eigenen Seiten und auf Wunsch eigenem Intervall. */
 function pageWindowsInput(s) {
   const pages = [['Overview', t('Übersicht')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')], ['Monthly', t('Monatsbilanz')],
-    ['MonthCompare', t('Monatsvergleich')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Profit', t('Ertrag & Strom')],
+    ['MonthCompare', t('Monatsvergleich')], ['YearReview', t('Dein Mining-Jahr')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Profit', t('Ertrag & Strom')],
     ['Solo', t('Solo-Chance')], ['Network', t('Pool & Netzwerk')], ['Bitcoin', t('Bitcoin-Netz')], ['PoolAccount', t('Pool')],
     ['Group', t('je Miner-Gruppe')], ['Sensors', t('Temperaturfühler')], ['System', t('Systemzustand')], ['News', t('Neuigkeiten')],
     ['Image', t('Eigenes Bild')], ['Qr', t('QR-Code')], ['Soak', t('Dauertest (wenn aktiv)')]];
@@ -5120,7 +5155,8 @@ function displaySettingsFields(s, pic) {
       checkInput(s.pages, 'system', t('Systemzustand')),
       checkInput(s.pages, 'bitcoin', t('Bitcoin-Netz')),
       checkInput(s.pages, 'poolAccount', t('Pool')),
-      checkInput(s.pages, 'monthCompare', t('Monatsvergleich'))),
+      checkInput(s.pages, 'monthCompare', t('Monatsvergleich')),
+      checkInput(s.pages, 'yearReview', t('Dein Mining-Jahr'))),
     h('div', { class: 'form' },
       h('div', {}, h('label', {}, t('Kurs zeigt')), pageSelect(s, 'priceCoins', [['btc', 'Bitcoin (BTC)'], ['bch', 'Bitcoin Cash (BCH)'], ['both', t('BTC und BCH')], ['mined', t('was die Miner gerade schürfen (bis 4)')]])),
       h('div', {}, h('label', {}, t('Tagesbilanz')), pageSelect(s, 'dailyChart', [['none', t('Minerliste')], ['hashrate', t('Graph: Hashrate')],
@@ -5212,7 +5248,7 @@ function displayCard(d) {
   const img = h('img', { src: `/api/v1/display/preview.png?t=${Date.now()}`, alt: t('Vorschau der E-Paper-Anzeige'), style: 'width:100%;max-width:800px;border:1px solid var(--border);border-radius:6px;background:#fff' });
   const scenes = [['', t('Als Nächstes')], ['Overview', t('Übersicht')], ['Group', t('Gruppe')], ['Daily', t('Tagesbilanz')], ['Chart', t('Verlauf 24 h')],
     ['Monthly', t('Monatsbilanz')], ['Prices', t('Kurs')], ['Power', t('Strompreis-Ampel')], ['Sensors', t('Temperaturfühler')], ['Soak', t('Dauertest')],
-    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['System', t('Systemzustand')], ['Bitcoin', t('Bitcoin-Netz')], ['PoolAccount', t('Pool')], ['MonthCompare', t('Monatsvergleich')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
+    ['Network', t('Pool & Netzwerk')], ['Qr', t('QR-Code')], ['News', t('Neuigkeiten')], ['Image', t('Eigenes Bild')], ['Profit', t('Ertrag & Strom')], ['Solo', t('Solo-Chance')], ['System', t('Systemzustand')], ['Bitcoin', t('Bitcoin-Netz')], ['PoolAccount', t('Pool')], ['YearReview', t('Dein Mining-Jahr')], ['MonthCompare', t('Monatsvergleich')], ['BlockFound', t('Blockfund')], ['Alarm', t('Warnungen')], ['BestDiff', t('Best-Diff-Rekord')]];
   const sceneSel = h('select', { style: 'width:auto', onchange: () => { img.src = `/api/v1/display/preview.png?scene=${sceneSel.value}&t=${Date.now()}`; } },
     scenes.map(([v, tv]) => h('option', { value: v }, tv)));
   const info = !st.enabled ? t('Anzeige ist ausgeschaltet – die Vorschau zeigt, was sie anzeigen würde.')

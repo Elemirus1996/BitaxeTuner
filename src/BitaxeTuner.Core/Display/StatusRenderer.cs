@@ -63,6 +63,7 @@ public sealed record DisplayModel(
     public DisplayBitcoin? Bitcoin { get; init; }
     public DisplayPoolPage? PoolPage { get; init; }
     public DisplayMonthCompare? MonthCompare { get; init; }
+    public Reports.YearReview? YearReview { get; init; }
 }
 
 /// <summary>
@@ -142,6 +143,7 @@ public static partial class StatusRenderer
                 case DisplayScene.Bitcoin when m.Bitcoin is not null: DrawBitcoin(ctx, m); break;
                 case DisplayScene.PoolAccount when m.PoolPage is not null: DrawPoolPage(ctx, m); break;
                 case DisplayScene.MonthCompare when m.MonthCompare is not null: DrawMonthCompare(ctx, m); break;
+                case DisplayScene.YearReview when m.YearReview is not null: DrawYearReview(ctx, m); break;
                 case DisplayScene.Chart when m.Chart is not null: DrawChart(ctx, m); break;
                 case DisplayScene.Soak when m.Soaks is not null: DrawSoak(ctx, m); break;
                 case DisplayScene.Network when m.Network is not null: DrawNetwork(ctx, m); break;

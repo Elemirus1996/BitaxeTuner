@@ -27,6 +27,13 @@ public static class ReportEndpoints
             };
         });
 
+        // 0.9.25 Jahresrückblick „Dein Mining-Jahr“: period = last12 oder Jahr, names = 0 blendet Minernamen aus (zum Teilen)
+        g.MapGet("/review", async (string? period, string? names, string? format, HubService hub) =>
+        {
+            var review = await hub.RunAsync(h => h.BuildYearReview(period ?? "last12", names != "0", DateTime.Now));
+            return format == "html" ? Results.Content(review.Html(), "text/html; charset=utf-8") : Results.Json(review);
+        });
+
         // Steuer-Bereich: Stromkosten je Monat neben den Zuflüssen
         g.MapGet("/reports/{year:int}/months", async (int year, HubService hub) =>
         {
