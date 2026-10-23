@@ -11,8 +11,11 @@ namespace BitaxeTuner.Core.Monitoring;
 /// <param name="FallbackHours">Miner-Stunden, in denen dieser Pool als Ersatz-Pool eingesprungen ist.</param>
 /// <param name="AvgHashrateGh">Ø Hashrate der Miner auf diesem Pool (GH/s je Miner).</param>
 /// <param name="IncomePerThDay">Ertrag je TH und Tag in der gewählten Währung (nur mit Pool-Konto).</param>
+/// <param name="ConnectMs">0.9.24: Ø Zeit für den TCP-Verbindungsaufbau (eigene Messung alle 10 min).</param>
+/// <param name="ConnectOkPercent">0.9.24: Anteil der Messungen, bei denen der Pool erreichbar war.</param>
 public sealed record PoolComparisonRow(string Pool, int Miners, double Hours, double? RejectPercent, double? ResponseMs,
-    double OutageHours, double? AvailabilityPercent, double FallbackHours, double? AvgHashrateGh, decimal? IncomePerThDay);
+    double OutageHours, double? AvailabilityPercent, double FallbackHours, double? AvgHashrateGh, decimal? IncomePerThDay,
+    double? ConnectMs = null, double? ConnectOkPercent = null, int ConnectSamples = 0);
 
 /// <summary>
 /// 0.9.15 Pool-Vergleich: wertet die 10-Minuten-Werte (<see cref="HistoryStore.PoolSample"/>) je Pool aus – abgelehnte
@@ -25,7 +28,8 @@ public static class PoolComparison
     private const double SlotHours = 10.0 / 60;
 
     /// <param name="income">Ertrag eines Pools im Zeitraum (null = unbekannt), z. B. aus dem Pool-Konto.</param>
-    public static List<PoolComparisonRow> Build(IReadOnlyList<HistoryStore.PoolSample> samples, Func<string, decimal?>? income = null)
+    public static List<PoolComparisonRow> Build(IReadOnlyList<HistoryStore.PoolSample> samples, Func<string, decimal?>? income = null,
+        IReadOnlyDictionary<string, (double? AvgMs, int Ok, int Total)>? latency = null)
     {
         var acc = new Dictionary<string, (double Acc, double Rej)>();
         foreach (var host in samples.GroupBy(s => s.Host))
@@ -43,7 +47,9 @@ public static class PoolComparison
             }
         }
 
-        var pools = samples.Select(s => s.Pool).Concat(samples.Select(s => s.PrimaryPool)).Where(p => p.Length > 0).Distinct();
+        // 0.9.24: auch Pools, die nur gemessen werden (z. B. Vorlage, auf der noch kein Miner lief)
+        var pools = samples.Select(s => s.Pool).Concat(samples.Select(s => s.PrimaryPool)).Concat(latency?.Keys ?? [])
+            .Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase);
         var rows = new List<PoolComparisonRow>();
         foreach (var pool in pools)
         {
@@ -65,8 +71,17 @@ public static class PoolComparison
                 asPrimary.Count > 0 ? Math.Round(100.0 * asPrimary.Count(s => !s.Fallback) / asPrimary.Count, 1) : null,
                 Math.Round(on.Count(s => s.Fallback) * SlotHours, 1),
                 hashes.Count > 0 ? Math.Round(hashes.Average(), 0) : null,
-                perTh));
+                perTh)
+            {
+                ConnectMs = latency?.TryGetValue(pool, out var l) == true ? l.AvgMs : null,
+                ConnectOkPercent = latency?.TryGetValue(pool, out var l2) == true && l2.Total > 0 ? Math.Round(100.0 * l2.Ok / l2.Total, 1) : null,
+                ConnectSamples = latency?.TryGetValue(pool, out var l3) == true ? l3.Total : 0,
+            });
         }
         return rows.OrderByDescending(r => r.Hours).ThenBy(r => r.Pool).ToList();
     }
+
+    /// <summary>0.9.24: schnellster zuverlässiger Pool – mind. 6 Messungen, mind. 95 % erreichbar, kürzester Verbindungsaufbau.</summary>
+    public static PoolComparisonRow? Fastest(IEnumerable<PoolComparisonRow> rows) =>
+        rows.Where(r => r.ConnectSamples >= 6 && r.ConnectOkPercent >= 95 && r.ConnectMs is not null).MinBy(r => r.ConnectMs);
 }

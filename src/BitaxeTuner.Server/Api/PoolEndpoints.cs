@@ -114,11 +114,13 @@ public static class PoolEndpoints
             return new
             {
                 range = r.Range, currency = r.Currency, incomeShared = r.IncomeShared,
+                fastest = r.Fastest is { } f ? new { pool = f.Pool, connectMs = f.ConnectMs } : null,
                 rows = r.Rows.Select(x => new
                 {
                     pool = x.Pool, miners = x.Miners, hours = x.Hours, rejectPercent = x.RejectPercent, responseMs = x.ResponseMs,
                     outageHours = x.OutageHours, availabilityPercent = x.AvailabilityPercent, fallbackHours = x.FallbackHours,
                     avgHashrateGh = x.AvgHashrateGh, incomePerThDay = x.IncomePerThDay,
+                    connectMs = x.ConnectMs, connectOkPercent = x.ConnectOkPercent,
                 }).ToList(),
             };
         })));

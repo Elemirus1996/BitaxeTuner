@@ -194,6 +194,15 @@ public sealed partial class HistoryStore : IDisposable
                 PRIMARY KEY (host, ts)
             );
             """);
+        // 0.9.24: Pool-Latenz – TCP-Verbindungsaufbau je Pool alle 10 min, ms = NULL: nicht erreichbar (rein additiv)
+        Execute("""
+            CREATE TABLE IF NOT EXISTS pool_latency (
+                pool    TEXT    NOT NULL,
+                ts      INTEGER NOT NULL,
+                ms      REAL,
+                PRIMARY KEY (pool, ts)
+            );
+            """);
         // 0.9.15: Pool-Vergleich – alle 10 min je Miner: aktiver Pool, Haupt-Pool, Ersatz aktiv, Share-Zähler,
         // Antwortzeit, Hashrate (rein additiv, Aufbewahrung wie der Verlauf)
         Execute("""
@@ -950,6 +959,20 @@ public sealed partial class HistoryStore : IDisposable
         }
     }
 
+    /// <summary>0.9.24: Messung des Verbindungsaufbaus zu einem Pool (null = nicht erreichbar).</summary>
+    public void AddPoolLatency(string pool, DateTime time, double? ms)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO pool_latency (pool, ts, ms) VALUES ($p, $ts, $ms);";
+            cmd.Parameters.AddWithValue("$p", pool);
+            cmd.Parameters.AddWithValue("$ts", new DateTimeOffset(time).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$ms", ms is { } v ? v : DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// <summary>WLAN-Verlauf im Zeitraum, auf höchstens <paramref name="maxPoints"/> Punkte gemittelt.</summary>
     public List<(DateTime Time, double Rssi)> QueryWifi(string host, DateTime from, DateTime to, int maxPoints = 400)
     {
@@ -968,6 +991,22 @@ public sealed partial class HistoryStore : IDisposable
             var list = new List<(DateTime, double)>();
             while (r.Read()) list.Add((DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(0)).LocalDateTime, Math.Round(r.GetDouble(1), 1)));
             return list;
+        }
+    }
+
+    /// <summary>Je Pool: Ø ms der erfolgreichen Messungen, Anzahl erfolgreicher und aller Messungen im Zeitraum.</summary>
+    public Dictionary<string, (double? AvgMs, int Ok, int Total)> QueryPoolLatency(DateTime from, DateTime to)
+    {
+        lock (_lock)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT pool, AVG(ms), COUNT(ms), COUNT(*) FROM pool_latency WHERE ts BETWEEN $from AND $to GROUP BY pool;";
+            cmd.Parameters.AddWithValue("$from", new DateTimeOffset(from).ToUnixTimeSeconds());
+            cmd.Parameters.AddWithValue("$to", new DateTimeOffset(to).ToUnixTimeSeconds());
+            using var r = cmd.ExecuteReader();
+            var map = new Dictionary<string, (double?, int, int)>(StringComparer.OrdinalIgnoreCase);
+            while (r.Read()) map[r.GetString(0)] = (r.IsDBNull(1) ? null : Math.Round(r.GetDouble(1), 0), r.GetInt32(2), r.GetInt32(3));
+            return map;
         }
     }
 
@@ -1106,7 +1145,7 @@ public sealed partial class HistoryStore : IDisposable
             FlushPlugSamples();
             using var cmd = _db.CreateCommand();
             cmd.CommandText = "DELETE FROM samples WHERE ts < $cutoff; DELETE FROM plug_samples WHERE ts < $cutoff; DELETE FROM prices WHERE ts < $cutoff; DELETE FROM health_samples WHERE ts < $cutoff;" +
-                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff; DELETE FROM wifi_samples WHERE ts < $cutoff;" +
+                              " DELETE FROM chip_temps WHERE ts < $cutoff; DELETE FROM pool_samples WHERE ts < $cutoff; DELETE FROM wifi_samples WHERE ts < $cutoff; DELETE FROM pool_latency WHERE ts < $cutoff;" +
                               " DELETE FROM events WHERE ts < $eventCutoff;";
             cmd.Parameters.AddWithValue("$cutoff", cutoff);
             // Protokoll mindestens 30 Tage, auch wenn der Verlauf kürzer eingestellt ist

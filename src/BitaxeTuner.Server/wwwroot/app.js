@@ -4547,10 +4547,11 @@ function poolComparisonCard() {
     // Bestwerte hervorheben: wenig Ablehnung, schnelle Antwort, hohe Erreichbarkeit
     const best = (key, low) => { const v = d.rows.map(r => r[key]).filter(x => x != null); return v.length > 1 ? (low ? Math.min(...v) : Math.max(...v)) : null; };
     const bRej = best('rejectPercent', true), bMs = best('responseMs', true), bAv = best('availabilityPercent', false), bInc = best('incomePerThDay', false);
+    const bCon = best('connectMs', true);
     const star = (v, b) => v != null && v === b ? h('span', { class: 'ok', title: t('bester Wert') }, ' ★') : null;
     fill(body,
       h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, [t('Pool'), t('Miner'), t('Stunden'), t('abgelehnt'), t('Antwort'), t('erreichbar als Haupt-Pool'), t('Ausfall'), t('als Ersatz'), t('Ø Hashrate'), t('Ertrag/TH/Tag')]
+        h('thead', {}, h('tr', {}, [t('Pool'), t('Miner'), t('Stunden'), t('abgelehnt'), t('Antwort'), t('Verbindung'), t('erreichbar als Haupt-Pool'), t('Ausfall'), t('als Ersatz'), t('Ø Hashrate'), t('Ertrag/TH/Tag')]
           .map(x => h('th', {}, x)))),
         h('tbody', {}, d.rows.map(r => h('tr', {},
           h('td', { class: 'mono' }, r.pool),
@@ -4558,11 +4559,15 @@ function poolComparisonCard() {
           h('td', { class: 'num' }, n(r.hours, 1)),
           h('td', { class: `num ${r.rejectPercent > 1 ? 'warn' : ''}` }, pct(r.rejectPercent), star(r.rejectPercent, bRej)),
           h('td', { class: 'num' }, r.responseMs == null ? '–' : `${n(r.responseMs, 0)} ms`, star(r.responseMs, bMs)),
+          h('td', { class: `num ${r.connectOkPercent != null && r.connectOkPercent < 95 ? 'warn' : ''}`, title: r.connectOkPercent != null ? t('{0} % der Messungen erreichbar', n(r.connectOkPercent, 0)) : '' },
+            r.connectMs == null ? (r.connectOkPercent === 0 ? t('nicht erreichbar') : '–') : `${n(r.connectMs, 0)} ms`, star(r.connectMs, bCon)),
           h('td', { class: `num ${r.availabilityPercent != null && r.availabilityPercent < 99 ? 'warn' : ''}` }, pct(r.availabilityPercent), star(r.availabilityPercent, bAv)),
           h('td', { class: 'num' }, r.outageHours ? `${n(r.outageHours, 1)} h` : '–'),
           h('td', { class: 'num' }, r.fallbackHours ? `${n(r.fallbackHours, 1)} h` : '–'),
           h('td', { class: 'num' }, r.avgHashrateGh == null ? '–' : hashParts(r.avgHashrateGh).join(' ')),
           h('td', { class: 'num' }, r.incomePerThDay == null ? '–' : `${n(r.incomePerThDay, 2)} ${d.currency}`, star(r.incomePerThDay, bInc))))))),
+      d.fastest ? h('p', { class: 'ok small' }, t('Schnellster zuverlässiger Pool: {0} ({1} ms Verbindungsaufbau).', d.fastest.pool, n(d.fastest.connectMs, 0))) : null,
+      h('p', { class: 'muted small' }, t('„Verbindung“: eigene Messung alle 10 Minuten – nur der Verbindungsaufbau zum Stratum-Port, ohne Anmeldung. Sagt etwas über Entfernung und Erreichbarkeit, nicht über Ertrag.')),
       h('p', { class: 'muted small' }, t('„abgelehnt“ aus den Share-Zählern der Miner, „Antwort“ wie in AxeOS. „Ausfall“: Zeit, in der der Miner wegen dieses Haupt-Pools auf den Ersatz-Pool ausweichen musste. Ertrag je TH nur mit Pool-Konto.')
         + (d.incomeShared ? ' ' + t('Mining-Dutch: Der Ertrag des Kontos ist nach Hashrate auf alle Mining-Dutch-Ports verteilt.') : '')));
   };

@@ -6,7 +6,11 @@ using BitaxeTuner.Core.Pools;
 namespace BitaxeTuner.Core.Host;
 
 /// <summary>Ergebnis des Pool-Vergleichs für einen Zeitraum.</summary>
-public sealed record PoolComparisonResult(string Range, string Currency, IReadOnlyList<PoolComparisonRow> Rows, bool IncomeShared);
+public sealed record PoolComparisonResult(string Range, string Currency, IReadOnlyList<PoolComparisonRow> Rows, bool IncomeShared)
+{
+    /// <summary>0.9.24: schnellster zuverlässiger Pool nach Verbindungsaufbau (null = zu wenig Messungen).</summary>
+    public PoolComparisonRow? Fastest => PoolComparison.Fastest(Rows);
+}
 
 /// <summary>
 /// 0.9.15 Pool-Vergleich: alle 10 min je Miner den Pool-Stand sichern (mit den Gesundheitswerten) und je Pool auswerten –
@@ -61,7 +65,9 @@ public sealed partial class MinerHub
                     : null;
             }
         }
-        return new PoolComparisonResult(range, cur, PoolComparison.Build(samples, income), shared);
+        Dictionary<string, (double? AvgMs, int Ok, int Total)>? latency = null;
+        try { latency = History.QueryPoolLatency(from, now); } catch { /* ältere Datenbank */ }
+        return new PoolComparisonResult(range, cur, PoolComparison.Build(samples, income, latency), shared);
     }
 
     private static bool IsMiningDutch(string pool) => pool.Contains("mining-dutch.", StringComparison.OrdinalIgnoreCase);

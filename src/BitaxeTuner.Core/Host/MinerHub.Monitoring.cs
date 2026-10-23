@@ -157,6 +157,7 @@ public sealed partial class MinerHub
         TickSolarForecast(now);  // 0.9.21: PV-Prognose (Open-Meteo), stündlich
         TickRoomTemps(now);      // 0.9.21: Raumtemperaturen der Heiz-Automatik aus Home Assistant
         try { TickChatBots(now); } catch { /* 0.9.24: Chat-Bots sind Zusatz */ }
+        try { TickPoolLatency(now); } catch { /* 0.9.24: Pool-Latenz ist Zusatz */ }
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();
