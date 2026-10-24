@@ -27,10 +27,11 @@ public sealed record CopySettingsRequest(string Source, string[] Targets, string
 public sealed record SoakBatchRequest(int Hours, List<string>? Ids);
 public sealed record IdRequest(string Id);
 public sealed record HostRequest(string? Host);
+public sealed record SeasonalRequest(string? Action);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
-    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null, bool? ShareBenchmark = null, bool? FirmwareBeta = null);
+    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null, bool? ShareBenchmark = null, bool? FirmwareBeta = null, bool? SeasonalOn = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -714,6 +715,7 @@ public static class Endpoints
             if (req.LogArchive is { } lk) c.LogArchive = lk;
             if (req.ShareBenchmark is { } sb) c.ShareBenchmark = sb;   // 0.9.26 Community-Vergleich
             if (req.FirmwareBeta is { } fb) c.FirmwareBeta = fb;   // 0.9.25 Vorabversionen beim Firmware-Update
+            if (req.SeasonalOn is { } so) c.SeasonalMuted = !so;   // 0.9.25 saisonaler Feinschliff
             if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
             // 0.9.17: „auto“ (nach Firmware), „on“ (nur überwachen), „off“ (Tuning erlauben)
             if (req.MonitorOnlyMode is "auto" or "on" or "off")
@@ -911,12 +913,32 @@ public static class Endpoints
                 {
                     id = Dto.DeviceId(r.Host), r.Name, r.FrequencyMhz, r.CoreVoltageMv, r.HashrateGh, r.PowerW, r.Jth, r.Basis, r.Note, r.WallFactor,
                     candidates = r.Candidates.Select(c => new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta, c.WallPowerW, c.WallJth }).ToList(),
+                    // 0.9.25 saisonaler Feinschliff: offener Vorschlag
+                    seasonal = h.Device(r.Host) is { } sd && h.SeasonalOf(sd) is { } ss ? new
+                    {
+                        ss.Direction, fromMhz = ss.FromMhz, fromMv = ss.FromMv, toMhz = ss.ToMhz, toMv = ss.ToMv, ss.SoakPassed,
+                        title = MinerHub.SeasonalTitle(ss), why = MinerHub.SeasonalWhy(ss), what = MinerHub.SeasonalWhat(ss),
+                    } : null,
                     recommended = r.Recommended is { } c ? new { goal = c.Goal.ToString(), c.FrequencyMhz, c.CoreVoltageMv, c.HashrateGh, c.PowerW, c.Jth, c.SoakPassed, c.Confidence, c.DeltaW, c.DeltaGh, c.MonthlyCostDelta, c.WallPowerW, c.WallJth } : null,
                 }).ToList(),
             };
         })));
 
         g.MapPost("/soak/stop-all", async (HubService hub) => Results.Json(await hub.RunAsync(h => new { stopped = h.StopAllSoaks() })));
+
+        // 0.9.25 saisonaler Feinschliff: action = apply (nach Bestätigung in der Oberfläche), later, never
+        g.MapPost("/devices/{id}/seasonal", async (string id, SeasonalRequest req, HttpContext http, HubService hub) => Results.Json(await hub.RunAsync(async h =>
+        {
+            var d = Device(h, id);
+            switch (req.Action)
+            {
+                case "apply": await h.ApplySeasonalAsync(d, Who(http)); break;
+                case "later": h.DismissSeasonal(d, false, Who(http)); break;
+                case "never": h.DismissSeasonal(d, true, Who(http)); break;
+                default: throw new LocalizedException("Unbekannte Aktion: {0}", req.Action ?? "");
+            }
+            return new { ok = true };
+        })));
 
         g.MapPost("/devices/{id}/suggestion/dismiss", async (string id, HubService hub) => Results.Json(await hub.RunAsync(h =>
         {

@@ -355,6 +355,14 @@ public sealed class DeviceConfig
     /// <summary>0.9.25: Firmware-Update darf auch Vorabversionen (Beta/Release-Candidate) aufspielen. Standard aus, additiv.</summary>
     public bool FirmwareBeta { get; set; }
 
+    /// <summary>0.9.25 Saisonaler Feinschliff: offener Vorschlag (null = keiner), wann zuletzt vorgeschlagen, „nicht mehr fragen“.</summary>
+    public Advisor.SeasonalSuggestion? SeasonalPending { get; set; }
+    public DateTime? SeasonalSuggestedAt { get; set; }
+    public bool SeasonalMuted { get; set; }
+    /// <summary>Einstellung von vor dem letzten saisonalen Wechsel nach unten – Ziel, wenn es wieder kühler wird.</summary>
+    public int? SeasonalFromMhz { get; set; }
+    public int? SeasonalFromMv { get; set; }
+
     /// <summary>Manuell gewähltes Tuning-Profil; null = automatisch erkennen.</summary>
     public string? ProfileId { get; set; }
 

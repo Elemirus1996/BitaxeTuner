@@ -77,6 +77,7 @@ public partial class MonitorView
                 };
                 var name = s.Config.Name;
                 var move = _host.Hub.HostMoveOf(dev);
+                var seasonal = _host.Hub.SeasonalOf(dev);
                 whatsUp.MouseLeftButtonUp += async (_, e) =>
                 {
                     e.Handled = true;
@@ -93,6 +94,32 @@ public partial class MonitorView
                         catch (Exception ex) when (ex is BitaxeTuner.Core.I18n.LocalizedException or InvalidOperationException)
                         {
                             MessageBox.Show(Window.GetWindow(this), ex.Message, L.T("Neue Adresse übernehmen"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                        return;
+                    }
+                    // 0.9.25 saisonaler Feinschliff: Ja = Vorschlag ansehen (Bestätigung alt → neu), Nein = später, Abbrechen = nichts
+                    if (seasonal is not null)
+                    {
+                        var choice = MessageBox.Show(Window.GetWindow(this), details + "\n\n" + L.T("Ja = Vorschlag anwenden (mit Bestätigung alt → neu) · Nein = Vorschlag verwerfen · Abbrechen = nichts tun"),
+                            L.T("Was ist los bei {0}?", name), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                        try
+                        {
+                            if (choice == MessageBoxResult.Yes)
+                            {
+                                var preview = await _host.Hub.PreviewChangeAsync(dev, seasonal.ToMhz, seasonal.ToMv, BitaxeTuner.Core.Host.MinerHub.SeasonalWhy(seasonal));
+                                if (MessageBox.Show(Window.GetWindow(this), preview.ConfirmText, L.T("Einstellung anwenden"), MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+                                    await _host.Hub.ApplySeasonalAsync(dev, L.T("Desktop"));
+                            }
+                            else if (choice == MessageBoxResult.No)
+                            {
+                                var never = MessageBox.Show(Window.GetWindow(this), L.T("Für diesen Miner künftig nicht mehr fragen?"), L.T("Saisonaler Feinschliff"),
+                                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+                                _host.Hub.DismissSeasonal(dev, never, L.T("Desktop"));
+                            }
+                        }
+                        catch (Exception ex) when (ex is BitaxeTuner.Core.I18n.LocalizedException or InvalidOperationException or BitaxeTuner.Core.Api.MinerApiException)
+                        {
+                            MessageBox.Show(Window.GetWindow(this), ex.Message, L.T("Saisonaler Feinschliff"), MessageBoxButton.OK, MessageBoxImage.Warning);
                         }
                         return;
                     }

@@ -135,6 +135,9 @@
                         <CheckBox x:Name="DeviceLogArchiveBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Miner-Logs speichern (Dauer unter Anzeige und Automatik; nutzt dieselbe Verbindung wie die Log-Alarme)'}"/>
                         </CheckBox>
+                        <CheckBox x:Name="DeviceSeasonalBox" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Text="{l:T 'Saisonaler Feinschliff: bei dauerhaft wärmerem oder kühlerem Betrieb eine geprüfte Einstellung vorschlagen (nur nach Bestätigung)'}"/>
+                        </CheckBox>
                         <CheckBox x:Name="DeviceFirmwareBetaBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Beta-Versionen erlauben: beim Firmware-Update auch Vorabversionen (Release-Candidates) aufspielen'}"/>
                         </CheckBox>

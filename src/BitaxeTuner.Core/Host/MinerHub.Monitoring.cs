@@ -160,6 +160,7 @@ public sealed partial class MinerHub
         try { TickPoolLatency(now); } catch { /* 0.9.24: Pool-Latenz ist Zusatz */ }
         try { TickIpWatch(now); } catch { /* 0.9.24: IP-Wechsel-Suche ist Zusatz */ }
         try { TickCommunity(now); } catch { /* 0.9.26: Community-Vergleich ist Zusatz */ }
+        try { TickSeasonal(now); } catch { /* 0.9.25: saisonaler Feinschliff ist nur ein Vorschlag */ }
         CheckHealthWarnings(now);
         CheckBackup(now);
         CheckBestDiffs();

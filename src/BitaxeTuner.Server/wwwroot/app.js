@@ -2215,6 +2215,16 @@ function advisorCard() {
     if (soak) body.soakHours = 24;
     if (await run(() => api(`/devices/${m.id}/change`, { method: 'POST', body }), soak ? t('Angewendet – Dauertest folgt.') : t('Einstellung angewendet.'))) setTimeout(load, 3000);
   };
+  // 0.9.25 saisonaler Feinschliff: Vorschau alt → neu wie bei jeder Änderung, erst dann anwenden
+  const seasonal = async (m, action) => {
+    const x = m.seasonal;
+    if (action === 'apply') {
+      const preview = await run(() => api(`/devices/${m.id}/change/preview`, { method: 'POST', body: { frequency: x.toMhz, voltage: x.toMv } }));
+      if (!preview || !await confirmBox(t('Einstellung anwenden'), x.why + '\n\n' + preview.confirmText, t('Anwenden'))) return;
+    }
+    if (await run(() => api(`/devices/${m.id}/seasonal`, { method: 'POST', body: { action } }),
+      action === 'apply' ? t('Einstellung angewendet.') : action === 'never' ? t('Für diesen Miner ausgeschaltet – wieder einschalten unter Einstellungen → Geräte → Details.') : null)) setTimeout(load, action === 'apply' ? 3000 : 0);
+  };
   const load = async () => {
     localStorageSet('advisorGoal', goalSel.value);
     const d = await api(`/advisor?goal=${goalSel.value}`).catch(e => { fill(body, h('p', { class: 'danger' }, e.message)); return null; });
@@ -2227,6 +2237,13 @@ function advisorCard() {
           h('div', { class: 'titlebar' }, h('h3', {}, m.name), h('span', { class: 'spacer' }),
             m.frequencyMhz ? h('span', { class: 'pill gray' }, t('jetzt {0} MHz / {1} mV', m.frequencyMhz, m.coreVoltageMv)) : null),
           m.hashrateGh ? h('p', { class: 'small muted' }, t('{0}: {1} · {2} W · {3}', m.basis, hash(m.hashrateGh), n(m.powerW, 1), m.jth ? n(m.jth, 2) + ' J/TH' : '–')) : null,
+          m.seasonal ? h('div', { class: 'problem warn stack' },
+            h('b', { class: 'warn' }, (m.seasonal.direction === 'down' ? '🌡 ' : '❄ ') + m.seasonal.title),
+            h('div', { class: 'small' }, m.seasonal.why), h('div', { class: 'small' }, m.seasonal.what),
+            h('div', { class: 'row' },
+              h('button', { class: 'btn small primary', onclick: () => seasonal(m, 'apply') }, t('Anwenden …')),
+              h('button', { class: 'btn small', onclick: () => seasonal(m, 'later') }, t('Später')),
+              h('button', { class: 'btn small', onclick: () => seasonal(m, 'never') }, t('Nicht mehr fragen')))) : null,
           c ? h('div', { class: 'stack' },
                 h('p', {}, h('b', {}, t('Vorschlag: {0} MHz / {1} mV', c.frequencyMhz, c.coreVoltageMv)), t(' · {0} · {1} W · {2} J/TH', hash(c.hashrateGh), n(c.powerW, 1), n(c.jth, 2)),
                   c.wallJth != null ? h('span', { class: 'muted' }, t(' · Steckdose ≈ {0} W · {1} J/TH', n(c.wallPowerW, 1), n(c.wallJth, 2))) : null),
@@ -4177,6 +4194,7 @@ async function renderSettings() {
       extra.logArchive = h('input', { type: 'checkbox', checked: !!c.logArchive });
       extra.share = h('input', { type: 'checkbox', checked: !!c.shareBenchmark });
       extra.beta = h('input', { type: 'checkbox', checked: !!c.firmwareBeta });
+      extra.seasonal = h('input', { type: 'checkbox', checked: c.seasonalOn !== false });
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       extra.monitorOnly = h('select', {}, [['auto', t('automatisch (nach Firmware)')], ['on', t('nur überwachen')], ['off', t('Tuning erlauben')]]
         .map(([v, l]) => h('option', { value: v, selected: (c.monitorOnlyMode || 'auto') === v }, l)));
@@ -4198,12 +4216,13 @@ async function renderSettings() {
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
         h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)')),
+        h('label', { class: 'check' }, extra.seasonal, t('Saisonaler Feinschliff: bei dauerhaft wärmerem oder kühlerem Betrieb eine geprüfte Einstellung vorschlagen (nur nach Bestätigung)')),
         h('label', { class: 'check' }, extra.beta, t('Beta-Versionen erlauben: beim Firmware-Update auch Vorabversionen (Release-Candidates) aufspielen')),
         h('label', { class: 'check' }, extra.share, t('Am Community-Vergleich teilnehmen: einmal pro Woche Modell, Firmware, Frequenz, Spannung, Hashrate, J/TH und Temperatur anonym einsenden – ohne IP, Name, Wallet oder Geräte-Kennung'))));
     } }, t('Details'));
     const save = () => {
       const body = { name: name.value };
-      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked, shareBenchmark: extra.share.checked, firmwareBeta: extra.beta.checked,
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked, shareBenchmark: extra.share.checked, firmwareBeta: extra.beta.checked, seasonalOn: extra.seasonal.checked,
         groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value,
         purchase: { price: extra.price.value === '' ? null : Number(extra.price.value), date: extra.bought.value || null,
           warrantyMonths: extra.warranty.value === '' ? null : Number(extra.warranty.value) } });

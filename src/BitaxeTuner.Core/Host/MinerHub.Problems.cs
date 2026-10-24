@@ -48,6 +48,7 @@ public sealed partial class MinerHub
         }
         if (s.Info is not { } i) return list;
         if (FirmwareProblemOf(d) is { } fwProblem) list.Add(fwProblem);   // 0.9.25
+        if (SeasonalProblemOf(d) is { } seasonal) list.Add(seasonal);   // 0.9.25
 
         var warn = Config.TempWarn;
         if (i.temp > 0 && i.temp >= warn)

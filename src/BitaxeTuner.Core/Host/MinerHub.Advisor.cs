@@ -15,11 +15,7 @@ public sealed partial class MinerHub
         var list = new List<AdvisorResult>();
         foreach (var d in Devices.Where(d => !d.IsSimulated || Devices.All(x => x.IsSimulated)))
         {
-            var hostname = d.State.Normalized?.Hostname;
-            var results = sessions
-                .Where(s => string.Equals(s.DeviceAddress, d.Host, StringComparison.OrdinalIgnoreCase)
-                            || (hostname is { Length: > 0 } && string.Equals(s.Hostname, hostname, StringComparison.OrdinalIgnoreCase)))
-                .SelectMany(s => s.Results);
+            var results = BenchmarkResultsOf(d, sessions);
             var soaks = History?.QuerySoakResults(d.Host) ?? [];
             var i = d.Info;
 
@@ -41,6 +37,16 @@ public sealed partial class MinerHub
                 results, soaks, Plugs.EnergyCost.FixedCt(Config), goal, WallFactor(d.Host, now)));
         }
         return list;
+    }
+
+    /// <summary>Alle Benchmark-Schritte eines Miners (nach Adresse oder Hostname, falls die Adresse gewechselt hat).</summary>
+    private static IEnumerable<Benchmark.StepResult> BenchmarkResultsOf(HubDevice d, IEnumerable<Benchmark.BenchmarkSession> sessions)
+    {
+        var hostname = d.State.Normalized?.Hostname;
+        return sessions
+            .Where(s => string.Equals(s.DeviceAddress, d.Host, StringComparison.OrdinalIgnoreCase)
+                        || (hostname is { Length: > 0 } && string.Equals(s.Hostname, hostname, StringComparison.OrdinalIgnoreCase)))
+            .SelectMany(s => s.Results);
     }
 
     /// <summary>

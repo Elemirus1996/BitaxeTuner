@@ -38,15 +38,7 @@ public static class EfficiencyAdvisor
         // Mit Smart Plug: Leistung an der Steckdose = AxeOS × gemessener Faktor (Netzteil); Rangfolge bleibt gleich
         var f = wallFactor is > 1 and < 3 ? wallFactor : null;
         var soakList = soaks.ToList();
-        // Letztes Ergebnis je Einstellung; nur stabile innerhalb der Profilgrenzen; zuletzt im Dauertest durchgefallene raus
-        var stable = results
-            .Where(r => r.IsStable && r.AvgHashRateGh > 0 && r.EfficiencyJth is not null
-                        && r.FrequencyMhz >= profile.MinFrequencyMhz && r.FrequencyMhz <= profile.MaxFrequencyMhz
-                        && r.CoreVoltageMv >= profile.MinVoltageMv && r.CoreVoltageMv <= profile.MaxVoltageMv)
-            .GroupBy(r => (r.FrequencyMhz, r.CoreVoltageMv))
-            .Select(g => g.OrderByDescending(r => r.Timestamp).First())
-            .Where(r => LatestSoak(soakList, r.FrequencyMhz, r.CoreVoltageMv) is not { Passed: false })
-            .ToList();
+        var stable = StableResults(profile, results, soakList);
 
         double? jth = hashrateGh is > 1 && powerW is > 0 ? powerW / (hashrateGh / 1000) : null;
         var candidates = new List<AdvisorCandidate>();
@@ -96,6 +88,20 @@ public static class EfficiencyAdvisor
         _ => (currentJth is { } j2 && c.Jth <= j2 * (1 - MinEfficiencyGain)) || c.HashrateGh >= currentGh * (1 + MinHashrateGain),
     };
 
-    private static SoakResultRecord? LatestSoak(List<SoakResultRecord> soaks, int f, int mv) =>
+    /// <summary>
+    /// Letztes Ergebnis je Einstellung; nur stabile innerhalb der Profilgrenzen; zuletzt im Dauertest durchgefallene raus.
+    /// 0.9.25: auch Grundlage des saisonalen Feinschliffs.
+    /// </summary>
+    internal static List<StepResult> StableResults(DeviceProfile profile, IEnumerable<StepResult> results, List<SoakResultRecord> soakList) =>
+        results
+            .Where(r => r.IsStable && r.AvgHashRateGh > 0 && r.EfficiencyJth is not null
+                        && r.FrequencyMhz >= profile.MinFrequencyMhz && r.FrequencyMhz <= profile.MaxFrequencyMhz
+                        && r.CoreVoltageMv >= profile.MinVoltageMv && r.CoreVoltageMv <= profile.MaxVoltageMv)
+            .GroupBy(r => (r.FrequencyMhz, r.CoreVoltageMv))
+            .Select(g => g.OrderByDescending(r => r.Timestamp).First())
+            .Where(r => LatestSoak(soakList, r.FrequencyMhz, r.CoreVoltageMv) is not { Passed: false })
+            .ToList();
+
+    internal static SoakResultRecord? LatestSoak(List<SoakResultRecord> soaks, int f, int mv) =>
         soaks.Where(s => s.FrequencyMhz == f && s.CoreVoltageMv == mv).OrderByDescending(s => s.Started).FirstOrDefault();
 }
