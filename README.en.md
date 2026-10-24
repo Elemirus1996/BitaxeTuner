@@ -79,6 +79,10 @@ Corrections to the English texts are welcome: they all live in
 - **Compare with the community**: share benchmark results voluntarily and anonymously and see how your own miner does.
 - **Control via chat**: restart, preset, maintenance mode, pause and backup from Discord or Telegram – only for
   approved users, always with confirmation and log entry.
+- **Firmware update for all miners**: one after the other, official ESP-Miner and NerdQAxe releases only (beta selectable
+  per miner), backed up first, files checked, then version, hashrate and settings verified.
+- **Seasonal fine-tuning**: when it gets warmer or cooler for good, BitaxeTuner suggests a tested setting – applied only
+  after confirmation.
 
 ### New in 0.9.24
 

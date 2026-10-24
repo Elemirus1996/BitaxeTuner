@@ -76,6 +76,10 @@ neuen Sprachen sind maschinell übersetzt – Verbesserungen von Muttersprachler
 - **Vergleich mit der Community**: freiwillig und anonym Benchmark-Ergebnisse teilen und sehen, wie der eigene Miner abschneidet.
 - **Steuern per Chat**: Neustart, Voreinstellung, Wartungsmodus, Pause und Sicherung aus Discord oder Telegram – nur für
   freigegebene Nutzer, immer mit Rückfrage und Protokoll.
+- **Firmware-Update für alle Miner**: einer nach dem anderen, nur offizielle ESP-Miner- und NerdQAxe-Releases (Beta je Miner
+  wählbar), vorher gesichert, Dateien geprüft, danach Version, Hashrate und Einstellungen kontrolliert.
+- **Saisonaler Feinschliff**: wird es dauerhaft wärmer oder kühler, schlägt BitaxeTuner eine geprüfte Einstellung vor –
+  angewendet nur nach Bestätigung.
 
 ### Neu in 0.9.24
 
