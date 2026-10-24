@@ -39,6 +39,7 @@ public class UiParityTests
     private static readonly Dictionary<string, string> BrowserOnly = new()
     {
         ["Einstellungen übertragen"] = "Desktop: eigenes Fenster (CopySettingsWindow)",
+        ["Firmware aktualisieren"] = "Desktop: eigenes Fenster (FirmwareWindow)",
         ["Geräteprofile"] = "Desktop: eigenes Fenster (ProfilesWindow)",
         ["Übersicht gestalten"] = "nur Browser: Übersicht mit Panels",
         ["Home Assistant / MQTT"] = "Server-Dienst",

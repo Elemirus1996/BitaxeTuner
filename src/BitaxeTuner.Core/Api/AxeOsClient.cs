@@ -119,6 +119,42 @@ public sealed class AxeOsClient : IMinerClient, IDisposable
         }
     }
 
+    public async Task UploadFirmwareAsync(bool www, byte[] data, CancellationToken ct = default)
+    {
+        var path = www ? "api/system/OTAWWW" : "api/system/OTA";
+        // Eigener Client: das Hochladen dauert über WLAN bis zu einigen Minuten
+        using var http = new HttpClient { BaseAddress = _http.BaseAddress, Timeout = TimeSpan.FromMinutes(5) };
+        using var content = new ByteArrayContent(data);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        HttpResponseMessage resp;
+        try
+        {
+            resp = await http.PostAsync(path, content, ct).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException)
+        {
+            throw new MinerApiException(L.T("{0}: Firmware-Update nicht möglich – keine Verbindung", Address), ex);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            // Verbindung nach dem Senden abgebrochen: der Miner startet evtl. schon neu – ob es geklappt hat, zeigt die Version danach
+            return;
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new MinerApiException(L.T("{0}: Firmware-Update – Zeitüberschreitung", Address), ex);
+        }
+        using (resp)
+        {
+            if (resp.IsSuccessStatusCode) return;
+            var text = (await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false)).Trim();
+            if (text.Length > 200) text = text[..200];
+            if (resp.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                throw new MinerApiException(L.T("{0}: Firmware-Update abgelehnt ({1}) – ist am Miner ein Einmal-Code (OTP) oder Schutz eingeschaltet? Dann bitte direkt am Miner aktualisieren.", Address, (int)resp.StatusCode));
+            throw new MinerApiException(L.T("{0}: Firmware-Update abgelehnt ({1}) {2}", Address, (int)resp.StatusCode, text));
+        }
+    }
+
     public async Task<bool> WillEnableOverclockAsync(int frequencyMhz, int coreVoltageMv, CancellationToken ct = default)
     {
         if (!_lastKeys.Contains("overclockEnabled") || _lastOverclockEnabled == true) return false;

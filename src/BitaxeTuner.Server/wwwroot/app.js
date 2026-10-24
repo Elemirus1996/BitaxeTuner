@@ -4176,6 +4176,7 @@ async function renderSettings() {
       extra.logAlerts = h('input', { type: 'checkbox', checked: !!c.logAlerts });
       extra.logArchive = h('input', { type: 'checkbox', checked: !!c.logArchive });
       extra.share = h('input', { type: 'checkbox', checked: !!c.shareBenchmark });
+      extra.beta = h('input', { type: 'checkbox', checked: !!c.firmwareBeta });
       extra.groups = h('input', { value: (d.groups || []).join(', '), placeholder: t('z. B. Community, Keller'), list: 'group-names' });
       extra.monitorOnly = h('select', {}, [['auto', t('automatisch (nach Firmware)')], ['on', t('nur überwachen')], ['off', t('Tuning erlauben')]]
         .map(([v, l]) => h('option', { value: v, selected: (c.monitorOnlyMode || 'auto') === v }, l)));
@@ -4197,11 +4198,12 @@ async function renderSettings() {
         h('datalist', { id: 'group-names' }, (status.groups || []).map(g => h('option', { value: g }))),
         h('label', { class: 'check' }, extra.logAlerts, t('Log-Alarme für diesen Miner (liest die Miner-Logs dauerhaft mit und belegt dafür einen der wenigen WebSocket-Plätze)')),
         h('label', { class: 'check' }, extra.logArchive, t('Miner-Logs auf dem Server speichern (Dauer unter Einstellungen → Allgemein; nutzt dieselbe Verbindung wie die Log-Alarme)')),
+        h('label', { class: 'check' }, extra.beta, t('Beta-Versionen erlauben: beim Firmware-Update auch Vorabversionen (Release-Candidates) aufspielen')),
         h('label', { class: 'check' }, extra.share, t('Am Community-Vergleich teilnehmen: einmal pro Woche Modell, Firmware, Frequenz, Spannung, Hashrate, J/TH und Temperatur anonym einsenden – ohne IP, Name, Wallet oder Geräte-Kennung'))));
     } }, t('Details'));
     const save = () => {
       const body = { name: name.value };
-      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked, shareBenchmark: extra.share.checked,
+      if (extra.loaded) Object.assign(body, { walletAddress: extra.wallet.value, coin: extra.coin.value, firmwareRepo: extra.repo.value, logAlerts: extra.logAlerts.checked, logArchive: extra.logArchive.checked, shareBenchmark: extra.share.checked, firmwareBeta: extra.beta.checked,
         groups: extra.groups.value.split(',').map(x => x.trim()).filter(Boolean), monitorOnlyMode: extra.monitorOnly.value,
         purchase: { price: extra.price.value === '' ? null : Number(extra.price.value), date: extra.bought.value || null,
           warrantyMonths: extra.warranty.value === '' ? null : Number(extra.warranty.value) } });
@@ -4237,6 +4239,7 @@ async function renderSettings() {
       h('div', { class: 'form' }, h('div', {}, h('label', {}, t('Name')), devName), h('div', {}, h('label', {}, t('Adresse')), devHost),
         h('button', { class: 'btn primary', onclick: async () => { if (await run(() => api('/devices', { method: 'POST', body: { name: devName.value, host: devHost.value } }), t('Gerät hinzugefügt.'))) renderSettings(); } }, t('Hinzufügen')))),
     copyCard,
+    firmwareCard(),
     overviewDesignCard(status.devices),
     // 0.9.14: früher eine Karte „Allgemein“ – jetzt thematisch auf die Bereiche verteilt
     h('div', { class: 'card stack' }, h('h2', {}, t('Strompreis')),
@@ -4339,7 +4342,7 @@ async function renderSettings() {
 
 /** Bereiche der Einstellungen: [id, Name, Symbol, Kartentitel (h2)]. */
 const SETTINGS_SECTIONS = () => [
-  ['miners', t('Miner & Geräte'), 'cpu', [t('Geräte'), t('Einstellungen übertragen'), t('Geräteprofile')]],
+  ['miners', t('Miner & Geräte'), 'cpu', [t('Geräte'), t('Einstellungen übertragen'), t('Firmware aktualisieren'), t('Geräteprofile')]],
   ['look', t('Darstellung'), 'palette', [t('Darstellung'), t('Übersicht gestalten')]],
   ['notify', t('Benachrichtigungen'), 'bell', [t('Push-Benachrichtigungen'), t('Ruhezeit'), t('Berichte und Log-Alarme')]],
   ['power', t('Strom & Kosten'), 'zap', [t('Strompreis'), t('Strompreis-Quelle'), t('Smart Plugs'), t('PV-Anlage')]],
@@ -6752,6 +6755,76 @@ function storageBox(s, del, mb) {
  * Einstellungen eines Miners auf andere übertragen: Pool (Wallet, Worker-Name bleibt) und Lüfter/Temperatur.
  * Frequenz/Spannung nie. Erst Vorschau alt → neu je Miner, dann Bestätigung; vorher wird jeder Ziel-Miner gesichert.
  */
+/** 0.9.25 Firmware-Update für alle Miner nacheinander – nur per Knopf, nur offizielle Releases (Beta je Miner). */
+function firmwareCard() {
+  const card = h('div', { class: 'card stack' }, h('h2', {}, t('Firmware aktualisieren')), h('p', { class: 'muted small' }, t('Lade …')));
+  const STATUS = () => ({
+    waiting: t('wartet'), backup: t('sichert'), download: t('lädt'), www: t('Weboberfläche'), firmware: t('spielt auf'), restart: t('Neustart'),
+    verify: t('prüft'), done: t('fertig'), changed: t('fertig – Einstellungen geändert'), failed: t('Fehler'), skipped: t('übersprungen'), cancelled: t('abgebrochen'),
+  });
+  let timer = null;
+  const load = async () => {
+    const st = await api('/firmware').catch(() => null);
+    if (!document.contains(card) && timer) { clearInterval(timer); timer = null; return; }
+    if (st) draw(st);
+    if (st?.job?.running && !timer) timer = setInterval(load, 3000);
+    if (!st?.job?.running && timer) { clearInterval(timer); timer = null; }
+  };
+  const draw = st => {
+    const job = st.job;
+    const boxes = [];
+    const rows = st.candidates.map(c => {
+      const box = h('input', { type: 'checkbox', value: c.id, checked: c.canUpdate, disabled: !c.canUpdate || job?.running, 'aria-label': c.name });
+      if (c.canUpdate) boxes.push(box);
+      return h('tr', {}, h('td', {}, box), h('td', {}, c.name), h('td', { class: 'mono' }, c.installed || '–'),
+        h('td', {}, c.target ? h('span', { class: 'mono' }, c.target) : '–', c.prerelease ? [' ', h('span', { class: 'pill warn' }, 'Beta')] : null),
+        h('td', { class: 'small' + (c.canUpdate ? '' : ' muted') }, c.canUpdate ? t('Update verfügbar') : c.reason));
+    });
+    const start = h('button', {
+      class: 'btn primary', disabled: !boxes.length || job?.running, onclick: async () => {
+        const ids = boxes.filter(b => b.checked).map(b => b.value);
+        if (!ids.length) return;
+        const list = st.candidates.filter(c => ids.includes(c.id)).map(c => `• ${c.name}: ${c.installed} → ${c.target}${c.prerelease ? ' (Beta)' : ''}`).join('\n');
+        if (!await confirmBox(t('Firmware aktualisieren'),
+          t('Firmware auf diesen Minern aktualisieren – einer nach dem anderen?\n\n{0}\n\nVorher werden die Einstellungen gesichert. Jeder Miner startet neu und liefert ein paar Minuten keine Hashrate. Bei einem Fehler hält der Ablauf an. Strom und WLAN währenddessen nicht unterbrechen.', list),
+          t('Aktualisieren'))) return;
+        const r = await run(() => api('/firmware/update', { method: 'POST', body: { ids } }));
+        if (r) { draw(r); load(); }
+      },
+    }, t('Ausgewählte aktualisieren'));
+    const pillClass = st2 => 'pill' + (st2 === 'failed' ? ' danger' : st2 === 'changed' ? ' warn' : ['skipped', 'cancelled', 'waiting'].includes(st2) ? ' gray' : '');
+    const restoreBtn = i => h('button', {
+      class: 'btn small', onclick: async () => {
+        const tbl = h('div', { class: 'table-wrap' }, h('table', {},
+          h('thead', {}, h('tr', {}, [t('Einstellung'), t('Jetzt'), t('Vor dem Update')].map(x => h('th', {}, x)))),
+          h('tbody', {}, i.changes.map(c => h('tr', {}, h('td', {}, c.label), h('td', { class: 'mono' }, c.now), h('td', { class: 'mono' }, c.before))))));
+        if (!await confirmBox(t('Einstellungen zurückspielen'), h('div', { class: 'stack' },
+          h('p', {}, t('Diese Werte von vor dem Update wieder setzen? Frequenz und Spannung werden gegen die Grenzwerte des Modells geprüft; bei Pool-Änderungen startet der Miner neu.')), tbl), t('Zurückspielen'))) return;
+        const r = await run(() => api(`/firmware/restore/${i.id}`, { method: 'POST', body: {} }), t('Zurückgespielt.'));
+        if (r) draw(r);
+      },
+    }, t('Zurückspielen …'));
+    const items = job ? h('div', { class: 'stack' },
+      h('p', { class: 'small muted' }, job.running ? t('Läuft seit {0} ({1})', time(job.started), job.who) : t('Zuletzt: {0} ({1})', time(job.finished), job.who)),
+      h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, [t('Miner'), t('Version'), t('Stand'), ''].map(x => h('th', {}, x)))),
+        h('tbody', {}, job.items.map(i => h('tr', {},
+          h('td', {}, i.name), h('td', { class: 'mono' }, `${i.from || '?'} → ${i.to || '?'}`),
+          h('td', { class: 'small' }, h('span', { class: pillClass(i.status) }, STATUS()[i.status] || i.status), i.message ? [' ', i.message] : null),
+          h('td', {}, i.status === 'changed' && i.changes.length ? restoreBtn(i) : null))))))) : null;
+    fill(card, h('h2', {}, t('Firmware aktualisieren')),
+      h('p', { class: 'muted small' }, t('Nur offizielle Releases von ESP-Miner (AxeOS) und NerdQAxe, direkt von GitHub; Größe und Prüfsumme werden vor dem Aufspielen geprüft. Vorabversionen nur bei Minern mit „Beta-Versionen erlauben“ (Geräte → Details). Miner mit „nur überwachen“ werden nie aktualisiert.')),
+      st.candidates.length ? h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, ['', t('Miner'), t('Installiert'), t('Neu'), ''].map(x => h('th', {}, x)))), h('tbody', {}, rows))) : null,
+      h('div', { class: 'row' }, start,
+        job?.running ? h('button', { class: 'btn', disabled: job.cancelRequested, onclick: async () => { const r = await run(() => api('/firmware/cancel', { method: 'POST', body: {} })); if (r) draw(r); } },
+          job.cancelRequested ? t('Hält nach dem laufenden Miner an …') : t('Nach dem laufenden Miner anhalten')) : null),
+      items);
+  };
+  load();
+  return card;
+}
+
 function copySettingsCard(devices) {
   const card = h('div', { class: 'card stack' }, h('h2', {}, t('Einstellungen übertragen')));
   if (devices.length < 2) return null;

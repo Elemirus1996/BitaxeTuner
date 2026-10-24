@@ -47,6 +47,13 @@ public interface IMinerClient
     Task<string> GetRawInfoAsync(CancellationToken ct = default) =>
         throw new MinerApiException(L.T("{0}: Rohdaten werden von diesem Gerät nicht unterstützt", Address));
 
+    /// <summary>
+    /// 0.9.25: Firmware (<paramref name="www"/> = false, POST /api/system/OTA) bzw. Weboberfläche (true, /api/system/OTAWWW)
+    /// aufspielen. Der Miner prüft das Abbild selbst und startet nach der Firmware neu.
+    /// </summary>
+    Task UploadFirmwareAsync(bool www, byte[] data, CancellationToken ct = default) =>
+        throw new MinerApiException(L.T("{0}: Firmware-Update wird von diesem Gerät nicht unterstützt", Address));
+
     /// <summary>PATCH /api/system mit beliebigen Feldern.</summary>
     Task PatchSettingsAsync(IReadOnlyDictionary<string, object> values, CancellationToken ct = default) =>
         throw new MinerApiException(L.T("{0}: Einstellungen werden von diesem Gerät nicht unterstützt", Address));

@@ -352,6 +352,9 @@ public sealed class DeviceConfig
     /// <summary>GitHub-Repository der Firmware für den Update-Check, leer = kein Check.</summary>
     public string FirmwareRepo { get; set; } = "bitaxeorg/ESP-Miner";
 
+    /// <summary>0.9.25: Firmware-Update darf auch Vorabversionen (Beta/Release-Candidate) aufspielen. Standard aus, additiv.</summary>
+    public bool FirmwareBeta { get; set; }
+
     /// <summary>Manuell gewähltes Tuning-Profil; null = automatisch erkennen.</summary>
     public string? ProfileId { get; set; }
 

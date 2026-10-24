@@ -135,6 +135,9 @@
                         <CheckBox x:Name="DeviceLogArchiveBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Miner-Logs speichern (Dauer unter Anzeige und Automatik; nutzt dieselbe Verbindung wie die Log-Alarme)'}"/>
                         </CheckBox>
+                        <CheckBox x:Name="DeviceFirmwareBetaBox" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Text="{l:T 'Beta-Versionen erlauben: beim Firmware-Update auch Vorabversionen (Release-Candidates) aufspielen'}"/>
+                        </CheckBox>
                         <CheckBox x:Name="DeviceShareBenchBox" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Text="{l:T 'Am Community-Vergleich teilnehmen: einmal pro Woche Modell, Firmware, Frequenz, Spannung, Hashrate, J/TH und Temperatur anonym einsenden – ohne IP, Name, Wallet oder Geräte-Kennung'}"/>
                         </CheckBox>

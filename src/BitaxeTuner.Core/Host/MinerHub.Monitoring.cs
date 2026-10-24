@@ -515,13 +515,13 @@ public sealed partial class MinerHub
         if (!Options.OnlineChecks || (DateTime.UtcNow - _lastFirmwareRefresh).TotalMinutes < 30) return;
         _lastFirmwareRefresh = DateTime.UtcNow;
 
-        await Firmware.RefreshAsync(States.Select(FirmwareRepoOf));
+        await Firmware.RefreshAsync(States.Select(FirmwareRepoOf).Concat(States.Select(FirmwareUpdateRepoOf).OfType<string>()));   // 0.9.25: auch für das Update
 
         if (!Config.Notifications.Wants(NotifyCategory.Maintenance) || !Notify.Enabled) return;
 
         foreach (var s in States.Where(s => !string.IsNullOrWhiteSpace(s.Info?.version)))
         {
-            var fw = Firmware.Evaluate(FirmwareRepoOf(s), s.Info!.version);
+            var fw = Firmware.Evaluate(FirmwareRepoOf(s), s.Info!.version, s.Config.FirmwareBeta);
             if (fw.Status != FirmwareStatus.UpdateAvailable || fw.Latest is null) continue;
 
             var repo = FirmwareRepoOf(s).Trim();
@@ -537,6 +537,7 @@ public sealed partial class MinerHub
     }
 
     public const string DefaultFirmwareRepo = "bitaxeorg/ESP-Miner";
+    public const string NerdQAxeFirmwareRepo = "shufps/ESP-Miner-NerdQAxePlus";
 
     /// <summary>
     /// 0.9.17: Repository für den Firmware-Check. Steht noch das ESP-Miner-Standardrepository drin, gilt für ZyberOS das
@@ -550,6 +551,7 @@ public sealed partial class MinerHub
         return s.Normalized?.Firmware switch
         {
             Api.FirmwareKind.ZyberOS => "TinyChipHub/ZyberOS-Release",
+            Api.FirmwareKind.NerdQAxe => NerdQAxeFirmwareRepo,   // 0.9.25: sonst würde v1.x mit ESP-Miner v2.x verglichen
             Api.FirmwareKind.Unknown => "",
             _ => repo,
         };
@@ -558,7 +560,7 @@ public sealed partial class MinerHub
     public string FirmwareText(MinerState s)
     {
         var installed = s.Info?.version;
-        var fw = Firmware.Evaluate(FirmwareRepoOf(s), installed);
+        var fw = Firmware.Evaluate(FirmwareRepoOf(s), installed, s.Config.FirmwareBeta);
         return fw.Status switch
         {
             FirmwareStatus.UpToDate => L.T("Firmware {0} (aktuell)", installed),

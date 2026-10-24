@@ -174,6 +174,7 @@ public partial class SettingsWindow : Window
         DeviceLogAlertsBox.IsChecked = _current?.LogAlerts == true;
         DeviceLogArchiveBox.IsChecked = _current?.LogArchive == true;
         DeviceShareBenchBox.IsChecked = _current?.ShareBenchmark == true;
+        DeviceFirmwareBetaBox.IsChecked = _current?.FirmwareBeta == true;
         // 0.9.21: Kaufdaten (Amortisation, Garantie)
         PurchasePriceBox.Text = _current?.Purchase?.Price?.ToString("0.##", L.Culture) ?? "";
         PurchaseDateBox.SelectedDate = _current?.Purchase?.Date;
@@ -182,7 +183,7 @@ public partial class SettingsWindow : Window
         var enabled = _current is not null;
         PurchasePriceBox.IsEnabled = PurchaseDateBox.IsEnabled = WarrantyBox.IsEnabled = enabled;
         NameBox.IsEnabled = HostBox.IsEnabled = WalletBox.IsEnabled = enabled;
-        CoinBox.IsEnabled = RepoBox.IsEnabled = MonitorOnlyBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = DeviceShareBenchBox.IsEnabled = GroupsBox.IsEnabled = enabled;
+        CoinBox.IsEnabled = RepoBox.IsEnabled = MonitorOnlyBox.IsEnabled = DeviceLogAlertsBox.IsEnabled = DeviceLogArchiveBox.IsEnabled = DeviceShareBenchBox.IsEnabled = DeviceFirmwareBetaBox.IsEnabled = GroupsBox.IsEnabled = enabled;
     }
 
     /// <summary>Eingaben in das aktuell gewählte Gerät zurückschreiben.</summary>
@@ -201,6 +202,7 @@ public partial class SettingsWindow : Window
         _current.LogAlerts = DeviceLogAlertsBox.IsChecked == true;
         _current.LogArchive = DeviceLogArchiveBox.IsChecked == true;
         _current.ShareBenchmark = DeviceShareBenchBox.IsChecked == true;
+        _current.FirmwareBeta = DeviceFirmwareBetaBox.IsChecked == true;
         decimal? price = decimal.TryParse(PurchasePriceBox.Text.Trim(), System.Globalization.NumberStyles.Number, L.Culture, out var pr) && pr is >= 0 and <= 1_000_000 ? pr : null;
         DateTime? bought = PurchaseDateBox.SelectedDate is { } dt && dt.Date <= DateTime.Today ? dt.Date : null;
         int? warranty = int.TryParse(WarrantyBox.Text.Trim(), out var wm) && wm is >= 0 and <= 120 ? wm : null;

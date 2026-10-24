@@ -381,6 +381,9 @@ public partial class MainWindow : Window
     private void OnPoolPresetsClick(object sender, RoutedEventArgs e) =>
         new Views.PoolPresetsWindow(Vm.Host) { Owner = this }.Show();
 
+    private void OnFirmwareClick(object sender, RoutedEventArgs e) =>
+        new Views.FirmwareWindow(Vm.Host) { Owner = this }.Show();
+
     private void OnReportClick(object sender, RoutedEventArgs e) =>
         new ReportWindow(Vm.Host) { Owner = this }.ShowDialog();
 

@@ -173,6 +173,19 @@ public sealed class MinerConnection : IMinerClient, IDisposable
         }, ct).ConfigureAwait(false);
     }
 
+    /// <summary>0.9.25: Firmware bzw. Weboberfläche aufspielen – über das Gate, Watchdog und Offline-Meldung ruhen dabei.</summary>
+    public async Task UploadFirmwareAsync(bool www, byte[] data, CancellationToken ct = default)
+    {
+        ThrowIfTuningBlocked();
+        _maintenance.Extend(Address, TimeSpan.FromMinutes(15));
+        await RunAsync(async () =>
+        {
+            await _inner.UploadFirmwareAsync(www, data, ct).ConfigureAwait(false);
+            _lastAt = DateTime.MinValue;
+            return true;
+        }, ct).ConfigureAwait(false);
+    }
+
     private async Task<T> RunAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);

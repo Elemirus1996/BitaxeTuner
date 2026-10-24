@@ -50,6 +50,12 @@ public sealed class MinerHubOptions
     /// <summary>Nur für Tests: Wartezeiten des Benchmarks ersetzen.</summary>
     public Func<TimeSpan, CancellationToken, Task>? BenchmarkDelay { get; init; }
 
+    /// <summary>0.9.25 nur für Tests: Wartezeiten des Firmware-Updates ersetzen.</summary>
+    public Func<TimeSpan, CancellationToken, Task>? FirmwareDelay { get; init; }
+
+    /// <summary>0.9.25 nur für Tests: Release-Datei laden (Standard: HTTP-Download von GitHub).</summary>
+    public Func<string, CancellationToken, Task<byte[]>>? FirmwareDownload { get; init; }
+
     /// <summary>
     /// Datenordner (config.json, history.db, tax, tuning, snapshots). Ohne Angabe der aktuelle Datenordner
     /// der App (<see cref="DataPaths.Current"/>).

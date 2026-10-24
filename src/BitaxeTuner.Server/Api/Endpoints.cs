@@ -30,7 +30,7 @@ public sealed record HostRequest(string? Host);
 public sealed record RuleRequest(string Rule);
 public sealed record AutomationRequest(List<TuningPreset>? Presets, ThermalGuardRule? ThermalGuard, PresetScheduleRule? Schedule);
 public sealed record DeviceRequest(string? Name, string? Host, string? WalletAddress, string? Coin, string? FirmwareRepo, bool? LogAlerts, List<string>? Groups = null, bool? LogArchive = null,
-    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null, bool? ShareBenchmark = null);
+    string? MonitorOnlyMode = null, Core.Config.DevicePurchase? Purchase = null, bool? ShareBenchmark = null, bool? FirmwareBeta = null);
 public sealed record TokenRequest(string? Name);
 public sealed record WalletConsentRequest(bool Allow);
 public sealed record MetricsRequest(bool Enabled);
@@ -713,6 +713,7 @@ public static class Endpoints
             if (req.LogAlerts is { } la) c.LogAlerts = la;
             if (req.LogArchive is { } lk) c.LogArchive = lk;
             if (req.ShareBenchmark is { } sb) c.ShareBenchmark = sb;   // 0.9.26 Community-Vergleich
+            if (req.FirmwareBeta is { } fb) c.FirmwareBeta = fb;   // 0.9.25 Vorabversionen beim Firmware-Update
             if (req.Groups is { } groups) c.Groups = MinerGroups.Normalize(groups);
             // 0.9.17: „auto“ (nach Firmware), „on“ (nur überwachen), „off“ (Tuning erlauben)
             if (req.MonitorOnlyMode is "auto" or "on" or "off")
@@ -1013,6 +1014,7 @@ public static class Endpoints
         PiFanEndpoints.Map(g);   // 0.9.20 Lüfter des Servers (Pi 5)
         SolarEndpoints.Map(g);   // 0.9.17 PV-Quelle
         ReportEndpoints.Map(g);
+        FirmwareEndpoints.Map(g);   // 0.9.25 Firmware-Update
         TaxEndpoints.Map(g);
         KioskEndpoints.Map(g);
         GroupEndpoints.Map(g);
